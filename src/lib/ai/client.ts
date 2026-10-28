@@ -3,7 +3,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { sql } from "drizzle-orm";
 import { db, schema } from "../db";
-import { config, type ModelRole } from "../config";
+import { config, guardPaid, type ModelRole } from "../config";
 import { DATA_RULES, fill, loadPrompt } from "./prompts";
 import { toXaiSchema, zodErrorText } from "./schema";
 import { limiter, newId, errMsg } from "../util";
@@ -114,6 +114,7 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
     { role: "user", content: user },
   ];
 
+  guardPaid("xai", `${prompt.name} v${prompt.version}`);
   let lastError = "";
   let lastRaw = "";
   for (let attempt = 1; attempt <= 2; attempt++) {

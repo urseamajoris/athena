@@ -1,4 +1,7 @@
 import "server-only";
+import { assertPaidAllowed, resolveMode, type PaidService } from "./paid-guard";
+
+const mode = resolveMode(process.env);
 
 function bool(v: string | undefined, d = false) {
   if (v === undefined || v === "") return d;
@@ -10,9 +13,12 @@ function num(v: string | undefined, d: number) {
 }
 
 export const config = {
-  mockMode: bool(process.env.MOCK_MODE),
+  /** ATHENA_ENV=production: the only environment where paid APIs (xAI, OpenAlex) may be called. */
+  production: mode.production,
+  /** Recorded fixtures + mock model. On by default everywhere except production. */
+  mockMode: mode.mockMode,
   /** Mock only the model (real HTTP). Implied by MOCK_MODE. Useful for zero-cost pipeline tests and for recording fixtures. */
-  mockAi: bool(process.env.MOCK_MODE) || bool(process.env.MOCK_AI),
+  mockAi: mode.mockAi,
   recordFixtures: bool(process.env.RECORD_FIXTURES),
   xaiApiKey: process.env.XAI_API_KEY ?? "",
   xaiBaseUrl: process.env.XAI_BASE_URL || "https://api.x.ai/v1",
@@ -39,3 +45,19 @@ export const config = {
 };
 
 export type ModelRole = keyof typeof config.models;
+
+const g = globalThis as unknown as { __paidCalls?: { attempted: number; blocked: number } };
+/** Every attempt to call a paid API since the server started; QA asserts this stays at zero. */
+export const paidCalls = (g.__paidCalls ??= { attempted: 0, blocked: 0 });
+
+/** Call immediately before any network request to a paid API. Throws (and counts) outside production. */
+export function guardPaid(service: PaidService, what: string) {
+  paidCalls.attempted++;
+  try {
+    assertPaidAllowed(mode, service, what);
+  } catch (e) {
+    paidCalls.blocked++;
+    console.error(`[athena] ${(e as Error).message}`);
+    throw e;
+  }
+}

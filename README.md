@@ -26,17 +26,22 @@ The rules the app is built around:
 
 ```bash
 npm install
-cp .env.example .env      # then fill in keys, or set MOCK_MODE=true
-npm run dev               # http://localhost:3000
+cp .env.example .env      # keys are only needed for production runs
+npm run dev               # http://localhost:3000, mock mode by default
 ```
 
 Requires Node 20 or later (tested on Node 22). The SQLite database is created and migrated automatically at `data/athena.db`.
 
-### Mock mode (no keys needed)
+### Mock mode (the default; no keys needed)
 
-```bash
-MOCK_MODE=true npm run dev
-```
+Mock mode is on everywhere except `ATHENA_ENV=production`, so `npm run dev`, the tests and the QA scripts never spend money.
+
+- Paid APIs (xAI model calls, OpenAlex, which is metered by key) are only called when `ATHENA_ENV=production`.
+- Every attempted paid call is counted in `/api/status` (`paidCalls`); outside production the call throws and is logged.
+- A server started outside production with `MOCK_MODE=false` (or `MOCK_AI=true` alone, which still hits OpenAlex) refuses to start and says why.
+- Keys present in the environment during a mock run are reported in the log and never used.
+
+For a real run: `ATHENA_ENV=production MOCK_MODE=false npm run dev`.
 
 Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, OpenAlex, Europe PMC, Crossref and Unpaywall responses, with keys and email removed) and uses deterministic mock model responders in `src/lib/ai/mock.ts`.
 
@@ -46,7 +51,7 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 - With the test idea and the mock scoping answers, queries match the recorded fixtures exactly. For other queries a fixture recorded for the same endpoint is served.
 - Full text that came from open PDFs is not in the fixtures, because PDFs and PDF text are never recorded. Those papers fall back to abstract-only in mock mode.
 
-`MOCK_AI=true` mocks only the model and calls the real databases. It costs nothing in xAI credit. Combine it with `RECORD_FIXTURES=true` to re-record `fixtures/http/`.
+`MOCK_AI=true` mocks only the model and calls the real databases. It costs nothing in xAI credit, but OpenAlex is metered, so it also needs `ATHENA_ENV=production`. Combine it with `RECORD_FIXTURES=true` to re-record `fixtures/http/`.
 
 ### Keys and configuration (`.env.example`)
 
@@ -63,6 +68,7 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 | `MAX_RESULTS_PER_QUERY` | Pagination cap per query (default 40). |
 | `APPRAISAL_MAX_CHARS` | Characters of full text sent to the model per appraisal (default 60,000). Truncation is shown in the UI and the report. |
 | `HTTP_CACHE_TTL_HOURS` | HTTP cache lifetime (default 168). |
+| `ATHENA_ENV` | `production` allows paid API calls. Anything else (the default) forces mock mode. |
 | `MOCK_MODE`, `MOCK_AI`, `RECORD_FIXTURES` | See above. |
 | `SIMULATE_SOURCE_FAILURE` | Comma list such as `openalex`. Forces that source to fail, to test failure handling. |
 | `DATABASE_PATH` | SQLite file (default `data/athena.db`). |
