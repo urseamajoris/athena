@@ -3,7 +3,8 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
 import { api, projectPath } from "../api";
-import { Disclosure, ErrorState, ProgressBar, Spinner, cx } from "../ui";
+import { ErrorState, ProgressBar, Spinner, cx } from "../ui";
+import { Disclosure } from "../disclosure";
 import { useSession } from "../session/SessionContext";
 import { STAGES } from "@/lib/shared/stages";
 

@@ -3,23 +3,21 @@ import type { ReactNode } from "react";
 import { TransitionLink } from "../vt";
 import { ArrowLeft } from "lucide-react";
 import { ErrorState, Loading } from "../ui";
-import { MotionRoot } from "../motion";
 import { AppMenu } from "../AppMenu";
 import { ActionButton } from "../panels/common";
 import { SessionProvider, useSession } from "./SessionContext";
 import { nextAction } from "@/lib/canvas/actions";
 
-/** A full-screen view that belongs to one session node (table, export): back to the canvas, one mission. */
+/** A full-screen view that belongs to one session node (table, export): back to the canvas, one mission.
+ *  Nothing here animates, so it does not load Motion. */
 export function SessionPage({ projectId, node, title, children, showAction = true }: { projectId: string; node: string; title: string; children: ReactNode; showAction?: boolean }) {
   return (
-    <MotionRoot>
-      <SessionProvider
-        projectId={projectId}
-        fallback={(s) => (s ? <main id="main" className="mx-auto max-w-xl p-8"><ErrorState error={s.error} onRetry={s.retry} title="Could not open this session" /></main> : <main id="main" className="p-8"><Loading /></main>)}
-      >
-        <Frame node={node} title={title} showAction={showAction}>{children}</Frame>
-      </SessionProvider>
-    </MotionRoot>
+    <SessionProvider
+      projectId={projectId}
+      fallback={(s) => (s ? <main id="main" className="mx-auto max-w-xl p-8"><ErrorState error={s.error} onRetry={s.retry} title="Could not open this session" /></main> : <main id="main" className="p-8"><Loading /></main>)}
+    >
+      <Frame node={node} title={title} showAction={showAction}>{children}</Frame>
+    </SessionProvider>
   );
 }
 

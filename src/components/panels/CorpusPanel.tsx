@@ -1,10 +1,12 @@
 "use client";
 import { AlertTriangle } from "lucide-react";
 import { projectPath, useApi } from "../api";
-import { Badge, Disclosure, ErrorState, ProgressBar } from "../ui";
-import { useJobRefresh, useSession } from "../session/SessionContext";
+import { Badge, ErrorState, ProgressBar } from "../ui";
+import { Disclosure } from "../disclosure";
+import { useJobRefresh, useLiveRetrieval, useSession } from "../session/SessionContext";
 import { ActionButton, JobLog, JobStatus, PanelFooter, Stat, StaleNotice } from "./common";
 import { nextAction } from "@/lib/canvas/actions";
+import { fmtInt } from "@/lib/shared/format";
 
 interface Run { id: string; database: string; topicName: string; queryString: string; status: string; resultCount: number | null; fetchedCount: number; newUniqueCount: number; cap: number; error: string | null }
 interface RetrievalData { uniquePapers: number; runs: Run[] }
@@ -12,10 +14,11 @@ const DB: Record<string, string> = { pubmed: "PubMed", openalex: "OpenAlex" };
 
 /** Corpus node: watch retrieval live (SSE), then review deduplication. */
 export function CorpusPanel() {
-  const { projectId, live, graph, input } = useSession();
+  const { projectId, graph, input } = useSession();
+  const live = useLiveRetrieval();
   const { data: fetched, error, mutate } = useApi<RetrievalData>(projectPath(projectId, "retrieval"));
   useJobRefresh(4, mutate);
-  const data = (live?.retrieval as RetrievalData | null) ?? fetched;
+  const data = (live as RetrievalData | null) ?? fetched;
   if (error && !data) return <ErrorState error={error} onRetry={() => mutate()} />;
   const runs = data?.runs ?? [];
   const failed = runs.filter((r) => r.status === "failed");
@@ -29,8 +32,8 @@ export function CorpusPanel() {
       <StaleNotice stage={4} />
       <JobStatus stage={4} />
       <div className="grid grid-cols-2 gap-2">
-        <Stat label="Unique papers" value={(data?.uniquePapers ?? 0).toLocaleString()} />
-        <Stat label="Duplicates removed" value={Math.max(0, fetchedTotal - (data?.uniquePapers ?? 0)).toLocaleString()} />
+        <Stat label="Unique papers" value={fmtInt(data?.uniquePapers ?? 0)} />
+        <Stat label="Duplicates removed" value={fmtInt(Math.max(0, fetchedTotal - (data?.uniquePapers ?? 0)))} />
       </div>
       <section aria-label="Per source">
         <ul className="space-y-3">
@@ -43,7 +46,7 @@ export function CorpusPanel() {
               <li key={db}>
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <span className="font-medium">{DB[db] ?? db}</span>
-                  <span className="text-12 tabular-nums text-fg-1">{f.toLocaleString()} fetched · {nu.toLocaleString()} new · {done}/{rs.length} queries</span>
+                  <span className="text-12 tabular-nums text-fg-1">{fmtInt(f)} fetched · {fmtInt(nu)} new · {done}/{rs.length} queries</span>
                 </div>
                 <ProgressBar value={done} max={rs.length} label={`${DB[db] ?? db} queries finished`} />
               </li>
@@ -79,7 +82,7 @@ export function CorpusPanel() {
                     <span className="block text-fg-0">{r.topicName}</span>
                     <span className="text-fg-2">{DB[r.database] ?? r.database}{r.status !== "done" ? ` · ${r.status}` : ""}</span>
                   </td>
-                  <td className="pr-2 text-right tabular-nums">{r.resultCount?.toLocaleString() ?? "–"}</td>
+                  <td className="pr-2 text-right tabular-nums">{r.resultCount == null ? "–" : fmtInt(r.resultCount)}</td>
                   <td className="pr-2 text-right tabular-nums">{r.fetchedCount}</td>
                   <td className="pr-2 text-right tabular-nums">{r.newUniqueCount}</td>
                   <td className="text-right tabular-nums text-fg-1">{cumulative}</td>

@@ -2,11 +2,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api, projectPath, useApi } from "../api";
-import { Badge, Disclosure, EmptyState, ErrorState, Loading, Spinner, TextSourceBadge, cx } from "../ui";
+import { Badge, EmptyState, ErrorState, Loading, Spinner, TextSourceBadge, cx } from "../ui";
+import { Disclosure } from "../disclosure";
 import { canvasStore, useJobRefresh, useSession } from "../session/SessionContext";
 import { ActionButton, JobLog, JobStatus, PanelFooter, SectionTitle, StaleNotice } from "./common";
 import { PinButton, QuoteVerdict, SourcePassage } from "./evidence";
 import { nextAction } from "@/lib/canvas/actions";
+import { fmtInt } from "@/lib/shared/format";
 
 export interface AppraisalRow {
   id: string; paperId: string; status: string; error: string | null; textSource: string; textNote: string; templateType: string;
@@ -246,7 +248,7 @@ function FullText({ data }: { data: AppraisalDetailData }) {
         {segments.map((s, i) => (s.id ? <mark key={i} data-claim={s.id} className={focus === s.id ? "q-active" : "q"} onClick={() => setFocus(s.id!)}>{s.text}</mark> : <span key={i}>{s.text}</span>))}
       </div>
       {a.charsSentToModel && data.sourceText.text.length > a.charsSentToModel && (
-        <p className="mt-2 text-12 text-warn">The model read the first {a.charsSentToModel.toLocaleString()} of {data.sourceText.text.length.toLocaleString()} characters.</p>
+        <p className="mt-2 text-12 text-warn">The model read the first {fmtInt(a.charsSentToModel)} of {fmtInt(data.sourceText.text.length)} characters.</p>
       )}
     </div>
   );

@@ -27,8 +27,8 @@
   --err: #ff6b6b;
   --run: #5ec8ff;
   --focus: #f5f5f7;
-  --mark: rgb(245 181 71 / 0.22);
-  --mark-active: rgb(245 181 71 / 0.45);
+  --mark: rgb(245 181 71 / 0.16);
+  --mark-active: rgb(245 181 71 / 0.3);
 }
 
 :root[data-theme="light"] {
@@ -293,13 +293,13 @@ input[type="radio"] {
 }
 mark.q {
   background: var(--mark);
-  color: inherit;
+  color: var(--fg-0);
   border-radius: 2px;
   cursor: pointer;
 }
 mark.q-active {
   background: var(--mark-active);
-  color: inherit;
+  color: var(--fg-0);
   border-radius: 2px;
   outline: 2px solid var(--warn);
 }
@@ -353,14 +353,23 @@ mark.q-bad {
     stroke-dashoffset: -10;
   }
 }
+/* Handles show on hover or focus. visibility (not opacity) so idle handles are not painted at all. */
 .athena-handle {
   width: 8px;
   height: 8px;
-  opacity: 0;
+  visibility: hidden;
 }
 .react-flow__node:hover .athena-handle.connectable,
 .react-flow__node:focus-within .athena-handle.connectable {
-  opacity: 1;
+  visibility: visible;
+}
+/* Icons draw inside their viewBox; without the default clip each card paints in fewer layers. */
+svg.lucide {
+  overflow: visible;
+}
+/* Zoomed-out overview: kind, status and title stay; the key line and secondary actions return on zoom-in. */
+[data-zoom="far"] [data-detail] {
+  visibility: hidden;
 }
 .react-flow__minimap {
   border: 1px solid var(--line);

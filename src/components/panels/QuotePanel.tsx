@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { api, projectPath, useApi } from "../api";
-import { Disclosure, ErrorState, Loading, Spinner } from "../ui";
+import { ErrorState, Loading, Spinner } from "../ui";
+import { Disclosure } from "../disclosure";
 import { canvasStore, useSession } from "../session/SessionContext";
 import { QuoteVerdict, SourcePassage } from "./evidence";
 import type { AppraisalDetailData } from "./AppraisalPanel";

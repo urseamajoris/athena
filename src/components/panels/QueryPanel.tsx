@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api, projectPath, useApi } from "../api";
-import { Badge, Disclosure, ErrorState, Loading, Spinner, cx } from "../ui";
+import { Badge, ErrorState, Loading, Spinner, cx } from "../ui";
+import { Disclosure } from "../disclosure";
 import { useSession } from "../session/SessionContext";
 import { ActionButton, PanelFooter, SectionTitle, StaleNotice } from "./common";
 import { queryChips } from "@/lib/canvas/query-chips";
 import { nextAction } from "@/lib/canvas/actions";
+import { fmtInt } from "@/lib/shared/format";
 
 interface Query { id: string; database: string; queryString: string; aiQueryString: string; rationale: string; dryRunCount: number | null; dryRunAt: string | null; dryRunError: string | null; edited: boolean }
 interface Criteria { yearFrom: number | null; yearTo: number | null; languages: string[]; studyTypes: string[]; inclusion: string[]; exclusion: string[] }
@@ -100,7 +102,7 @@ function QueryPreview({ q, label, onChange }: { q: Query; label: string; onChang
         right={
           <span className="flex items-center gap-2">
             {q.edited && <Badge>edited by you</Badge>}
-            {res ? (res.error ? <Badge tone="err" title={res.error}>dry run failed</Badge> : <Badge tone={res.count === 0 ? "warn" : "neutral"}><span className="tabular-nums">{res.count?.toLocaleString()}</span> records</Badge>) : <Badge>not dry-run</Badge>}
+            {res ? (res.error ? <Badge tone="err" title={res.error}>dry run failed</Badge> : <Badge tone={res.count === 0 ? "warn" : "neutral"}><span className="tabular-nums">{res.count == null ? "" : fmtInt(res.count)}</span> records</Badge>) : <Badge>not dry-run</Badge>}
           </span>
         }
       >

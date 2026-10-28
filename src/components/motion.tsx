@@ -2,8 +2,8 @@
 import type { ReactNode } from "react";
 import { LazyMotion, MotionConfig } from "motion/react";
 
-// Animation features load after first paint (they are not needed to show anything).
-// reducedMotion="user" turns transforms into plain fades.
+// Animation features load after first paint, in their own chunk. reducedMotion="user" turns transforms into
+// plain fades.
 const features = () => import("./motion-features").then((m) => m.default);
 
 export function MotionRoot({ children }: { children: ReactNode }) {

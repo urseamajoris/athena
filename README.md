@@ -254,10 +254,16 @@ Room for later features is already in the schema:
 
 ## Testing
 
+Everything here runs in mock mode with no keys; it is the default outside production, and a real key is refused there (see **Mock mode**).
+
 ```bash
-npm test                                          # unit tests (quote verification)
+npm test                                          # unit tests: quote verification, paid-API guard, colour contrast of the tokens,
+                                                  # canvas graph, stage gating and next actions, layout, persisted canvas state
+npm run build && npm start                        # production build on :3000
 node scripts/api-flow.mjs                         # drive all nine stages through the HTTP API
-node scripts/e2e.mjs --out=e2e-artifacts/run      # drive all nine stages through the browser (Playwright) with checks
+node scripts/e2e.mjs http://localhost:3000        # drive all nine stages through the canvas in a browser (Playwright), with checks
+npm run qa -- --round=N                           # visual audit: builds fixtures, screenshots every view, scores the 12-item checklist
+npm run demo:render                               # re-render the landing page's canvas demo video (Remotion, build time only)
 ```
 
 `scripts/e2e.mjs` checks the acceptance criteria directly. It uses the test idea throughout: *"What is the knowledge gap in implementing telemedicine in Southeast Asia?"*
@@ -275,6 +281,19 @@ node scripts/e2e.mjs --out=e2e-artifacts/run      # drive all nine stages throug
 - A question can be chosen and edited, and all three exports download.
 - Editing a topic after retrieval marks stages 3–9 stale.
 - No browser console errors.
+
+`scripts/visual-audit.ts` (`npm run qa`) starts its own production server in mock mode with the keys stripped from its environment and a fresh database. It seeds sessions through the API (empty, scoping, ghost subtopics, running, error, stale, done, ranked, and a 300-node session). It then screenshots every view and Focus panel at 1440×900 and 390×844, in dark and light, with reduced motion on and off, into `qa/shots/<round>/`, and scores each shot against the 12-item checklist into `qa/report-<round>.md`. The checks are:
+- the accent count and the squint test;
+- collapsed-by-default disclosures;
+- axe-core (serious and critical issues);
+- a Tab walk for focus rings and traps;
+- transforms under reduced motion;
+- overflow, overlap and 44 px tap targets at 390 px;
+- state badges carrying icon and text;
+- the 4-pt grid and type-size count;
+- 300-node pan frame rate and List-view parity;
+- Lighthouse mobile;
+- console errors and paid-API calls.
 
 See **Test results** below for what was actually run.
 

@@ -83,6 +83,32 @@ export function paperDetail(projectId: string, paperId: string) {
   };
 }
 
+/** The summary table's rows, with only the fields the browser uses: the table page embeds this in its first
+ *  HTML, so every unused field costs download and parse time on a phone. Exports use papersView. */
+export function papersTableView(projectId: string) {
+  const v = papersView(projectId);
+  return {
+    topics: v.topics,
+    papers: v.papers.map((p) => ({
+      id: p.id, title: p.title, authors: p.authors, year: p.year, journal: p.journal, citationCount: p.citationCount, oaUrl: p.oaUrl,
+      sourceDatabases: p.sourceDatabases, doi: p.doi, pmid: p.pmid, openalexId: p.openalexId, hasAbstract: p.hasAbstract,
+      summary: p.summary && { studyType: p.summary.studyType, setting: p.summary.setting, keyFinding: p.summary.keyFinding, edited: p.summary.edited },
+      topicIds: p.topicIds,
+    })),
+  };
+}
+
+/** The ranking as the table shows it (see papersTableView). The per-criterion rationales, most of the
+ *  ranking's size, load when a row is opened (GET ranking/scores/:id). */
+export function rankingTableView(projectId: string) {
+  return {
+    topics: rankingView(projectId).topics.map((t) => ({
+      id: t.id, name: t.name, importanceRank: t.importanceRank, importanceJustification: t.importanceJustification,
+      scores: t.scores.map((s) => ({ id: s.id, paperId: s.paperId, topicId: s.topicId, total: s.total, selected: s.selected, userChanged: s.userChanged, rationale: s.rationale, subScores: s.subScores, paper: { title: s.paper.title } })),
+    })),
+  };
+}
+
 export function rankingView(projectId: string) {
   const topics = db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.importanceRank), asc(schema.topics.sortOrder)).all();
   const scores = db.select().from(schema.scores).where(inArray(schema.scores.topicId, ids(topics.map((t) => t.id)))).orderBy(desc(schema.scores.total)).all();

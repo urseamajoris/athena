@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { inter, jetbrains } from "./fonts";
 import { themeInitScript } from "@/lib/theme";
-import { RouteTransitions } from "@/components/vt";
+import { RouteTransitions } from "@/components/route-transitions";
 
 export const metadata: Metadata = {
   title: "Athena — guided literature review",

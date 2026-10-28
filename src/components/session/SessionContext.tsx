@@ -56,7 +56,6 @@ interface Ctx {
   staleReasons: Record<string, string>;
   jobs: Record<string, Job | null>;
   costs: Record<string, Cost>;
-  live: LiveData | null;
   summary: CanvasSummary | null;
   claims: ClaimLite[] | null;
   graph: Graph;
@@ -77,6 +76,19 @@ interface Ctx {
   announce: (msg: string) => void;
 }
 const SessionCtx = createContext<Ctx | null>(null);
+/** Live retrieval runs from the event stream: only the Corpus panel needs them, so they are kept out of the
+ *  session context (which would otherwise change, and re-render every view, on each update). */
+const RetrievalCtx = createContext<unknown>(null);
+export const useLiveRetrieval = () => useContext(RetrievalCtx);
+
+/** The same object for as long as its content is the same (server data, SWR and the event stream each give
+ *  new objects for unchanged data; passing those on would re-render the whole session view). */
+function useStable<T>(v: T): T {
+  const ref = useRef<{ json: string; v: T } | null>(null);
+  const json = JSON.stringify(v);
+  if (!ref.current || ref.current.json !== json) ref.current = { json, v };
+  return ref.current.v;
+}
 interface Actions { run: Ctx["run"]; busy: string | null }
 const ActionsCtx = createContext<Actions | null>(null);
 /** Just run + busy, stable across data updates (node cards and action buttons use this). */
@@ -112,7 +124,8 @@ export function useJobRefresh(stage: number, mutate: () => unknown) {
 export const cmdKey = (c: Cmd) => JSON.stringify(c);
 
 export function SessionProvider({ projectId, children, fallback }: { projectId: string; children: ReactNode; fallback: (s: { error: unknown; retry: () => void } | null) => ReactNode }) {
-  const { data, error, mutate, isLoading } = useApi<ProjectViewData>(projectPath(projectId));
+  const { data: fetched, error, mutate } = useApi<ProjectViewData>(projectPath(projectId));
+  const data = useStable(fetched);
   const { data: fetchedSummary, mutate: mutateSummary } = useApi<CanvasSummary>(projectPath(projectId, "canvas"));
   const [live, setLive] = useState<LiveData | null>(null);
   // The saved viewport changes on every pan; nothing rendered depends on it, so it is left out here.
@@ -143,9 +156,13 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
     return () => es.close();
   }, [projectId]);
 
-  const states = useMemo(() => live?.stageStates ?? data?.project.stageStates ?? {}, [live, data]);
+  const states = useStable(live?.stageStates ?? data?.project.stageStates ?? {});
   const statesKey = JSON.stringify(states);
-  const summary = live?.canvas ?? fetchedSummary ?? null;
+  const summary = useStable(live?.canvas ?? fetchedSummary ?? null);
+  const staleReasons = useStable(live?.staleReasons ?? data?.project.staleReasons ?? {});
+  const jobs = useStable(live?.jobs ?? data?.jobs ?? {});
+  const costs = useStable(live?.costs ?? data?.costs ?? {});
+  const liveRetrieval = useStable(live?.retrieval ?? null);
 
   // Announce run-state changes to screen readers, and refresh the project when stages move.
   const prevStates = useRef<Record<string, StageState> | null>(null);
@@ -178,13 +195,13 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
       idea: data?.project.idea ?? "",
       title: data?.project.title ?? "",
       states,
-      staleReasons: live?.staleReasons ?? data?.project.staleReasons ?? {},
-      jobs: live?.jobs ?? data?.jobs ?? {},
+      staleReasons,
+      jobs,
       summary,
       claims: claims ?? null,
       client: { acceptedTopics: ui.acceptedTopics, pinnedQuotes: ui.pinnedQuotes },
     }),
-    [data, states, live, summary, claims, ui.acceptedTopics, ui.pinnedQuotes],
+    [data, states, staleReasons, jobs, summary, claims, ui.acceptedTopics, ui.pinnedQuotes],
   );
   const graph = useMemo(() => buildGraph(input), [input]);
 
@@ -372,8 +389,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
             states,
             staleReasons: input.staleReasons,
             jobs: input.jobs,
-            costs: live?.costs ?? data.costs,
-            live,
+            costs,
             summary,
             claims: claims ?? null,
             graph,
@@ -391,14 +407,16 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
             announce,
           }
         : null,
-    [data, projectId, states, input, live, summary, claims, graph, ui, goTo, refresh, confirmEdit, approve, run, busy, err, announce],
+    [data, projectId, states, input, costs, summary, claims, graph, ui, goTo, refresh, confirmEdit, approve, run, busy, err, announce],
   );
 
-  if (isLoading || (!ctx && !error)) return <>{fallback(null)}</>;
-  if (error || !ctx) return <>{fallback({ error: error ?? "Not found", retry: () => mutate() })}</>;
+  // Data, not SWR's isLoading: that stays true while server-provided (fallback) data revalidates.
+  if (!ctx && !error) return <>{fallback(null)}</>;
+  if (!ctx) return <>{fallback({ error: error ?? "Not found", retry: () => mutate() })}</>;
 
   return (
     <SessionCtx.Provider value={ctx}>
+      <RetrievalCtx.Provider value={liveRetrieval}>
       <ActionsCtx.Provider value={actions}>
       {children}
       <div aria-live="polite" role="status" className="sr-only">{message}</div>
@@ -419,6 +437,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
       )}
       {addTopic && <AddTopicDialog state={addTopic} onClose={() => setAddTopic(null)} />}
       </ActionsCtx.Provider>
+      </RetrievalCtx.Provider>
     </SessionCtx.Provider>
   );
 }

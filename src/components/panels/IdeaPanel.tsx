@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { api, projectPath, useApi } from "../api";
-import { Badge, Disclosure, ErrorState, Loading, Spinner, cx } from "../ui";
+import { Badge, ErrorState, Loading, Spinner, cx } from "../ui";
+import { Disclosure } from "../disclosure";
 import { canvasStore, cmdKey, useSession } from "../session/SessionContext";
 import { ActionButton, PanelFooter, SectionTitle } from "./common";
 import { ConceptMap } from "./ConceptMap";

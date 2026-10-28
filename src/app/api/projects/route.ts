@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
-import { desc } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/lib/db";
 import { initialStageStates, logDecision } from "@/lib/project";
 import { errorResponse } from "@/lib/api";
 import { newId } from "@/lib/util";
+import { projectsList } from "@/lib/preload";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const rows = db.select().from(schema.projects).orderBy(desc(schema.projects.updatedAt)).all();
-  return NextResponse.json({ projects: rows.map((p) => ({ id: p.id, title: p.title, idea: p.idea, currentStage: p.currentStage, status: p.status, stageStates: p.stageStates, createdAt: p.createdAt, updatedAt: p.updatedAt })) });
+  return NextResponse.json(projectsList());
 }
 
 export async function POST(req: Request) {

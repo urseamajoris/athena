@@ -1,21 +1,11 @@
 "use client";
 // View Transitions for route changes (a short crossfade), with a plain navigation as the fallback:
 // browsers without document.startViewTransition, and anyone who prefers reduced motion, just navigate.
-import { useEffect, type ComponentProps, type MouseEvent } from "react";
+import type { ComponentProps, MouseEvent } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { pending } from "./vt-state";
 
-let finish: (() => void) | null = null;
-
-/** Mounted once in the root layout: ends a pending transition when the new route has rendered. */
-export function RouteTransitions() {
-  const pathname = usePathname();
-  useEffect(() => {
-    finish?.();
-    finish = null;
-  }, [pathname]);
-  return null;
-}
 
 type Doc = Document & { startViewTransition?: (cb: () => Promise<void>) => unknown };
 
@@ -28,7 +18,7 @@ export function useTransitionRouter() {
     doc.startViewTransition(
       () =>
         new Promise<void>((resolve) => {
-          finish = resolve;
+          pending.finish = resolve;
           go();
           setTimeout(resolve, 1200); // never hold the page frozen if the route is slow
         }),

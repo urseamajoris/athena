@@ -60,20 +60,10 @@ export function withPinned(auto: Positions, pinned: Record<string, Pos>): Positi
 
 type ElkNode = { id: string; x?: number; y?: number; width: number; height: number };
 type ElkGraph = { id: string; layoutOptions: Record<string, string>; children: ElkNode[]; edges: { id: string; sources: string[]; targets: string[] }[] };
-type ElkLike = { layout(g: ElkGraph): Promise<ElkGraph> };
-
-let elkPromise: Promise<ElkLike> | null = null;
-/** Lazy-load elkjs only when the canvas actually needs it (never on the landing page or in List view). */
-export function loadElk(): Promise<ElkLike> {
-  return (elkPromise ??= import("elkjs/lib/elk.bundled.js").then((m) => {
-    const ELK = (m as unknown as { default: new () => ElkLike }).default;
-    return new ELK();
-  }));
-}
+export type ElkLike = { layout(g: ElkGraph): Promise<ElkGraph> };
 
 /** elkjs layered layout for the main pipeline; quotes are packed afterwards. */
-export async function elkLayout(nodes: GNode[], edges: GEdge[]): Promise<Positions> {
-  const elk = await loadElk();
+export async function elkLayout(elk: ElkLike, nodes: GNode[], edges: GEdge[]): Promise<Positions> {
   const main = nodes.filter((n) => n.kind !== "quote");
   const ids = new Set(main.map((n) => n.id));
   const g = await elk.layout({

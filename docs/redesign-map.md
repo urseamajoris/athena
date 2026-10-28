@@ -1,8 +1,8 @@
 # Redesign map: brief → real code
 
-Written before any code changed (Step 0 of the canvas-first redesign brief). The brief was drafted when the repository looked empty; it now holds a working Next.js 15 prototype, so this file records what actually exists, where each part goes, and where the brief had to bend to fit it.
+Written before any code changed (Step 0 of the canvas-first redesign brief), then updated at the end so it matches what ships. The brief was drafted when the repository looked empty; it held a working Next.js 15 prototype, so this file records what existed, where each part went, and where the brief had to bend to fit it.
 
-## What exists today
+## What existed before the redesign
 
 | Route | File | What it does |
 |---|---|---|
@@ -55,17 +55,18 @@ Per-stage actions stay global on the server (one retrieval job runs every query,
 |---|---|---|
 | Landing | Start a review | Start a review |
 | Sessions | Open or create a session | New session |
-| Canvas: empty | Type your idea | Create (Enter) |
-| Canvas: with nodes | Take the next step | the selected node's next action |
+| Canvas: empty | Type your idea | Create idea (Enter) |
+| Canvas: with nodes | Take the next step | the next action on the frontier node (the earliest stage not yet approved); every other card's action is an outline button. With a panel open, the primary moves to the panel footer. |
+| List view (phones by default, `L` on desktop) | Take the next step | the same action, in a "Next step" bar above the outline |
 | Idea panel | Define the scope | Start scoping / Send / Branch subtopics / Approve topics (one at a time, by state) |
 | Topic panel | Confirm this topic | Accept / Approve topics / Build queries |
 | Query panel | Run the search | Run search |
 | Corpus panel | Watch retrieval, then review dedup | Build table |
-| Table view | Rank and pick papers | Rank papers → Appraise selected |
+| Table view (`/s/[id]/table`) | Rank and pick papers | Rank papers → Appraise selected (header) |
 | Appraisal panel | Finish one appraisal | Next paper (last paper: Synthesize) |
 | Synthesis panel | Write and verify the synthesis | Generate RQs |
 | Questions panel | Choose a research question | Export |
-| Export view | Download | Download |
+| Export view (`/s/[id]/export`) | Download | Download |
 | Quote check | Confirm the quote matches its source | none filled (accept / reject are outline buttons; the verdict is the content) |
 | Settings | Confirm mock mode | none (read-only status) |
 
@@ -78,6 +79,9 @@ Per-stage actions stay global on the server (one retrieval job runs every query,
 5. **Things in the brief with no backend, left out rather than faked:** per-query source toggles (retrieval always runs both databases), an appraisal template switcher (the template follows the study type; "Re-appraise" stays), appraisal notes, synthesis model options, export citation style. The panels show what is real (e.g. the template in use, the model used).
 6. **Mock mode toggle** is a locked-on status outside production; mock vs real is a server environment setting, and flipping it from a page is the kind of switch that spends money by accident.
 7. **Optional libraries** (tldraw sketch layer, three.js background) are left out for the performance budget.
+8. **Zoomed-out overview.** Below 50 % zoom, where card text is too small to read, cards keep kind, status badge (icon + text), title and trust counts; the key line and outline action buttons return on zoom-in, and the dot grid is not drawn. The frontier card keeps its primary action. This is what lets a 300-node session pan at 60 fps (see `qa/report-final.md`).
+9. **The first HTML carries the data.** Session, table, export, sessions and settings pages pass server-read data to SWR as `fallback`, so content renders before JavaScript and revalidates after hydration. Before hydration the viewport is unknown, so `/s/[id]` renders the List view for phones and the canvas placeholder for wider screens, and CSS shows the right one.
+10. **The export preview is not an export.** The preview reads `export/<kind>?preview=1`, which is not written to the decision log; only Download logs "exported".
 
 ## Old features → where they live now
 

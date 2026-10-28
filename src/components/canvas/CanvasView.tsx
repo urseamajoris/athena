@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Background, BackgroundVariant, MiniMap, ReactFlow, ReactFlowProvider, useReactFlow, type Edge, type NodeChange } from "@xyflow/react";
+import { Background, BackgroundVariant, MiniMap, ReactFlow, ReactFlowProvider, useNodesInitialized, useReactFlow, useStore, type Edge, type NodeChange } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
 import { useReducedMotion } from "motion/react";
 import { Map as MapIcon, Maximize, Minus, Plus } from "lucide-react";
@@ -11,10 +11,13 @@ import { canvasCommands, focusNode } from "./focus";
 import { nextAction } from "@/lib/canvas/actions";
 import { frontierNodeId, type GNode, type Graph } from "@/lib/canvas/graph";
 import { NODE_H, NODE_W, QUOTE_H, elkLayout, layeredLayout, withPinned, type Positions } from "@/lib/canvas/layout";
+import { loadElk } from "./elk";
 
 const nodeTypes = { athena: NodeCard };
 const AddMenu = dynamic(() => import("./AddMenu").then((m) => m.AddMenu), { ssr: false });
 export const PANEL_W = { md: 480, xl: 560 };
+/** Below this zoom the canvas switches to the simplified overview (see globals.css `[data-zoom="far"]`). */
+const FAR_ZOOM = 0.5;
 
 /** Neighbours for arrow-key navigation along the graph. */
 export function neighbour(graph: Graph, id: string, key: string): string | null {
@@ -44,13 +47,22 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
   const reduced = useReducedMotion();
   const shape = shapeKey(graph);
 
-  // Layout: synchronous layered layout first, elkjs refinement once it has loaded.
+  // Layout: synchronous layered layout first, elkjs refinement once it has loaded. elkjs (the heaviest
+  // library here) is fetched only after the nodes are on screen, when the browser is idle.
   const auto = useMemo(() => layeredLayout(graph.nodes), [shape]); // eslint-disable-line react-hooks/exhaustive-deps
   const [elk, setElk] = useState<{ shape: string; pos: Positions } | null>(null);
+  // Latched: re-measuring after a layout change must not start elkjs again.
+  const initialized = useNodesInitialized();
+  const [shown, setShown] = useState(false);
   useEffect(() => {
+    if (initialized) setShown(true);
+  }, [initialized]);
+  useEffect(() => {
+    if (!shown) return;
     let alive = true;
     const go = () =>
-      elkLayout(graph.nodes, graph.edges)
+      loadElk()
+        .then((elk) => elkLayout(elk, graph.nodes, graph.edges))
         .then((pos) => alive && setElk({ shape, pos }))
         .catch(() => {});
     const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
@@ -60,7 +72,7 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shape]);
+  }, [shape, shown]);
   const positions = useMemo(() => withPinned(elk?.shape === shape ? elk.pos : auto, ui.pinned), [elk, shape, auto, ui.pinned]);
 
   // Nodes present at first render do not animate in; later ones spring out of their parent.
@@ -88,6 +100,8 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
   const frontier = frontierNodeId(graph, states);
   const tabbable = selected && graph.nodes.some((n) => n.id === selected) ? selected : frontier;
   const cache = useRef(new Map<string, { key: string; node: FlowNode }>());
+  // Measured sizes outlive rebuilt node objects, so React Flow does not re-measure every node on each change.
+  const measured = useRef(new Map<string, { width: number; height: number }>());
   const flowNodes = useMemo(() => {
     const next = new Map<string, { key: string; node: FlowNode }>();
     const out = graph.nodes.map((n) => {
@@ -99,7 +113,7 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
       const node: FlowNode =
         prev && prev.key === key
           ? prev.node
-          : { id: n.id, type: "athena", position: pos, data, draggable: !readOnly, connectable: !readOnly, selectable: false, focusable: false, width: NODE_W, height: n.kind === "quote" ? QUOTE_H : NODE_H, ...(prev?.node.measured ? { measured: prev.node.measured } : {}) };
+          : { id: n.id, type: "athena", position: pos, data, draggable: !readOnly, connectable: !readOnly, selectable: false, focusable: false, width: NODE_W, height: n.kind === "quote" ? QUOTE_H : NODE_H, ...(measured.current.has(n.id) ? { measured: measured.current.get(n.id) } : {}) };
       next.set(n.id, { key, node });
       return node;
     });
@@ -118,6 +132,7 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
           const n = byId.get(c.id);
           if (n) byId.set(c.id, { ...n, position: c.position, dragging: c.dragging });
         } else if (c.type === "dimensions" && c.dimensions) {
+          measured.current.set(c.id, c.dimensions);
           const n = byId.get(c.id);
           if (n) byId.set(c.id, { ...n, measured: c.dimensions });
         }
@@ -132,18 +147,28 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
     [graph.edges, selected, panel],
   );
   const [moving, setMoving] = useState(false);
+  // Zoomed out, text is too small to read: cards keep kind, status and title (and trust counts), and the dot
+  // grid goes. This keeps a 300-node overview light enough to pan at 60 fps.
+  const far = useStore((s) => s.transform[2] < FAR_ZOOM);
 
-  // Keep the selected node visible next to the Focus panel (also once React Flow is ready, for ?node=).
+  // Keep the selected node visible next to the Focus panel (also once React Flow is ready, for ?node=, and
+  // when the elkjs layout moves it). A node the user dragged while its panel is open keeps the view still.
+  const panelPos = panel ? positions[panel] : undefined;
+  const centred = useRef<string | null>(null);
   useEffect(() => {
-    if (!panel || !rfReady) return;
-    const p = positions[panel];
-    if (!p) return;
+    if (!panel) {
+      centred.current = null;
+      return;
+    }
+    if (!rfReady || !panelPos) return;
+    if (centred.current === panel && ui.pinned[panel]) return;
+    centred.current = panel;
     const { zoom } = rf.getViewport();
     const panelW = readOnly ? 0 : window.innerWidth >= 1280 ? PANEL_W.xl : PANEL_W.md;
     const h = panel.startsWith("quote:") ? QUOTE_H : NODE_H;
-    rf.setCenter(p.x + NODE_W / 2 + panelW / 2 / zoom, p.y + h / 2, { zoom, duration: reduced ? 0 : 180 });
+    rf.setCenter(panelPos.x + NODE_W / 2 + panelW / 2 / zoom, panelPos.y + h / 2, { zoom, duration: reduced ? 0 : 180 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panel, rfReady, !!(panel && positions[panel])]);
+  }, [panel, rfReady, panelPos?.x, panelPos?.y]);
 
   // Whatever selects a node (arrows, 1–9, rail, palette), pan it into view if it is off-screen.
   useEffect(() => {
@@ -213,8 +238,10 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
     [graph, input, run, goToNode, readOnly],
   );
 
-  // The first fit waits for pinned quotes (they arrive with the claims), so the whole graph is framed.
+  // The first fit waits for pinned quotes (they arrive with the claims), so the whole graph is framed. Until the
+  // user pans or zooms, the view re-fits when the layout settles (elkjs moves nodes after the first layout).
   const firstFit = useRef(false);
+  const autoFit = useRef(false);
   const onInit = useCallback(() => setRfReady(true), []);
   useEffect(() => {
     if (!rfReady || firstFit.current) return;
@@ -223,11 +250,19 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
     if (canvasStore.getState().panel) return; // the open panel's node is centred beside it instead
     const saved = canvasStore.getState().sessions[projectId]?.viewport;
     if (saved) rf.setViewport(saved);
-    else requestAnimationFrame(() => rf.fitView({ padding: 0.2, maxZoom: 1, duration: 0 }));
+    else {
+      autoFit.current = true;
+      requestAnimationFrame(() => rf.fitView({ padding: 0.2, maxZoom: 1, duration: 0 }));
+    }
   }, [rfReady, summary, claims, ui.pinnedQuotes.length, rf, projectId]);
+  useEffect(() => {
+    if (!autoFit.current || canvasStore.getState().panel) return;
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => rf.fitView({ padding: 0.2, maxZoom: 1, duration: 0 })));
+    return () => cancelAnimationFrame(id);
+  }, [positions, rf]);
 
   return (
-    <div className="absolute inset-0" onKeyDown={onKeyDown} data-moving={moving || undefined}>
+    <div className="absolute inset-0" onKeyDown={onKeyDown} data-moving={moving || undefined} data-zoom={far ? "far" : "near"}>
       <ReactFlow<FlowNode, Edge>
         nodes={nodes}
         edges={edges}
@@ -243,7 +278,10 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
           const pt = "changedTouches" in event ? event.changedTouches[0] : (event as MouseEvent);
           canvasStore.getState().setAddMenu({ nodeId: state.fromNode.id, mode: "child", at: { x: pt.clientX, y: pt.clientY }, flowAt: rf.screenToFlowPosition({ x: pt.clientX, y: pt.clientY }) });
         }}
-        onMoveStart={() => setMoving(true)}
+        onMoveStart={(e) => {
+          setMoving(true);
+          if (e) autoFit.current = false; // a user gesture, not a programmatic fit
+        }}
         onMoveEnd={(_, vp) => {
           setMoving(false);
           canvasStore.getState().setViewport(projectId, vp);
@@ -262,7 +300,7 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
         maxZoom={1.5}
         proOptions={{ hideAttribution: true }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
+        {!far && <Background variant={BackgroundVariant.Dots} gap={24} size={1} />}
         {ui.minimap && <MiniMap pannable zoomable nodeClassName={(n) => `mm-${(n.data as NodeData).node.status}`} ariaLabel="Minimap" />}
       </ReactFlow>
       <CanvasControls />

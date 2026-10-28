@@ -1,11 +1,12 @@
 "use client";
-import { Fragment, useMemo, useRef, useState } from "react";
-import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type SortingState, type VisibilityState } from "@tanstack/react-table";
+import { Fragment, memo, useMemo, useRef, useState, type ReactNode } from "react";
+import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type OnChangeFn, type Row as TableRow, type SortingState, type VisibilityState } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Popover } from "radix-ui";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { api, projectPath, useApi } from "../api";
-import { AbstractBadge, Badge, Disclosure, EmptyState, ErrorState, Loading, cx } from "../ui";
+import { AbstractBadge, Badge, EmptyState, ErrorState, Loading, cx } from "../ui";
+import { Disclosure } from "../disclosure";
 import { useJobRefresh, useSession } from "../session/SessionContext";
 import { JobStatus, StaleNotice } from "../panels/common";
 import { RUBRIC, STUDY_TYPES, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
@@ -15,7 +16,7 @@ interface Paper {
   summary: { studyType: string; setting: string; keyFinding: string; edited: boolean } | null;
   topicIds: string[];
 }
-interface Score { id: string; paperId: string; topicId: string; total: number; selected: boolean; userChanged: boolean; rationale: string; subScores: Record<string, number>; rationales: Record<string, string>; paper: { title: string } }
+interface Score { id: string; paperId: string; topicId: string; total: number; selected: boolean; userChanged: boolean; rationale: string; subScores: Record<string, number>; paper: { title: string } }
 interface RankingData { topics: { id: string; name: string; importanceRank: number | null; importanceJustification: string | null; scores: Score[] }[] }
 interface PapersData { topics: { id: string; name: string }[]; papers: Paper[] }
 
@@ -124,7 +125,8 @@ export function TableView() {
               header: () => <span className="sr-only">Selected for appraisal</span>,
               cell: (c) => c.row.original.score && <label className="inline-flex h-11 w-11 items-center justify-center md:h-8 md:w-8"><input type="checkbox" checked={c.row.original.score.selected} onChange={() => toggle(c.row.original.score!)} aria-label={`${c.row.original.score.selected ? "Deselect" : "Select"} ${c.row.original.title}`} /></label>,
             }),
-            ch.accessor("rank", { header: "Rank", sortUndefined: "last", cell: (c) => <span className="tabular-nums text-fg-1">{c.getValue() ?? "–"}</span> }),
+            // Papers not scored for this topic have no rank: undefined (not null) so they sort after rank 1, 2, …
+            ch.accessor((r) => r.rank ?? undefined, { id: "rank", header: "Rank", sortUndefined: "last", cell: (c) => <span className="tabular-nums text-fg-1">{c.getValue() ?? "–"}</span> }),
           ]
         : []),
       ...(ranked ? [ch.accessor((r) => r.score?.total ?? -1, { id: "score", header: topic === "all" ? "Best score" : "Score", cell: (c) => <ScoreCell row={c.row.original} all={topic === "all"} /> })] : []),
@@ -148,18 +150,12 @@ export function TableView() {
     () => (sorting.length ? sorting : ranked ? [{ id: topic === "all" ? "score" : "rank", desc: topic === "all" }] : [{ id: "year", desc: true }]),
     [sorting, ranked, topic],
   );
-  const table = useReactTable({ data: rows, columns, state: { sorting: effectiveSorting, columnVisibility: visibility }, onSortingChange: setSorting, onColumnVisibilityChange: setVisibility, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(), getRowId: (r) => r.id, autoResetPageIndex: false, autoResetExpanded: false });
-  const tableRows = table.getRowModel().rows;
-  const scroller = useRef<HTMLDivElement>(null);
-  const virtual = useVirtualizer({ count: tableRows.length, getScrollElement: () => scroller.current, estimateSize: () => 64, overscan: 12 });
-  const items = virtual.getVirtualItems();
-  const padTop = items[0]?.start ?? 0;
-  const padBottom = virtual.getTotalSize() - (items[items.length - 1]?.end ?? 0);
-  const visibleCols = table.getVisibleLeafColumns().length;
+  const columnChoices = columns.map((c) => ({ id: (c.id ?? (c as { accessorKey?: string }).accessorKey)!, header: c.header })).filter((c) => !["expand", "select", "title"].includes(c.id));
 
   if (states["4"] !== "approved" && (states["5"] ?? "not_started") === "not_started") return <EmptyState title="The table is built after retrieval">Approve the retrieved papers first.</EmptyState>;
-  if (papers.isLoading) return <Loading />;
-  if (papers.error) return <ErrorState error={papers.error} onRetry={() => papers.mutate()} />;
+  // Wait for both, so the topic filter and weights do not push the table down when the ranking arrives.
+  if ((!papers.data && !papers.error) || (!ranking.data && !ranking.error)) return <Loading />;
+  if (papers.error && !papers.data) return <ErrorState error={papers.error} onRetry={() => papers.mutate()} />;
   const all = papers.data?.papers ?? [];
   const missing = all.filter((p) => !p.summary).length;
   const rt = ranking.data?.topics ?? [];
@@ -205,10 +201,10 @@ export function TableView() {
                 <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={oaOnly} onChange={(e) => setOaOnly(e.target.checked)} /> Open access only</label>
                 <fieldset>
                   <legend className="label">Columns</legend>
-                  {table.getAllLeafColumns().filter((c) => !["expand", "select", "title"].includes(c.id)).map((c) => (
+                  {columnChoices.map((c) => (
                     <label key={c.id} className="flex min-h-8 items-center gap-2">
-                      <input type="checkbox" checked={c.getIsVisible()} onChange={c.getToggleVisibilityHandler()} />
-                      {typeof c.columnDef.header === "string" ? c.columnDef.header : c.id}
+                      <input type="checkbox" checked={visibility[c.id] !== false} onChange={() => setVisibility((v) => ({ ...v, [c.id]: v[c.id] === false }))} />
+                      {typeof c.header === "string" ? c.header : c.id}
                     </label>
                   ))}
                 </fieldset>
@@ -232,59 +228,98 @@ export function TableView() {
       {all.length === 0 ? (
         <div className="p-4"><EmptyState title="No papers were retrieved">Go back to the queries and broaden them.</EmptyState></div>
       ) : (
-        <div ref={scroller} className="mt-3 min-h-0 flex-1 overflow-auto border-t border-line" tabIndex={-1}>
-          <table className="w-full min-w-[960px] table-fixed border-collapse text-left" aria-rowcount={rows.length + 1}>
-            <colgroup>
-              {table.getVisibleLeafColumns().map((c) => <col key={c.id} style={{ width: COL_W[c.id] }} />)}
-            </colgroup>
-            <thead className="sticky top-0 z-10 bg-bg-1">
-              {table.getHeaderGroups().map((hg) => (
-                <tr key={hg.id} className="border-b border-line-strong">
-                  {hg.headers.map((h) => {
-                    const sorted = h.column.getIsSorted();
-                    const can = h.column.getCanSort() && h.column.id !== "expand" && h.column.id !== "select";
-                    return (
-                      <th key={h.id} scope="col" aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : can ? "none" : undefined} className="whitespace-nowrap px-2 py-2 text-12 font-medium text-fg-1">
-                        {can ? (
-                          <button className="inline-flex min-h-11 items-center gap-1 rounded-sm px-1 hover:text-fg-0 md:min-h-8" onClick={h.column.getToggleSortingHandler()}>
-                            {flexRender(h.column.columnDef.header, h.getContext())}
-                            {sorted === "asc" ? <ArrowUp className="h-3 w-3" aria-hidden /> : sorted === "desc" ? <ArrowDown className="h-3 w-3" aria-hidden /> : <ArrowUpDown className="h-3 w-3 text-fg-2" aria-hidden />}
-                          </button>
-                        ) : (
-                          flexRender(h.column.columnDef.header, h.getContext())
-                        )}
-                      </th>
-                    );
-                  })}
-                </tr>
-              ))}
-            </thead>
-            {padTop > 0 && <tbody aria-hidden><tr><td colSpan={visibleCols} style={{ height: padTop }} /></tr></tbody>}
-            {items.map((vi) => {
-              const r = tableRows[vi.index];
-              return (
-                <tbody key={r.id} ref={virtual.measureElement} data-index={vi.index}>
-                  <tr className="border-b border-line align-top hover:bg-bg-1">
-                    {r.getVisibleCells().map((c) => <Fragment key={c.id}>{c.column.id.match(/^(studyType|setting|keyFinding)$/) ? flexRender(c.column.columnDef.cell, c.getContext()) : <td className="px-2 py-2">{flexRender(c.column.columnDef.cell, c.getContext())}</td>}</Fragment>)}
-                  </tr>
-                  {expanded.has(r.id) && (
-                    <tr className="border-b border-line bg-bg-1">
-                      <td colSpan={visibleCols} className="px-4 py-3">
-                        <RowDetail row={r.original} topicScores={topic === "all" ? [] : rt.find((t) => t.id === topic)?.scores ?? []} onSwap={swap} />
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              );
-            })}
-            {padBottom > 0 && <tbody aria-hidden><tr><td colSpan={visibleCols} style={{ height: padBottom }} /></tr></tbody>}
-          </table>
+        <PapersTable rows={rows} columns={columns} sorting={effectiveSorting} onSortingChange={setSorting} visibility={visibility} expanded={expanded} topicScores={topic === "all" ? [] : rt.find((t) => t.id === topic)?.scores ?? []} onSwap={swap}>
           {!rows.length && <p className="p-4 text-fg-2">No papers match these filters.</p>}
-        </div>
+        </PapersTable>
       )}
     </div>
   );
 }
+
+/** The table itself, in its own component so building rows (above) and the TanStack row model (here) are
+ *  separate units of work that React can yield between while hydrating. */
+function PapersTable({ rows, columns, sorting, onSortingChange, visibility, expanded, topicScores, onSwap, children }: { rows: Row[]; columns: ColumnDef<Row, any>[]; sorting: SortingState; onSortingChange: OnChangeFn<SortingState>; visibility: VisibilityState; expanded: Set<string>; topicScores: Score[]; onSwap: (outId: string, inId: string) => void; children?: ReactNode }) { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const table = useReactTable({ data: rows, columns, state: { sorting, columnVisibility: visibility }, onSortingChange, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(), getRowId: (r) => r.id, autoResetPageIndex: false, autoResetExpanded: false });
+  const tableRows = table.getRowModel().rows;
+  const scroller = useRef<HTMLDivElement>(null);
+  // initialRect: the server (and the hydrating client) render the first rows before anything is measured; the
+  // rest render after hydration. No flushSync: measuring rows re-renders in its own task, not inside the commit.
+  const virtual = useVirtualizer({ count: tableRows.length, getScrollElement: () => scroller.current, estimateSize: () => 64, overscan: 6, initialRect: { width: 1280, height: 480 }, useFlushSync: false });
+  const items = virtual.getVirtualItems();
+  const padTop = items[0]?.start ?? 0;
+  const padBottom = virtual.getTotalSize() - (items[items.length - 1]?.end ?? 0);
+  const visibleCols = table.getVisibleLeafColumns().length;
+  return (
+    <div ref={scroller} className="mt-3 min-h-0 flex-1 overflow-auto border-t border-line" tabIndex={-1}>
+      <table className="w-full min-w-[960px] table-fixed border-collapse text-left" aria-rowcount={rows.length + 1}>
+        <colgroup>
+          {table.getVisibleLeafColumns().map((c) => <col key={c.id} style={{ width: COL_W[c.id] }} />)}
+        </colgroup>
+        <thead className="sticky top-0 z-10 bg-bg-1">
+          {table.getHeaderGroups().map((hg) => (
+            <tr key={hg.id} className="border-b border-line-strong">
+              {hg.headers.map((h) => {
+                const sorted = h.column.getIsSorted();
+                const can = h.column.getCanSort() && h.column.id !== "expand" && h.column.id !== "select";
+                return (
+                  <th key={h.id} scope="col" aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : can ? "none" : undefined} className="whitespace-nowrap px-2 py-2 text-12 font-medium text-fg-1">
+                    {can ? (
+                      <button className="inline-flex min-h-11 items-center gap-1 rounded-sm px-1 hover:text-fg-0 md:min-h-8" onClick={h.column.getToggleSortingHandler()}>
+                        {flexRender(h.column.columnDef.header, h.getContext())}
+                        {sorted === "asc" ? <ArrowUp className="h-3 w-3" aria-hidden /> : sorted === "desc" ? <ArrowDown className="h-3 w-3" aria-hidden /> : <ArrowUpDown className="h-3 w-3 text-fg-2" aria-hidden />}
+                      </button>
+                    ) : (
+                      flexRender(h.column.columnDef.header, h.getContext())
+                    )}
+                  </th>
+                );
+              })}
+            </tr>
+          ))}
+        </thead>
+        {padTop > 0 && <tbody aria-hidden><tr><td colSpan={visibleCols} style={{ height: padTop }} /></tr></tbody>}
+        {items.map((vi) => {
+          const r = tableRows[vi.index];
+          const open = expanded.has(r.id);
+          return (
+            <RowBody
+              key={r.id}
+              row={r}
+              index={vi.index}
+              columns={columns}
+              visibility={visibility}
+              visibleCols={visibleCols}
+              measure={virtual.measureElement}
+              topicScores={open ? topicScores : undefined}
+              onSwap={open ? onSwap : undefined}
+            />
+          );
+        })}
+        {padBottom > 0 && <tbody aria-hidden><tr><td colSpan={visibleCols} style={{ height: padBottom }} /></tr></tbody>}
+      </table>
+      {children}
+    </div>
+  );
+}
+
+/** One row and, when open, its detail. Memoised: measuring and scrolling re-render the table, and only rows whose
+ *  data, columns or open state changed re-render with it (`columns` changes whenever a cell's rendering does). */
+const RowBody = memo(function RowBody({ row, index, visibleCols, measure, topicScores, onSwap }: { row: TableRow<Row>; index: number; columns: unknown; visibility: VisibilityState; visibleCols: number; measure: (el: Element | null) => void; topicScores?: Score[]; onSwap?: (outId: string, inId: string) => void }) {
+  return (
+    <tbody ref={measure} data-index={index}>
+      <tr className="border-b border-line align-top hover:bg-bg-1">
+        {row.getVisibleCells().map((c) => <Fragment key={c.id}>{c.column.id.match(/^(studyType|setting|keyFinding)$/) ? flexRender(c.column.columnDef.cell, c.getContext()) : <td className="px-2 py-2">{flexRender(c.column.columnDef.cell, c.getContext())}</td>}</Fragment>)}
+      </tr>
+      {topicScores && onSwap && (
+        <tr className="border-b border-line bg-bg-1">
+          <td colSpan={visibleCols} className="px-4 py-3">
+            <RowDetail row={row.original} topicScores={topicScores} onSwap={onSwap} />
+          </td>
+        </tr>
+      )}
+    </tbody>
+  );
+});
 
 function ScoreCell({ row, all }: { row: Row; all: boolean }) {
   const s = row.score;
@@ -330,6 +365,7 @@ function RowDetail({ row, topicScores, onSwap }: { row: Row; topicScores: Score[
   const { projectId } = useSession();
   const { data } = useApi<{ paper: { abstract: string | null } }>(projectPath(projectId, `papers/${row.id}`));
   const s = row.score;
+  const why = useApi<{ rationales: Record<string, string> }>(s ? projectPath(projectId, `ranking/scores/${s.id}`) : null);
   const rest = topicScores.filter((x) => !x.selected);
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -342,7 +378,7 @@ function RowDetail({ row, topicScores, onSwap }: { row: Row; topicScores: Score[
           <h3 className="label">Why this score</h3>
           <p className="text-fg-1">{s.rationale}</p>
           <ul className="mt-2 space-y-1 text-12 text-fg-1">
-            {RUBRIC.map((r) => <li key={r.key}><strong className="font-medium">{r.label} {s.subScores[r.key]}/5:</strong> {s.rationales[r.key]}</li>)}
+            {RUBRIC.map((r) => <li key={r.key}><strong className="font-medium">{r.label} {s.subScores[r.key]}/5:</strong> {why.data ? why.data.rationales[r.key as keyof typeof why.data.rationales] : "…"}</li>)}
           </ul>
           {s.selected && rest.length > 0 && (
             <label className="mt-3 block text-12 text-fg-1">Swap for another paper in this topic

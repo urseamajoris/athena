@@ -4,12 +4,13 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { TransitionLink } from "../vt";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence } from "motion/react";
 import { Command, LayoutGrid, List as ListIcon, X } from "lucide-react";
 import { useApi } from "../api";
 import { Badge, ErrorState, Kbd, Loading, cx } from "../ui";
 import { MotionRoot } from "../motion";
+import { useHydrated } from "../hydrated";
 import { AppMenu } from "../AppMenu";
 import { SessionProvider, canvasStore, useCanvas, useSession } from "../session/SessionContext";
 import { StageRail } from "./StageRail";
@@ -18,7 +19,8 @@ import { STAGE_KEY_TO_NODE, nodeForStage } from "@/lib/canvas/graph";
 
 const CanvasView = dynamic(() => import("./CanvasView"), { ssr: false, loading: () => <Loading label="Drawing the canvas…" /> });
 const CommandPalette = dynamic(() => import("./CommandPalette"), { ssr: false });
-const ListView = dynamic(() => import("./ListView").then((m) => m.ListView), { ssr: false, loading: () => <Loading /> });
+// Server-rendered: before hydration the viewport is unknown, so phones get the List view in the first HTML.
+const ListView = dynamic(() => import("./ListView").then((m) => m.ListView), { loading: () => <Loading /> });
 const FocusPanel = dynamic(() => import("./FocusPanel").then((m) => m.FocusPanel), { ssr: false });
 const ShortcutsDialog = dynamic(() => import("./ShortcutsDialog").then((m) => m.ShortcutsDialog), { ssr: false });
 
@@ -52,7 +54,16 @@ export function SessionShell({ projectId }: { projectId: string }) {
 
 function Shell() {
   const { graph, ui, projectId, error, clearError, project, summary, claims } = useSession();
+  // The sessions list is prefetched once the canvas has loaded, not while it competes for the network.
+  const router = useRouter();
+  const loaded = !!summary;
+  useEffect(() => {
+    if (!loaded) return;
+    const t = setTimeout(() => router.prefetch("/sessions"), 3000);
+    return () => clearTimeout(t);
+  }, [loaded, router]);
   const mobile = useIsMobile();
+  const hydrated = useHydrated();
   const view = ui.view ?? (mobile ? "list" : "canvas");
   const panel = useCanvas((s) => s.panel);
   const palette = useCanvas((s) => s.palette);
@@ -134,7 +145,7 @@ function Shell() {
   }, [graph, projectId, view]);
 
   const viewBtn = (v: "canvas" | "list", label: string, Icon: typeof ListIcon) => (
-    <button className={cx("inline-flex h-11 items-center gap-2 rounded-sm px-3", view === v ? "bg-bg-3 text-fg-0" : "text-fg-1 hover:text-fg-0")} aria-pressed={view === v} onClick={() => canvasStore.getState().setView(projectId, v)} title={`${label} (L)`}>
+    <button className={cx("inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-sm px-3", view === v ? "bg-bg-3 text-fg-0" : "text-fg-1 hover:text-fg-0")} aria-pressed={view === v} onClick={() => canvasStore.getState().setView(projectId, v)} title={`${label} (L)`}>
       <Icon className="h-4 w-4" strokeWidth={1.5} aria-hidden />
       <span className={mobile ? "sr-only" : ""}>{label}</span>
     </button>
@@ -143,27 +154,43 @@ function Shell() {
   return (
     <div className="fixed inset-0 flex flex-col bg-bg-0">
       <header className="relative z-20 flex h-12 shrink-0 items-center gap-3 border-b border-line bg-bg-0 px-2 md:px-4">
-        <TransitionLink href="/sessions" className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-sm px-1 font-semibold" aria-label="Athena: all sessions">
+        <TransitionLink href="/sessions" prefetch={false} className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-sm px-1 font-semibold" aria-label="Athena: all sessions">
           <LogoMark />
           <span className="hidden lg:inline">Athena</span>
         </TransitionLink>
         <h1 className="hidden min-w-0 max-w-64 truncate font-medium text-fg-1 xl:block" title={project.idea}>{project.title || project.idea}</h1>
         <div className="flex min-w-0 flex-1 justify-center">
-          <StageRail compact={mobile} />
+          {hydrated ? (
+            <StageRail compact={mobile} />
+          ) : (
+            <>
+              <span className="contents md:hidden"><StageRail compact /></span>
+              <span className="hidden md:contents"><StageRail compact={false} /></span>
+            </>
+          )}
         </div>
-        {status?.mockMode && !mobile && <Badge title="MOCK_MODE: recorded API fixtures and canned model responses; nothing is spent">Mock data</Badge>}
+        {status?.mockMode && <span className="hidden md:contents"><Badge title="MOCK_MODE: recorded API fixtures and canned model responses; nothing is spent">Mock data</Badge></span>}
         <div className="flex items-center rounded-md border border-line" role="group" aria-label="View">
           {viewBtn("canvas", "Canvas", LayoutGrid)}
           {viewBtn("list", "List", ListIcon)}
         </div>
         <button className="btn-ghost h-11 min-w-11 px-2" onClick={() => { setPaletteLoaded(true); canvasStore.getState().setPalette(true); }} aria-label="Command palette (⌘K or /)">
           <Command className="h-4 w-4" strokeWidth={1.5} aria-hidden />
-          {!mobile && <Kbd>K</Kbd>}
+          <span className="hidden md:contents"><Kbd>K</Kbd></span>
         </button>
         <AppMenu onShortcuts={() => canvasStore.getState().setShortcuts(true)} />
       </header>
       <main id="main" className="relative flex-1 overflow-hidden" aria-label={view === "list" ? "Review list" : "Review canvas"}>
-        {view === "canvas" ? <CanvasView readOnly={mobile} /> : <ListView />}
+        {!hydrated ? (
+          <>
+            <div className="h-full md:hidden"><ListView /></div>
+            <div className="hidden h-full md:block"><Loading label="Drawing the canvas…" /></div>
+          </>
+        ) : view === "canvas" ? (
+          <CanvasView readOnly={mobile} />
+        ) : (
+          <ListView />
+        )}
         {error ? (
           <div className="absolute left-1/2 top-4 z-30 w-[min(560px,calc(100vw-32px))] -translate-x-1/2">
             <div className="relative">

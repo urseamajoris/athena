@@ -1,5 +1,6 @@
 "use client";
-import { Kbd, Modal } from "../ui";
+import { Kbd } from "../ui";
+import { Modal } from "../overlays";
 
 export const SHORTCUTS: [string[], string][] = [
   [["Enter"], "Open the selected node (accept a suggested subtopic)"],

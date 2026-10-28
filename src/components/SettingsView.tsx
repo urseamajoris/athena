@@ -4,7 +4,8 @@ import Link from "next/link";
 import { ArrowLeft, Check, Lock, X } from "lucide-react";
 import { RadioGroup, Switch } from "radix-ui";
 import { useApi } from "./api";
-import { Disclosure, ErrorState, Loading, cx } from "./ui";
+import { ErrorState, Loading, cx } from "./ui";
+import { Disclosure } from "./disclosure";
 import { applyThemePref, readThemePref, type ThemePref } from "@/lib/theme";
 
 interface Status {
@@ -22,7 +23,7 @@ interface Status {
 
 /** Settings: confirm mock mode and spend first; everything else is collapsed. */
 export function SettingsView() {
-  const { data, error, isLoading, mutate } = useApi<Status>("/api/status");
+  const { data, error, mutate } = useApi<Status>("/api/status");
   const { data: projects } = useApi<{ projects: unknown[] }>("/api/projects");
   const [theme, setTheme] = useState<ThemePref>("dark");
   useEffect(() => setTheme(readThemePref()), []);
@@ -33,7 +34,7 @@ export function SettingsView() {
       </header>
       <main id="main" className="mx-auto max-w-2xl px-4 py-8">
         <h1 className="text-20 font-semibold">Settings</h1>
-        {isLoading && <Loading />}
+        {!data && !error && <Loading />}
         {error && <div className="mt-4"><ErrorState error={error} onRetry={() => mutate()} /></div>}
         {data && (
           <div className="mt-6 space-y-4">

@@ -5,9 +5,12 @@ import Link from "next/link";
 import { TransitionLink } from "./vt";
 import { AlertTriangle, Plus } from "lucide-react";
 import { api, useApi } from "./api";
-import { Disclosure, ErrorState, Loading, MoreMenu, Modal, StateIcon, cx } from "./ui";
+import { ErrorState, Loading, StateIcon } from "./ui";
+import { Disclosure } from "./disclosure";
+import { MoreMenu, Modal } from "./overlays";
 import { AppMenu } from "./AppMenu";
 import { STAGES, STATE_LABEL, type StageState } from "@/lib/shared/stages";
+import { relTime } from "@/lib/shared/format";
 
 interface ProjectRow {
   id: string;
@@ -23,18 +26,10 @@ function frontier(p: ProjectRow) {
   return STAGES.find((s) => p.stageStates[String(s.n)] !== "approved") ?? null;
 }
 
-const rel = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-function ago(iso: string) {
-  const mins = Math.round((Date.parse(iso) - Date.now()) / 60000);
-  if (Math.abs(mins) < 60) return rel.format(mins, "minute");
-  const h = Math.round(mins / 60);
-  if (Math.abs(h) < 24) return rel.format(h, "hour");
-  return rel.format(Math.round(h / 24), "day");
-}
 
 /** Sessions: open one, or start a new one. */
 export function SessionsList() {
-  const { data, error, isLoading, mutate } = useApi<{ projects: ProjectRow[] }>("/api/projects");
+  const { data, error, mutate } = useApi<{ projects: ProjectRow[] }>("/api/projects");
   const [sort, setSort] = useState<"updated" | "title" | "stage">("updated");
   const [filter, setFilter] = useState<"all" | "active" | "done" | "stale">("all");
   const [confirm, setConfirm] = useState<ProjectRow | null>(null);
@@ -83,7 +78,7 @@ export function SessionsList() {
             </div>
           </Disclosure>
         </div>
-        {isLoading && <Loading />}
+        {!data && !error && <Loading />}
         {error && <div className="mt-4"><ErrorState error={error} onRetry={() => mutate()} /></div>}
         {data && data.projects.length === 0 && <p className="mt-8 text-fg-2">No sessions yet. Your first one will appear here.</p>}
         <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -92,16 +87,16 @@ export function SessionsList() {
             const state: StageState = f ? p.stageStates[String(f.n)] ?? "not_started" : "approved";
             const stale = Object.values(p.stageStates).filter((s) => s === "stale").length;
             return (
-              <li key={p.id} className="relative flex flex-col rounded-md border border-line bg-bg-1 hover:border-line-strong">
-                <TransitionLink href={`/s/${p.id}`} className="flex flex-1 flex-col gap-2 rounded-md p-4 pr-12">
+              <li key={p.id} className="flex items-start rounded-md border border-line bg-bg-1 hover:border-line-strong">
+                <TransitionLink href={`/s/${p.id}`} className="flex min-h-full flex-1 flex-col gap-2 self-stretch rounded-md p-4">
                   <span className="line-clamp-3 font-medium text-fg-0">{p.title || p.idea}</span>
                   <span className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-12 text-fg-1">
                     <span className="inline-flex items-center gap-1"><StateIcon state={state} className="h-3 w-3" />{f ? `${f.n}. ${f.title} · ${STATE_LABEL[state].toLowerCase()}` : "Finished"}</span>
                     {stale > 0 && <span className="inline-flex items-center gap-1 text-warn"><AlertTriangle className="h-3 w-3" strokeWidth={2} aria-hidden />{stale} stale</span>}
-                    <span className="text-fg-2">edited {ago(p.updatedAt)}</span>
+                    <span className="text-fg-2" suppressHydrationWarning>edited {relTime(p.updatedAt)}</span>
                   </span>
                 </TransitionLink>
-                <div className={cx("absolute right-1 top-1")}>
+                <div className="p-1">
                   <MoreMenu label={`Actions for ${p.title || p.idea}`} items={[{ label: "Delete session", danger: true, onSelect: () => setConfirm(p) }]} />
                 </div>
               </li>

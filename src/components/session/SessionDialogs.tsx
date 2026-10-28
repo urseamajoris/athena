@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api, projectPath } from "../api";
-import { Modal, Spinner } from "../ui";
+import { Spinner } from "../ui";
+import { Modal } from "../overlays";
 import { canvasStore, useSession } from "./SessionContext";
 import { STAGES } from "@/lib/shared/stages";
 import type { Pos } from "@/lib/canvas/layout";

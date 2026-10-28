@@ -21,8 +21,10 @@ const Database = require("better-sqlite3") as Any;
 const arg = (k: string, d?: string) => process.argv.find((a) => a.startsWith(`--${k}=`))?.split("=")[1] ?? (process.argv.includes(`--${k}`) ? "true" : d);
 const ROUND = arg("round", "1")!;
 const ONLY = arg("only")?.split(",") ?? null;
+const LH_ONLY = arg("lh")?.split(",") ?? null; // Lighthouse only these pages (iteration)
+const PROFILE = arg("profile") === "true"; // log a CPU profile of the 300-node pan
 const QUICK = arg("quick") === "true"; // desktop dark only (fast iteration)
-const SKIP_LH = arg("skip-lighthouse") === "true" || QUICK;
+const SKIP_LH = arg("skip-lighthouse") === "true" || (QUICK && !arg("lh"));
 const PORT = Number(arg("port", "3210"));
 const ROOT = process.cwd(); // run from the repository root (npm run qa)
 const BASE = `http://localhost:${PORT}`;
@@ -265,13 +267,18 @@ const PAGE_CHECKS = () => {
     return `${el.tagName.toLowerCase()}${el.id ? "#" + el.id : ""}${t ? ` "${t}"` : ""}`;
   };
   // Resolve the accent colour as the browser computes it.
-  const probe = document.createElement("div");
-  probe.style.background = "var(--accent)";
-  document.body.appendChild(probe);
-  const accent = getComputedStyle(probe).backgroundColor;
-  probe.style.background = "var(--bg-0)";
-  const page = rgb(getComputedStyle(probe).backgroundColor)!;
-  probe.remove();
+  // Two probes, each resolved once: changing one probe's colour would start a transition (reduced motion
+  // still has 0.01 ms transitions) and read back the old colour.
+  const probeOf = (v: string) => {
+    const p = document.createElement("div");
+    p.style.cssText = `background:var(${v});transition:none`;
+    document.body.appendChild(p);
+    const c = getComputedStyle(p).backgroundColor;
+    p.remove();
+    return c;
+  };
+  const accent = probeOf("--accent");
+  const page = rgb(probeOf("--bg-0"))!;
   const all = [...document.querySelectorAll("body *")].filter(vis);
 
   // 1–2: accent-filled elements; squint test (the accent block is the highest-contrast filled block).
@@ -477,30 +484,61 @@ async function tabWalk(page: Any, where: string) {
 }
 
 async function measureFps(page: Any, where: string) {
+  // The pan is driven from inside the page, one pointer move per animation frame, so the viewport changes on
+  // every frame (Playwright's mouse moves arrive about every 30 ms and would cap the drawn frame rate at ~30).
+  // The trace counts the frames the compositor actually drew; rAF shows whether the main thread kept up.
   const cdp = await page.context().newCDPSession(page);
-  await page.mouse.move(700, 450);
+  if (PROFILE) {
+    await cdp.send("Profiler.enable");
+    await cdp.send("Profiler.setSamplingInterval", { interval: 200 });
+    await cdp.send("Profiler.start");
+  }
   await cdp.send("Tracing.start", { categories: "devtools.timeline,disabled-by-default-devtools.timeline.frame", transferMode: "ReturnAsStream" });
-  const frames = page.evaluate(
+  const raf = await page.evaluate(
     () =>
-      new Promise<{ fps: number; frames: number }>((resolve) => {
+      new Promise<{ fps: number; frames: number; p95: number; moved: number }>((resolve) => {
+        const pane = document.querySelector(".react-flow__pane") as HTMLElement;
+        const vpEl = document.querySelector(".react-flow__viewport") as HTMLElement;
+        const r = pane.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const ev = (type: string, x: number, y: number) => new MouseEvent(type, { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, button: 0, buttons: type === "mouseup" ? 0 : 1 });
+        const before = vpEl.style.transform;
+        pane.dispatchEvent(ev("mousedown", cx, cy));
+        const gaps: number[] = [];
         let n = 0;
-        const start = performance.now();
-        const tick = () => {
+        let moved = 0;
+        let last = performance.now();
+        const start = last;
+        const tick = (t: number) => {
           n++;
-          if (performance.now() - start < 2000) requestAnimationFrame(tick);
-          else resolve({ fps: (n * 1000) / (performance.now() - start), frames: n });
+          gaps.push(t - last);
+          last = t;
+          const a = ((t - start) / 1000) * Math.PI;
+          window.dispatchEvent(ev("mousemove", cx + Math.sin(a) * 300, cy + Math.cos(a) * 150 - 150));
+          if (vpEl.style.transform !== before) moved++;
+          if (t - start < 2000) requestAnimationFrame(tick);
+          else {
+            window.dispatchEvent(ev("mouseup", cx, cy));
+            gaps.sort((x, y) => x - y);
+            resolve({ fps: (n * 1000) / (t - start), frames: n, p95: gaps[Math.floor(gaps.length * 0.95)], moved });
+          }
         };
         requestAnimationFrame(tick);
       }),
   );
-  // Pan by dragging the empty pane for two seconds.
-  await page.mouse.down();
-  for (let i = 0; i < 60; i++) {
-    await page.mouse.move(700 + Math.sin(i / 6) * 300, 450 + Math.cos(i / 6) * 150);
-    await page.waitForTimeout(30);
+  if (PROFILE) {
+    const { profile } = await cdp.send("Profiler.stop");
+    const self = new Map<string, number>();
+    const dt = profile.timeDeltas as number[];
+    const byId = new Map<number, Any>(profile.nodes.map((n: Any) => [n.id, n]));
+    (profile.samples as number[]).forEach((id, i) => {
+      const f = byId.get(id).callFrame;
+      const k = `${f.functionName || "(anon)"} ${path.basename(f.url)}:${f.lineNumber}:${f.columnNumber}`;
+      self.set(k, (self.get(k) ?? 0) + (dt[i] ?? 0) / 1000);
+    });
+    log("profile (self ms):\n" + [...self].sort((x, y) => y[1] - x[1]).slice(0, 30).map(([k, v]) => `${v.toFixed(0).padStart(6)} ${k}`).join("\n"));
   }
-  await page.mouse.up();
-  const raf = await frames;
   let traceFps: number | null = null;
   try {
     const done = new Promise<Any>((r) => cdp.once("Tracing.tracingComplete", r));
@@ -512,14 +550,30 @@ async function measureFps(page: Any, where: string) {
       data += chunk.data;
       if (chunk.eof) break;
     }
-    const events = JSON.parse(data).traceEvents ?? JSON.parse(data);
-    const draws = events.filter((e: Any) => e.name === "DrawFrame" || e.name === "Graphics.Pipeline" && e.args?.data?.step === "SubmitCompositorFrame").map((e: Any) => e.ts).sort((a: number, b: number) => a - b);
+    const parsed = JSON.parse(data);
+    const events: Any[] = parsed.traceEvents ?? parsed;
+    if (PROFILE) {
+      const sum = new Map<string, { ms: number; n: number }>();
+      for (const e of events) {
+        if (e.ph !== "X" || !e.dur) continue;
+        const k = `${e.name} [${e.tid}]`;
+        const v = sum.get(k) ?? { ms: 0, n: 0 };
+        v.ms += e.dur / 1000;
+        v.n++;
+        sum.set(k, v);
+      }
+      log("trace (ms, count):\n" + [...sum].sort((x, y) => y[1].ms - x[1].ms).slice(0, 25).map(([k, v]) => `${v.ms.toFixed(0).padStart(6)} ${String(v.n).padStart(5)} ${k}`).join("\n"));
+    }
+    const draws = events.filter((e) => e.name === "DrawFrame").map((e) => e.ts).sort((a: number, b: number) => a - b);
     if (draws.length > 10) traceFps = ((draws.length - 1) * 1e6) / (draws[draws.length - 1] - draws[0]);
   } catch {}
-  metrics.canvasPanFps = { raf: Math.round(raf.fps * 10) / 10, trace: traceFps ? Math.round(traceFps * 10) / 10 : null };
+  const r1 = (x: number) => Math.round(x * 10) / 10;
+  metrics.canvasPanFps = { raf: r1(raf.fps), rafP95FrameMs: r1(raf.p95), trace: traceFps ? r1(traceFps) : null, framesWithPan: raf.moved };
+  if (raf.moved < raf.frames / 2) return fail(10, where, `the pan did not move the viewport (${raf.moved}/${raf.frames} frames)`);
   const fps = traceFps ?? raf.fps;
-  if (fps >= 55) pass(10, where, `pans at ${fps.toFixed(1)} fps (rAF ${raf.fps.toFixed(1)})`);
-  else fail(10, where, `pans at ${fps.toFixed(1)} fps (rAF ${raf.fps.toFixed(1)}), below 55`);
+  const msg = `pans at ${fps.toFixed(1)} fps drawn (rAF ${raf.fps.toFixed(1)}, p95 frame ${raf.p95.toFixed(1)} ms)`;
+  if (fps >= 55 && raf.fps >= 55) pass(10, where, msg);
+  else fail(10, where, `${msg}, below 55`);
 }
 
 async function listMatchesGraph(browser: Any, path_: string, pins: string, where: string) {
@@ -541,23 +595,34 @@ async function listMatchesGraph(browser: Any, path_: string, pins: string, where
 }
 
 async function bundleSize(browser: Any, path_: string) {
+  // Times are taken inside the page: when the first canvas node is visible, and when each script finished
+  // (Resource Timing). "Initial" = scripts that finished before that first node; encodedBodySize is the
+  // gzip-compressed size as served by next start.
   const ctx = await newContext(browser, { viewport: { width: 1440, height: 900 } });
-  const page = await ctx.newPage();
-  const js: { url: string; size: number; at: number }[] = [];
-  const t = Date.now();
-  page.on("requestfinished", async (req: Any) => {
-    if (req.resourceType() !== "script") return;
-    const s = await req.sizes().catch(() => null);
-    js.push({ url: req.url(), size: s?.responseBodySize ?? 0, at: Date.now() - t });
+  await ctx.addInitScript(() => {
+    const w = window as Any;
+    const poll = () => {
+      const el = document.querySelector("[data-node-id]");
+      const r = el?.getBoundingClientRect();
+      if (el && r && r.width > 0 && getComputedStyle(el).visibility !== "hidden") w.__firstNodeAt = performance.now();
+      else requestAnimationFrame(poll);
+    };
+    requestAnimationFrame(poll);
   });
+  const page = await ctx.newPage();
   await page.goto(BASE + path_);
-  await page.locator("[data-node-id]").first().waitFor({ timeout: 60000 });
-  const interactiveAt = Date.now() - t;
-  await page.waitForTimeout(3000);
+  await page.waitForFunction(() => (window as Any).__firstNodeAt, null, { timeout: 60000 });
+  await page.waitForTimeout(4000);
+  const r = await page.evaluate(() => {
+    const at = (window as Any).__firstNodeAt as number;
+    const js = (performance.getEntriesByType("resource") as PerformanceResourceTiming[]).filter((e) => /\.js(\?|$)/.test(e.name));
+    return { at, js: js.map((e) => ({ url: e.name, size: e.encodedBodySize, end: e.responseEnd })) };
+  });
   await ctx.close();
-  const initial = js.filter((j) => j.at <= interactiveAt + 50);
   const kb = (n: number) => Math.round(n / 1024);
-  metrics.canvasJs = { initialGzipKb: kb(initial.reduce((a, j) => a + j.size, 0)), totalGzipKb: kb(js.reduce((a, j) => a + j.size, 0)), lazyChunks: js.filter((j) => j.at > interactiveAt + 50).map((j) => `${path.basename(j.url)} ${kb(j.size)}kB`) };
+  const initial = r.js.filter((j: Any) => j.end <= r.at);
+  const lazy = r.js.filter((j: Any) => j.end > r.at);
+  metrics.canvasJs = { firstNodeMs: Math.round(r.at), initialGzipKb: kb(initial.reduce((a: number, j: Any) => a + j.size, 0)), totalGzipKb: kb(r.js.reduce((a: number, j: Any) => a + j.size, 0)), lazyChunks: lazy.map((j: Any) => `${path.basename(j.url)} ${kb(j.size)}kB`) };
   return metrics.canvasJs;
 }
 
@@ -566,10 +631,23 @@ function lighthouse(url: string, name: string) {
   try {
     execFileSync(path.join(ROOT, "node_modules/.bin/lighthouse"), [url, "--quiet", "--output=json", `--output-path=${out}`, "--only-categories=performance,accessibility", "--chrome-flags=--headless=new --no-sandbox --disable-gpu"], { env: { ...process.env, CHROME_PATH: CHROME }, stdio: "ignore", timeout: 180000 });
     const r = JSON.parse(fs.readFileSync(out, "utf8"));
-    return { performance: Math.round(r.categories.performance.score * 100), accessibility: Math.round(r.categories.accessibility.score * 100), lcpMs: Math.round(r.audits["largest-contentful-paint"].numericValue), tbtMs: Math.round(r.audits["total-blocking-time"].numericValue), cls: r.audits["cumulative-layout-shift"].numericValue, failedA11y: Object.values(r.audits).filter((a: Any) => a.score === 0 && r.categories.accessibility.auditRefs.some((x: Any) => x.id === a.id)).map((a: Any) => a.id) };
+    fs.mkdirSync(path.join(ROOT, "qa/lh"), { recursive: true });
+    fs.copyFileSync(out, path.join(ROOT, `qa/lh/${ROUND}-${name}.json`));
+    return { performance: Math.round(r.categories.performance.score * 100), accessibility: Math.round(r.categories.accessibility.score * 100), lcpMs: Math.round(r.audits["largest-contentful-paint"].numericValue), tbtMs: Math.round(r.audits["total-blocking-time"].numericValue), cls: r.audits["cumulative-layout-shift"].numericValue, failedA11y: Object.values(r.audits).filter((a: Any) => a.score === 0 && r.categories.accessibility.auditRefs.some((x: Any) => x.id === a.id)).map((a: Any) => a.id), lcpElement: lcpElement(r), shifts: shifts(r) };
   } catch (e) {
     return { error: String(e).slice(0, 200) };
   }
+}
+
+function lcpElement(r: Any): string | undefined {
+  // Lighthouse 13 reports the LCP element in the LCP breakdown insight (a "node" item).
+  const items: Any[] = r.audits["lcp-breakdown-insight"]?.details?.items ?? r.audits["largest-contentful-paint-element"]?.details?.items ?? [];
+  const node = items.find((i) => i.type === "node") ?? items[0]?.items?.[0]?.node;
+  return node?.snippet?.slice(0, 160);
+}
+function shifts(r: Any): string[] {
+  const items = r.audits["layout-shifts"]?.details?.items ?? [];
+  return items.slice(0, 3).map((i: Any) => `${(i.score ?? 0).toFixed(3)} ${i.node?.snippet?.slice(0, 120) ?? ""}`);
 }
 
 /** esbuild (via tsx) wraps named functions in __name(); define it in every page so page.evaluate works. */
@@ -681,10 +759,23 @@ async function main() {
     const page = await ctx.newPage();
     await page.goto(`${BASE}/s/${F.big}`);
     await page.locator("[data-node-id]").first().waitFor({ timeout: 60000 });
-    await page.waitForTimeout(2500);
+    // Pan once the layout has settled (the elkjs refinement lands shortly after load).
+    await page.waitForFunction(
+      () =>
+        new Promise<boolean>((resolve) => {
+          const sig = () => [...document.querySelectorAll(".react-flow__node")].map((n) => (n as HTMLElement).style.transform).join("|") + (document.querySelector(".react-flow__viewport") as HTMLElement).style.transform;
+          const a = sig();
+          setTimeout(() => resolve(sig() === a), 1000);
+        }),
+      null,
+      { timeout: 20000, polling: 100 },
+    ).catch(() => log("canvas-300: layout still moving after 20 s"));
+    if (arg("fps-css")) await page.addStyleTag({ content: arg("fps-css") });
     await measureFps(page, `canvas-300 (${n} nodes)`);
     await ctx.close();
-    await bundleSize(browser, `/s/${F.full}`);
+    const b = (await bundleSize(browser, `/s/${F.full}`)) as Any;
+    if (b.initialGzipKb < 250) pass(11, "canvas route JS", `${b.initialGzipKb} kB gzip before the first node shows`);
+    else fail(11, "canvas route JS", `${b.initialGzipKb} kB gzip before the first node shows (budget 250)`);
   }
   await browser.close();
 
@@ -693,10 +784,16 @@ async function main() {
     const pages: Record<string, string> = { landing: "/", sessions: "/sessions", settings: "/settings", "canvas-empty": "/s/new", "canvas-done": `/s/${F.full}`, table: `/s/${F.full}/table`, "export-page": `/s/${F.full}/export` };
     const lh: Record<string, unknown> = {};
     for (const [name, p] of Object.entries(pages)) {
-      const r = lighthouse(BASE + p, name) as Any;
+      if (LH_ONLY && !LH_ONLY.includes(name)) continue;
+      // Three runs, median performance (Lighthouse's advice for variable machines); accessibility must be 100
+      // in every run.
+      const runs = [0, 1, 2].map(() => lighthouse(BASE + p, name) as Any);
+      const ok = runs.filter((x) => !x.error).sort((x, y) => x.performance - y.performance);
+      const r = ok.length ? { ...ok[Math.floor((ok.length - 1) / 2)], accessibility: Math.min(...ok.map((x) => x.accessibility)), runs: ok.map((x) => x.performance) } : runs[0];
       lh[name] = r;
       log("lighthouse", name, JSON.stringify(r));
       if (r.error) fail(11, name, r.error);
+      else if (name === "landing" && r.lcpMs >= 2000) fail(11, name, `LCP ${r.lcpMs} ms (budget 2000)`);
       else if (r.performance >= 90 && r.accessibility === 100) pass(11, name, `performance ${r.performance}, accessibility ${r.accessibility}, LCP ${r.lcpMs} ms`);
       else fail(11, name, `performance ${r.performance}, accessibility ${r.accessibility}${r.failedA11y.length ? ` (${r.failedA11y.join(", ")})` : ""}, LCP ${r.lcpMs} ms, TBT ${r.tbtMs} ms`);
     }
@@ -727,7 +824,7 @@ const ITEMS = [
   "Stale, verified and running are clear without colour (icon + text)",
   "4-pt spacing grid; at most 3 type sizes per view",
   "Canvas: 300 nodes pan at ≥ 55 fps; List view matches the graph",
-  "Lighthouse (mobile): Performance ≥ 90, Accessibility 100",
+  "Lighthouse (mobile): Performance ≥ 90, Accessibility 100; landing LCP < 2 s; canvas initial JS < 250 kB gzip",
   "No console errors; no network calls to paid APIs",
 ];
 

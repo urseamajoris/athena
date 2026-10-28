@@ -2,7 +2,8 @@
 import { Dialog } from "radix-ui";
 import { X } from "lucide-react";
 import { projectPath, useApi } from "../api";
-import { AbstractBadge, Badge, Disclosure, ErrorState, Loading, TextSourceBadge } from "../ui";
+import { AbstractBadge, Badge, ErrorState, Loading, TextSourceBadge } from "../ui";
+import { Disclosure } from "../disclosure";
 import { RUBRIC, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
 import { useSession } from "./SessionContext";
 

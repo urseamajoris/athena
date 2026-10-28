@@ -1,11 +1,12 @@
 "use client";
 import Link from "next/link";
 import { Table2 } from "lucide-react";
-import { Disclosure } from "../ui";
+import { Disclosure } from "../disclosure";
 import { useSession } from "../session/SessionContext";
 import { ActionButton, JobLog, JobStatus, PanelFooter, SectionTitle, Stat, StaleNotice } from "./common";
 import { nextAction } from "@/lib/canvas/actions";
 import { RUBRIC } from "@/lib/shared/stages";
+import { fmtInt } from "@/lib/shared/format";
 
 /** Table node (stages 5–6): summary rows, then ranking; the full table opens on its own page. */
 export function TablePanel() {
@@ -20,8 +21,8 @@ export function TablePanel() {
       <StaleNotice stage={5} also={[6]} />
       <JobStatus stage={activeStage} />
       <div className="grid grid-cols-2 gap-2">
-        <Stat label="Rows" value={(t?.papers ?? 0).toLocaleString()} />
-        <Stat label="Summarised by AI" value={`${(t?.summarised ?? 0).toLocaleString()}${t?.edited ? ` · ${t.edited} edited` : ""}`} />
+        <Stat label="Rows" value={fmtInt(t?.papers ?? 0)} />
+        <Stat label="Summarised by AI" value={`${fmtInt(t?.summarised ?? 0)}${t?.edited ? ` · ${t.edited} edited` : ""}`} />
       </div>
       <Link href={`/s/${projectId}/table`} className="btn-secondary w-full">
         <Table2 className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Open the full table

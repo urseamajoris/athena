@@ -2,6 +2,7 @@
 // per-browser state (accepted ghost topics, pinned quotes) → nodes and edges. Pure; unit-tested.
 import { STAGES, type StageState } from "../shared/stages";
 import type { CanvasSummary, ClaimLite, JobLite, StageStates } from "../shared/canvas";
+import { fmtInt } from "../shared/format";
 
 export type NodeKind = "idea" | "topic" | "query" | "corpus" | "table" | "appraisal" | "synthesis" | "questions" | "export" | "quote";
 export type NodeStatus = "idle" | "running" | "review" | "done" | "stale" | "error";
@@ -98,7 +99,7 @@ export function toStatus(s: StageState): NodeStatus {
   }
 }
 
-const fmt = (n: number) => n.toLocaleString("en-US");
+const fmt = fmtInt;
 const plural = (n: number, one: string, many = `${one}s`) => `${fmt(n)} ${n === 1 ? one : many}`;
 const DB_LABEL: Record<string, string> = { pubmed: "PubMed", openalex: "OpenAlex" };
 

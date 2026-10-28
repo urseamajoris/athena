@@ -2,11 +2,13 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { api, projectPath, useApi } from "../api";
-import { Badge, Disclosure, EmptyState, ErrorState, Loading, Spinner, cx } from "../ui";
+import { Badge, EmptyState, ErrorState, Loading, Spinner, cx } from "../ui";
+import { Disclosure } from "../disclosure";
 import { useJobRefresh, useSession } from "../session/SessionContext";
 import { ActionButton, JobLog, JobStatus, PanelFooter, StaleNotice } from "./common";
 import { ClaimChip, type ClaimRef, type PaperRef } from "./evidence";
 import { nextAction } from "@/lib/canvas/actions";
+import { fmtInt } from "@/lib/shared/format";
 
 interface Match { title: string; year: number | null; doi: string | null; pmid: string | null; openalexId: string | null; database: string; similarityNote: string }
 export interface RQ {
@@ -119,7 +121,7 @@ function Novelty({ q, onRerun }: { q: RQ; onRerun: (d: QData) => void }) {
       </div>
       <ul className="mt-1 space-y-1 text-fg-2">
         {q.noveltyQueries.map((n) => (
-          <li key={n.database}><strong className="font-medium">{n.database}</strong>: {n.error ? <span className="text-err">failed: {n.error}</span> : `${n.count?.toLocaleString() ?? "?"} matching records`}<code className="block truncate font-mono" title={n.query}>{n.query}</code></li>
+          <li key={n.database}><strong className="font-medium">{n.database}</strong>: {n.error ? <span className="text-err">failed: {n.error}</span> : `${n.count == null ? "?" : fmtInt(n.count)} matching records`}<code className="block truncate font-mono" title={n.query}>{n.query}</code></li>
         ))}
       </ul>
       {q.noveltyStatus === "pending" && <p className="mt-1 text-fg-2">Searching…</p>}

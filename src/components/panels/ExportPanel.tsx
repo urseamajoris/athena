@@ -1,13 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Download, Maximize2 } from "lucide-react";
 import { RadioGroup } from "radix-ui";
-import { projectPath } from "../api";
-import { Disclosure, ErrorState, Spinner, cx } from "../ui";
+import { projectPath, useApi } from "../api";
+import { ErrorState, Spinner, cx } from "../ui";
+import { Disclosure } from "../disclosure";
 import { useSession } from "../session/SessionContext";
 import { PanelFooter, Stat } from "./common";
 import { useQuestions } from "./QuestionsPanel";
+import { fmtInt } from "@/lib/shared/format";
 
 export const FORMATS = [
   { id: "markdown", label: "Report", ext: "Markdown", help: "Search strategy, selections, appraisals with verified quotes, synthesis, questions and the decision log." },
@@ -21,27 +23,14 @@ export function ExportView({ full = false }: { full?: boolean }) {
   const { projectId, summary } = useSession();
   const { data } = useQuestions();
   const [format, setFormat] = useState<Format>("markdown");
-  const [preview, setPreview] = useState<string | null>(null);
-  const [err, setErr] = useState<unknown>(null);
   const href = projectPath(projectId, `export/${format}`);
-  useEffect(() => {
-    let alive = true;
-    setPreview(null);
-    setErr(null);
-    fetch(href)
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`Preview failed (${r.status})`);
-        const t = await r.text();
-        if (alive) setPreview(t);
-      })
-      .catch((e) => alive && setErr(e));
-    return () => {
-      alive = false;
-    };
-  }, [href]);
+  // The first lines of the real file (the server caps the preview; Download gets everything).
+  const { data: preview, error: err } = useApi<{ text: string; lines: number }>(`${href}?preview=1`);
   const q = data?.questions.find((x) => x.chosen);
-  const lines = preview?.split("\n") ?? [];
+  const lines = preview?.text.split("\n") ?? [];
   const shown = full ? lines : lines.slice(0, 40);
+  const total = preview?.lines ?? 0;
+  const count = total > shown.length ? ` · first ${shown.length} of ${fmtInt(total)} lines` : "";
   const a = summary?.appraisal;
   return (
     <div className="space-y-4">
@@ -71,16 +60,21 @@ export function ExportView({ full = false }: { full?: boolean }) {
       )}
       <section aria-label="Preview">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <h3 className="text-12 font-medium text-fg-2">Preview{!full && lines.length > 40 ? ` · first 40 of ${lines.length} lines` : ""}</h3>
-          {!full && <Link href={`/s/${projectId}/export`} className="btn-ghost btn-sm"><Maximize2 className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Full preview</Link>}
+          {full ? <h2 className="text-12 font-medium text-fg-2">Preview{count}</h2> : <h3 className="text-12 font-medium text-fg-2">Preview{count}</h3>}
+          {!full && <Link href={`/s/${projectId}/export`} className="btn-ghost btn-sm"><Maximize2 className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Larger preview</Link>}
         </div>
-        {err ? <ErrorState error={err} /> : preview === null ? <p className="flex items-center gap-2 text-fg-2"><Spinner /> Loading preview…</p> : (
-          <pre tabIndex={0} aria-label={`${FORMATS.find((f) => f.id === format)!.label} preview`} className={cx("overflow-auto whitespace-pre-wrap break-words rounded-md border border-line bg-bg-0 p-3 font-mono text-12 text-fg-1", full ? "max-h-[60vh]" : "max-h-72")}>{shown.join("\n")}</pre>
+        {err ? <ErrorState error={err} /> : !preview ? <p className="flex items-center gap-2 text-fg-2"><Spinner /> Loading preview…</p> : (
+          <pre tabIndex={0} aria-label={`${FORMATS.find((f) => f.id === format)!.label} preview`} className={cx("overflow-auto whitespace-pre-wrap break-words rounded-md border border-line bg-bg-0 p-3 font-mono text-12 text-fg-1", full ? "max-h-[60vh]" : "max-h-72")}>
+            {/* Blocks of 20 lines: the browser lays out only the blocks scrolled into view. */}
+            {Array.from({ length: Math.ceil(shown.length / 20) }, (_, i) => (
+              <span key={i} className="block [content-visibility:auto] [contain-intrinsic-size:auto_20rem]">{shown.slice(i * 20, i * 20 + 20).join("\n")}</span>
+            ))}
+          </pre>
         )}
       </section>
       <Disclosure title="What the files include">
         <div className="grid grid-cols-2 gap-2">
-          <Stat label="Unique papers" value={(summary?.retrieval.unique ?? 0).toLocaleString()} />
+          <Stat label="Unique papers" value={fmtInt(summary?.retrieval.unique ?? 0)} />
           <Stat label="Papers appraised" value={a?.papers ?? 0} />
           <Stat label="Full text / abstract" value={`${a?.fullText ?? 0} / ${(a?.papers ?? 0) - (a?.fullText ?? 0)}`} />
           <Stat label="Quotes verified / not" value={`${a?.verified ?? 0} / ${(a?.pending ?? 0) + (a?.accepted ?? 0) + (a?.rejected ?? 0)}`} />
