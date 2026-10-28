@@ -76,7 +76,7 @@ try {
     const buildBtn = page.getByRole("button", { name: /Build my search topics/ });
     await Promise.race([box.and(page.locator(":enabled")).waitFor({ timeout: 120_000 }), buildBtn.waitFor({ timeout: 120_000 })]);
     if (await buildBtn.isVisible()) break;
-    const q = await page.locator('[aria-label="Scoping conversation"] .bg-gray-100').last().innerText();
+    const q = await page.locator('[aria-label="Scoping conversation"] [data-role="assistant"]').last().innerText();
     log(`Q${i + 1}:`, q.replace(/\s+/g, " ").slice(0, 140));
     await box.fill(ANSWERS[i]);
     await page.getByRole("button", { name: "Send" }).click();

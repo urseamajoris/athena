@@ -1,30 +1,309 @@
 @import "tailwindcss";
 
-@theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --color-ink: #1f2937;
-  --color-muted: #6b7280;
-  --color-line: #e5e7eb;
-  --color-paper: #fbfaf8;
-  --color-accent: #0f766e;
-  --color-accent-soft: #e6f4f1;
+/*
+ * Design tokens. Dark is the default; light is a token swap.
+ * Every text/surface pair here is checked by src/lib/design/contrast.test.ts.
+ * Rule: --accent fills exactly one thing per view, the next action.
+ */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-0: #0a0a0b;
+  --bg-1: #111113;
+  --bg-2: #18181b;
+  --bg-3: #222226;
+  --line: #2a2a30;
+  --line-strong: #3a3a42;
+  /* Borders that identify a control (inputs, checkboxes, outline buttons): ≥ 3:1 on every surface. */
+  --line-control: #70707a;
+  --fg-0: #f5f5f7;
+  --fg-1: #b4b4bd;
+  --fg-2: #8a8a94;
+  --accent: #7c9cff;
+  --accent-hover: #95b0ff;
+  --accent-fg: #0a0a0b;
+  --ok: #3dd68c;
+  --warn: #f5b547;
+  --err: #ff6b6b;
+  --run: #5ec8ff;
+  --focus: #f5f5f7;
+  --mark: rgb(245 181 71 / 0.22);
+  --mark-active: rgb(245 181 71 / 0.45);
 }
 
-html, body { background: var(--color-paper); color: var(--color-ink); }
-body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg-0: #fafafb;
+  --bg-1: #ffffff;
+  --bg-2: #f3f3f5;
+  --bg-3: #e9e9ed;
+  --line: #e2e2e7;
+  --line-strong: #cdcdd5;
+  --line-control: #7a7a86;
+  --fg-0: #111113;
+  --fg-1: #3e3e47;
+  --fg-2: #5c5c67;
+  --accent: #3754d6;
+  --accent-hover: #2b46bf;
+  --accent-fg: #ffffff;
+  --ok: #0a7446;
+  --warn: #8a5300;
+  --err: #c02b2b;
+  --run: #00669a;
+  --focus: #111113;
+  --mark: rgb(245 181 71 / 0.35);
+  --mark-active: rgb(245 181 71 / 0.7);
+}
 
-:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: 4px; }
+@theme inline {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-bg-0: var(--bg-0);
+  --color-bg-1: var(--bg-1);
+  --color-bg-2: var(--bg-2);
+  --color-bg-3: var(--bg-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-line-control: var(--line-control);
+  --color-fg-0: var(--fg-0);
+  --color-fg-1: var(--fg-1);
+  --color-fg-2: var(--fg-2);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-err: var(--err);
+  --color-run: var(--run);
+  --color-focus: var(--focus);
+  /* Tinted fills and borders for status (low salience: they must never compete with the accent). */
+  --color-ok-soft: color-mix(in oklab, var(--ok) 12%, transparent);
+  --color-warn-soft: color-mix(in oklab, var(--warn) 12%, transparent);
+  --color-err-soft: color-mix(in oklab, var(--err) 12%, transparent);
+  --color-run-soft: color-mix(in oklab, var(--run) 12%, transparent);
+  --color-ok-line: color-mix(in oklab, var(--ok) 45%, transparent);
+  --color-warn-line: color-mix(in oklab, var(--warn) 45%, transparent);
+  --color-err-line: color-mix(in oklab, var(--err) 45%, transparent);
+  --color-run-line: color-mix(in oklab, var(--run) 45%, transparent);
+  --color-scrim: rgb(0 0 0 / 0.6);
 
-@utility card { @apply bg-white border border-[var(--color-line)] rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.03)]; }
-@utility btn { @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed; }
-@utility btn-primary { @apply btn bg-[var(--color-accent)] text-white hover:bg-teal-800; }
-@utility btn-secondary { @apply btn bg-white border border-gray-300 text-gray-800 hover:bg-gray-50; }
-@utility btn-ghost { @apply btn text-gray-700 hover:bg-gray-100; }
-@utility btn-danger { @apply btn bg-white border border-rose-300 text-rose-700 hover:bg-rose-50; }
-@utility input { @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 focus:outline-none; }
-@utility label { @apply block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1; }
-.prose-calm p { @apply leading-relaxed; }
-mark.q { @apply bg-amber-100 rounded-sm; }
-mark.q-active { @apply bg-amber-300 rounded-sm ring-2 ring-amber-400; }
-mark.q-bad { @apply bg-rose-100; }
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Type scale: 12 / 13 / 14 (body) / 16 / 20 / 28 / 44 (landing only). */
+  --text-*: initial;
+  --text-12: 12px;
+  --text-12--line-height: 16px;
+  --text-13: 13px;
+  --text-13--line-height: 20px;
+  --text-14: 14px;
+  --text-14--line-height: 20px;
+  --text-16: 16px;
+  --text-16--line-height: 24px;
+  --text-20: 20px;
+  --text-20--line-height: 28px;
+  --text-28: 28px;
+  --text-28--line-height: 36px;
+  --text-44: 44px;
+  --text-44--line-height: 48px;
+
+  --radius-*: initial;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* Elevation comes from 1px lines and background steps, never shadows. */
+  --shadow-*: initial;
+  --drop-shadow-*: initial;
+
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --default-transition-duration: 120ms;
+  --default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  --animate-spin: spin 0.9s linear infinite;
+}
+
+:root {
+  --dur-hover: 120ms;
+  --dur-panel: 180ms;
+  --dur-spawn: 240ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+html,
+body {
+  background: var(--bg-0);
+  color: var(--fg-0);
+}
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+code,
+pre,
+kbd,
+.font-mono {
+  font-feature-settings: normal;
+}
+::selection {
+  background: color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+/* Focus is always visible and never uses the accent (that is reserved for the next action). */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- base components (shadcn-style recipes) ---------- */
+@utility card {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+@utility btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition-property: background-color, border-color, color, opacity;
+  transition-duration: var(--dur-hover);
+  transition-timing-function: var(--ease);
+  &:disabled,
+  &[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+/* The one accent-filled button per view. */
+@utility btn-primary {
+  @apply btn;
+  background: var(--accent);
+  color: var(--accent-fg);
+  &:not(:disabled):hover {
+    background: var(--accent-hover);
+  }
+}
+@utility btn-secondary {
+  @apply btn;
+  background: var(--bg-2);
+  color: var(--fg-0);
+  border: 1px solid var(--line-control);
+  &:not(:disabled):hover {
+    background: var(--bg-3);
+  }
+}
+@utility btn-ghost {
+  @apply btn;
+  color: var(--fg-1);
+  &:not(:disabled):hover {
+    background: var(--bg-3);
+    color: var(--fg-0);
+  }
+}
+@utility btn-danger {
+  @apply btn;
+  color: var(--err);
+  border: 1px solid color-mix(in oklab, var(--err) 60%, transparent);
+  &:not(:disabled):hover {
+    background: color-mix(in oklab, var(--err) 12%, transparent);
+  }
+}
+@utility btn-sm {
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 16px;
+  gap: 4px;
+}
+@utility input {
+  width: 100%;
+  min-height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-control);
+  background: var(--bg-0);
+  color: var(--fg-0);
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 20px;
+  &::placeholder {
+    color: var(--fg-2);
+  }
+  &:focus {
+    border-color: var(--fg-1);
+  }
+  &:disabled {
+    opacity: 0.6;
+  }
+}
+@utility label {
+  display: block;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--fg-2);
+  margin-bottom: 4px;
+}
+@utility link {
+  color: var(--fg-0);
+  text-decoration: underline;
+  text-decoration-color: var(--line-control);
+  text-underline-offset: 3px;
+  &:hover {
+    text-decoration-color: var(--fg-0);
+  }
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--fg-0);
+  width: 16px;
+  height: 16px;
+}
+
+.prose-calm p {
+  line-height: 1.6;
+}
+mark.q {
+  background: var(--mark);
+  color: inherit;
+  border-radius: 2px;
+  cursor: pointer;
+}
+mark.q-active {
+  background: var(--mark-active);
+  color: inherit;
+  border-radius: 2px;
+  outline: 2px solid var(--warn);
+}
+mark.q-bad {
+  background: color-mix(in oklab, var(--err) 20%, transparent);
+  color: inherit;
+}

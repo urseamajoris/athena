@@ -47,15 +47,15 @@ export function HomeClient() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
       <section className="mb-10">
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Start a literature review</h1>
-        <p className="mt-2 max-w-2xl text-gray-600">
+        <h1 className="text-20 font-semibold text-fg-0">Start a literature review</h1>
+        <p className="mt-2 max-w-2xl text-fg-1">
           Athena walks you through nine steps: scoping your idea, searching real databases, ranking and appraising the most relevant papers, and proposing
           research questions grounded in what the literature shows. The AI proposes; you check and approve every step.
         </p>
         <form onSubmit={create} className="card mt-6 p-5">
           <label htmlFor="idea" className="label">Your research idea</label>
-          <textarea id="idea" className="input min-h-28 text-base" placeholder={EXAMPLE} value={idea} onChange={(e) => setIdea(e.target.value)} />
-          <p className="mt-2 text-xs text-gray-500">A sentence or a short paragraph is enough. You can refine it in the next step.</p>
+          <textarea id="idea" className="input min-h-28 text-16" placeholder={EXAMPLE} value={idea} onChange={(e) => setIdea(e.target.value)} />
+          <p className="mt-2 text-12 text-fg-2">A sentence or a short paragraph is enough. You can refine it in the next step.</p>
           {err ? <div className="mt-3"><ErrorState error={err} title="Could not create the review" /></div> : null}
           <div className="mt-4 flex justify-end">
             <button className="btn-primary" disabled={busy || idea.trim().length < 10}>
@@ -66,23 +66,23 @@ export function HomeClient() {
       </section>
 
       <section aria-labelledby="existing">
-        <h2 id="existing" className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Your reviews</h2>
+        <h2 id="existing" className="mb-3 text-14 font-semibold text-fg-2">Your reviews</h2>
         {isLoading && <Loading />}
         {error && <ErrorState error={error} onRetry={() => mutate()} />}
-        {data && data.projects.length === 0 && <p className="text-sm text-gray-500">No reviews yet. Your first one will appear here.</p>}
+        {data && data.projects.length === 0 && <p className="text-14 text-fg-2">No reviews yet. Your first one will appear here.</p>}
         <ul className="space-y-2">
           {data?.projects.map((p) => {
             const st = STAGES[Math.min(8, p.currentStage - 1)];
             return (
               <li key={p.id} className="card flex items-center justify-between gap-4 px-4 py-3">
                 <Link href={`/projects/${p.id}`} className="min-w-0 flex-1 hover:underline">
-                  <p className="truncate font-medium text-gray-900">{p.title || p.idea}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="truncate font-medium text-fg-0">{p.title || p.idea}</p>
+                  <p className="text-12 text-fg-2">
                     Stage {st.n}: {st.title} · updated {new Date(p.updatedAt).toLocaleString()}
                   </p>
                 </Link>
                 <StateBadge state={p.status === "complete" ? "approved" : (p.stageStates[String(st.n)] ?? "not_started")} />
-                <button className="btn-ghost text-xs text-gray-500" onClick={() => remove(p.id)} aria-label={`Delete review ${p.title}`}>
+                <button className="btn-ghost text-12 text-fg-2" onClick={() => remove(p.id)} aria-label={`Delete review ${p.title}`}>
                   Delete
                 </button>
               </li>

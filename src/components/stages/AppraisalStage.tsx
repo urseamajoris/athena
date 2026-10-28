@@ -37,9 +37,9 @@ export function AppraisalStage() {
     <div className="space-y-4">
       <JobPanel stage={7} runLabel="Appraise selected papers" />
       {list.length > 0 && (
-        <p className="text-sm text-gray-600">
+        <p className="text-14 text-fg-1">
           {list.length} papers · <strong>{totals.ft}</strong> appraised from open full text, <strong>{list.length - totals.ft}</strong> from the abstract only ·{" "}
-          <span className={totals.unv > 0 ? "font-semibold text-rose-700" : ""}>{totals.unv} unverified quote{totals.unv === 1 ? "" : "s"} awaiting your decision</span>
+          <span className={totals.unv > 0 ? "font-semibold text-err" : ""}>{totals.unv} unverified quote{totals.unv === 1 ? "" : "s"} awaiting your decision</span>
         </p>
       )}
       {!list.length ? (
@@ -50,8 +50,8 @@ export function AppraisalStage() {
             <ul className="space-y-1">
               {list.map((a) => (
                 <li key={a.id}>
-                  <button onClick={() => setActive(a.id)} aria-current={current === a.id ? "true" : undefined} className={cx("w-full rounded-lg px-2 py-2 text-left text-sm", current === a.id ? "bg-[var(--color-accent-soft)]" : "hover:bg-gray-50")}>
-                    <span className="line-clamp-2 font-medium text-gray-900">{a.paper.title}</span>
+                  <button onClick={() => setActive(a.id)} aria-current={current === a.id ? "true" : undefined} className={cx("w-full rounded-sm px-2 py-2 text-left text-14", current === a.id ? "bg-bg-3" : "hover:bg-bg-2")}>
+                    <span className="line-clamp-2 font-medium text-fg-0">{a.paper.title}</span>
                     <span className="mt-1 flex flex-wrap gap-1">
                       {a.status === "done" ? <TextSourceBadge source={a.textSource} /> : a.status === "failed" ? <Badge tone="rose">failed</Badge> : <Badge tone="sky">{a.status}</Badge>}
                       {a.counts.unverified - a.counts.accepted > 0 && <Badge tone="rose">{a.counts.unverified - a.counts.accepted} unverified</Badge>}
@@ -128,15 +128,15 @@ function AppraisalDetail({ id, onChanged }: { id: string; onChanged: () => void 
       <div className="card p-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <button className="text-left text-base font-semibold text-gray-900 hover:underline" onClick={() => openPaper(data.paper.id)}>{data.paper.title}</button>
-            <p className="text-xs text-gray-500">{data.paper.year ?? "n.d."} · {data.paper.doi ? `DOI ${data.paper.doi}` : data.paper.pmid ? `PMID ${data.paper.pmid}` : ""} · template: {TEMPLATE_LABEL[a.templateType] ?? a.templateType}{a.model ? ` · model ${a.model}` : ""}</p>
+            <button className="text-left text-16 font-semibold text-fg-0 hover:underline" onClick={() => openPaper(data.paper.id)}>{data.paper.title}</button>
+            <p className="text-12 text-fg-2">{data.paper.year ?? "n.d."} · {data.paper.doi ? `DOI ${data.paper.doi}` : data.paper.pmid ? `PMID ${data.paper.pmid}` : ""} · template: {TEMPLATE_LABEL[a.templateType] ?? a.templateType}{a.model ? ` · model ${a.model}` : ""}</p>
           </div>
           <div className="flex items-center gap-2">
             <TextSourceBadge source={a.textSource} />
-            <button className="btn-ghost text-xs" onClick={redo}>Re-appraise</button>
+            <button className="btn-ghost text-12" onClick={redo}>Re-appraise</button>
           </div>
         </div>
-        <p className={cx("mt-2 rounded-lg px-3 py-2 text-sm", a.textSource === "full_text" ? "bg-emerald-50 text-emerald-950" : "bg-amber-50 text-amber-950")}>
+        <p className={cx("mt-2 rounded-sm px-3 py-2 text-14", a.textSource === "full_text" ? "bg-ok-soft text-ok" : "bg-warn-soft text-warn")}>
           <strong>{a.textSource === "full_text" ? "Full text read." : "Abstract only."}</strong> {a.textNote}
         </p>
         {a.status === "failed" && <div className="mt-2"><ErrorState error={a.error ?? "failed"} title="This appraisal failed" onRetry={redo} /></div>}
@@ -150,7 +150,7 @@ function AppraisalDetail({ id, onChanged }: { id: string; onChanged: () => void 
             return (
               <div key={f}>
                 <h3 className="label">{label}</h3>
-                {cs.length === 0 && <p className="text-sm italic text-gray-400">not extracted</p>}
+                {cs.length === 0 && <p className="text-14 italic text-fg-2">not extracted</p>}
                 <ul className="space-y-2">{cs.map((c) => <ClaimItem key={c.id} c={c} active={focus === c.id} onFocus={() => setFocus(c.id)} onDecide={(d) => decide(c, d)} busy={busy === c.id} />)}</ul>
               </div>
             );
@@ -161,7 +161,7 @@ function AppraisalDetail({ id, onChanged }: { id: string; onChanged: () => void 
               {a.checklist.map((it, i) => {
                 const c = it.claimId ? byId.get(it.claimId) : null;
                 return (
-                  <li key={i} className="rounded-lg border border-gray-100 p-2 text-sm">
+                  <li key={i} className="rounded-sm border border-line p-2 text-14">
                     <div className="flex items-start justify-between gap-2">
                       <span>{it.item}</span>
                       <Badge tone={it.answer === "yes" ? "emerald" : it.answer === "no" ? "rose" : it.answer === "not_reported" ? "gray" : "amber"}>{it.answer.replace("_", " ")}</Badge>
@@ -176,11 +176,11 @@ function AppraisalDetail({ id, onChanged }: { id: string; onChanged: () => void 
 
         {/* Source text */}
         <section aria-label="Source text" className="card flex max-h-[75vh] flex-col">
-          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2 text-xs text-gray-600">
+          <div className="flex items-center justify-between border-b border-line px-4 py-2 text-12 text-fg-1">
             <span><strong>Retrieved text</strong> · {data.sourceText?.source}{data.sourceText?.license ? ` · licence ${data.sourceText.license}` : ""}</span>
-            {data.sourceText?.url && <a className="text-teal-800 underline" href={data.sourceText.url} target="_blank" rel="noreferrer">source</a>}
+            {data.sourceText?.url && <a className="text-fg-0 underline" href={data.sourceText.url} target="_blank" rel="noreferrer">source</a>}
           </div>
-          <div ref={textRef} className="flex-1 overflow-y-auto whitespace-pre-wrap px-4 py-3 font-serif text-[13px] leading-relaxed text-gray-800">
+          <div ref={textRef} className="flex-1 overflow-y-auto whitespace-pre-wrap px-4 py-3 font-serif text-14 leading-relaxed text-fg-0">
             {data.sourceText ? (
               segments.map((s, i) =>
                 s.id ? (
@@ -190,11 +190,11 @@ function AppraisalDetail({ id, onChanged }: { id: string; onChanged: () => void 
                 ),
               )
             ) : (
-              <p className="italic text-gray-400">No source text stored.</p>
+              <p className="italic text-fg-2">No source text stored.</p>
             )}
           </div>
           {a.charsSentToModel && data.sourceText && data.sourceText.text.length > a.charsSentToModel && (
-            <p className="border-t border-gray-100 px-4 py-2 text-xs text-amber-800">The model read the first {a.charsSentToModel.toLocaleString()} of {data.sourceText.text.length.toLocaleString()} characters.</p>
+            <p className="border-t border-line px-4 py-2 text-12 text-warn">The model read the first {a.charsSentToModel.toLocaleString()} of {data.sourceText.text.length.toLocaleString()} characters.</p>
           )}
         </section>
       </div>
@@ -204,12 +204,12 @@ function AppraisalDetail({ id, onChanged }: { id: string; onChanged: () => void 
 
 function ClaimItem({ c, active, onFocus, onDecide, busy }: { c: Claim; active: boolean; onFocus: () => void; onDecide: (d: "accept" | "reject" | "clear") => void; busy: boolean }) {
   return (
-    <li className={cx("rounded-lg border p-2.5 text-sm", active ? "border-amber-400 bg-amber-50/50" : c.notReported ? "border-gray-100 bg-gray-50" : !c.verified && !c.userAccepted ? "border-rose-200 bg-rose-50/40" : "border-gray-200")}>
+    <li className={cx("rounded-sm border p-3 text-14", active ? "border-warn-line bg-warn-soft" : c.notReported ? "border-line bg-bg-2" : !c.verified && !c.userAccepted ? "border-err-line bg-err-soft" : "border-line")}>
       {c.notReported ? (
-        <p className="italic text-gray-500">Not reported in the retrieved text</p>
+        <p className="italic text-fg-2">Not reported in the retrieved text</p>
       ) : (
         <>
-          <p className="text-gray-900">{c.statement}</p>
+          <p className="text-fg-0">{c.statement}</p>
           <QuoteLine c={c} onFocus={onFocus} onDecide={onDecide} busy={busy} />
         </>
       )}
@@ -228,23 +228,23 @@ function QuoteLine({ c, onFocus, onDecide, busy }: { c: Claim; onFocus: () => vo
     <Badge tone="rose" title={c.verificationNote ?? ""}>✗ unverified</Badge>
   );
   return (
-    <div className="mt-1.5">
-      <button onClick={onFocus} disabled={!c.verified} className={cx("block w-full rounded border-l-2 py-0.5 pl-2 text-left text-xs italic", c.verified ? "border-amber-300 text-gray-700 hover:bg-amber-50" : "border-rose-300 text-gray-600")} title={c.verified ? "Show in source text" : "This quote was not found in the retrieved text"}>
+    <div className="mt-2">
+      <button onClick={onFocus} disabled={!c.verified} className={cx("block w-full rounded-sm border-l-2 py-1 pl-2 text-left text-12 italic", c.verified ? "border-warn-line text-fg-1 hover:bg-warn-soft" : "border-err-line text-fg-1")} title={c.verified ? "Show in source text" : "This quote was not found in the retrieved text"}>
         “{c.quote}”
       </button>
-      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500">
+      <div className="mt-1 flex flex-wrap items-center gap-2 text-12 text-fg-2">
         {status}
         <span>{c.location}</span>
         {!c.verified && (
           <span className="ml-auto flex gap-1">
             {busy && <Spinner className="h-3 w-3" />}
-            {!c.userAccepted && <button className="btn-ghost px-1.5 py-0.5 text-[11px]" onClick={() => onDecide("accept")}>Accept anyway</button>}
-            {!c.userRejected && <button className="btn-ghost px-1.5 py-0.5 text-[11px] text-rose-700" onClick={() => onDecide("reject")}>Reject</button>}
-            {(c.userAccepted || c.userRejected) && <button className="btn-ghost px-1.5 py-0.5 text-[11px]" onClick={() => onDecide("clear")}>Undo</button>}
+            {!c.userAccepted && <button className="btn-ghost px-2 py-1 text-12" onClick={() => onDecide("accept")}>Accept anyway</button>}
+            {!c.userRejected && <button className="btn-ghost px-2 py-1 text-12 text-err" onClick={() => onDecide("reject")}>Reject</button>}
+            {(c.userAccepted || c.userRejected) && <button className="btn-ghost px-2 py-1 text-12" onClick={() => onDecide("clear")}>Undo</button>}
           </span>
         )}
       </div>
-      {!c.verified && c.verificationNote && <p className="mt-0.5 text-[11px] text-rose-700">{c.verificationNote}</p>}
+      {!c.verified && c.verificationNote && <p className="mt-1 text-12 text-err">{c.verificationNote}</p>}
     </div>
   );
 }

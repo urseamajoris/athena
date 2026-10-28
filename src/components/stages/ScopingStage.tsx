@@ -82,22 +82,22 @@ export function ScopingStage() {
     <div className="grid gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
       {/* Chat */}
       <section aria-label="Scoping conversation" className="card flex min-h-[420px] flex-col self-start lg:sticky lg:top-16 lg:max-h-[calc(100vh-10rem)]">
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
-          <p className="text-sm font-semibold text-gray-700">Scoping chat</p>
-          <span className="text-xs text-gray-500">Question {Math.min(data.asked, data.maxQuestions)} of at most {data.maxQuestions}</span>
+        <div className="flex items-center justify-between border-b border-line px-4 py-3">
+          <p className="text-14 font-semibold text-fg-1">Scoping chat</p>
+          <span className="text-12 text-fg-2">Question {Math.min(data.asked, data.maxQuestions)} of at most {data.maxQuestions}</span>
         </div>
         <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4" aria-live="polite">
           {data.messages.map((m) => (
-            <div key={m.id} className={cx("max-w-[90%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed", m.role === "assistant" ? "bg-gray-100 text-gray-900" : "ml-auto bg-teal-700 text-white")}>
+            <div key={m.id} data-role={m.role} className={cx("max-w-[90%] rounded-lg px-4 py-2 text-14 leading-relaxed", m.role === "assistant" ? "bg-bg-2 text-fg-0" : "ml-auto bg-bg-3 text-fg-0")}>
               {m.text}
             </div>
           ))}
-          {busy === "start" || busy === "answer" ? <div className="flex items-center gap-2 text-sm text-gray-500"><Spinner /> Thinking about the next question…</div> : null}
+          {busy === "start" || busy === "answer" ? <div className="flex items-center gap-2 text-14 text-fg-2"><Spinner /> Thinking about the next question…</div> : null}
           <div ref={chatEnd} />
         </div>
         {err ? <div className="px-4 pb-2"><ErrorState error={err} title="The AI step failed" onRetry={() => (data.messages.length ? undefined : call("start", "scoping/start"))} /></div> : null}
         {!data.done ? (
-          <form onSubmit={send} className="border-t border-gray-100 p-3">
+          <form onSubmit={send} className="border-t border-line p-3">
             <label htmlFor="answer" className="sr-only">Your answer</label>
             <textarea
               id="answer"
@@ -114,13 +114,13 @@ export function ScopingStage() {
               }}
             />
             <div className="mt-2 flex justify-between gap-2">
-              <button type="button" className="btn-ghost text-xs" onClick={() => call("skip", "scoping/skip")} disabled={!!busy || !data.messages.length}>Skip remaining questions</button>
+              <button type="button" className="btn-ghost text-12" onClick={() => call("skip", "scoping/skip")} disabled={!!busy || !data.messages.length}>Skip remaining questions</button>
               <button className="btn-primary" disabled={!data.awaitingAnswer || !answer.trim() || !!busy}>{busy === "answer" && <Spinner />} Send</button>
             </div>
           </form>
         ) : (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 p-3">
-            <button className="btn-ghost text-xs" onClick={async () => { if (await confirmEdit(2)) call("restart", "scoping/restart"); }} disabled={!!busy}>Restart conversation</button>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line p-3">
+            <button className="btn-ghost text-12" onClick={async () => { if (await confirmEdit(2)) call("restart", "scoping/restart"); }} disabled={!!busy}>Restart conversation</button>
             <button className="btn-primary" onClick={genTopics} disabled={!!busy}>
               {busy === "topics" && <Spinner />} {data.topics.length ? "Regenerate topics" : "Build my search topics →"}
             </button>
@@ -133,11 +133,11 @@ export function ScopingStage() {
         {data.coverage && (
           <div className="card p-4">
             <SectionTitle>What we know so far</SectionTitle>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-3">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-14 sm:grid-cols-3">
               {Object.entries(COVERAGE_LABEL).map(([k, label]) => (
                 <div key={k}>
-                  <dt className="text-xs text-gray-500">{label}</dt>
-                  <dd className={data.coverage![k] ? "text-gray-900" : "italic text-gray-400"}>{data.coverage![k] ?? "not yet covered"}</dd>
+                  <dt className="text-12 text-fg-2">{label}</dt>
+                  <dd className={data.coverage![k] ? "text-fg-0" : "italic text-fg-2"}>{data.coverage![k] ?? "not yet covered"}</dd>
                 </div>
               ))}
             </dl>
@@ -149,9 +149,9 @@ export function ScopingStage() {
             {data.draftTopics.length ? (
               <ul className="flex flex-wrap gap-2">{data.draftTopics.map((t) => <li key={t}><Badge tone="teal">{t}</Badge></li>)}</ul>
             ) : (
-              <p className="text-sm text-gray-500">Topics will appear here as the conversation goes.</p>
+              <p className="text-14 text-fg-2">Topics will appear here as the conversation goes.</p>
             )}
-            {busy === "topics" && <p className="mt-3 flex items-center gap-2 text-sm text-gray-600"><Spinner /> Building topics, synonyms and MeSH terms…</p>}
+            {busy === "topics" && <p className="mt-3 flex items-center gap-2 text-14 text-fg-1"><Spinner /> Building topics, synonyms and MeSH terms…</p>}
           </div>
         ) : (
           <TopicEditor topics={data.topics} onChange={(d) => mutate(d, { revalidate: false })} />
@@ -195,32 +195,32 @@ function TopicEditor({ topics, onChange }: { topics: Topic[]; onChange: (d: Scop
 
   return (
     <div className="card p-4">
-      <SectionTitle right={<span className="text-xs text-gray-500">{topics.length} topic{topics.length === 1 ? "" : "s"} {topics.length < 4 || topics.length > 8 ? "· aim for 4–8" : ""}</span>}>Search topics</SectionTitle>
-      <p className="mb-3 text-xs text-gray-500">Rename, edit synonyms and MeSH terms, delete, add, or tick two or more topics to merge them. Changes save when you leave a field.</p>
+      <SectionTitle right={<span className="text-12 text-fg-2">{topics.length} topic{topics.length === 1 ? "" : "s"} {topics.length < 4 || topics.length > 8 ? "· aim for 4–8" : ""}</span>}>Search topics</SectionTitle>
+      <p className="mb-3 text-12 text-fg-2">Rename, edit synonyms and MeSH terms, delete, add, or tick two or more topics to merge them. Changes save when you leave a field.</p>
       <ul className="space-y-3">
         {topics.map((t) => (
-          <li key={t.id} className={cx("rounded-lg border p-3", sel.has(t.id) ? "border-teal-500 bg-teal-50/40" : "border-gray-200")}>
+          <li key={t.id} className={cx("rounded-sm border p-3", sel.has(t.id) ? "border-fg-1 bg-bg-2" : "border-line")}>
             <div className="flex items-start gap-2">
-              <input type="checkbox" className="mt-2.5 h-4 w-4 accent-teal-700" aria-label={`Select ${t.name} for merging`} checked={sel.has(t.id)} onChange={(e) => { const n = new Set(sel); if (e.target.checked) n.add(t.id); else n.delete(t.id); setSel(n); }} />
+              <input type="checkbox" className="mt-3 h-4 w-4" aria-label={`Select ${t.name} for merging`} checked={sel.has(t.id)} onChange={(e) => { const n = new Set(sel); if (e.target.checked) n.add(t.id); else n.delete(t.id); setSel(n); }} />
               <div className="min-w-0 flex-1 space-y-2">
                 <input className="input font-medium" aria-label="Topic name" defaultValue={t.name} onBlur={(e) => e.target.value.trim() && e.target.value !== t.name && mutateTopics(() => api(projectPath(projectId, `topics/${t.id}`), { method: "PATCH", body: { name: e.target.value } }))} />
-                <p className="text-xs text-gray-500">{t.rationale} {t.origin !== "ai" && <Badge>{t.origin === "user" ? "added by you" : "merged"}</Badge>}</p>
-                <label className="block text-xs text-gray-600">Synonyms (comma-separated)
-                  <input className="input mt-0.5 text-xs" defaultValue={t.synonyms.join(", ")} onBlur={(e) => e.target.value !== t.synonyms.join(", ") && mutateTopics(() => api(projectPath(projectId, `topics/${t.id}`), { method: "PATCH", body: { synonyms: splitList(e.target.value) } }))} />
+                <p className="text-12 text-fg-2">{t.rationale} {t.origin !== "ai" && <Badge>{t.origin === "user" ? "added by you" : "merged"}</Badge>}</p>
+                <label className="block text-12 text-fg-1">Synonyms (comma-separated)
+                  <input className="input mt-1 text-12" defaultValue={t.synonyms.join(", ")} onBlur={(e) => e.target.value !== t.synonyms.join(", ") && mutateTopics(() => api(projectPath(projectId, `topics/${t.id}`), { method: "PATCH", body: { synonyms: splitList(e.target.value) } }))} />
                 </label>
-                <label className="block text-xs text-gray-600">Controlled vocabulary (MeSH)
-                  <input className="input mt-0.5 text-xs" defaultValue={t.controlledTerms.join(", ")} placeholder="none" onBlur={(e) => e.target.value !== t.controlledTerms.join(", ") && mutateTopics(() => api(projectPath(projectId, `topics/${t.id}`), { method: "PATCH", body: { controlledTerms: splitList(e.target.value) } }))} />
+                <label className="block text-12 text-fg-1">Controlled vocabulary (MeSH)
+                  <input className="input mt-1 text-12" defaultValue={t.controlledTerms.join(", ")} placeholder="none" onBlur={(e) => e.target.value !== t.controlledTerms.join(", ") && mutateTopics(() => api(projectPath(projectId, `topics/${t.id}`), { method: "PATCH", body: { controlledTerms: splitList(e.target.value) } }))} />
                 </label>
               </div>
-              <button className="btn-ghost text-xs text-rose-700" aria-label={`Delete topic ${t.name}`} onClick={() => mutateTopics(() => api(projectPath(projectId, `topics/${t.id}`), { method: "DELETE" }))} disabled={busy}>Delete</button>
+              <button className="btn-ghost text-12 text-err" aria-label={`Delete topic ${t.name}`} onClick={() => mutateTopics(() => api(projectPath(projectId, `topics/${t.id}`), { method: "DELETE" }))} disabled={busy}>Delete</button>
             </div>
           </li>
         ))}
       </ul>
       {sel.size >= 2 && (
-        <div className="mt-3 flex flex-wrap items-end gap-2 rounded-lg bg-teal-50 p-3">
-          <label className="min-w-48 flex-1 text-xs text-gray-700">Name for the merged topic
-            <input className="input mt-0.5" value={mergeName} onChange={(e) => setMergeName(e.target.value)} placeholder={topics.filter((t) => sel.has(t.id)).map((t) => t.name).join(" / ")} />
+        <div className="mt-3 flex flex-wrap items-end gap-2 rounded-sm bg-bg-2 p-3">
+          <label className="min-w-48 flex-1 text-12 text-fg-1">Name for the merged topic
+            <input className="input mt-1" value={mergeName} onChange={(e) => setMergeName(e.target.value)} placeholder={topics.filter((t) => sel.has(t.id)).map((t) => t.name).join(" / ")} />
           </label>
           <button className="btn-primary" disabled={busy} onClick={() => mutateTopics(async () => { const d = await api<ScopingData>(projectPath(projectId, "topics/merge"), { body: { ids: [...sel], name: mergeName || topics.filter((t) => sel.has(t.id)).map((t) => t.name).join(" / ") } }); setSel(new Set()); setMergeName(""); return d; })}>
             Merge {sel.size} topics

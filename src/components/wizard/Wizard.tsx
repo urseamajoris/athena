@@ -171,9 +171,9 @@ export function Wizard({ projectId }: { projectId: string }) {
     <WizardCtx.Provider value={ctx}>
       <div className="mx-auto flex max-w-[1600px] gap-0">
         {/* Stepper */}
-        <nav aria-label="Review stages" className="sticky top-12 hidden h-[calc(100vh-3rem)] w-60 shrink-0 overflow-y-auto border-r border-[var(--color-line)] bg-white/60 px-3 py-4 md:block">
-          <p className="mb-3 line-clamp-3 px-2 text-xs text-gray-500" title={data!.project.idea}>{data!.project.idea}</p>
-          <ol className="space-y-0.5">
+        <nav aria-label="Review stages" className="sticky top-12 hidden h-[calc(100vh-3rem)] w-60 shrink-0 overflow-y-auto border-r border-line bg-bg-0 px-3 py-4 md:block">
+          <p className="mb-3 line-clamp-3 px-2 text-12 text-fg-2" title={data!.project.idea}>{data!.project.idea}</p>
+          <ol className="space-y-1">
             {STAGES.map((s) => {
               const state = states[String(s.n)] ?? "not_started";
               const active = s.n === stage;
@@ -182,25 +182,25 @@ export function Wizard({ projectId }: { projectId: string }) {
                   <button
                     onClick={() => goTo(s.n)}
                     aria-current={active ? "step" : undefined}
-                    className={cx("flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm", active ? "bg-[var(--color-accent-soft)] font-semibold text-teal-900" : "text-gray-700 hover:bg-gray-100")}
+                    className={cx("flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-14", active ? "bg-bg-3 font-semibold text-fg-0" : "text-fg-1 hover:bg-bg-2")}
                   >
-                    <span className={cx("flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs", state === "approved" ? "bg-emerald-600 text-white" : active ? "bg-teal-700 text-white" : "bg-gray-200 text-gray-700")}>
+                    <span className={cx("flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-12", state === "approved" ? "bg-ok text-fg-0" : active ? "bg-bg-3 text-fg-0" : "bg-bg-3 text-fg-1")}>
                       {state === "approved" ? "✓" : s.n}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">{s.title}</span>
-                      <span className="mt-0.5 block"><StateBadge state={state} /></span>
+                      <span className="mt-1 block"><StateBadge state={state} /></span>
                     </span>
                   </button>
                 </li>
               );
             })}
           </ol>
-          <div className="mt-6 space-y-1 border-t border-gray-100 px-2 pt-4 text-xs">
-            <p className="font-semibold text-gray-500">Export</p>
-            <a className="block text-teal-800 hover:underline" href={projectPath(projectId, "export/markdown")}>Markdown report</a>
-            <a className="block text-teal-800 hover:underline" href={projectPath(projectId, "export/csv")}>Summary table (CSV)</a>
-            <a className="block text-teal-800 hover:underline" href={projectPath(projectId, "export/bibtex")}>Selected papers (BibTeX)</a>
+          <div className="mt-6 space-y-1 border-t border-line px-2 pt-4 text-12">
+            <p className="font-semibold text-fg-2">Export</p>
+            <a className="block text-fg-0 hover:underline" href={projectPath(projectId, "export/markdown")}>Markdown report</a>
+            <a className="block text-fg-0 hover:underline" href={projectPath(projectId, "export/csv")}>Summary table (CSV)</a>
+            <a className="block text-fg-0 hover:underline" href={projectPath(projectId, "export/bibtex")}>Selected papers (BibTeX)</a>
           </div>
         </nav>
 
@@ -216,18 +216,18 @@ export function Wizard({ projectId }: { projectId: string }) {
           </label>
           <header className="mb-5">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 id="stage-title" className="text-xl font-semibold tracking-tight text-gray-900">
-                <span className="text-gray-400">{def.n}.</span> {def.title}
+              <h1 id="stage-title" className="text-20 font-semibold text-fg-0">
+                <span className="text-fg-2">{def.n}.</span> {def.title}
               </h1>
               <StateBadge state={st} />
               {cost && (
-                <span className="text-xs text-gray-500" title="Tokens include reasoning tokens. Cost as reported by xAI, or estimated from published prices.">
+                <span className="text-12 text-fg-2" title="Tokens include reasoning tokens. Cost as reported by xAI, or estimated from published prices.">
                   AI this stage: {cost.calls} call{cost.calls === 1 ? "" : "s"} · {((cost.input + cost.output) / 1000).toFixed(1)}k tokens · ${cost.cost.toFixed(3)}
                   {cost.failures ? ` · ${cost.failures} failed/retried` : ""}
                 </span>
               )}
             </div>
-            <p className="mt-1 text-sm text-gray-600"><span className="font-medium text-gray-800">To finish this step:</span> {def.done}</p>
+            <p className="mt-1 text-14 text-fg-1"><span className="font-medium text-fg-0">To finish this step:</span> {def.done}</p>
             {st === "stale" && <StaleBanner stage={stage} reason={(live?.staleReasons ?? data!.project.staleReasons)[String(stage)]} />}
           </header>
 
@@ -291,7 +291,7 @@ function StaleBanner({ stage, reason }: { stage: number; reason?: string }) {
     }
   }
   return (
-    <div role="status" className="mt-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-950">
+    <div role="status" className="mt-3 rounded-md border border-warn-line bg-warn-soft px-4 py-3 text-14 text-warn">
       <p>
         <strong>These results may be out of date.</strong> {reason ? `${reason} after they were produced.` : "An earlier step changed after they were produced."}
       </p>
@@ -307,7 +307,7 @@ function StaleBanner({ stage, reason }: { stage: number; reason?: string }) {
             {busy === "run" && <Spinner />} Re-run this step
           </button>
         ) : (
-          <span className="text-xs text-orange-900">Use the controls below to regenerate this step if needed.</span>
+          <span className="text-12 text-warn">Use the controls below to regenerate this step if needed.</span>
         )}
         <button className="btn-secondary" onClick={() => act("keep")} disabled={!!busy || !!blocker}>
           {busy === "keep" && <Spinner />} Keep current results and review them
@@ -340,15 +340,15 @@ function ApproveBar({ stage, approving }: { stage: number; approving: boolean })
   const blocked = !upstreamOk ? STAGES.find((s) => s.n < stage && states[String(s.n)] !== "approved") : null;
   if (stage === 9 && st === "approved") return null;
   return (
-    <div className="sticky bottom-0 z-20 -mx-4 mt-8 border-t border-[var(--color-line)] bg-[var(--color-paper)]/95 px-4 py-3 backdrop-blur md:-mx-8 md:px-8">
+    <div className="sticky bottom-0 z-20 -mx-4 mt-8 border-t border-line bg-bg-0 px-4 py-3 md:-mx-8 md:px-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-sm text-gray-600">
+        <div className="text-14 text-fg-1">
           {blocked ? (
             <span>
-              Approve <button className="font-medium text-teal-800 underline" onClick={() => goTo(blocked.n)}>step {blocked.n} ({blocked.title})</button> first.
+              Approve <button className="font-medium text-fg-0 underline" onClick={() => goTo(blocked.n)}>step {blocked.n} ({blocked.title})</button> first.
             </span>
           ) : st === "approved" ? (
-            <span className="text-emerald-800">Approved. You can still edit this step; later steps will be marked stale.</span>
+            <span className="text-ok">Approved. You can still edit this step; later steps will be marked stale.</span>
           ) : st === "running" ? (
             <span>Running in the background — you can leave this page and come back.</span>
           ) : st === "stale" ? (
@@ -375,7 +375,7 @@ function ApproveBar({ stage, approving }: { stage: number; approving: boolean })
 export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <div className="mb-2 flex items-center justify-between gap-2">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">{children}</h2>
+      <h2 className="text-14 font-semibold text-fg-2">{children}</h2>
       {right}
     </div>
   );
@@ -411,20 +411,20 @@ export function JobPanel({ stage, runLabel = "Run this step" }: { stage: number;
         <div className="min-w-0 flex-1">
           {running ? (
             <>
-              <p className="flex items-center gap-2 text-sm font-medium text-gray-800"><Spinner className="text-teal-700" /> {j!.progress.message || "Working…"}</p>
+              <p className="flex items-center gap-2 text-14 font-medium text-fg-0"><Spinner className="text-fg-0" /> {j!.progress.message || "Working…"}</p>
               <div className="mt-2"><ProgressBarSafe done={j!.progress.done} total={j!.progress.total} /></div>
-              <p className="mt-1 text-xs text-gray-500">{j!.progress.done} / {j!.progress.total} · runs on the server — safe to leave this page.</p>
+              <p className="mt-1 text-12 text-fg-2">{j!.progress.done} / {j!.progress.total} · runs on the server — safe to leave this page.</p>
             </>
           ) : j?.status === "failed" ? (
             <ErrorState error={j.error ?? "The job failed."} title="This step failed" />
           ) : j?.status === "done" ? (
-            <p className="text-sm text-gray-700">Finished {j.endedAt ? new Date(j.endedAt).toLocaleTimeString() : ""}. {j.progress.message}</p>
+            <p className="text-14 text-fg-1">Finished {j.endedAt ? new Date(j.endedAt).toLocaleTimeString() : ""}. {j.progress.message}</p>
           ) : (
-            <p className="text-sm text-gray-600">{st === "not_started" ? "This step has not run yet." : "No job information."}</p>
+            <p className="text-14 text-fg-1">{st === "not_started" ? "This step has not run yet." : "No job information."}</p>
           )}
         </div>
         <div className="flex gap-2">
-          {j && j.log.length > 0 && <button className="btn-ghost text-xs" onClick={() => setShowLog((s) => !s)} aria-expanded={showLog}>{showLog ? "Hide" : "Show"} log</button>}
+          {j && j.log.length > 0 && <button className="btn-ghost text-12" onClick={() => setShowLog((s) => !s)} aria-expanded={showLog}>{showLog ? "Hide" : "Show"} log</button>}
           {running ? (
             <button className="btn-secondary" onClick={cancel}>Cancel</button>
           ) : (
@@ -434,7 +434,7 @@ export function JobPanel({ stage, runLabel = "Run this step" }: { stage: number;
       </div>
       {err ? <div className="mt-2"><ErrorState error={err} /></div> : null}
       {showLog && j && (
-        <pre className="mt-3 max-h-64 overflow-auto rounded-lg bg-gray-900 p-3 text-[11px] leading-relaxed text-gray-100">{j.log.join("\n")}</pre>
+        <pre className="mt-3 max-h-64 overflow-auto rounded-sm bg-bg-0 p-3 text-12 leading-relaxed text-fg-1">{j.log.join("\n")}</pre>
       )}
     </div>
   );
@@ -443,8 +443,8 @@ export function JobPanel({ stage, runLabel = "Run this step" }: { stage: number;
 function ProgressBarSafe({ done, total }: { done: number; total: number }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 5;
   return (
-    <div role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total} className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-      <div className="h-full rounded-full bg-teal-600 transition-all" style={{ width: `${Math.max(3, pct)}%` }} />
+    <div role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total} className="h-2 w-full overflow-hidden rounded-full bg-bg-2">
+      <div className="h-full rounded-full bg-run transition-all" style={{ width: `${Math.max(3, pct)}%` }} />
     </div>
   );
 }

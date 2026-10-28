@@ -38,12 +38,12 @@ export function IdeaStage() {
         <label htmlFor="idea-edit" className="label">Your research idea</label>
         <textarea
           id="idea-edit"
-          className="input min-h-36 text-base leading-relaxed"
+          className="input min-h-36 text-16 leading-relaxed"
           value={idea}
           placeholder="e.g. What is the knowledge gap in implementing telemedicine in Southeast Asia?"
           onChange={(e) => setIdea(e.target.value)}
         />
-        <p className="mt-2 text-xs text-gray-500">Write it the way you would explain it to a supervisor. It does not need to be a polished question yet — the next step will help you scope it.</p>
+        <p className="mt-2 text-12 text-fg-2">Write it the way you would explain it to a supervisor. It does not need to be a polished question yet — the next step will help you scope it.</p>
         {err ? <div className="mt-3"><ErrorState error={err} /></div> : null}
         <div className="mt-4 flex flex-wrap justify-end gap-2">
           {dirty && <button className="btn-secondary" onClick={() => setIdea(project.idea)} disabled={saving}>Undo changes</button>}
@@ -55,7 +55,7 @@ export function IdeaStage() {
           )}
         </div>
       </div>
-      <div className="rounded-xl bg-[var(--color-accent-soft)] p-4 text-sm text-teal-950">
+      <div className="rounded-md bg-bg-3 p-4 text-14 text-fg-0">
         <p className="font-semibold">How this works</p>
         <ul className="mt-1 list-disc space-y-1 pl-5">
           <li>Every AI suggestion appears as a draft you can edit before anything else runs.</li>
