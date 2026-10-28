@@ -53,7 +53,7 @@ Per-stage actions stay global on the server (one retrieval job runs every query,
 
 | View | #1 mission | Primary (only accent-filled) button |
 |---|---|---|
-| Landing | Start a review | Start a review |
+| Landing | Start a review | Start a review (on phones the first screen is the headline, one sentence and this button; the demo follows) |
 | Sessions | Open or create a session | New session |
 | Canvas: empty | Type your idea | Create idea (Enter) |
 | Canvas: with nodes | Take the next step | the next action on the frontier node (the earliest stage not yet approved); every other card's action is an outline button. With a panel open, the primary moves to the panel footer. |

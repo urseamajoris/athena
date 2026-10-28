@@ -84,7 +84,7 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 - **Validation:** zod 4 for every model response and every request body.
 - **Model calls:** the `openai` SDK pointed at `https://api.x.ai/v1`.
 - **Background jobs:** an in-process runner whose state lives in SQLite. Progress streams to the browser over server-sent events.
-- **Interface:** React Flow 12 (canvas) with elkjs layout (lazy-loaded), Motion (`motion`) with `reducedMotion="user"`, Radix UI primitives, cmdk (⌘K), TanStack Table + Virtual (summary and ranking table), Zustand with persist (canvas state per session), Lucide icons, Inter and JetBrains Mono (self-hosted). The landing demo is a Remotion composition rendered at build time; Remotion is a dev dependency and never ships to the browser.
+- **Interface:** React Flow 12 (canvas) with elkjs layout (lazy-loaded, runs in a Web Worker), Motion (`motion`) with `reducedMotion="user"`, Radix UI primitives, cmdk (⌘K), TanStack Table + Virtual (summary and ranking table), Zustand with persist (canvas state per session), Lucide icons, Inter and JetBrains Mono (self-hosted). The landing demo is a Remotion composition rendered at build time; Remotion is a dev dependency and never ships to the browser. Remotion's licence is free for individuals and small teams, but larger companies need a paid company licence (remotion.dev/license) to keep re-rendering the demo. The rendered video and poster are plain files in `public/demo/` and need no licence to serve.
 
 ```
 prompts/                 one versioned prompt file per AI step (<name>.v<N>.md)
@@ -299,9 +299,24 @@ See **Test results** below for what was actually run.
 
 ## Test results
 
+### Canvas redesign (mock mode, no keys, $0)
+
+All of this ran with every API key removed from the server's environment. The paid-API guard counted **0 attempted calls**, so the redesign spent nothing.
+
+| Run | Result |
+|---|---|
+| `npm test` | 57/57 pass. The earlier tests plus:<ul><li>the paid-API guard;</li><li>colour contrast of every token pair in both themes;</li><li>the canvas graph (nodes, statuses, ghosts, quotes);</li><li>stage gating and next actions (frontier only, locked options with reasons, the checkpointed re-run cascade);</li><li>layout (pinned nodes never move);</li><li>persisted canvas state;</li><li>number and time formatting.</li></ul> |
+| `npm run build` | compiles and type-checks. First-load JS: `/` 116 kB; `/s/[id]` 148 kB, with the canvas itself loaded after first paint; `/s/[id]/table` 188 kB. |
+| `node scripts/e2e.mjs` | 29/29 checks pass, driving the whole pipeline through the canvas (nodes, Focus panel, table page, export page) in about 30 s. |
+| `npm run qa` (visual audit), round 5 of 5 | **All 12 checklist items pass in all 192 screenshots** (24 views × 1440/390 px × dark/light × motion on/reduced). The full results are in `qa/report-final.md`, with WebP screenshots in `qa/screenshots/`. Highlights:<ul><li>The 300-node canvas pans at 59 fps.</li><li>The canvas route loads 242 kB gzip of JS before the first node shows.</li><li>Landing LCP is 0.76 s on simulated slow-4G mobile.</li><li>Lighthouse mobile performance is 92–99 and accessibility 100 on all 7 pages.</li></ul> |
+
+Rounds 1–4 and what each fixed are summarised in `qa/report-final.md`.
+
+### Before the redesign (wizard UI)
+
 Everything below was run in this repository on 2026-10-28. Total xAI spend for the whole session, development included, was **$2.12** against a $5 cap. Screenshots from the final real run are in `docs/screenshots/`. Its machine-readable check results are in `docs/real-run-results.json`.
 
-### Automated checks
+#### Automated checks
 
 | Run | Mode | Result |
 |---|---|---|
@@ -314,7 +329,7 @@ Everything below was run in this repository on 2026-10-28. Total xAI spend for t
 
 The real runs used the test idea, with the scripted student answers in `scripts/e2e.mjs`. They made no manual database or code intervention.
 
-### Final real run (`prj_c43ca2ca16a8457c`)
+#### Final real run (`prj_c43ca2ca16a8457c`)
 
 - **Scoping:** Grok asked 3 questions and skipped what the idea already stated. It proposed 5 topics with MeSH terms.
 - **Search:** 10 queries in correct PubMed (`[mh]`, `[tiab]`, truncation) and OpenAlex syntax, with dry-run counts from 7 to 268.
@@ -346,7 +361,7 @@ Approximate AI cost by stage in that run:
 | Synthesis | 0.129 |
 | Research questions | 0.027 |
 
-### QA loops (three, as budgeted)
+#### QA loops (three, as budgeted)
 
 1. **Real run #1, then a review of the screenshots, outputs and logs.** Fixed:
    - The model wrote internal IDs into prose. Fixed with v2 prompts that forbid it, plus a display-time scrub.
