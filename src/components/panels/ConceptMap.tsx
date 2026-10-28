@@ -1,14 +1,6 @@
 "use client";
 
 const ORDER = ["population", "setting", "phenomenon", "context", "method", "outcome"];
-const COLOR: Record<string, { fill: string; stroke: string }> = {
-  population: { fill: "#e0f2fe", stroke: "#0369a1" },
-  setting: { fill: "#ecfccb", stroke: "#4d7c0f" },
-  phenomenon: { fill: "#ccfbf1", stroke: "#0f766e" },
-  context: { fill: "#fef3c7", stroke: "#b45309" },
-  method: { fill: "#ede9fe", stroke: "#6d28d9" },
-  outcome: { fill: "#ffe4e6", stroke: "#be123c" },
-};
 
 function wrap(label: string, max = 22): string[] {
   const words = label.split(/\s+/);
@@ -42,11 +34,11 @@ export function ConceptMap({ map }: { map: { nodes: { id: string; label: string;
       <svg role="img" aria-label="Concept map of the research idea" viewBox={`0 0 ${W} ${H}`} className="h-auto w-full">
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M0,0 L10,5 L0,10 z" fill="#9ca3af" />
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--fg-2)" />
           </marker>
         </defs>
         {kinds.map((k, ri) => (
-          <text key={k} x={4} y={34 + ri * rowH} style={{ fontSize: 11, fill: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.5 }}>{k}</text>
+          <text key={k} x={4} y={34 + ri * rowH} style={{ fontSize: 12, fill: "var(--fg-2)" }}>{k}</text>
         ))}
         {map.edges.map((e, i) => {
           const a = pos.get(e.from);
@@ -62,22 +54,21 @@ export function ConceptMap({ map }: { map: { nodes: { id: string; label: string;
           const d = sameRow ? `M${sx},${sy} L${ex},${ey}` : `M${sx},${sy} C${sx},${midY} ${ex},${midY} ${ex},${ey}`;
           return (
             <g key={i}>
-              <path d={d} fill="none" stroke="#cbd5e1" strokeWidth={1.5} markerEnd="url(#arrow)" />
-              <text x={(sx + ex) / 2 + 6} y={midY + (sameRow ? -5 : 4)} style={{ fontSize: 11, fill: "#475569" }} paintOrder="stroke" stroke="#fff" strokeWidth={3}>{e.label}</text>
+              <path d={d} fill="none" stroke="var(--line-control)" strokeWidth={1.5} markerEnd="url(#arrow)" />
+              <text x={(sx + ex) / 2 + 6} y={midY + (sameRow ? -5 : 4)} style={{ fontSize: 12, fill: "var(--fg-1)" }} paintOrder="stroke" stroke="var(--bg-1)" strokeWidth={4}>{e.label}</text>
             </g>
           );
         })}
         {map.nodes.map((n) => {
           const p = pos.get(n.id);
           if (!p) return null;
-          const c = COLOR[n.kind] ?? COLOR.context;
           const lines = wrap(n.label);
           return (
             <g key={n.id}>
               <title>{`${n.label} (${n.kind})`}</title>
-              <rect x={p.x - nodeW / 2} y={p.y - nodeH / 2} width={nodeW} height={nodeH} rx={9} fill={c.fill} stroke={c.stroke} strokeWidth={1} />
+              <rect x={p.x - nodeW / 2} y={p.y - nodeH / 2} width={nodeW} height={nodeH} rx={9} fill="var(--bg-2)" stroke="var(--line-control)" strokeWidth={1} />
               {lines.map((l, i) => (
-                <text key={i} x={p.x} y={p.y + 4 + (i - (lines.length - 1) / 2) * 14} textAnchor="middle" style={{ fontSize: 12, fill: "#111827" }}>{l}</text>
+                <text key={i} x={p.x} y={p.y + 4 + (i - (lines.length - 1) / 2) * 14} textAnchor="middle" style={{ fontSize: 12, fill: "var(--fg-0)" }}>{l}</text>
               ))}
             </g>
           );

@@ -9,7 +9,7 @@ import { AiValidationError, BudgetError } from "./ai/client";
 import { startJob, cancelJob } from "./jobs";
 import { addTopic, answerScoping, approveTopics, deleteTopic, generateTopics, mergeTopics, nextScopingTurn, scopingState, skipScoping, updateTopic } from "./stages/scoping";
 import { buildQueries, dryRun, dryRunAll, searchState, updateCriteria, updateQuery } from "./stages/search";
-import { appraisalDetail, appraisalsView, decisionLogView, paperDetail, papersView, projectView, questionsView, rankingView, retrievalView, synthesisView } from "./views";
+import { appraisalDetail, appraisalsView, canvasView, claimsView, decisionLogView, paperDetail, papersView, projectView, questionsView, rankingView, retrievalView, synthesisView } from "./views";
 import { markdownReport, selectedBibtex, summaryCsv } from "./export";
 import { runNovelty } from "./jobs/questions";
 import { reverifyProject } from "./jobs/appraisal";
@@ -312,6 +312,10 @@ on("POST", "questions/:qid/novelty", async ({ projectId, params }) => {
   await runNovelty(params.qid, reviewed, () => {});
   return questionsView(projectId);
 });
+
+// ---------- canvas ----------
+on("GET", "canvas", ({ projectId }) => canvasView(projectId));
+on("GET", "claims", ({ projectId }) => claimsView(projectId));
 
 // ---------- misc ----------
 on("GET", "log", ({ projectId }) => decisionLogView(projectId));

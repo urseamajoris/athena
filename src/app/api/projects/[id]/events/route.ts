@@ -1,4 +1,4 @@
-import { projectView, retrievalView } from "@/lib/views";
+import { canvasView, projectView, retrievalView } from "@/lib/views";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -18,7 +18,7 @@ export async function GET(req: Request, ctx: Ctx) {
         try {
           const v = projectView(id);
           const running = Object.values(v.jobs).some((j) => j && (j.status === "running" || j.status === "queued"));
-          const payload = JSON.stringify({ stageStates: v.project.stageStates, staleReasons: v.project.staleReasons, jobs: v.jobs, costs: v.costs, retrieval: running || v.project.stageStates["4"] !== "not_started" ? retrievalView(id) : null });
+          const payload = JSON.stringify({ stageStates: v.project.stageStates, staleReasons: v.project.staleReasons, jobs: v.jobs, costs: v.costs, retrieval: running || v.project.stageStates["4"] !== "not_started" ? retrievalView(id) : null, canvas: canvasView(id) });
           if (payload !== last) {
             last = payload;
             controller.enqueue(enc.encode(`data: ${payload}\n\n`));

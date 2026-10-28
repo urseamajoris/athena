@@ -307,3 +307,81 @@ mark.q-bad {
   background: color-mix(in oklab, var(--err) 20%, transparent);
   color: inherit;
 }
+
+/* ---------- canvas (React Flow) ---------- */
+.react-flow,
+.react-flow.dark,
+.react-flow.light {
+  --xy-background-color-default: transparent;
+  --xy-background-pattern-dots-color-default: var(--line-strong);
+  --xy-edge-stroke-default: var(--line-control);
+  --xy-edge-stroke-width-default: 1.5;
+  --xy-connectionline-stroke-default: var(--fg-1);
+  --xy-minimap-background-color-default: var(--bg-1);
+  --xy-minimap-mask-background-color-default: rgb(0 0 0 / 0.45);
+  --xy-minimap-mask-stroke-color-default: var(--fg-2);
+  --xy-handle-background-color-default: var(--bg-3);
+  --xy-handle-border-color-default: var(--line-control);
+  --xy-selection-background-color-default: transparent;
+  --xy-selection-border-default: none;
+}
+:root[data-theme="light"] .react-flow {
+  --xy-minimap-mask-background-color-default: rgb(255 255 255 / 0.55);
+}
+.react-flow__node {
+  transition: transform var(--dur-spawn) var(--ease);
+}
+.react-flow__node.dragging {
+  transition: none;
+}
+.react-flow__node:focus-visible,
+.react-flow__node:focus {
+  outline: none;
+}
+.react-flow__edge.running .react-flow__edge-path {
+  stroke: var(--run);
+  stroke-dasharray: 6 4;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .react-flow__edge.running .react-flow__edge-path {
+    animation: athena-flow 0.6s linear infinite;
+  }
+}
+@keyframes athena-flow {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+.athena-handle {
+  width: 8px;
+  height: 8px;
+  opacity: 0;
+}
+.react-flow__node:hover .athena-handle.connectable,
+.react-flow__node:focus-within .athena-handle.connectable {
+  opacity: 1;
+}
+.react-flow__minimap {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.react-flow__minimap-node { fill: var(--bg-3); stroke: none; }
+.react-flow__minimap-node.mm-done { fill: var(--fg-2); }
+.react-flow__minimap-node.mm-running { fill: var(--run); }
+.react-flow__minimap-node.mm-review { fill: var(--fg-1); }
+.react-flow__minimap-node.mm-stale { fill: var(--warn); }
+.react-flow__minimap-node.mm-error { fill: var(--err); }
+
+/* View transitions between routes (crossfade; nothing when motion is reduced). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-panel);
+  animation-timing-function: var(--ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
