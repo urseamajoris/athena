@@ -394,7 +394,20 @@ const MOBILE_CHECKS = () => {
     const b = box.getBoundingClientRect();
     if (!inline && (b.width < 44 - 0.5 || b.height < 44 - 0.5)) out.small.push(`${desc(el)} ${Math.round(b.width)}×${Math.round(b.height)}`);
   }
-  const rects = interactive.map((el) => ({ el, r: el.getBoundingClientRect() }));
+  // The part of an element actually on screen: its box clipped by every ancestor that clips its content (a
+  // scrolled panel body ends where the panel footer starts, even though the content box runs on underneath).
+  const clipped = (el: Element) => {
+    const r = el.getBoundingClientRect();
+    let [l, t, rr, b] = [r.left, r.top, r.right, r.bottom];
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      const cs = getComputedStyle(p);
+      if (cs.overflowX === "visible" && cs.overflowY === "visible") continue;
+      const c = p.getBoundingClientRect();
+      [l, t, rr, b] = [Math.max(l, c.left), Math.max(t, c.top), Math.min(rr, c.right), Math.min(b, c.bottom)];
+    }
+    return { left: l, top: t, right: rr, bottom: b };
+  };
+  const rects = interactive.map((el) => ({ el, r: clipped(el) }));
   for (let i = 0; i < rects.length; i++)
     for (let j = i + 1; j < rects.length; j++) {
       const a = rects[i], b = rects[j];
