@@ -228,7 +228,7 @@ on("GET", "ranking/scores/:sid", ({ projectId, params }) => {
   const s = db.select().from(schema.scores).where(eq(schema.scores.id, params.sid)).get();
   const t = s && db.select().from(schema.topics).where(and(eq(schema.topics.id, s.topicId), eq(schema.topics.projectId, projectId))).get();
   if (!s || !t) throw new HttpError(404, "Score not found");
-  return { rationales: s.rationales };
+  return { subScores: s.subScores, rationales: s.rationales };
 });
 on("POST", "ranking/select", ({ projectId, body }) => {
   const { scoreId, selected } = parse(z.object({ scoreId: z.string(), selected: z.boolean() }), body);

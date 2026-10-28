@@ -98,13 +98,13 @@ export function papersTableView(projectId: string) {
   };
 }
 
-/** The ranking as the table shows it (see papersTableView). The per-criterion rationales, most of the
- *  ranking's size, load when a row is opened (GET ranking/scores/:id). */
+/** The ranking as the table shows it (see papersTableView). The per-criterion scores and rationales, most of
+ *  the ranking's size, load when a row is opened (GET ranking/scores/:id); titles come from the papers. */
 export function rankingTableView(projectId: string) {
   return {
     topics: rankingView(projectId).topics.map((t) => ({
       id: t.id, name: t.name, importanceRank: t.importanceRank, importanceJustification: t.importanceJustification,
-      scores: t.scores.map((s) => ({ id: s.id, paperId: s.paperId, topicId: s.topicId, total: s.total, selected: s.selected, userChanged: s.userChanged, rationale: s.rationale, subScores: s.subScores, paper: { title: s.paper.title } })),
+      scores: t.scores.map((s) => ({ id: s.id, paperId: s.paperId, topicId: s.topicId, total: s.total, selected: s.selected, userChanged: s.userChanged, rationale: s.rationale })),
     })),
   };
 }

@@ -16,7 +16,8 @@ interface Paper {
   summary: { studyType: string; setting: string; keyFinding: string; edited: boolean } | null;
   topicIds: string[];
 }
-interface Score { id: string; paperId: string; topicId: string; total: number; selected: boolean; userChanged: boolean; rationale: string; subScores: Record<string, number>; paper: { title: string } }
+interface Score { id: string; paperId: string; topicId: string; total: number; selected: boolean; userChanged: boolean; rationale: string }
+type SwapChoice = Score & { title: string };
 interface RankingData { topics: { id: string; name: string; importanceRank: number | null; importanceJustification: string | null; scores: Score[] }[] }
 interface PapersData { topics: { id: string; name: string }[]; papers: Paper[] }
 
@@ -150,6 +151,12 @@ export function TableView() {
     () => (sorting.length ? sorting : ranked ? [{ id: topic === "all" ? "score" : "rank", desc: topic === "all" }] : [{ id: "year", desc: true }]),
     [sorting, ranked, topic],
   );
+  // The open row's swap menu: this topic's scored papers, with titles from the papers list.
+  const swapChoices = useMemo<SwapChoice[]>(() => {
+    if (topic === "all") return [];
+    const title = new Map((papers.data?.papers ?? []).map((p) => [p.id, p.title]));
+    return (ranking.data?.topics.find((t) => t.id === topic)?.scores ?? []).map((sc) => ({ ...sc, title: title.get(sc.paperId) ?? "" }));
+  }, [topic, papers.data, ranking.data]);
   const columnChoices = columns.map((c) => ({ id: (c.id ?? (c as { accessorKey?: string }).accessorKey)!, header: c.header })).filter((c) => !["expand", "select", "title"].includes(c.id));
 
   if (states["4"] !== "approved" && (states["5"] ?? "not_started") === "not_started") return <EmptyState title="The table is built after retrieval">Approve the retrieved papers first.</EmptyState>;
@@ -228,7 +235,7 @@ export function TableView() {
       {all.length === 0 ? (
         <div className="p-4"><EmptyState title="No papers were retrieved">Go back to the queries and broaden them.</EmptyState></div>
       ) : (
-        <PapersTable rows={rows} columns={columns} sorting={effectiveSorting} onSortingChange={setSorting} visibility={visibility} expanded={expanded} topicScores={topic === "all" ? [] : rt.find((t) => t.id === topic)?.scores ?? []} onSwap={swap}>
+        <PapersTable rows={rows} columns={columns} sorting={effectiveSorting} onSortingChange={setSorting} visibility={visibility} expanded={expanded} topicScores={swapChoices} onSwap={swap}>
           {!rows.length && <p className="p-4 text-fg-2">No papers match these filters.</p>}
         </PapersTable>
       )}
@@ -238,7 +245,7 @@ export function TableView() {
 
 /** The table itself, in its own component so building rows (above) and the TanStack row model (here) are
  *  separate units of work that React can yield between while hydrating. */
-function PapersTable({ rows, columns, sorting, onSortingChange, visibility, expanded, topicScores, onSwap, children }: { rows: Row[]; columns: ColumnDef<Row, any>[]; sorting: SortingState; onSortingChange: OnChangeFn<SortingState>; visibility: VisibilityState; expanded: Set<string>; topicScores: Score[]; onSwap: (outId: string, inId: string) => void; children?: ReactNode }) { // eslint-disable-line @typescript-eslint/no-explicit-any
+function PapersTable({ rows, columns, sorting, onSortingChange, visibility, expanded, topicScores, onSwap, children }: { rows: Row[]; columns: ColumnDef<Row, any>[]; sorting: SortingState; onSortingChange: OnChangeFn<SortingState>; visibility: VisibilityState; expanded: Set<string>; topicScores: SwapChoice[]; onSwap: (outId: string, inId: string) => void; children?: ReactNode }) { // eslint-disable-line @typescript-eslint/no-explicit-any
   const table = useReactTable({ data: rows, columns, state: { sorting, columnVisibility: visibility }, onSortingChange, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(), getRowId: (r) => r.id, autoResetPageIndex: false, autoResetExpanded: false });
   const tableRows = table.getRowModel().rows;
   const scroller = useRef<HTMLDivElement>(null);
@@ -304,7 +311,7 @@ function PapersTable({ rows, columns, sorting, onSortingChange, visibility, expa
 
 /** One row and, when open, its detail. Memoised: measuring and scrolling re-render the table, and only rows whose
  *  data, columns or open state changed re-render with it (`columns` changes whenever a cell's rendering does). */
-const RowBody = memo(function RowBody({ row, index, visibleCols, measure, topicScores, onSwap }: { row: TableRow<Row>; index: number; columns: unknown; visibility: VisibilityState; visibleCols: number; measure: (el: Element | null) => void; topicScores?: Score[]; onSwap?: (outId: string, inId: string) => void }) {
+const RowBody = memo(function RowBody({ row, index, visibleCols, measure, topicScores, onSwap }: { row: TableRow<Row>; index: number; columns: unknown; visibility: VisibilityState; visibleCols: number; measure: (el: Element | null) => void; topicScores?: SwapChoice[]; onSwap?: (outId: string, inId: string) => void }) {
   return (
     <tbody ref={measure} data-index={index}>
       <tr className="border-b border-line align-top hover:bg-bg-1">
@@ -361,11 +368,11 @@ function AiCell({ row, field, editing, setEditing, onSave }: { row: Row; field: 
   );
 }
 
-function RowDetail({ row, topicScores, onSwap }: { row: Row; topicScores: Score[]; onSwap: (outId: string, inId: string) => void }) {
+function RowDetail({ row, topicScores, onSwap }: { row: Row; topicScores: SwapChoice[]; onSwap: (outId: string, inId: string) => void }) {
   const { projectId } = useSession();
   const { data } = useApi<{ paper: { abstract: string | null } }>(projectPath(projectId, `papers/${row.id}`));
   const s = row.score;
-  const why = useApi<{ rationales: Record<string, string> }>(s ? projectPath(projectId, `ranking/scores/${s.id}`) : null);
+  const why = useApi<{ subScores: Record<string, number>; rationales: Record<string, string> }>(s ? projectPath(projectId, `ranking/scores/${s.id}`) : null);
   const rest = topicScores.filter((x) => !x.selected);
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -378,13 +385,13 @@ function RowDetail({ row, topicScores, onSwap }: { row: Row; topicScores: Score[
           <h3 className="label">Why this score</h3>
           <p className="text-fg-1">{s.rationale}</p>
           <ul className="mt-2 space-y-1 text-12 text-fg-1">
-            {RUBRIC.map((r) => <li key={r.key}><strong className="font-medium">{r.label} {s.subScores[r.key]}/5:</strong> {why.data ? why.data.rationales[r.key as keyof typeof why.data.rationales] : "…"}</li>)}
+            {RUBRIC.map((r) => <li key={r.key}><strong className="font-medium">{r.label} {why.data ? `${why.data.subScores[r.key]}/5` : "…"}:</strong> {why.data?.rationales[r.key] ?? ""}</li>)}
           </ul>
           {s.selected && rest.length > 0 && (
             <label className="mt-3 block text-12 text-fg-1">Swap for another paper in this topic
               <select className="input mt-1" value="" onChange={(e) => e.target.value && onSwap(s.id, e.target.value)}>
                 <option value="">choose a paper…</option>
-                {rest.slice(0, 40).map((o) => <option key={o.id} value={o.id}>{o.total} · {o.paper.title.slice(0, 70)}</option>)}
+                {rest.slice(0, 40).map((o) => <option key={o.id} value={o.id}>{o.total} · {o.title.slice(0, 70)}</option>)}
               </select>
             </label>
           )}

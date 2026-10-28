@@ -800,6 +800,7 @@ async function main() {
       if (LH_ONLY && !LH_ONLY.includes(name)) continue;
       // Three runs, median performance (Lighthouse's advice for variable machines); accessibility must be 100
       // in every run.
+      await fetch(BASE + p).catch(() => {}); // warm the server's route first (a running server is warm)
       const runs = [0, 1, 2].map(() => lighthouse(BASE + p, name) as Any);
       const ok = runs.filter((x) => !x.error).sort((x, y) => x.performance - y.performance);
       const r = ok.length ? { ...ok[Math.floor((ok.length - 1) / 2)], accessibility: Math.min(...ok.map((x) => x.accessibility)), runs: ok.map((x) => x.performance) } : runs[0];

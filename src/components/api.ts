@@ -1,5 +1,6 @@
 "use client";
-import useSWR, { type SWRConfiguration } from "swr";
+import { useEffect } from "react";
+import useSWR, { useSWRConfig, type SWRConfiguration } from "swr";
 
 export class ApiError extends Error {
   constructor(message: string, public status: number, public kind?: string) {
@@ -30,7 +31,18 @@ export async function api<T = unknown>(path: string, opts: { method?: string; bo
 export const fetcher = (url: string) => api(url);
 
 export function useApi<T>(path: string | null, cfg?: SWRConfiguration) {
-  return useSWR<T>(path, fetcher as (u: string) => Promise<T>, { revalidateOnFocus: false, ...cfg });
+  // Data the server put in this page (SWRConfig fallback) is current as of this response, so it is not fetched
+  // again on mount (on the table page that was ~500 kB of JSON parsed and compared for nothing). It is copied into
+  // the cache instead, so refresh() and job updates, which revalidate cached keys, still find it. Anything
+  // cached earlier, or mounted later, revalidates as usual.
+  const { fallback, cache, mutate } = useSWRConfig();
+  const seed = path && cache.get(path)?.data === undefined ? (fallback as Record<string, unknown> | undefined)?.[path] : undefined;
+  const swr = useSWR<T>(path, fetcher as (u: string) => Promise<T>, { revalidateOnFocus: false, ...(seed !== undefined ? { revalidateOnMount: false } : {}), ...cfg });
+  useEffect(() => {
+    if (path && seed !== undefined) mutate(path, seed, { revalidate: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path]);
+  return swr;
 }
 
 export const projectPath = (id: string, sub = "") => `/api/projects/${id}${sub ? `/${sub}` : ""}`;
