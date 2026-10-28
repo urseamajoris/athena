@@ -1,5 +1,6 @@
 // Renders the landing-page demo loop with Remotion (build-time only; Remotion never ships to the browser).
-// Usage: node scripts/render-demo.mjs   → public/demo/canvas-demo.{mp4,webm} and canvas-demo-poster.webp
+// Usage: node scripts/render-demo.mjs   → public/demo/canvas-demo.{mp4,webm}, canvas-demo-poster.webp (960 px)
+// and canvas-demo-poster-640.webp (phones)
 // Uses the Chromium headless shell that ships with the pre-installed Playwright (no browser download).
 import fs from "node:fs";
 import os from "node:os";
@@ -23,4 +24,5 @@ await renderMedia({ ...common, composition, codec: "h264", crf: 30, scale, pixel
 await renderMedia({ ...common, composition, codec: "vp9", crf: 40, scale, outputLocation: path.join(out, "canvas-demo.webm") });
 // The poster (also the reduced-motion image) is the finished canvas.
 await renderStill({ ...common, composition, frame: 276, scale, imageFormat: "webp", output: path.join(out, "canvas-demo-poster.webp") });
+await renderStill({ ...common, composition, frame: 276, scale: 0.5, imageFormat: "webp", output: path.join(out, "canvas-demo-poster-640.webp") });
 for (const f of fs.readdirSync(out)) console.log(f, `${Math.round(fs.statSync(path.join(out, f)).size / 1024)} kB`);

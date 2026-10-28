@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Pause, Play } from "lucide-react";
+import { POSTER, POSTER_SET, POSTER_SIZES } from "./poster";
 
 const QUERY = "(prefers-reduced-motion: reduce)";
 function subscribe(cb: () => void) {
@@ -22,11 +23,16 @@ export function DemoVideo() {
   const img = useRef<HTMLImageElement>(null);
   const [paused, setPaused] = useState(false);
   const [posterShown, setPosterShown] = useState(false);
+  const [poster, setPoster] = useState(POSTER);
   useEffect(() => {
     const el = img.current;
     if (!el || posterShown) return;
     const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
-    const show = () => (w.requestIdleCallback ? w.requestIdleCallback(() => setPosterShown(true), { timeout: 2000 }) : setTimeout(() => setPosterShown(true), 200));
+    const done = () => {
+      setPoster(el.currentSrc || POSTER); // the size the browser picked, already loaded
+      setPosterShown(true);
+    };
+    const show = () => (w.requestIdleCallback ? w.requestIdleCallback(done, { timeout: 2000 }) : setTimeout(done, 200));
     if (el.complete) show();
     else el.addEventListener("load", show, { once: true });
     return () => el.removeEventListener("load", show);
@@ -35,10 +41,10 @@ export function DemoVideo() {
     <figure className="relative mx-auto aspect-[8/5] w-full max-w-[960px] overflow-hidden rounded-lg border border-line bg-bg-0">
       {reduced || !posterShown ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img ref={img} src="/demo/canvas-demo-poster.webp" width={960} height={600} alt={ALT} fetchPriority="high" className="h-full w-full object-cover" />
+        <img ref={img} src={POSTER} srcSet={POSTER_SET} sizes={POSTER_SIZES} width={960} height={600} alt={ALT} fetchPriority="high" className="h-full w-full object-cover" />
       ) : (
         <>
-          <video ref={ref} autoPlay muted loop playsInline preload="auto" poster="/demo/canvas-demo-poster.webp" width={960} height={600} aria-label={ALT} className="h-full w-full object-cover">
+          <video ref={ref} autoPlay muted loop playsInline preload="auto" poster={poster} width={960} height={600} aria-label={ALT} className="h-full w-full object-cover">
             <source src="/demo/canvas-demo.mp4" type="video/mp4" />
             <source src="/demo/canvas-demo.webm" type="video/webm" />
           </video>
