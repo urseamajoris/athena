@@ -385,3 +385,8 @@ mark.q-bad {
     animation: none !important;
   }
 }
+
+/* Headings that receive focus programmatically (tabindex=-1, not reachable by Tab) need no ring. */
+[tabindex="-1"]:focus {
+  outline: none;
+}

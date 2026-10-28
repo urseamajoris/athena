@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { TransitionLink } from "./vt";
 import { AlertTriangle, Plus } from "lucide-react";
 import { api, useApi } from "./api";
 import { Disclosure, ErrorState, Loading, MoreMenu, Modal, StateIcon, cx } from "./ui";
@@ -56,9 +57,9 @@ export function SessionsList() {
       <main id="main" className="mx-auto max-w-5xl px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-20 font-semibold">Sessions</h1>
-          <Link href="/s/new" className="btn-primary min-h-11">
+          <TransitionLink href="/s/new" className="btn-primary min-h-11">
             <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden /> New session
-          </Link>
+          </TransitionLink>
         </div>
         <div className="mt-4">
           <Disclosure title="Sort and filter" meta={`${rows.length} of ${data?.projects.length ?? 0}`}>
@@ -91,14 +92,14 @@ export function SessionsList() {
             const stale = Object.values(p.stageStates).filter((s) => s === "stale").length;
             return (
               <li key={p.id} className="relative flex flex-col rounded-md border border-line bg-bg-1 hover:border-line-strong">
-                <Link href={`/s/${p.id}`} className="flex flex-1 flex-col gap-2 rounded-md p-4 pr-12">
+                <TransitionLink href={`/s/${p.id}`} className="flex flex-1 flex-col gap-2 rounded-md p-4 pr-12">
                   <span className="line-clamp-3 font-medium text-fg-0">{p.title || p.idea}</span>
                   <span className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-12 text-fg-1">
                     <span className="inline-flex items-center gap-1"><StateIcon state={state} className="h-3 w-3" />{f ? `${f.n}. ${f.title} · ${STATE_LABEL[state].toLowerCase()}` : "Finished"}</span>
                     {stale > 0 && <span className="inline-flex items-center gap-1 text-warn"><AlertTriangle className="h-3 w-3" strokeWidth={2} aria-hidden />{stale} stale</span>}
                     <span className="text-fg-2">edited {ago(p.updatedAt)}</span>
                   </span>
-                </Link>
+                </TransitionLink>
                 <div className={cx("absolute right-1 top-1")}>
                   <MoreMenu label={`Actions for ${p.title || p.idea}`} items={[{ label: "Delete session", danger: true, onSelect: () => setConfirm(p) }]} />
                 </div>

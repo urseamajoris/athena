@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { TransitionLink } from "../vt";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence } from "motion/react";
 import { Command, LayoutGrid, List as ListIcon, X } from "lucide-react";
@@ -135,10 +136,10 @@ function Shell() {
   return (
     <div className="fixed inset-0 flex flex-col bg-bg-0">
       <header className="relative z-20 flex h-12 shrink-0 items-center gap-3 border-b border-line bg-bg-0 px-2 md:px-4">
-        <Link href="/sessions" className="inline-flex h-11 shrink-0 items-center gap-2 rounded-sm px-1 font-semibold" aria-label="Athena: all sessions">
+        <TransitionLink href="/sessions" className="inline-flex h-11 shrink-0 items-center gap-2 rounded-sm px-1 font-semibold" aria-label="Athena: all sessions">
           <span aria-hidden className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-line-strong bg-bg-2 text-12">A</span>
           <span className="hidden lg:inline">Athena</span>
-        </Link>
+        </TransitionLink>
         <h1 className="hidden min-w-0 max-w-64 truncate font-medium text-fg-1 xl:block" title={project.idea}>{project.title || project.idea}</h1>
         <div className="flex min-w-0 flex-1 justify-center">
           <StageRail compact={mobile} />

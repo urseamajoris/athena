@@ -1,6 +1,6 @@
 "use client";
 import type { ReactNode } from "react";
-import Link from "next/link";
+import { TransitionLink } from "../vt";
 import { ArrowLeft } from "lucide-react";
 import { ErrorState, Loading } from "../ui";
 import { MotionRoot } from "../motion";
@@ -30,9 +30,9 @@ function Frame({ node, title, children, showAction }: { node: string; title: str
   return (
     <div className="fixed inset-0 flex flex-col bg-bg-0">
       <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-3 border-b border-line px-2 py-1 md:px-4">
-        <Link href={`/s/${projectId}?node=${encodeURIComponent(node)}`} className="btn-ghost h-11">
+        <TransitionLink href={`/s/${projectId}?node=${encodeURIComponent(node)}`} className="btn-ghost h-11">
           <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Canvas
-        </Link>
+        </TransitionLink>
         <h1 className="min-w-0 flex-1 truncate text-16 font-semibold">{title}</h1>
         {action && <ActionButton action={action} primary showReason />}
         <AppMenu />
