@@ -1,0 +1,204 @@
+{
+  "project": "prj_c43ca2ca16a8457c",
+  "mode": "real",
+  "costs": {
+    "2": {
+      "stage": 2,
+      "calls": 5,
+      "input": 4677,
+      "output": 4703,
+      "cost": 0.01693175,
+      "failures": 0
+    },
+    "3": {
+      "stage": 3,
+      "calls": 1,
+      "input": 1401,
+      "output": 1830,
+      "cost": 0.00619185,
+      "failures": 0
+    },
+    "5": {
+      "stage": 5,
+      "calls": 28,
+      "input": 113794,
+      "output": 44472,
+      "cost": 0.2464337,
+      "failures": 0
+    },
+    "6": {
+      "stage": 6,
+      "calls": 28,
+      "input": 91131,
+      "output": 51030,
+      "cost": 0.23436555,
+      "failures": 0
+    },
+    "7": {
+      "stage": 7,
+      "calls": 18,
+      "input": 106921,
+      "output": 101076,
+      "cost": 0.38311565,
+      "failures": 0
+    },
+    "8": {
+      "stage": 8,
+      "calls": 5,
+      "input": 32705,
+      "output": 35633,
+      "cost": 0.12929174999999998,
+      "failures": 0
+    },
+    "9": {
+      "stage": 9,
+      "calls": 1,
+      "input": 8034,
+      "output": 6843,
+      "cost": 0.0270156,
+      "failures": 0
+    }
+  },
+  "checks": [
+    {
+      "name": "scoping asked at most 5 questions",
+      "ok": true,
+      "detail": "asked 3"
+    },
+    {
+      "name": "4–8 topics generated",
+      "ok": true,
+      "detail": "Barriers and facilitators to telemedicine adoption | Acceptability of telemedicine | Policy and regulatory frameworks | Infrastructure readiness in rural areas | Adoption and uptake rates"
+    },
+    {
+      "name": "every topic has synonyms and a rationale",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "user can add a topic",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "user can delete a topic",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "one query per database per topic",
+      "ok": true,
+      "detail": "10 queries"
+    },
+    {
+      "name": "dry-run counts shown",
+      "ok": true,
+      "detail": "268, ERR openalex: HTTP 400: {\"error\":\"Invalid query parameters error.\",\"message\":\"Wildcards (* or ?) require exact (no-stem) search. The default search is stemmed, so the literal text before the wildcard is removed when the work, 108, 47, 42, 49, 7, 50, 119, 56"
+    },
+    {
+      "name": "retrieval finished all queries",
+      "ok": true,
+      "detail": "pubmed:done openalex:failed pubmed:done openalex:done pubmed:done openalex:done pubmed:done openalex:done pubmed:done openalex:done"
+    },
+    {
+      "name": "papers deduplicated",
+      "ok": true,
+      "detail": "231 unique of 327 fetched"
+    },
+    {
+      "name": "every paper has a real identifier",
+      "ok": true,
+      "detail": "231 papers"
+    },
+    {
+      "name": "summary rows filled",
+      "ok": true,
+      "detail": "231/231"
+    },
+    {
+      "name": "3–5 papers selected per topic",
+      "ok": true,
+      "detail": "4,4,4,4,4"
+    },
+    {
+      "name": "topics ordered by importance with justification",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "user can swap a selected paper",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "every appraisal labelled full text or abstract only",
+      "ok": true,
+      "detail": "14 full text, 4 abstract only"
+    },
+    {
+      "name": "every extracted claim has a quote",
+      "ok": true,
+      "detail": "269 claims"
+    },
+    {
+      "name": "verified quotes point at real spans of the source text",
+      "ok": true,
+      "detail": "253 verified, 16 unverified"
+    },
+    {
+      "name": "synthesis statements all cite claims",
+      "ok": true,
+      "detail": "35 statements, 1 contradictions"
+    },
+    {
+      "name": "synthesis only cites verified or user-accepted claims",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "three candidate questions",
+      "ok": true,
+      "detail": "What exact infrastructure performance standards, such as minimum bandwidth and uptime, are needed for effective telemedicine in varied rural Southeast Asian settings? || What is the impact of current telemedicine guidelines on clinical practice, service quality and patient outcomes in Southeast Asia? || How does providing telemedicine affect the workload and burnout risk of rural health workers in Southeast Asia and what support do they need?"
+    },
+    {
+      "name": "each question links to supporting claims",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "novelty searches ran",
+      "ok": true,
+      "detail": "7 matches, 7 matches, 0 matches"
+    },
+    {
+      "name": "question chosen and edited",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "export md",
+      "ok": true,
+      "detail": "169141 bytes"
+    },
+    {
+      "name": "export csv",
+      "ok": true,
+      "detail": "143422 bytes"
+    },
+    {
+      "name": "export bib",
+      "ok": true,
+      "detail": "8803 bytes"
+    },
+    {
+      "name": "editing topics marks stages 3–9 stale",
+      "ok": true,
+      "detail": "{\"1\":\"approved\",\"2\":\"needs_review\",\"3\":\"stale\",\"4\":\"stale\",\"5\":\"stale\",\"6\":\"stale\",\"7\":\"stale\",\"8\":\"stale\",\"9\":\"stale\"}"
+    },
+    {
+      "name": "no browser console errors",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}
