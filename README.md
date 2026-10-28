@@ -1,6 +1,6 @@
 # Athena: a guided literature review for novice researchers
 
-Athena is a working prototype of a web app that takes a student from a rough research idea to a research question grounded in real literature. It has nine stages, and each one ends in a checkpoint the student edits and approves:
+Athena is a working prototype of a web app that takes a student from a rough research idea to a research question grounded in real literature. The interface is a canvas: a session opens to an empty canvas with one prompt, and the review grows outward as connected nodes (idea → topics → queries → corpus → table → appraisal → synthesis → questions → export), with each stage's work done inside its node's Focus panel. There are nine stages, and each one ends in a checkpoint the student edits and approves:
 
 1. **Idea**: free text.
 2. **Scoping**: a short AI chat (at most five questions), then a concept map and 4–8 editable search topics with synonyms and MeSH terms.
@@ -84,16 +84,30 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 - **Validation:** zod 4 for every model response and every request body.
 - **Model calls:** the `openai` SDK pointed at `https://api.x.ai/v1`.
 - **Background jobs:** an in-process runner whose state lives in SQLite. Progress streams to the browser over server-sent events.
+- **Interface:** React Flow 12 (canvas) with elkjs layout (lazy-loaded), Motion (`motion`) with `reducedMotion="user"`, Radix UI primitives, cmdk (⌘K), TanStack Table + Virtual (summary and ranking table), Zustand with persist (canvas state per session), Lucide icons, Inter and JetBrains Mono (self-hosted). The landing demo is a Remotion composition rendered at build time; Remotion is a dev dependency and never ships to the browser.
 
 ```
 prompts/                 one versioned prompt file per AI step (<name>.v<N>.md)
 fixtures/http/           recorded API responses for MOCK_MODE (keys/email stripped)
 drizzle/                 SQL migrations
-scripts/                 e2e.mjs (Playwright UI test), api-flow.mjs (API-only run), screens.mjs
-src/app/                 pages (home, /projects/[id] wizard) and API routes
+remotion/                the landing-page demo composition (rendered by scripts/render-demo.mjs)
+public/demo/             rendered demo video (MP4, WebM) and poster
+scripts/                 e2e.mjs (Playwright UI test), api-flow.mjs (API-only run), visual-audit.ts (QA loop),
+                         render-demo.mjs, screens.mjs
+qa/                      visual-audit reports (qa/report-<round>.md); screenshots in qa/shots/ (git-ignored)
+docs/redesign-map.md     how the canvas redesign maps onto the real routes and components
+src/app/                 /, /sessions, /s/new, /s/[id] (canvas), /s/[id]/table, /s/[id]/export, /settings,
+                         /projects/[id] (redirects to the canvas), and the API routes
   api/projects/[id]/[...path]/route.ts   → src/lib/api.ts (small router for all stage endpoints)
-  api/projects/[id]/events/route.ts      → SSE progress stream
-src/components/          wizard shell, paper drawer, one component per stage, UI primitives
+  api/projects/[id]/events/route.ts      → SSE progress stream (stage states, jobs, costs, canvas summary)
+src/components/canvas/   canvas shell, node cards, Focus panel host, stage rail, List view, ⌘K palette, add menu
+src/components/panels/   one Focus panel per node type (the stage UIs), evidence chips, shared panel parts
+src/components/session/  session provider (data, SSE, commands, confirm dialogs), paper dialog, full-page frame
+src/components/table/    the summary and ranking table
+src/components/ui.tsx    base components on design tokens (badges, dialogs, menus, disclosure)
+src/lib/canvas/          graph derivation, next actions and stage gating, layout, canvas store (unit-tested)
+src/lib/paid-guard.ts    when paid APIs may be called (unit-tested)
+src/lib/design/          WCAG contrast helpers and the token contrast test
 src/lib/db/              Drizzle schema + client
 src/lib/ai/              xAI client (structured calls, budget, cost), prompt loader, schema conversion, model check, mock responders
 src/lib/sources/         pubmed, openalex, crossref, unpaywall, europepmc + cached/rate-limited HTTP layer

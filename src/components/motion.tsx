@@ -1,12 +1,14 @@
 "use client";
 import type { ReactNode } from "react";
-import { LazyMotion, MotionConfig, domAnimation } from "motion/react";
+import { LazyMotion, MotionConfig } from "motion/react";
 
-// domAnimation is loaded with the view (not lazily) so an element never stays at its `initial` style
-// if a chunk fails to load. reducedMotion="user" turns transforms into plain fades.
+// Animation features load after first paint (they are not needed to show anything).
+// reducedMotion="user" turns transforms into plain fades.
+const features = () => import("./motion-features").then((m) => m.default);
+
 export function MotionRoot({ children }: { children: ReactNode }) {
   return (
-    <LazyMotion features={domAnimation} strict>
+    <LazyMotion features={features} strict>
       <MotionConfig reducedMotion="user" transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}>
         {children}
       </MotionConfig>

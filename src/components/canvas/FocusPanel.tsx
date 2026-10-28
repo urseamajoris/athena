@@ -7,7 +7,7 @@ import { CloseButton, Loading, MoreMenu, cx, type MenuItem } from "../ui";
 import { canvasStore, useSession } from "../session/SessionContext";
 import { PanelFooterSlot, useJobMenu } from "../panels/common";
 import { KindIcon } from "./icons";
-import { NodeStatusBadge } from "./NodeCard";
+import { NodeStatusBadge } from "./node-bits";
 import { KIND_LABEL, type GNode } from "@/lib/canvas/graph";
 
 const IdeaPanel = dynamic(() => import("../panels/IdeaPanel").then((x) => x.IdeaPanel), { loading: () => <Loading /> });

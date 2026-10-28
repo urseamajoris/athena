@@ -1,4 +1,5 @@
 "use client";
+import { LogoMark } from "./Logo";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { TransitionLink } from "./vt";
@@ -49,7 +50,7 @@ export function SessionsList() {
     <div className="min-h-screen bg-bg-0">
       <header className="flex h-12 items-center justify-between border-b border-line px-2 md:px-4">
         <Link href="/" className="inline-flex h-11 items-center gap-2 rounded-sm px-1 font-semibold" aria-label="Athena home">
-          <span aria-hidden className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-line-strong bg-bg-2 text-12">A</span>
+          <LogoMark />
           Athena
         </Link>
         <AppMenu />

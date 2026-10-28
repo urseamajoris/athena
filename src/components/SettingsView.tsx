@@ -54,13 +54,15 @@ export function SettingsView() {
                   disabled={!data.production}
                   aria-labelledby="mock-title"
                   aria-describedby="mock-lock"
-                  className={cx("relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border border-line-control", data.mockMode ? "bg-bg-3" : "bg-bg-0")}
+                  className="inline-flex h-11 w-14 shrink-0 items-center justify-center rounded-full"
                 >
-                  <Switch.Thumb className="block h-5 w-5 translate-x-1 rounded-full bg-fg-0 transition-transform data-[state=checked]:translate-x-6" />
+                  <span className={cx("relative inline-flex h-7 w-12 items-center rounded-full border border-line-control", data.mockMode ? "bg-bg-3" : "bg-bg-0")}>
+                    <Switch.Thumb className="block h-5 w-5 translate-x-1 rounded-full bg-fg-0 transition-transform data-[state=checked]:translate-x-6" />
+                  </span>
                 </Switch.Root>
               </div>
               <p id="mock-lock" className="mt-3 flex items-start gap-2 text-12 text-fg-2">
-                <Lock className="mt-px h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
+                <Lock className="h-4 w-3 shrink-0" strokeWidth={2} aria-hidden />
                 {data.production
                   ? "Production: mock mode follows the MOCK_MODE setting the server was started with."
                   : "Locked on outside production. Paid APIs only run when the server starts with ATHENA_ENV=production and MOCK_MODE=false."}
@@ -68,11 +70,11 @@ export function SettingsView() {
               <dl className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-sm bg-bg-2 px-3 py-2">
                   <dt className="text-12 text-fg-2">AI spend recorded</dt>
-                  <dd className="text-16 font-semibold tabular-nums">${data.spendUsd.toFixed(2)} <span className="text-12 font-normal text-fg-2">of ${data.budgetUsd.toFixed(2)} budget</span></dd>
+                  <dd className="text-20 font-semibold tabular-nums">${data.spendUsd.toFixed(2)} <span className="text-12 font-normal text-fg-2">of ${data.budgetUsd.toFixed(2)} budget</span></dd>
                 </div>
                 <div className="rounded-sm bg-bg-2 px-3 py-2">
                   <dt className="text-12 text-fg-2">Paid API calls since start</dt>
-                  <dd className="text-16 font-semibold tabular-nums">{data.paidCalls.attempted} <span className="text-12 font-normal text-fg-2">{data.paidCalls.blocked ? `${data.paidCalls.blocked} blocked` : "attempted"}</span></dd>
+                  <dd className="text-20 font-semibold tabular-nums">{data.paidCalls.attempted} <span className="text-12 font-normal text-fg-2">{data.paidCalls.blocked ? `${data.paidCalls.blocked} blocked` : "attempted"}</span></dd>
                 </div>
               </dl>
             </section>

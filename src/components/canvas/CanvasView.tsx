@@ -6,13 +6,14 @@ import { useReducedMotion } from "motion/react";
 import { Map as MapIcon, Maximize, Minus, Plus } from "lucide-react";
 import { canvasStore, useCanvas, useSession } from "../session/SessionContext";
 import { NodeCard, type FlowNode, type NodeData } from "./NodeCard";
-import { AddMenu } from "./AddMenu";
+import dynamic from "next/dynamic";
 import { canvasCommands, focusNode } from "./focus";
 import { nextAction } from "@/lib/canvas/actions";
 import { frontierNodeId, type GNode, type Graph } from "@/lib/canvas/graph";
 import { NODE_H, NODE_W, QUOTE_H, elkLayout, layeredLayout, withPinned, type Positions } from "@/lib/canvas/layout";
 
 const nodeTypes = { athena: NodeCard };
+const AddMenu = dynamic(() => import("./AddMenu").then((m) => m.AddMenu), { ssr: false });
 export const PANEL_W = { md: 480, xl: 560 };
 
 /** Neighbours for arrow-key navigation along the graph. */
@@ -34,9 +35,11 @@ function shapeKey(g: Graph) {
 }
 
 function Canvas({ readOnly }: { readOnly: boolean }) {
-  const { graph, input, ui, projectId, run, states } = useSession();
+  const { graph, input, ui, projectId, run, states, claims, summary } = useSession();
   const selected = useCanvas((s) => s.selected);
   const panel = useCanvas((s) => s.panel);
+  const addMenuOpen = useCanvas((s) => !!s.addMenu);
+  const [rfReady, setRfReady] = useState(false);
   const rf = useReactFlow<FlowNode>();
   const reduced = useReducedMotion();
   const shape = shapeKey(graph);
@@ -123,14 +126,16 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
     });
   }, []);
 
+  // Quote nodes sit in a grid under the Appraisal; their (many) edges draw only for the selected quote.
   const edges: Edge[] = useMemo(
-    () => graph.edges.map((e) => ({ id: e.id, source: e.source, target: e.target, className: e.running ? "running" : undefined, focusable: false, selectable: false, animated: false })),
-    [graph.edges],
+    () => graph.edges.map((e) => ({ id: e.id, source: e.source, target: e.target, hidden: e.target.startsWith("quote:") && e.target !== selected && e.target !== panel, className: e.running ? "running" : undefined, focusable: false, selectable: false, animated: false })),
+    [graph.edges, selected, panel],
   );
+  const [moving, setMoving] = useState(false);
 
-  // Keep the selected node visible next to the Focus panel.
+  // Keep the selected node visible next to the Focus panel (also once React Flow is ready, for ?node=).
   useEffect(() => {
-    if (!panel) return;
+    if (!panel || !rfReady) return;
     const p = positions[panel];
     if (!p) return;
     const { zoom } = rf.getViewport();
@@ -138,7 +143,7 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
     const h = panel.startsWith("quote:") ? QUOTE_H : NODE_H;
     rf.setCenter(p.x + NODE_W / 2 + panelW / 2 / zoom, p.y + h / 2, { zoom, duration: reduced ? 0 : 180 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panel]);
+  }, [panel, rfReady, !!(panel && positions[panel])]);
 
   // Whatever selects a node (arrows, 1–9, rail, palette), pan it into view if it is off-screen.
   useEffect(() => {
@@ -208,16 +213,21 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
     [graph, input, run, goToNode, readOnly],
   );
 
+  // The first fit waits for pinned quotes (they arrive with the claims), so the whole graph is framed.
   const firstFit = useRef(false);
-  const onInit = useCallback(() => {
-    if (firstFit.current) return;
+  const onInit = useCallback(() => setRfReady(true), []);
+  useEffect(() => {
+    if (!rfReady || firstFit.current) return;
+    if (!summary || (ui.pinnedQuotes.length && claims === null)) return; // wait for topics, queries and quotes
     firstFit.current = true;
-    if (ui.viewport) rf.setViewport(ui.viewport);
-    else rf.fitView({ padding: 0.2, maxZoom: 1, duration: 0 });
-  }, [rf, ui.viewport]);
+    if (canvasStore.getState().panel) return; // the open panel's node is centred beside it instead
+    const saved = canvasStore.getState().sessions[projectId]?.viewport;
+    if (saved) rf.setViewport(saved);
+    else requestAnimationFrame(() => rf.fitView({ padding: 0.2, maxZoom: 1, duration: 0 }));
+  }, [rfReady, summary, claims, ui.pinnedQuotes.length, rf, projectId]);
 
   return (
-    <div className="absolute inset-0" onKeyDown={onKeyDown}>
+    <div className="absolute inset-0" onKeyDown={onKeyDown} data-moving={moving || undefined}>
       <ReactFlow<FlowNode, Edge>
         nodes={nodes}
         edges={edges}
@@ -233,7 +243,11 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
           const pt = "changedTouches" in event ? event.changedTouches[0] : (event as MouseEvent);
           canvasStore.getState().setAddMenu({ nodeId: state.fromNode.id, mode: "child", at: { x: pt.clientX, y: pt.clientY }, flowAt: rf.screenToFlowPosition({ x: pt.clientX, y: pt.clientY }) });
         }}
-        onMoveEnd={(_, vp) => canvasStore.getState().setViewport(projectId, vp)}
+        onMoveStart={() => setMoving(true)}
+        onMoveEnd={(_, vp) => {
+          setMoving(false);
+          canvasStore.getState().setViewport(projectId, vp);
+        }}
         nodesDraggable={!readOnly}
         nodesConnectable={!readOnly}
         nodesFocusable={false}
@@ -247,13 +261,12 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
         minZoom={0.1}
         maxZoom={1.5}
         proOptions={{ hideAttribution: true }}
-        colorMode="dark"
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
         {ui.minimap && <MiniMap pannable zoomable nodeClassName={(n) => `mm-${(n.data as NodeData).node.status}`} ariaLabel="Minimap" />}
       </ReactFlow>
       <CanvasControls />
-      <AddMenu />
+      {addMenuOpen && <AddMenu />}
     </div>
   );
 }

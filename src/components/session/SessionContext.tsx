@@ -1,16 +1,19 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useStore } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import { useSWRConfig } from "swr";
 import { api, projectPath, useApi } from "../api";
-import { Modal, Spinner } from "../ui";
+import dynamic from "next/dynamic";
 import { STAGES, STATE_LABEL, type StageState } from "@/lib/shared/stages";
 import type { CanvasSummary, ClaimLite, JobLite } from "@/lib/shared/canvas";
 import { buildGraph, nodeForStage, type Graph, type GraphInput } from "@/lib/canvas/graph";
 import { cascadeStep, type Cmd } from "@/lib/canvas/actions";
 import { createCanvasStore, sessionOf, type SessionUi } from "@/lib/canvas/store";
 import type { Pos } from "@/lib/canvas/layout";
-import { PaperDialog } from "./PaperDialog";
+const PaperDialog = dynamic(() => import("./PaperDialog").then((m) => m.PaperDialog), { ssr: false });
+const ConfirmEditDialog = dynamic(() => import("./SessionDialogs").then((m) => m.ConfirmEditDialog), { ssr: false });
+const AddTopicDialog = dynamic(() => import("./SessionDialogs").then((m) => m.AddTopicDialog), { ssr: false });
 
 export type Job = JobLite;
 export interface Project {
@@ -74,6 +77,14 @@ interface Ctx {
   announce: (msg: string) => void;
 }
 const SessionCtx = createContext<Ctx | null>(null);
+interface Actions { run: Ctx["run"]; busy: string | null }
+const ActionsCtx = createContext<Actions | null>(null);
+/** Just run + busy, stable across data updates (node cards and action buttons use this). */
+export const useSessionActions = () => {
+  const c = useContext(ActionsCtx);
+  if (!c) throw new Error("useSessionActions outside SessionProvider");
+  return c;
+};
 export const useSession = () => {
   const c = useContext(SessionCtx);
   if (!c) throw new Error("useSession outside SessionProvider");
@@ -104,7 +115,8 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const { data, error, mutate, isLoading } = useApi<ProjectViewData>(projectPath(projectId));
   const { data: fetchedSummary, mutate: mutateSummary } = useApi<CanvasSummary>(projectPath(projectId, "canvas"));
   const [live, setLive] = useState<LiveData | null>(null);
-  const ui = useCanvas((s) => sessionOf(s, projectId));
+  // The saved viewport changes on every pan; nothing rendered depends on it, so it is left out here.
+  const ui = useCanvas(useShallow((s) => ({ ...sessionOf(s, projectId), viewport: null })));
   const { data: claims, mutate: mutateClaims } = useApi<ClaimLite[]>(ui.pinnedQuotes.length ? projectPath(projectId, "claims") : null);
   const [paperId, setPaperId] = useState<string | null>(null);
   const [guard, setGuard] = useState<{ stage: number; downstream: number[]; resolve: (b: boolean) => void } | null>(null);
@@ -317,6 +329,11 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
     [approve, projectId, refresh, announce, confirmEdit, summary, focusStage],
   );
 
+  const runRef = useRef(run);
+  runRef.current = run;
+  const stableRun = useCallback<Ctx["run"]>((c, o) => runRef.current(c, o), []);
+  const actions = useMemo<Actions>(() => ({ run: stableRun, busy }), [stableRun, busy]);
+
   // "Re-run downstream": advance one stale step at a time, pausing at every review checkpoint.
   const cascading = useRef<string | null>(null);
   useEffect(() => {
@@ -382,84 +399,27 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
 
   return (
     <SessionCtx.Provider value={ctx}>
+      <ActionsCtx.Provider value={actions}>
       {children}
       <div aria-live="polite" role="status" className="sr-only">{message}</div>
-      <PaperDialog paperId={paperId} onClose={() => setPaperId(null)} />
-      <Modal
-        open={!!guard}
-        onClose={() => {
-          guard?.resolve(false);
-          setGuard(null);
-        }}
-        title="Edit an earlier step?"
-        footer={
-          <>
-            <button className="btn-secondary" onClick={() => { guard?.resolve(false); setGuard(null); }}>Cancel</button>
-            <button
-              className="btn-primary"
-              onClick={() => {
-                if (guard) confirmed.current.add(guard.stage);
-                guard?.resolve(true);
-                setGuard(null);
-              }}
-            >
-              Edit and mark later steps stale
-            </button>
-          </>
-        }
-      >
-        <p>
-          Later steps ({guard?.downstream.map((n) => STAGES[n - 1].title).join(", ")}) were built from the current version of this step. If you change it, they will be marked
-          <strong> stale</strong>. Nothing is re-run automatically: use “Re-run downstream” when you are ready.
-        </p>
-      </Modal>
-      <AddTopicDialog state={addTopic} onClose={() => setAddTopic(null)} />
+      {paperId && <PaperDialog paperId={paperId} onClose={() => setPaperId(null)} />}
+      {guard && (
+        <ConfirmEditDialog
+          downstream={guard.downstream}
+          onCancel={() => {
+            guard.resolve(false);
+            setGuard(null);
+          }}
+          onConfirm={() => {
+            confirmed.current.add(guard.stage);
+            guard.resolve(true);
+            setGuard(null);
+          }}
+        />
+      )}
+      {addTopic && <AddTopicDialog state={addTopic} onClose={() => setAddTopic(null)} />}
+      </ActionsCtx.Provider>
     </SessionCtx.Provider>
-  );
-}
-
-function AddTopicDialog({ state, onClose }: { state: { flowAt?: Pos } | null; onClose: () => void }) {
-  const { projectId, refresh, confirmEdit, announce } = useSession();
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  useEffect(() => {
-    if (state) {
-      setName("");
-      setErr(null);
-    }
-  }, [state]);
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setBusy(true);
-    try {
-      if (!(await confirmEdit(2))) return;
-      const r = await api<{ id: string }>(projectPath(projectId, "topics"), { body: { name } });
-      const st = canvasStore.getState();
-      if (state?.flowAt) st.pinPosition(projectId, `topic:${r.id}`, state.flowAt);
-      await refresh();
-      st.select(`topic:${r.id}`);
-      announce(`Topic “${name}” added.`);
-      onClose();
-    } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : String(e2));
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Modal open={!!state} onClose={onClose} title="Add a topic">
-      <form onSubmit={submit} className="space-y-3" id="add-topic-form">
-        <label htmlFor="new-topic-name" className="label">Topic name</label>
-        <input id="new-topic-name" className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Cost and financing" />
-        {err && <p role="alert" className="text-err">{err}</p>}
-        <div className="flex justify-end gap-2">
-          <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" disabled={busy || !name.trim()}>{busy && <Spinner />} Add topic</button>
-        </div>
-      </form>
-    </Modal>
   );
 }
 

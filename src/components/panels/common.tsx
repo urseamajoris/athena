@@ -1,12 +1,11 @@
 "use client";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Lock } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { api, projectPath } from "../api";
 import { Disclosure, ErrorState, ProgressBar, Spinner, cx } from "../ui";
-import { cmdKey, useSession } from "../session/SessionContext";
+import { useSession } from "../session/SessionContext";
 import { STAGES } from "@/lib/shared/stages";
-import type { Action } from "@/lib/canvas/actions";
 
 export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
@@ -17,36 +16,7 @@ export function SectionTitle({ children, right }: { children: ReactNode; right?:
   );
 }
 
-/**
- * Renders a node action. `primary` makes it the view's one accent-filled button. A locked action stays
- * focusable (aria-disabled) so keyboard users can reach it and read why it is locked.
- */
-export function ActionButton({ action, primary, size = "md", className, showReason = false }: { action: Action; primary?: boolean; size?: "sm" | "md"; className?: string; showReason?: boolean }) {
-  const { run, busy } = useSession();
-  const locked = !!action.disabledReason;
-  const isBusy = busy === cmdKey(action.cmd);
-  return (
-    <span className={cx("inline-flex flex-col gap-1", className)}>
-      <button
-        type="button"
-        data-action={action.cmd.type}
-        className={cx(primary ? "btn-primary" : "btn-secondary", size === "sm" && "btn-sm", "w-full")}
-        aria-disabled={locked || !!busy || undefined}
-        title={action.disabledReason}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (locked || busy) return;
-          run(action.cmd);
-        }}
-      >
-        {isBusy ? <Spinner className="h-4 w-4" /> : locked ? <Lock className="h-4 w-4" strokeWidth={1.5} aria-hidden /> : null}
-        {action.label}
-        {locked && <span className="sr-only"> (locked: {action.disabledReason})</span>}
-      </button>
-      {locked && showReason && <span className="text-12 text-fg-2">{action.disabledReason}</span>}
-    </span>
-  );
-}
+export { ActionButton } from "./action-button";
 
 /** Where a Focus panel wants its footer (outside the scrolling body). Null on full pages: render inline. */
 export const PanelFooterSlot = createContext<HTMLElement | null>(null);

@@ -134,7 +134,7 @@ function AppraisalDetail({ row, onChanged }: { row: AppraisalRow; onChanged: () 
   return (
     <div className="space-y-4">
       <div>
-        <button className="link text-left font-semibold" onClick={() => openPaper(data.paper.id)}>{data.paper.title}</button>
+        <button className="link min-h-11 text-left font-semibold md:min-h-0" onClick={() => openPaper(data.paper.id)}>{data.paper.title}</button>
         <p className="mt-1 text-12 text-fg-2">{data.paper.year ?? "n.d."}{data.paper.doi ? ` · DOI ${data.paper.doi}` : data.paper.pmid ? ` · PMID ${data.paper.pmid}` : ""} · template {TEMPLATE_LABEL[a.templateType] ?? a.templateType}{a.model ? ` · ${a.model}` : ""}</p>
         <p className="mt-2 flex flex-wrap items-center gap-2 text-fg-1"><TextSourceBadge source={a.textSource} /> {a.textNote}</p>
         {a.status === "failed" && <div className="mt-2"><ErrorState error={a.error ?? "failed"} title="This appraisal failed" /></div>}

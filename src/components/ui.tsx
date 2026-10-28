@@ -42,16 +42,16 @@ export function StateIcon({ state, className = "h-4 w-4" }: { state: StageState;
 
 export function StateBadge({ state }: { state: StageState }) {
   return (
-    <span className={cx("inline-flex h-5 items-center gap-1 rounded-full border px-2 text-12 font-medium", TONE_CLASS[STATE_TONE[state]])}>
+    <span data-state-badge="" className={cx("inline-flex h-5 items-center gap-1 rounded-full border px-2 text-12 font-medium", TONE_CLASS[STATE_TONE[state]])}>
       <StateIcon state={state} className="h-3 w-3" />
       {STATE_LABEL[state]}
     </span>
   );
 }
 
-export function Badge({ children, tone = "neutral", title, icon }: { children: ReactNode; tone?: Tone | LegacyTone; title?: string; icon?: ReactNode }) {
+export function Badge({ children, tone = "neutral", title, icon, state }: { children: ReactNode; tone?: Tone | LegacyTone; title?: string; icon?: ReactNode; state?: boolean }) {
   return (
-    <span title={title} className={cx("inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-sm border px-2 text-12 font-medium", TONE_CLASS[toneOf(tone)])}>
+    <span data-state-badge={state ? "" : undefined} title={title} className={cx("inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-sm border px-2 text-12 font-medium", TONE_CLASS[toneOf(tone)])}>
       {icon}
       {children}
     </span>
@@ -69,9 +69,9 @@ export function AbstractBadge() {
 
 export function TextSourceBadge({ source }: { source: string }) {
   return source === "full_text" ? (
-    <Badge tone="ok" title="The appraisal was done on the open-access full text" icon={<CheckCircle2 className="h-3 w-3" strokeWidth={1.5} aria-hidden />}>Full text</Badge>
+    <Badge state tone="ok" title="The appraisal was done on the open-access full text" icon={<CheckCircle2 className="h-3 w-3" strokeWidth={1.5} aria-hidden />}>Full text</Badge>
   ) : (
-    <Badge tone="warn" title="Full text was not legally available; only the abstract was read" icon={<AlertTriangle className="h-3 w-3" strokeWidth={1.5} aria-hidden />}>Abstract only</Badge>
+    <Badge state tone="warn" title="Full text was not legally available; only the abstract was read" icon={<AlertTriangle className="h-3 w-3" strokeWidth={1.5} aria-hidden />}>Abstract only</Badge>
   );
 }
 
@@ -79,7 +79,7 @@ export function ProgressBar({ value, max, label, tone = "teal" }: { value: numbe
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
   return (
     <div role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={max} aria-label={label} className="h-2 w-full overflow-hidden rounded-full bg-bg-3">
-      <div className={cx("h-full rounded-full transition-[width]", tone === "teal" ? "bg-run" : tone === "rose" ? "bg-err" : "bg-fg-2")} style={{ width: `${pct}%` }} />
+      <div className={cx("h-full rounded-full transition-[width]", tone === "rose" ? "bg-err" : tone === "gray" || pct >= 100 ? "bg-line-control" : "bg-run")} style={{ width: `${pct}%` }} />
     </div>
   );
 }

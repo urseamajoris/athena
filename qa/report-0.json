@@ -1,0 +1,961 @@
+{
+  "round": "0",
+  "commit": "eebc5e1",
+  "allPass": false,
+  "metrics": {
+    "bigSessionNodes": 299,
+    "canvasPanFps": {
+      "raf": 53.7,
+      "trace": 15.2
+    },
+    "canvasJs": {
+      "initialGzipKb": 281,
+      "totalGzipKb": 715,
+      "lazyChunks": [
+        "91dbc596.b6a37ce350701a05.js 434kB"
+      ]
+    },
+    "paidCalls": {
+      "attempted": 0,
+      "blocked": 0
+    }
+  },
+  "results": [
+    {
+      "item": 1,
+      "ok": true,
+      "where": "landing 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "landing 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "landing 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "landing 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "landing 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "landing 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "landing 1440 dark motion-on",
+      "msg": "5 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "sessions 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "sessions 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "sessions 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "sessions 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "sessions 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "sessions 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (1: .px-1)"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "sessions 1440 dark motion-on",
+      "msg": "25 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "settings 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "settings 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "settings 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "settings 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "settings 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "settings 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "settings 1440 dark motion-on",
+      "msg": "5 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "canvas-empty 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "canvas-empty 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "canvas-empty 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "canvas-empty 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "canvas-empty 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "canvas-empty 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "canvas-empty 1440 dark motion-on",
+      "msg": "1 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "canvas-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "canvas-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "canvas-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "canvas-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "canvas-idea 1440 dark motion-on",
+      "msg": "1 off-grid spacings, e.g. div \"Start scoping\" marginTop=14px"
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "canvas-idea 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (1: .font-semibold)"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "canvas-idea 1440 dark motion-on",
+      "msg": "21 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "panel-idea-scoping 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "panel-idea-scoping 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "panel-idea-scoping 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "panel-idea-scoping 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "panel-idea-scoping 1440 dark motion-on",
+      "msg": "1 off-grid spacings, e.g. div \"Answer the scoping question\" marginTop=14px"
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "panel-idea-scoping 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (1: a[aria-label=\"Athena: all sessions\"])"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "panel-idea-scoping 1440 dark motion-on",
+      "msg": "2 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "canvas-ghosts 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "canvas-ghosts 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "canvas-ghosts 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "canvas-ghosts 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "canvas-ghosts 1440 dark motion-on",
+      "msg": "6 off-grid spacings, e.g. div \"Accept 5 subtopics\" marginTop=14px; div \"Accept Dismiss\" marginTop=34px; div \"Accept Dismiss\" marginTop=14px"
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "canvas-ghosts 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (1: .font-semibold)"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "canvas-ghosts 1440 dark motion-on",
+      "msg": "21 tab stops"
+    },
+    {
+      "item": 12,
+      "ok": false,
+      "where": "panel-topic-ghost 1440 dark motion-on",
+      "msg": "view failed to load: TimeoutError: locator.waitFor: Timeout 60000ms exceeded."
+    },
+    {
+      "item": 12,
+      "ok": false,
+      "where": "panel-query 1440 dark motion-on",
+      "msg": "view failed to load: TimeoutError: locator.waitFor: Timeout 60000ms exceeded."
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "canvas-running 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "canvas-running 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "canvas-running 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "canvas-running 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "canvas-running 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "canvas-running 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (1: .font-semibold)"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "canvas-running 1440 dark motion-on",
+      "msg": "20 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "panel-corpus-running 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "panel-corpus-running 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "panel-corpus-running 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "panel-corpus-running 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "panel-corpus-running 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "panel-corpus-running 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (1: a[aria-label=\"Athena: all sessions\"])"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "panel-corpus-running 1440 dark motion-on",
+      "msg": "4 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "canvas-error 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "canvas-error 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "canvas-error 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "canvas-error 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "canvas-error 1440 dark motion-on",
+      "msg": "1 off-grid spacings, e.g. div \"Retry summary table\" marginTop=34px"
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "canvas-error 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (1: .font-semibold)"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "canvas-error 1440 dark motion-on",
+      "msg": "21 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "panel-table-error 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "panel-table-error 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "panel-table-error 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "panel-table-error 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "panel-table-error 1440 dark motion-on",
+      "msg": "1 off-grid spacings, e.g. div \"Retry summary table\" marginTop=34px"
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "panel-table-error 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (1: a[aria-label=\"Athena: all sessions\"])"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "panel-table-error 1440 dark motion-on",
+      "msg": "5 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "canvas-done 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "canvas-done 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "canvas-done 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "canvas-done 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "canvas-done 1440 dark motion-on",
+      "msg": "1 off-grid spacings, e.g. div \"Download report\" marginTop=34px"
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "canvas-done 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (1: .font-semibold)"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "canvas-done 1440 dark motion-on",
+      "msg": "21 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "panel-appraisal 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "panel-appraisal 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "panel-appraisal 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "panel-appraisal 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "panel-appraisal 1440 dark motion-on",
+      "msg": "1 off-grid spacings, e.g. div \"Download report\" marginTop=34px"
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "panel-appraisal 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (1: a[aria-label=\"Athena: all sessions\"])"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "panel-appraisal 1440 dark motion-on",
+      "msg": "27 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "panel-synthesis 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "panel-synthesis 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "panel-synthesis 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "panel-synthesis 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "panel-synthesis 1440 dark motion-on",
+      "msg": "1 off-grid spacings, e.g. div \"Download report\" marginTop=34px"
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "panel-synthesis 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (1: a[aria-label=\"Athena: all sessions\"])"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "panel-synthesis 1440 dark motion-on",
+      "msg": "22 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "panel-questions 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "panel-questions 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "panel-questions 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "panel-questions 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "panel-questions 1440 dark motion-on",
+      "msg": "1 off-grid spacings, e.g. div \"Export\" marginTop=14px"
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "panel-questions 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (1: a[aria-label=\"Athena: all sessions\"])"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "panel-questions 1440 dark motion-on",
+      "msg": "10 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "panel-export 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "panel-export 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "panel-export 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "panel-export 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "panel-export 1440 dark motion-on",
+      "msg": "1 off-grid spacings, e.g. div \"Download report\" marginTop=34px"
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "panel-export 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (1: a[aria-label=\"Athena: all sessions\"])"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "panel-export 1440 dark motion-on",
+      "msg": "7 tab stops"
+    },
+    {
+      "item": 12,
+      "ok": false,
+      "where": "panel-quote 1440 dark motion-on",
+      "msg": "view failed to load: TimeoutError: locator.waitFor: Timeout 60000ms exceeded."
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "canvas-stale 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "canvas-stale 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "canvas-stale 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "canvas-stale 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "canvas-stale 1440 dark motion-on",
+      "msg": "1 off-grid spacings, e.g. div \"Approve topics\" marginTop=14px"
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "canvas-stale 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (1: .font-semibold)"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "canvas-stale 1440 dark motion-on",
+      "msg": "21 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "canvas-300 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "canvas-300 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "canvas-300 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "canvas-300 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "canvas-300 1440 dark motion-on",
+      "msg": "1 off-grid spacings, e.g. div \"Download report\" marginTop=34px"
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "canvas-300 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (1: .font-semibold)"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "canvas-300 1440 dark motion-on",
+      "msg": "21 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": false,
+      "where": "list-view 1440 dark motion-on",
+      "msg": "primary below the fold: button \"Download report\""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "list-view 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "list-view 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "list-view 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "list-view 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "list-view 1440 dark motion-on",
+      "msg": "label-content-name-mismatch (15: .font-semibold | div[data-list-node=\"idea\"] > .min-h-11.text-left)"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "list-view 1440 dark motion-on",
+      "msg": "34 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": false,
+      "where": "table 1440 dark motion-on",
+      "msg": "0 accent-filled elements: "
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "table 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "table 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "table 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "table 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": false,
+      "where": "table 1440 dark motion-on",
+      "msg": "aria-valid-attr-value (1: #radix-_r_e_-trigger-all)"
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "table 1440 dark motion-on",
+      "msg": "80 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": false,
+      "where": "export-page 1440 dark motion-on",
+      "msg": "primary below the fold: a \"Download Markdown\""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "export-page 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "export-page 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "export-page 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "export-page 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "export-page 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "export-page 1440 dark motion-on",
+      "msg": "7 tab stops"
+    },
+    {
+      "item": 10,
+      "ok": true,
+      "where": "canvas-300",
+      "msg": "List view shows the same 299 nodes as the canvas"
+    },
+    {
+      "item": 10,
+      "ok": true,
+      "where": "canvas-done",
+      "msg": "List view shows the same 18 nodes as the canvas"
+    },
+    {
+      "item": 10,
+      "ok": false,
+      "where": "canvas-300 (299 nodes)",
+      "msg": "pans at 15.2 fps (rAF 53.7), below 55"
+    },
+    {
+      "item": 12,
+      "ok": true,
+      "where": "all views",
+      "msg": "no console errors"
+    },
+    {
+      "item": 12,
+      "ok": true,
+      "where": "all views",
+      "msg": "no browser requests leave localhost"
+    },
+    {
+      "item": 12,
+      "ok": true,
+      "where": "server",
+      "msg": "0 paid API calls (xAI, OpenAlex) attempted"
+    }
+  ]
+}

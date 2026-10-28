@@ -2,7 +2,7 @@
 import { Fragment, useMemo, useRef, useState } from "react";
 import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type SortingState, type VisibilityState } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Popover, Tabs } from "radix-ui";
+import { Popover } from "radix-ui";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { api, projectPath, useApi } from "../api";
 import { AbstractBadge, Badge, Disclosure, EmptyState, ErrorState, Loading, cx } from "../ui";
@@ -112,7 +112,7 @@ export function TableView() {
         id: "expand",
         header: () => <span className="sr-only">Details</span>,
         cell: (c) => (
-          <button className="btn-ghost h-8 w-8 px-0" aria-expanded={expanded.has(c.row.original.id)} aria-label={`${expanded.has(c.row.original.id) ? "Hide" : "Show"} details for ${c.row.original.title}`} onClick={() => setExpanded((e) => { const n = new Set(e); if (n.has(c.row.original.id)) n.delete(c.row.original.id); else n.add(c.row.original.id); return n; })}>
+          <button className="btn-ghost h-11 w-11 px-0 md:h-8 md:w-8" aria-expanded={expanded.has(c.row.original.id)} aria-label={`${expanded.has(c.row.original.id) ? "Hide" : "Show"} details for ${c.row.original.title}`} onClick={() => setExpanded((e) => { const n = new Set(e); if (n.has(c.row.original.id)) n.delete(c.row.original.id); else n.add(c.row.original.id); return n; })}>
             {expanded.has(c.row.original.id) ? <ChevronDown className="h-4 w-4" strokeWidth={1.5} aria-hidden /> : <ChevronRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />}
           </button>
         ),
@@ -122,13 +122,13 @@ export function TableView() {
             ch.display({
               id: "select",
               header: () => <span className="sr-only">Selected for appraisal</span>,
-              cell: (c) => c.row.original.score && <input type="checkbox" checked={c.row.original.score.selected} onChange={() => toggle(c.row.original.score!)} aria-label={`${c.row.original.score.selected ? "Deselect" : "Select"} ${c.row.original.title}`} />,
+              cell: (c) => c.row.original.score && <label className="inline-flex h-11 w-11 items-center justify-center md:h-8 md:w-8"><input type="checkbox" checked={c.row.original.score.selected} onChange={() => toggle(c.row.original.score!)} aria-label={`${c.row.original.score.selected ? "Deselect" : "Select"} ${c.row.original.title}`} /></label>,
             }),
             ch.accessor("rank", { header: "Rank", sortUndefined: "last", cell: (c) => <span className="tabular-nums text-fg-1">{c.getValue() ?? "–"}</span> }),
           ]
         : []),
       ...(ranked ? [ch.accessor((r) => r.score?.total ?? -1, { id: "score", header: topic === "all" ? "Best score" : "Score", cell: (c) => <ScoreCell row={c.row.original} all={topic === "all"} /> })] : []),
-      ch.accessor("title", { header: "Title", cell: (c) => <button className="link text-left font-medium" onClick={() => openPaper(c.row.original.id)}>{c.getValue()}</button> }),
+      ch.accessor("title", { header: "Title", cell: (c) => <button className="link min-h-11 text-left font-medium md:min-h-0" onClick={() => openPaper(c.row.original.id)}>{c.getValue()}</button> }),
       ch.accessor((r) => r.authors[0] ?? "", { id: "authors", header: "Authors", cell: (c) => <span className="text-12 text-fg-1">{c.getValue() || "–"}{c.row.original.authors.length > 1 ? " et al." : ""}</span> }),
       ch.accessor((r) => r.year ?? 0, { id: "year", header: "Year", cell: (c) => <span className="tabular-nums">{c.row.original.year ?? "–"}</span> }),
       ch.accessor((r) => r.journal ?? "", { id: "journal", header: "Journal", cell: (c) => <span className="text-12 text-fg-1">{c.getValue() || "–"}</span> }),
@@ -173,15 +173,18 @@ export function TableView() {
         {err ? <ErrorState error={err} /> : null}
         <div className="flex flex-wrap items-center gap-3">
           {ranked && (
-            <Tabs.Root value={topic} onValueChange={(v) => { setSorting([]); setTopic(v); }}>
-              <Tabs.List aria-label="Topic" className="flex flex-wrap gap-1">
-                {[{ id: "all", name: "All topics", n: null as number | null }, ...rt.map((t) => ({ id: t.id, name: t.name, n: t.scores.filter((s) => s.selected).length }))].map((t) => (
-                  <Tabs.Trigger key={t.id} value={t.id} className="min-h-11 rounded-sm border border-line px-3 text-fg-1 data-[state=active]:border-fg-1 data-[state=active]:bg-bg-2 data-[state=active]:text-fg-0">
-                    {t.name}{t.n !== null && <span className="ml-2 text-12 tabular-nums text-fg-2">{t.n} selected</span>}
-                  </Tabs.Trigger>
-                ))}
-              </Tabs.List>
-            </Tabs.Root>
+            <div role="group" aria-label="Topic" className="flex flex-wrap gap-1">
+              {[{ id: "all", name: "All topics", n: null as number | null }, ...rt.map((t) => ({ id: t.id, name: t.name, n: t.scores.filter((s) => s.selected).length }))].map((t) => (
+                <button
+                  key={t.id}
+                  aria-pressed={topic === t.id}
+                  onClick={() => { setSorting([]); setTopic(t.id); }}
+                  className={cx("min-h-11 rounded-sm border px-3", topic === t.id ? "border-fg-1 bg-bg-2 text-fg-0" : "border-line text-fg-1 hover:text-fg-0")}
+                >
+                  {t.name}{t.n !== null && <span className="ml-2 text-12 tabular-nums text-fg-2">{t.n} selected</span>}
+                </button>
+              ))}
+            </div>
           )}
           <label className="min-w-56 flex-1">
             <span className="sr-only">Search papers</span>
@@ -243,7 +246,7 @@ export function TableView() {
                     return (
                       <th key={h.id} scope="col" aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : can ? "none" : undefined} className="whitespace-nowrap px-2 py-2 text-12 font-medium text-fg-1">
                         {can ? (
-                          <button className="inline-flex min-h-8 items-center gap-1 rounded-sm px-1 hover:text-fg-0" onClick={h.column.getToggleSortingHandler()}>
+                          <button className="inline-flex min-h-11 items-center gap-1 rounded-sm px-1 hover:text-fg-0 md:min-h-8" onClick={h.column.getToggleSortingHandler()}>
                             {flexRender(h.column.columnDef.header, h.getContext())}
                             {sorted === "asc" ? <ArrowUp className="h-3 w-3" aria-hidden /> : sorted === "desc" ? <ArrowDown className="h-3 w-3" aria-hidden /> : <ArrowUpDown className="h-3 w-3 text-fg-2" aria-hidden />}
                           </button>
@@ -289,7 +292,7 @@ function ScoreCell({ row, all }: { row: Row; all: boolean }) {
   return (
     <span className="inline-flex flex-col gap-1">
       <span className="inline-flex items-center gap-2">
-        <span className="h-2 w-16 overflow-hidden rounded-full bg-bg-3" aria-hidden><span className="block h-full bg-fg-1" style={{ width: `${s.total}%` }} /></span>
+        <span className="h-2 w-16 overflow-hidden rounded-full bg-bg-3" aria-hidden><span className="block h-full bg-line-control" style={{ width: `${s.total}%` }} /></span>
         <span className="tabular-nums" aria-label={`Score ${s.total} out of 100`}>{s.total}</span>
       </span>
       {all && row.selectedIn > 0 && <span className="text-12 text-ok">selected{row.selectedIn > 1 ? ` in ${row.selectedIn} topics` : ""}</span>}
@@ -316,7 +319,7 @@ function AiCell({ row, field, editing, setEditing, onSave }: { row: Row; field: 
     );
   }
   return (
-    <td tabIndex={0} className="cursor-text px-2 py-2 text-12 text-fg-1" onDoubleClick={() => setEditing({ id: row.id, field })} onKeyDown={(e) => e.key === "Enter" && setEditing({ id: row.id, field })} aria-label={`${field === "studyType" ? "Study type" : field === "setting" ? "Setting" : "Key finding"}: ${value}. ${s.edited ? "Edited by you." : "AI, from the abstract."} Press Enter to edit.`}>
+    <td tabIndex={0} className="h-11 cursor-text px-2 py-2 text-12 text-fg-1" onDoubleClick={() => setEditing({ id: row.id, field })} onKeyDown={(e) => e.key === "Enter" && setEditing({ id: row.id, field })} aria-label={`${field === "studyType" ? "Study type" : field === "setting" ? "Setting" : "Key finding"}: ${value}. ${s.edited ? "Edited by you." : "AI, from the abstract."} Press Enter to edit.`}>
       <span className={cx(value.startsWith("not reported") && "italic text-fg-2")}>{value}</span>
       {s.edited && <span className="mt-1 block"><Badge>edited by you</Badge></span>}
     </td>

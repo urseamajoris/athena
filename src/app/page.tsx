@@ -1,3 +1,4 @@
+import { LogoMark } from "@/components/Logo";
 import Link from "next/link";
 import { DemoVideo } from "@/components/landing/DemoVideo";
 import { Disclosure } from "@/components/disclosure";
@@ -9,7 +10,7 @@ export default function Landing() {
     <div className="min-h-screen bg-bg-0">
       <header className="mx-auto flex h-12 max-w-6xl items-center justify-between px-4">
         <span className="inline-flex items-center gap-2 font-semibold">
-          <span aria-hidden className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-line-strong bg-bg-2">A</span>
+          <LogoMark />
           Athena
         </span>
         <Link href="/sessions" className="btn-ghost min-h-11">Your sessions</Link>

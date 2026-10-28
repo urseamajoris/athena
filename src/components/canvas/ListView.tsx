@@ -3,9 +3,9 @@ import { useMemo } from "react";
 import { ChevronRight } from "lucide-react";
 import { canvasStore, useCanvas, useSession } from "../session/SessionContext";
 import { cx } from "../ui";
-import { ActionButton } from "../panels/common";
+import { ActionButton } from "../panels/action-button";
 import { KindIcon } from "./icons";
-import { NodeStatusBadge, TrustBadges } from "./NodeCard";
+import { NodeStatusBadge, TrustBadges } from "./node-bits";
 import { KIND_LABEL, frontierNodeId, type GNode, type Graph, type GraphInput } from "@/lib/canvas/graph";
 import { nextAction } from "@/lib/canvas/actions";
 
@@ -45,7 +45,6 @@ function ListItem({ it, depth, c }: { it: TreeItem; depth: number; c: ItemCtx })
       >
         <button
           className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-sm text-left"
-          aria-label={`${KIND_LABEL[n.kind]}: ${n.title}. Open`}
           onClick={() => canvasStore.getState().openPanel(n.id)}
         >
           <span className={cx("inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border bg-bg-1 text-fg-1", n.ghost ? "border-dashed border-line-control" : n.status === "stale" ? "border-warn" : n.status === "error" ? "border-err" : "border-line-strong")}>
@@ -66,8 +65,8 @@ function ListItem({ it, depth, c }: { it: TreeItem; depth: number; c: ItemCtx })
         </span>
         {n.ghost ? (
           <ActionButton action={{ cmd: { type: "acceptTopic", topicId: n.topicId! }, label: "Accept" }} />
-        ) : action ? (
-          <ActionButton action={action} primary={!c.panel && n.id === c.frontier} showReason />
+        ) : action && n.id !== c.frontier ? (
+          <ActionButton action={action} showReason />
         ) : null}
       </div>
       {it.children.length > 0 && (
@@ -85,8 +84,21 @@ export function ListView() {
   const selected = useCanvas((s) => s.selected);
   const tree = useMemo(() => graphToTree(graph), [graph]);
   const c: ItemCtx = { graph, input, frontier: frontierNodeId(graph, states), panel, selected, corpusFrom: graph.nodes.find((n) => n.id === "corpus")?.parents.length ?? 0 };
+  const frontierNode = graph.nodes.find((n) => n.id === c.frontier);
+  const next = frontierNode ? nextAction(frontierNode, graph, input) : null;
   return (
     <div className="absolute inset-0 overflow-y-auto" data-list-view>
+      {next && frontierNode && (
+        <section aria-label="Next step" className="sticky top-0 z-10 border-b border-line bg-bg-0">
+          <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-3 px-4 py-3">
+            <p className="min-w-0 flex-1">
+              <span className="block text-12 text-fg-2">Next step · {KIND_LABEL[frontierNode.kind]}</span>
+              <span className="block truncate font-medium">{frontierNode.title}</span>
+            </p>
+            <ActionButton action={next} primary={!panel} showReason />
+          </div>
+        </section>
+      )}
       <ul aria-label="Review as a list" className="mx-auto max-w-4xl pb-24">
         {tree.map((t) => <ListItem key={t.node.id} it={t} depth={0} c={c} />)}
       </ul>

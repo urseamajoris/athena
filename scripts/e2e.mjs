@@ -176,12 +176,12 @@ try {
   log("ranking running…");
   await waitState(6);
   await page.reload();
-  await page.getByRole("tab").nth(1).waitFor();
+  await page.getByRole("group", { name: "Topic" }).getByRole("button").nth(1).waitFor();
   const rank = await api("/ranking");
   check("3–5 papers selected per topic", rank.topics.every((t) => { const n = t.scores.filter((s) => s.selected).length; return n >= 3 && n <= 5; }), rank.topics.map((t) => t.scores.filter((s) => s.selected).length).join(","));
   check("topics ordered by importance with justification", rank.topics.every((t) => t.importanceRank && t.importanceJustification));
   // swap one selection: open a selected row's details and swap it for another paper
-  await page.getByRole("tab").nth(1).click();
+  await page.getByRole("group", { name: "Topic" }).getByRole("button").nth(1).click();
   await page.locator('tbody input[type="checkbox"]:checked').first().waitFor();
   const selRow = page.locator("tbody").filter({ has: page.locator('input[type="checkbox"]:checked') }).first();
   await selRow.getByRole("button", { name: /^Show details/ }).click();

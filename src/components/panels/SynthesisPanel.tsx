@@ -53,7 +53,7 @@ export function SynthesisPanel() {
         <Tabs.Root defaultValue={topics[0].id}>
           <Tabs.List aria-label="Topics" className="-mx-1 flex gap-1 overflow-x-auto border-b border-line px-1">
             {topics.map((t) => (
-              <Tabs.Trigger key={t.id} value={t.id} className="-mb-px min-h-11 shrink-0 border-b-2 border-transparent px-3 py-2 text-fg-1 data-[state=active]:border-fg-0 data-[state=active]:font-medium data-[state=active]:text-fg-0">
+              <Tabs.Trigger key={t.id} value={t.id} className="min-h-11 shrink-0 border-b-2 border-transparent px-3 py-2 text-fg-1 data-[state=active]:border-fg-0 data-[state=active]:font-medium data-[state=active]:text-fg-0">
                 {t.name}{t.contradictions.length > 0 && <span className="ml-1 text-12 text-err">· {t.contradictions.length} conflict{t.contradictions.length === 1 ? "" : "s"}</span>}
               </Tabs.Trigger>
             ))}
@@ -129,7 +129,7 @@ function Matrix({ t, data, stale }: { t: SynData["topics"][number]; data: SynDat
           {paperIds.map((pid) => (
             <tr key={pid}>
               <th scope="row" className="align-top text-left font-medium">
-                <button className="link text-left" onClick={() => openPaper(pid)}>{short(data.papers[pid])}</button>
+                <button className="link min-h-11 text-left md:min-h-0" onClick={() => openPaper(pid)}>{short(data.papers[pid])}</button>
               </th>
               {themes.map((th) => {
                 const c = t.cells.find((x) => x.paperId === pid && x.theme === th);

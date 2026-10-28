@@ -8,3 +8,5 @@ data/*.db
 data/*.db-*
 test-results
 /e2e-artifacts
+# visual-audit screenshots (the final round is copied to docs/screenshots/redesign)
+qa/shots/

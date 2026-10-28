@@ -1,4 +1,5 @@
 "use client";
+import { LogoMark } from "../Logo";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -38,8 +39,8 @@ export function EmptyCanvas() {
   return (
     <div className="fixed inset-0 flex flex-col bg-bg-0 [background-image:radial-gradient(var(--line)_1px,transparent_1px)] [background-size:24px_24px]">
       <header className="flex h-12 items-center justify-between px-2 md:px-4">
-        <Link href="/sessions" className="inline-flex h-11 items-center gap-2 rounded-sm px-1" aria-label="Athena: all sessions">
-          <span aria-hidden className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-line-strong bg-bg-2 text-12 font-semibold">A</span>
+        <Link href="/sessions" className="inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-sm px-1" aria-label="Athena: all sessions">
+          <LogoMark />
         </Link>
         <AppMenu />
       </header>

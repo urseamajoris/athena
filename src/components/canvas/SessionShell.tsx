@@ -1,4 +1,5 @@
 "use client";
+import { LogoMark } from "../Logo";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -12,14 +13,14 @@ import { MotionRoot } from "../motion";
 import { AppMenu } from "../AppMenu";
 import { SessionProvider, canvasStore, useCanvas, useSession } from "../session/SessionContext";
 import { StageRail } from "./StageRail";
-import { ListView } from "./ListView";
-import { FocusPanel } from "./FocusPanel";
-import { ShortcutsDialog } from "./ShortcutsDialog";
 import { canvasCommands, focusNode } from "./focus";
 import { STAGE_KEY_TO_NODE, nodeForStage } from "@/lib/canvas/graph";
 
 const CanvasView = dynamic(() => import("./CanvasView"), { ssr: false, loading: () => <Loading label="Drawing the canvas…" /> });
 const CommandPalette = dynamic(() => import("./CommandPalette"), { ssr: false });
+const ListView = dynamic(() => import("./ListView").then((m) => m.ListView), { ssr: false, loading: () => <Loading /> });
+const FocusPanel = dynamic(() => import("./FocusPanel").then((m) => m.FocusPanel), { ssr: false });
+const ShortcutsDialog = dynamic(() => import("./ShortcutsDialog").then((m) => m.ShortcutsDialog), { ssr: false });
 
 function subscribe(cb: () => void) {
   const mq = window.matchMedia("(max-width: 767px)");
@@ -50,7 +51,7 @@ export function SessionShell({ projectId }: { projectId: string }) {
 }
 
 function Shell() {
-  const { graph, ui, projectId, error, clearError, project } = useSession();
+  const { graph, ui, projectId, error, clearError, project, summary, claims } = useSession();
   const mobile = useIsMobile();
   const view = ui.view ?? (mobile ? "list" : "canvas");
   const panel = useCanvas((s) => s.panel);
@@ -63,18 +64,24 @@ function Shell() {
   // ?node=<id or old stage key> opens that node once; afterwards the URL follows the open panel.
   const params = useSearchParams();
   const handledParam = useRef(false);
+  const reset = useRef(false);
   useEffect(() => {
+    if (!reset.current) {
+      // A fresh session view: nothing selected or open from a previous session.
+      reset.current = true;
+      canvasStore.getState().closePanel();
+      canvasStore.getState().select(null);
+    }
     if (handledParam.current) return;
-    handledParam.current = true;
-    // A fresh session view: nothing selected or open from a previous session, then apply ?node=.
-    canvasStore.getState().closePanel();
-    canvasStore.getState().select(null);
     const p = params.get("node");
-    if (!p) return;
-    const id = graph.nodes.some((n) => n.id === p) ? p : STAGE_KEY_TO_NODE[p] ? nodeForStage(graph, STAGE_KEY_TO_NODE[p]) : null;
+    const id = !p ? null : graph.nodes.some((n) => n.id === p) ? p : STAGE_KEY_TO_NODE[p] ? nodeForStage(graph, STAGE_KEY_TO_NODE[p]) : null;
+    // Topic, query and quote nodes appear once their data has loaded; wait for it before giving up.
+    const loaded = !!summary && (!p?.startsWith("quote:") || claims !== null);
+    if (p && !id && !loaded) return;
+    handledParam.current = true;
     if (id) canvasStore.getState().openPanel(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [graph, summary, claims]);
   useEffect(() => {
     if (!handledParam.current) return;
     const url = new URL(window.location.href);
@@ -136,8 +143,8 @@ function Shell() {
   return (
     <div className="fixed inset-0 flex flex-col bg-bg-0">
       <header className="relative z-20 flex h-12 shrink-0 items-center gap-3 border-b border-line bg-bg-0 px-2 md:px-4">
-        <TransitionLink href="/sessions" className="inline-flex h-11 shrink-0 items-center gap-2 rounded-sm px-1 font-semibold" aria-label="Athena: all sessions">
-          <span aria-hidden className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-line-strong bg-bg-2 text-12">A</span>
+        <TransitionLink href="/sessions" className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-sm px-1 font-semibold" aria-label="Athena: all sessions">
+          <LogoMark />
           <span className="hidden lg:inline">Athena</span>
         </TransitionLink>
         <h1 className="hidden min-w-0 max-w-64 truncate font-medium text-fg-1 xl:block" title={project.idea}>{project.title || project.idea}</h1>
@@ -145,11 +152,11 @@ function Shell() {
           <StageRail compact={mobile} />
         </div>
         {status?.mockMode && !mobile && <Badge title="MOCK_MODE: recorded API fixtures and canned model responses; nothing is spent">Mock data</Badge>}
-        <div className="flex items-center rounded-md border border-line p-px" role="group" aria-label="View">
+        <div className="flex items-center rounded-md border border-line" role="group" aria-label="View">
           {viewBtn("canvas", "Canvas", LayoutGrid)}
           {viewBtn("list", "List", ListIcon)}
         </div>
-        <button className="btn-ghost h-11 px-2" onClick={() => { setPaletteLoaded(true); canvasStore.getState().setPalette(true); }} aria-label="Command palette (⌘K or /)">
+        <button className="btn-ghost h-11 min-w-11 px-2" onClick={() => { setPaletteLoaded(true); canvasStore.getState().setPalette(true); }} aria-label="Command palette (⌘K or /)">
           <Command className="h-4 w-4" strokeWidth={1.5} aria-hidden />
           {!mobile && <Kbd>K</Kbd>}
         </button>
@@ -175,7 +182,7 @@ function Shell() {
           onShortcuts={() => canvasStore.getState().setShortcuts(true)}
         />
       )}
-      <ShortcutsDialog open={shortcuts} onClose={() => canvasStore.getState().setShortcuts(false)} />
+      {shortcuts && <ShortcutsDialog open onClose={() => canvasStore.getState().setShortcuts(false)} />}
     </div>
   );
 }

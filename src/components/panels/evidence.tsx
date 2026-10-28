@@ -12,11 +12,11 @@ const I = { className: "h-3 w-3", strokeWidth: 2, "aria-hidden": true } as const
 
 /** Verification verdict, always visible and never colour-only (icon + text). */
 export function QuoteVerdict({ c, stale }: { c: { verified: boolean; userAccepted: boolean; userRejected?: boolean }; stale?: boolean }) {
-  if (stale) return <Badge tone="warn" icon={<AlertTriangle {...I} />}>stale</Badge>;
-  if (c.verified) return <Badge tone="ok" icon={<Check {...I} />}>verified</Badge>;
-  if (c.userAccepted) return <Badge tone="warn" icon={<Check {...I} />}>unverified · accepted</Badge>;
-  if (c.userRejected) return <Badge icon={<X {...I} />}>rejected by you</Badge>;
-  return <Badge tone="err" icon={<X {...I} />}>unverified</Badge>;
+  if (stale) return <Badge state tone="warn" icon={<AlertTriangle {...I} />}>stale</Badge>;
+  if (c.verified) return <Badge state tone="ok" icon={<Check {...I} />}>verified</Badge>;
+  if (c.userAccepted) return <Badge state tone="warn" icon={<Check {...I} />}>unverified · accepted</Badge>;
+  if (c.userRejected) return <Badge state icon={<X {...I} />}>rejected by you</Badge>;
+  return <Badge state tone="err" icon={<X {...I} />}>unverified</Badge>;
 }
 
 const FIELD_SHORT: Record<string, string> = { key_findings: "finding", limitations: "limitation", checklist: "quality item", methods: "methods", sample: "sample", setting: "setting", aim: "aim" };
@@ -36,7 +36,7 @@ export function ClaimChip({ id, claims, papers, stale }: { id: string; claims: R
     <Popover.Root>
       <Popover.Trigger
         className={cx(
-          "inline-flex min-h-6 items-center gap-1 rounded-sm border px-2 text-12 font-medium",
+          "inline-flex min-h-11 items-center gap-1 rounded-sm border px-2 text-12 font-medium md:min-h-6",
           stale ? "border-warn-line text-warn" : c.verified ? "border-ok-line text-ok" : "border-warn-line text-warn",
         )}
         aria-label={`Evidence: ${label}. ${stale ? "Stale" : c.verified ? "Quote verified" : "Unverified, accepted by you"}. Show the quote.`}

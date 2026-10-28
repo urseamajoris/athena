@@ -309,9 +309,10 @@ mark.q-bad {
 }
 
 /* ---------- canvas (React Flow) ---------- */
-.react-flow,
-.react-flow.dark,
-.react-flow.light {
+/* :root raises specificity above React Flow's own .react-flow.dark rules (its stylesheet loads later). */
+:root .react-flow,
+:root .react-flow.dark,
+:root .react-flow.light {
   --xy-background-color-default: transparent;
   --xy-background-pattern-dots-color-default: var(--line-strong);
   --xy-edge-stroke-default: var(--line-control);
@@ -389,4 +390,24 @@ mark.q-bad {
 /* Headings that receive focus programmatically (tabindex=-1, not reachable by Tab) need no ring. */
 [tabindex="-1"]:focus {
   outline: none;
+}
+
+/* Touch: every control is at least 44 × 44 px on small screens. */
+@media (max-width: 767px) {
+  .btn,
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .btn-danger,
+  .btn-sm,
+  .input {
+    min-height: 44px;
+  }
+  .btn-sm {
+    min-width: 44px;
+  }
+}
+/* Promote the viewport to its own layer only while panning/zooming (crisp text the rest of the time). */
+[data-moving] .react-flow__viewport {
+  will-change: transform;
 }

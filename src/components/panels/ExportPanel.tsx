@@ -64,6 +64,11 @@ export function ExportView({ full = false }: { full?: boolean }) {
           </RadioGroup.Item>
         ))}
       </RadioGroup.Root>
+      {full && (
+        <a className="btn-primary min-h-11" href={href} download>
+          <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Download {FORMATS.find((f) => f.id === format)!.ext}
+        </a>
+      )}
       <section aria-label="Preview">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h3 className="text-12 font-medium text-fg-2">Preview{!full && lines.length > 40 ? ` · first 40 of ${lines.length} lines` : ""}</h3>
@@ -82,11 +87,13 @@ export function ExportView({ full = false }: { full?: boolean }) {
         </div>
         <p className="mt-2 text-12 text-fg-2">The report includes the full search strategy with dates and counts, every selection you changed, the appraisals with their verified quotes, the synthesis and the decision log, so the review can be reproduced.</p>
       </Disclosure>
-      <PanelFooter>
-        <a className="btn-primary" href={href} download>
-          <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Download {FORMATS.find((f) => f.id === format)!.ext}
-        </a>
-      </PanelFooter>
+      {!full && (
+        <PanelFooter>
+          <a className="btn-primary" href={href} download>
+            <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Download {FORMATS.find((f) => f.id === format)!.ext}
+          </a>
+        </PanelFooter>
+      )}
     </div>
   );
 }
