@@ -1,6 +1,6 @@
 import "server-only";
 import { asc, eq } from "drizzle-orm";
-import { db, schema } from "../db";
+import { db, schema, batchWrite, type BatchItem } from "../db";
 import type { Criteria } from "../db/schema";
 import { structuredCall, unknownIds } from "../ai/client";
 import { wrapData } from "../ai/prompts";
@@ -10,10 +10,10 @@ import { newId, nowIso, errMsg } from "../util";
 import { adapters } from "../sources";
 import { SEARCH_DATABASES, type SearchDatabase } from "../sources/types";
 
-export function searchState(projectId: string) {
-  const p = getProject(projectId);
-  const topics = db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all();
-  const qs = db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all();
+export async function searchState(projectId: string) {
+  const p = (await getProject(projectId));
+  const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
+  const qs = (await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
   return {
     criteria: p.criteria,
     databases: SEARCH_DATABASES.map((d) => ({ id: d, label: adapters[d].label })),
@@ -22,8 +22,8 @@ export function searchState(projectId: string) {
 }
 
 export async function buildQueries(projectId: string) {
-  const p = getProject(projectId);
-  const topics = db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all();
+  const p = (await getProject(projectId));
+  const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
   if (!topics.length) throw new HttpError(400, "No topics to build queries for.");
   const topicIds = topics.map((t) => t.id);
   const { data } = await structuredCall({
@@ -48,58 +48,60 @@ export async function buildQueries(projectId: string) {
       return missing.length ? `Missing a query for: ${missing.join(", ")}` : null;
     },
   });
-  const had = db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all();
-  db.transaction((tx) => {
-    tx.delete(schema.queries).where(eq(schema.queries.projectId, projectId)).run();
-    const seen = new Set<string>();
-    for (const q of data.queries) {
-      const k = `${q.topicId}/${q.database}`;
-      if (seen.has(k)) continue; // one query per database per topic
-      seen.add(k);
-      tx.insert(schema.queries).values({ id: newId("q"), projectId, topicId: q.topicId, database: q.database, queryString: q.query, aiQueryString: q.query, rationale: q.rationale }).run();
-    }
-    tx.update(schema.projects).set({ criteria: data.criteria, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run();
-  });
-  logDecision(projectId, 3, "queries_generated", had.length ? had.map((h) => h.queryString) : null, data, "ai");
-  setStageState(projectId, 3, "needs_review");
-  if (had.length) markDownstreamStale(projectId, 3, "Search queries were regenerated");
-  return searchState(projectId);
+  const had = (await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
+  {
+    const stmts: BatchItem<"sqlite">[] = [];
+        stmts.push(db.delete(schema.queries).where(eq(schema.queries.projectId, projectId)));
+        const seen = new Set<string>();
+        for (const q of data.queries) {
+          const k = `${q.topicId}/${q.database}`;
+          if (seen.has(k)) continue; // one query per database per topic
+          seen.add(k);
+          stmts.push(db.insert(schema.queries).values({ id: newId("q"), projectId, topicId: q.topicId, database: q.database, queryString: q.query, aiQueryString: q.query, rationale: q.rationale }));
+        }
+        stmts.push(db.update(schema.projects).set({ criteria: data.criteria, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)));
+        await batchWrite(stmts);
+  }
+  (await logDecision(projectId, 3, "queries_generated", had.length ? had.map((h) => h.queryString) : null, data, "ai"));
+  (await setStageState(projectId, 3, "needs_review"));
+  if (had.length) (await markDownstreamStale(projectId, 3, "Search queries were regenerated"));
+  return (await searchState(projectId));
 }
 
-export function updateQuery(projectId: string, queryId: string, queryString: string) {
-  const q = db.select().from(schema.queries).where(eq(schema.queries.id, queryId)).get();
+export async function updateQuery(projectId: string, queryId: string, queryString: string) {
+  const q = (await db.select().from(schema.queries).where(eq(schema.queries.id, queryId)).get());
   if (!q || q.projectId !== projectId) throw new HttpError(404, "Query not found");
   if (q.queryString === queryString) return;
-  db.update(schema.queries).set({ queryString, edited: queryString !== q.aiQueryString, dryRunCount: null, dryRunAt: null, dryRunError: null }).where(eq(schema.queries.id, queryId)).run();
-  logDecision(projectId, 3, "query_edited", q.queryString, queryString);
-  markDownstreamStale(projectId, 3, "A search query was edited");
+  (await db.update(schema.queries).set({ queryString, edited: queryString !== q.aiQueryString, dryRunCount: null, dryRunAt: null, dryRunError: null }).where(eq(schema.queries.id, queryId)).run());
+  (await logDecision(projectId, 3, "query_edited", q.queryString, queryString));
+  (await markDownstreamStale(projectId, 3, "A search query was edited"));
 }
 
-export function updateCriteria(projectId: string, criteria: Criteria) {
-  const p = getProject(projectId);
-  db.update(schema.projects).set({ criteria, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run();
-  db.update(schema.queries).set({ dryRunCount: null, dryRunAt: null }).where(eq(schema.queries.projectId, projectId)).run();
-  logDecision(projectId, 3, "criteria_edited", p.criteria, criteria);
-  markDownstreamStale(projectId, 3, "Inclusion/exclusion criteria were edited");
+export async function updateCriteria(projectId: string, criteria: Criteria) {
+  const p = (await getProject(projectId));
+  (await db.update(schema.projects).set({ criteria, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run());
+  (await db.update(schema.queries).set({ dryRunCount: null, dryRunAt: null }).where(eq(schema.queries.projectId, projectId)).run());
+  (await logDecision(projectId, 3, "criteria_edited", p.criteria, criteria));
+  (await markDownstreamStale(projectId, 3, "Inclusion/exclusion criteria were edited"));
 }
 
 export async function dryRun(projectId: string, queryId: string) {
-  const q = db.select().from(schema.queries).where(eq(schema.queries.id, queryId)).get();
+  const q = (await db.select().from(schema.queries).where(eq(schema.queries.id, queryId)).get());
   if (!q || q.projectId !== projectId) throw new HttpError(404, "Query not found");
-  const p = getProject(projectId);
+  const p = (await getProject(projectId));
   try {
     const n = await adapters[q.database as SearchDatabase].count(q.queryString, p.criteria);
-    db.update(schema.queries).set({ dryRunCount: n, dryRunAt: nowIso(), dryRunError: null }).where(eq(schema.queries.id, queryId)).run();
-    logDecision(projectId, 3, "dry_run", null, { queryId, database: q.database, query: q.queryString, count: n }, "system");
+    (await db.update(schema.queries).set({ dryRunCount: n, dryRunAt: nowIso(), dryRunError: null }).where(eq(schema.queries.id, queryId)).run());
+    (await logDecision(projectId, 3, "dry_run", null, { queryId, database: q.database, query: q.queryString, count: n }, "system"));
     return { count: n, error: null };
   } catch (e) {
-    db.update(schema.queries).set({ dryRunCount: null, dryRunAt: nowIso(), dryRunError: errMsg(e) }).where(eq(schema.queries.id, queryId)).run();
+    (await db.update(schema.queries).set({ dryRunCount: null, dryRunAt: nowIso(), dryRunError: errMsg(e) }).where(eq(schema.queries.id, queryId)).run());
     return { count: null, error: errMsg(e) };
   }
 }
 
 export async function dryRunAll(projectId: string) {
-  const qs = db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all();
+  const qs = (await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
   const out = [];
   for (const q of qs) out.push({ id: q.id, ...(await dryRun(projectId, q.id)) });
   return out;
