@@ -20,3 +20,32 @@ export function dropEmptyGroups(query: string): string {
   }
   return q.replace(/\s{2,}/g, " ").trim();
 }
+
+/** The search words in a block, lower-cased and without field tags or truncation: `(Thailand[mh] OR "Thai people")` → ["thailand", "thai people"]. */
+export function blockTerms(block: string): string[] {
+  const tokens = block.match(/"[^"]*"(?:\[[^\]]*\])?|[^\s()]+/g) ?? [];
+  return [...new Set(tokens.filter((t) => !/^(?:AND|OR|NOT)$/i.test(t)).map((t) => t.replace(/\[[^\]]*\]$/, "").replace(/^"|"$/g, "").replace(/\*$/, "").trim().toLowerCase()).filter((t) => t.length >= 3))];
+}
+
+/** Whether `s` is one group in parentheses from its first character to its last: "(a OR b)", not "(a) OR (b)". */
+function oneGroup(s: string): boolean {
+  if (!s.startsWith("(") || !s.endsWith(")")) return false;
+  let depth = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === "(") depth++;
+    else if (s[i] === ")" && --depth === 0 && i < s.length - 1) return false;
+  }
+  return depth === 0;
+}
+
+/**
+ * `query AND (block)`, unless the query already uses one of the block's words. Keeps a review limited to its
+ * setting (a country, a region, a care setting) in every search, whatever the AI wrote for each topic.
+ */
+export function withBlock(query: string, block: string): { query: string; added: boolean } {
+  const b = block.trim();
+  const terms = blockTerms(b);
+  const q = query.toLowerCase();
+  if (!terms.length || terms.some((t) => q.includes(t))) return { query, added: false };
+  return { query: `${query.trim()} AND ${oneGroup(b) ? b : `(${b})`}`, added: true };
+}

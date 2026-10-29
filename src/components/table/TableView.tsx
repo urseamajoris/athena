@@ -17,6 +17,7 @@ import { WhatHappens } from "../guide/WhatHappens";
 import { focusPageAction } from "../session/SessionPage";
 import { MIN_TOPIC_FIT, PER_TOPIC, RUBRIC, STAGES, STUDY_TYPES, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
 import { topicCoverage } from "@/lib/scoring";
+import { ideaSetting, settingFit, type SettingFit } from "@/lib/shared/scope";
 import { frontierStage, nodeForStage } from "@/lib/canvas/graph";
 import { TransitionLink } from "../vt";
 import { ARTICLE_TYPES, DIMENSIONS, hasHues, accessOf, articleTypeOf, categoriesFor, categoryVar, describeFilters, evidenceOf, periodOf, scoreBandOf, sourceOf, studyGroupOf, type ColorBy, type Dimension } from "@/lib/shared/categories";
@@ -33,7 +34,7 @@ interface Paper {
   topicIds: string[];
   appraisal?: { textSource: string; unverified: number } | null;
 }
-interface Score { id: string; paperId: string; topicId: string; total: number; topicFit: number; selected: boolean; userChanged: boolean; rationale: string }
+interface Score { id: string; paperId: string; topicId: string; total: number; topicFit: number; settingMatch?: number; selected: boolean; userChanged: boolean; rationale: string }
 type SwapChoice = Score & { title: string };
 interface RankingData { topics: { id: string; name: string; importanceRank: number | null; importanceJustification: string | null; scores: Score[] }[] }
 interface PapersData { topics: { id: string; name: string }[]; papers: Paper[] }
@@ -48,6 +49,15 @@ export interface Row extends Paper {
   kept: boolean;
   /** Category key per dimension (filters, grouping, colour). */
   cats: Record<Dimension, string[]>;
+  /** Whether the paper is set in the idea's setting, as far as its abstract shows (null: the idea names none). */
+  settingFit: SettingFit | null;
+}
+
+/** Whether a paper is set in the idea's setting: the AI rates the setting per topic and the best rating counts (a
+ *  paper is set where it is, whatever the topic); unrated, its summary's setting words decide. */
+function fitOf(setting: string, p: Paper | undefined, ss: Score[]): SettingFit {
+  const rated = ss.flatMap((s) => (typeof s.settingMatch === "number" ? [s.settingMatch] : []));
+  return settingFit(setting, p?.summary?.setting, rated.length ? Math.max(...rated) : undefined);
 }
 
 /** Every category a paper belongs to, per dimension (a paper can be in several topics). */
@@ -70,7 +80,8 @@ const DEFAULT_HIDDEN: VisibilityState = { authors: false, journal: false, settin
 
 /** Full-screen summary + ranking table: rank and pick papers for appraisal. */
 export function TableView() {
-  const { projectId, states, confirmEdit, refresh, openPaper, graph, announce } = useSession();
+  const { projectId, states, confirmEdit, refresh, openPaper, graph, announce, project } = useSession();
+  const setting = ideaSetting(project.scopingSummary);
   const papers = useApi<PapersData>(projectPath(projectId, "papers"));
   const ranking = useApi<RankingData>(projectPath(projectId, "ranking"));
   useJobRefresh(5, papers.mutate);
@@ -110,9 +121,10 @@ export function TableView() {
         const selectedIn = all.filter((s) => s.selected).length;
         const selectedElsewhere = all.filter((s) => s.selected && s.topicId !== topic).map((s) => topicName.get(s.topicId) ?? "another topic");
         const kept = topic === "all" ? selectedIn > 0 : !!score?.selected;
-        return { ...p, score, rank: score && topic !== "all" ? rankOf.get(score.id) ?? null : null, selectedIn, selectedElsewhere, kept, cats: categorize(p, kept) };
+        const fit = setting ? fitOf(setting, p, all) : null;
+        return { ...p, score, rank: score && topic !== "all" ? rankOf.get(score.id) ?? null : null, selectedIn, selectedElsewhere, kept, cats: categorize(p, kept), settingFit: fit };
       });
-  }, [papers.data, ranking.data, topic]);
+  }, [papers.data, ranking.data, topic, setting]);
   const activeFilters = (Object.entries(view.filters) as [Dimension, string[]][]).filter(([, k]) => k?.length);
   const rows: Row[] = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -234,7 +246,11 @@ export function TableView() {
   const rt = ranking.data?.topics ?? [];
   // Selections per topic add up to more than the papers appraised when a paper is selected in several topics.
   const selectedTotal = rt.reduce((a, t) => a + t.scores.filter((s) => s.selected).length, 0);
-  const selectedPapers = new Set(rt.flatMap((t) => t.scores.filter((s) => s.selected).map((s) => s.paperId))).size;
+  const selectedIds = [...new Set(rt.flatMap((t) => t.scores.filter((s) => s.selected).map((s) => s.paperId)))];
+  const selectedPapers = selectedIds.length;
+  // How many selected papers are set in the idea's setting, as far as the abstracts show (said before appraisal).
+  const inSetting = setting ? selectedIds.filter((id) => fitOf(setting, all.find((p) => p.id === id), rt.flatMap((t) => t.scores.filter((s) => s.paperId === id))) === "match").length : 0;
+  const halved = rt.some((t) => t.scores.some((s) => s.rationale.includes("Score halved")));
   const stage = states["5"] === "approved" ? 6 : 5;
   const topicList = (papers.data?.topics ?? []).map((t) => ({ id: t.id, name: t.name }));
   const hidden = allRows.length - rows.length;
@@ -413,13 +429,20 @@ export function TableView() {
           <button className="btn-ghost btn-sm" disabled={!activeFilters.length && !q.trim()} onClick={() => { view.reset(); setQ(""); }}><RotateCcw className="h-3 w-3" aria-hidden /> Reset filters</button>
           <span className="text-12 text-fg-2">{all.length} papers in total{missing ? ` · ${missing} not yet summarised` : ""}{ranked ? ` · ${selectedPapers} ${selectedPapers === 1 ? "paper" : "different papers"} selected for appraisal${selectedTotal > selectedPapers ? ` (the topic counts add up to ${selectedTotal}: some papers are selected in more than one topic)` : ""}` : ""}</span>
         </div>
+        {setting && ranked && !rankingRunning && selectedPapers > 0 && (
+          inSetting * 2 < selectedPapers ? (
+            <p className="flex items-start gap-2 text-fg-0"><AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden /><span><strong className="font-semibold">Only {inSetting} of {selectedPapers} selected papers are clearly set in {setting}</strong>, the setting of your idea (as far as their abstracts show). Check the papers marked “Setting may differ” or “Setting not reported” before you appraise them, or add {setting} to the searches in step 3.</span></p>
+          ) : (
+            <p className="text-12 text-fg-2">{inSetting} of {selectedPapers} selected papers are clearly set in {setting}, the setting of your idea (as far as their abstracts show).</p>
+          )
+        )}
         {notice && <p role="status" className="flex items-start gap-2 text-fg-0"><Info className="mt-1 h-4 w-4 shrink-0 text-fg-1" strokeWidth={1.5} aria-hidden /><span>{notice}</span></p>}
         {ranked && mode !== "map" && (
           <Disclosure title="How papers are scored" meta="5 criteria, 0–100">
             <ul className="grid gap-1 sm:grid-cols-2">
               {RUBRIC.map((r) => <li key={r.key}><strong className="font-medium">{r.label}</strong> <span className="tabular-nums text-fg-2">{Math.round(r.weight * 100)}%</span> · {r.by === "AI" ? "rated by the AI from the title and abstract" : "a fixed formula"}</li>)}
             </ul>
-            <p className="mt-2 text-12 text-fg-2">Score = weighted sum, out of 100. The 4 best-scoring papers per topic are pre-selected, but only papers that match the topic (topic fit {MIN_TOPIC_FIT}/5 or more); aim for 3–5.</p>
+            <p className="mt-2 text-12 text-fg-2">Score = weighted sum, out of 100. The 4 best-scoring papers per topic are pre-selected, but only papers that match the topic (topic fit {MIN_TOPIC_FIT}/5 or more); aim for 3–5.{setting && halved ? ` Your idea is about ${setting}, so a paper set somewhere else, or whose setting is not reported, has its score halved.` : ""}</p>
           </Disclosure>
         )}
       </div>
@@ -531,6 +554,7 @@ function PaperCards({ rows, sorting, groupBy, topics, onOpen, onToggle }: { rows
                 {r.score && (r.rank !== null ? <TopicFit score={r.score} /> : r.score.topicFit < MIN_TOPIC_FIT && (r.score.selected ? <TopicFit score={r.score} /> : <span className="text-fg-2">matches no topic</span>))}
                 {r.kept && <span className="inline-flex items-center gap-1 text-ok"><CheckCircle2 className="h-3 w-3" aria-hidden />selected{r.rank === null && r.selectedIn > 1 ? ` in ${r.selectedIn} topics` : ""}</span>}
                 {r.rank !== null && <SelectedElsewhere row={r} />}
+                {r.kept && <SettingNote row={r} />}
               </span>
               {r.summary && <span className="mt-1 line-clamp-2 block text-12 text-fg-2">{r.summary.keyFinding}</span>}
             </button>
@@ -681,6 +705,21 @@ function ScoreCell({ row, all }: { row: Row; all: boolean }) {
       {all ? s.topicFit < MIN_TOPIC_FIT && (s.selected ? <TopicFit score={s} className="text-12" /> : <span className="text-12 text-fg-2">matches no topic</span>) : <TopicFit score={s} className="text-12" />}
       {s.userChanged && !(s.selected && s.topicFit < MIN_TOPIC_FIT) && <span className="text-12 text-fg-2">changed by you</span>}
       {!all && <SelectedElsewhere row={row} className="text-12" />}
+      {row.kept && <SettingNote row={row} className="text-12" />}
+    </span>
+  );
+}
+
+/** On a selected paper: a prompt to check its setting when it may not be the idea's (the AI read only the
+ *  abstract, so this asks for a check rather than ruling the paper out). */
+function SettingNote({ row, className }: { row: Row; className?: string }) {
+  const { project } = useSession();
+  const setting = ideaSetting(project.scopingSummary);
+  if (!setting || !row.settingFit || row.settingFit === "match") return null;
+  return (
+    <span className={cx("inline-flex items-start gap-1 text-fg-1", className)} title={row.summary?.setting ? `Setting from the abstract: ${row.summary.setting}` : undefined}>
+      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-warn" strokeWidth={2} aria-hidden />
+      {row.settingFit === "differs" ? `Setting may differ from your idea (${setting}): check` : `Setting not reported: check it is ${setting}`}
     </span>
   );
 }

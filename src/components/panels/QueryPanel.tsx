@@ -12,6 +12,7 @@ import { WhatHappens } from "../guide/WhatHappens";
 import { nextAction, stageAction } from "@/lib/canvas/actions";
 import { frontierStage } from "@/lib/canvas/graph";
 import { fmtInt } from "@/lib/shared/format";
+import { yearsFromTimeframe } from "@/lib/shared/scope";
 
 interface Query { id: string; database: string; queryString: string; aiQueryString: string; rationale: string; dryRunCount: number | null; dryRunAt: string | null; dryRunError: string | null; edited: boolean }
 interface Criteria { yearFrom: number | null; yearTo: number | null; languages: string[]; studyTypes: string[]; inclusion: string[]; exclusion: string[]; hardFilter?: string[] }
@@ -53,6 +54,9 @@ export function QueryPanel({ topicId }: { topicId: string }) {
         const q = topic.queries.find((x) => x.database === db.id);
         return q ? <QueryPreview key={q.id} q={q} label={db.label} criteria={data.criteria} run={runs.find((r) => r.queryId === q.id) ?? null} cap={status?.maxResultsPerQuery ?? 40} beforeCount={crit.dirty ? crit.save : null} onChange={(d) => mutate(d, { revalidate: false })} /> : <p key={db.id} className="text-fg-2">No {db.label} query.</p>;
       })}
+      {new Set(topic.queries.map((q) => queryBlocks(q.queryString).length)).size > 1 && (
+        <p className="text-12 text-fg-2">PubMed and OpenAlex each get their own search, written in that database’s own search language, so the number of groups can differ.</p>
+      )}
       {fields.length > 0 && (
         <p className="text-12 text-fg-2">
           Small labels say where a word must appear: {fields.map((f, i) => <span key={f}>{i ? "; " : ""}<span className="font-medium text-fg-1">{FIELD_LABEL[f] ?? f}</span>{f === "mh" ? " (MeSH: PubMed's official keyword for a subject)" : f === "tiab" ? " (the word appears in the title or abstract)" : ""}</span>)}.
@@ -301,8 +305,19 @@ function CriteriaCard({ crit }: { crit: ReturnType<typeof useCriteriaDraft> }) {
   const c = crit.draft!;
   const set = (patch: Partial<Draft>) => crit.setDraft({ ...c, ...patch });
   const langs = commas(c.languages);
+  // The years your scoping answer asked for, worked out here ("last 5 years" in 2026 = 2021–2026), for checking.
+  const { project } = useSession();
+  const timeframe = project.scopingSummary?.timeframe?.trim();
+  const now = new Date().getFullYear();
+  const asked = yearsFromTimeframe(timeframe, now);
+  const differs = asked && (year(c.yearFrom) !== asked.yearFrom || year(c.yearTo) !== asked.yearTo);
   return (
-    <Disclosure title="Dates, languages and criteria" meta={`${c.yearFrom.trim() || "any"}–${c.yearTo.trim() || "now"} · ${langs.join(", ") || "any language"}${crit.dirty ? " · not saved" : ""}`}>
+    <Disclosure title="Dates, languages and criteria" meta={`${c.yearFrom.trim() || "any"}–${c.yearTo.trim() || "now"} · ${langs.join(", ") || "any language"}${differs ? " · check the years" : ""}${crit.dirty ? " · not saved" : ""}`}>
+      {asked && (
+        <p className="mb-3 text-12 text-fg-1">
+          You asked for “{timeframe}”: that is <span className="font-semibold tabular-nums text-fg-0">{asked.yearFrom}–{asked.yearTo ?? now}</span>.{differs ? " The years below are different: check them." : " Check the years below."}
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <label className="text-12 text-fg-1">From year
           <input type="number" className="input mt-1" value={c.yearFrom} onChange={(e) => set({ yearFrom: e.target.value })} />

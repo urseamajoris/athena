@@ -9,7 +9,8 @@ import { getProject, HttpError, logDecision, markDownstreamStale, setStageState 
 import { newId, nowIso, errMsg } from "../util";
 import { adapters } from "../sources";
 import { SEARCH_DATABASES, type SearchDatabase } from "../sources/types";
-import { dropEmptyGroups } from "../sources/syntax";
+import { dropEmptyGroups, withBlock } from "../sources/syntax";
+import { ideaSetting, yearsFromTimeframe } from "../shared/scope";
 
 export async function searchState(projectId: string) {
   const p = (await getProject(projectId));
@@ -27,6 +28,7 @@ export async function buildQueries(projectId: string) {
   const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
   if (!topics.length) throw new HttpError(400, "No topics to build queries for.");
   const topicIds = topics.map((t) => t.id);
+  const setting = ideaSetting(p.scopingSummary);
   const { data } = await structuredCall({
     prompt: "search_builder",
     role: "fast",
@@ -39,15 +41,24 @@ export async function buildQueries(projectId: string) {
       topics: wrapData("topics", topics.map((t) => `${t.id} — ${t.name} — ${t.synonyms.join("; ")} — ${t.controlledTerms.join("; ") || "none"}`).join("\n")),
       databases: SEARCH_DATABASES.join(", "),
       syntax: SEARCH_DATABASES.map((d) => `- ${d}: ${adapters[d].syntaxGuide}`).join("\n"),
+      setting: setting ? wrapData("setting", setting) : "none named",
+      year: String(new Date().getFullYear()),
     },
     check: (o) => {
       const bad = unknownIds(o.queries.map((q) => q.topicId), topicIds);
       if (bad.length) return `Unknown topicId(s): ${bad.join(", ")}. Use only: ${topicIds.join(", ")}`;
       const missing: string[] = [];
       for (const t of topicIds) for (const d of SEARCH_DATABASES) if (!o.queries.some((q) => q.topicId === t && q.database === d)) missing.push(`${t}/${d}`);
-      return missing.length ? `Missing a query for: ${missing.join(", ")}` : null;
+      if (missing.length) return `Missing a query for: ${missing.join(", ")}`;
+      const noBlock = setting ? SEARCH_DATABASES.filter((d) => !o.settingBlocks.some((b) => b.database === d)) : [];
+      return noBlock.length ? `The idea is limited to the setting "${setting}": give a settingBlocks entry for ${noBlock.join(", ")}.` : null;
     },
   });
+  // Every search keeps the idea's setting (unless its topic compares settings), whatever the AI wrote per topic.
+  const blocks = new Map(setting ? data.settingBlocks.map((b) => [b.database, dropEmptyGroups(b.block)]) : []);
+  // The years come from the scoping answer when it names them ("last 5 years" in 2026 = 2021 to now), not the AI's arithmetic.
+  const years = yearsFromTimeframe(p.scopingSummary?.timeframe);
+  const criteria = years ? { ...data.criteria, ...years } : data.criteria;
   const had = (await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
   {
     const stmts: BatchItem<"sqlite">[] = [];
@@ -57,13 +68,16 @@ export async function buildQueries(projectId: string) {
           const k = `${q.topicId}/${q.database}`;
           if (seen.has(k)) continue; // one query per database per topic
           seen.add(k);
-          const query = dropEmptyGroups(q.query); // never show or run "AND ()"
-          stmts.push(db.insert(schema.queries).values({ id: newId("q"), projectId, topicId: q.topicId, database: q.database, queryString: query, aiQueryString: query, rationale: q.rationale }));
+          const block = q.comparesSettings ? undefined : blocks.get(q.database);
+          const limited = block ? withBlock(dropEmptyGroups(q.query), block) : { query: dropEmptyGroups(q.query), added: false }; // never show or run "AND ()"
+          const query = limited.query;
+          const rationale = limited.added ? `${q.rationale} Also limited to ${setting}, the setting of your idea.` : q.rationale;
+          stmts.push(db.insert(schema.queries).values({ id: newId("q"), projectId, topicId: q.topicId, database: q.database, queryString: query, aiQueryString: query, rationale }));
         }
-        stmts.push(db.update(schema.projects).set({ criteria: data.criteria, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)));
+        stmts.push(db.update(schema.projects).set({ criteria, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)));
         await batchWrite(stmts);
   }
-  (await logDecision(projectId, 3, "queries_generated", had.length ? had.map((h) => h.queryString) : null, data, "ai"));
+  (await logDecision(projectId, 3, "queries_generated", had.length ? had.map((h) => h.queryString) : null, { ...data, criteria }, "ai"));
   (await setStageState(projectId, 3, "needs_review"));
   if (had.length) (await markDownstreamStale(projectId, 3, "Search queries were regenerated"));
   return (await searchState(projectId));

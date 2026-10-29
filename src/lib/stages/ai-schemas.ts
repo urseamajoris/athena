@@ -70,9 +70,13 @@ export const SearchBuild = z.object({
         database: z.enum(["pubmed", "openalex"]),
         query: z.string().trim().min(3).max(1500),
         rationale: str(240),
+        /** True only for a topic that compares the idea's setting with others, so its query must not be limited to it. */
+        comparesSettings: z.boolean(),
       }),
     )
     .min(2),
+  /** One block per database limiting a query to the idea's setting (empty when the idea names no setting). */
+  settingBlocks: z.array(z.object({ database: z.enum(["pubmed", "openalex"]), block: z.string().trim().min(3).max(600) })).max(2),
 });
 export type SearchBuild = z.infer<typeof SearchBuild>;
 
@@ -98,6 +102,8 @@ export const RankingBatch = z.object({
         paperId: str(40),
         topicFit: score,
         topicFitWhy: str(200),
+        /** True when the paper only shares words with the idea but is about something else (a mobile clinic, not a mobile app). */
+        onlySharesWords: z.boolean(),
         designStrength: score,
         designStrengthWhy: str(200),
         settingMatch: score,
