@@ -4,7 +4,12 @@ import "server-only";
  * given (real records from fixtures), so every downstream check (grounded IDs, quote verification) is
  * exercised exactly as in real mode. Outputs are prefixed "(mock)" where they are free text.
  * One appraisal quote per paper is deliberately altered so the "unverified quote" path can be demoed.
+ * The telemedicine test idea (scripts/e2e.mjs) gets the scripted telemedicine scope; any other idea gets topics,
+ * searches and questions built from its own words and answers (mock-idea.ts), while the recorded papers stay
+ * telemedicine samples, which the free text says.
  */
+
+import { answersByField, cleanAnswer, FILLER_TOPICS, IDEA_QUESTIONS, ideaQuestions, ideaSearch, ideaTopics, inSentence, isPeople, namedPlace, phrases, quoted, SAMPLE_NOTE, summaryOf, termsOf, tiab, unwrapData, type ScopeField } from "./mock-idea";
 
 type AnyRec = Record<string, unknown>;
 
@@ -55,22 +60,11 @@ const TELEMED_TOPICS = [
   { name: "Patient and provider acceptance", synonyms: ["acceptance", "satisfaction", "attitudes", "perceptions", "readiness"], controlledTerms: ["Patient Acceptance of Health Care", "Attitude of Health Personnel"], rationale: "(mock) Acceptance drives sustained use." },
 ];
 
-const STOP = new Set("a an and are as at be by can do does for from has have how i im in into is it its i'm interested me my of on or our should that the their them there these this those to under use using was what when where which who why will with would about between among during effect effects impact role relationship influence factors".split(" "));
-/** Up to four key phrases from the idea (demo mode only): so a non-telemedicine idea gets topics in its own words. */
-function ideaTerms(idea: string): string[] {
-  const words = idea.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w));
-  return [...new Set(words)].slice(0, 4);
-}
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const isTelemed = (idea: string) => /tele(medicine|health)|mhealth|ehealth/i.test(idea);
-function ideaTopics(idea: string) {
-  const terms = ideaTerms(idea);
-  const base = terms.map((t) => ({ name: cap(t), synonyms: [t, `${t}s`.replace(/ss$/, "s")], controlledTerms: [] as string[], rationale: `(mock) Key concept from your idea: "${t}".` }));
-  const extra = [
-    { name: "Measurement and outcomes", synonyms: ["outcomes", "measurement", "assessment"], controlledTerms: [], rationale: "(mock) How the outcome is measured shapes what is found." },
-    { name: "Context and setting", synonyms: ["setting", "context", "population"], controlledTerms: [], rationale: "(mock) Where and with whom the studies were done." },
-  ];
-  return [...base, ...extra].slice(0, Math.max(4, Math.min(6, base.length + 2)));
+/** The telemedicine test idea (or a prompt that does not carry the idea) keeps the scripted telemedicine scope. */
+function telemedRun(inp: AnyRec, vars: Record<string, string>) {
+  const idea = String(inp.idea ?? "") || unwrapData(vars.idea);
+  return !idea || isTelemed(idea);
 }
 
 export async function mockRespond(prompt: string, vars: Record<string, string>, input: unknown): Promise<unknown> {
@@ -79,26 +73,37 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
     case "scoping_turn": {
       const asked = Number(inp.asked ?? 0);
       const idea = String(inp.idea ?? "");
+      if (!isTelemed(idea)) {
+        const byField = answersByField((inp.answers as string[]) ?? []);
+        const topics = ideaTopics(idea, byField);
+        const done = asked >= IDEA_QUESTIONS.length;
+        return {
+          coverage: {
+            population: byField.population ?? topics.find((t) => isPeople(t.name))?.name ?? null,
+            setting: byField.setting ?? null,
+            phenomenon: topics.filter((t) => !isPeople(t.name) && !FILLER_TOPICS.includes(t.name)).map((t) => inSentence(t.name)).join(", ") || null,
+            outcome: byField.outcome ?? null,
+            timeframe: byField.timeframe ?? null,
+            studyTypes: byField.studyTypes ?? null,
+          },
+          done,
+          nextQuestion: done ? null : IDEA_QUESTIONS[asked].q,
+          questionTarget: done ? null : IDEA_QUESTIONS[asked].t,
+          draftTopics: topics.slice(0, Math.min(5, 2 + asked)).map((t) => t.name),
+        };
+      }
       const answers = ((inp.answers as string[]) ?? []).map((a) => a.slice(0, 80));
-      const tele = isTelemed(idea);
-      const qs = tele
-        ? [
-            { q: "(mock) Who is the main population you care about — for example patients in rural areas, health workers, or health-system decision makers?", t: "population" },
-            { q: "(mock) Which outcomes matter most to you — uptake, barriers and facilitators, clinical outcomes, or costs?", t: "outcome" },
-            { q: "(mock) Which publication years and study types should we include — e.g. 2015 onwards, any design including qualitative studies and reviews?", t: "timeframe" },
-          ]
-        : [
-            { q: "(mock) Who do you want to study — which people or group, and where?", t: "population" },
-            { q: "(mock) What result or outcome matters most to you, and how would it be measured?", t: "outcome" },
-            { q: "(mock) Which years and kinds of studies should count — for example 2015 onwards, any design including interviews and reviews?", t: "timeframe" },
-          ];
+      const qs = [
+        { q: "(mock) Who is the main population you care about — for example patients in rural areas, health workers, or health-system decision makers?", t: "population" },
+        { q: "(mock) Which outcomes matter most to you — uptake, barriers and facilitators, clinical outcomes, or costs?", t: "outcome" },
+        { q: "(mock) Which publication years and study types should we include — e.g. 2015 onwards, any design including qualitative studies and reviews?", t: "timeframe" },
+      ];
       const done = asked >= qs.length;
-      const terms = ideaTerms(idea);
       return {
         coverage: {
           population: answers[0] ?? null,
-          setting: tele ? "Southeast Asia" : answers[0] && /\b(in|at)\b/i.test(answers[0]) ? answers[0] : null,
-          phenomenon: tele ? "telemedicine implementation" : terms.join(", ") || null,
+          setting: "Southeast Asia",
+          phenomenon: "telemedicine implementation",
           outcome: answers[1] ?? null,
           timeframe: answers[2] ?? null,
           studyTypes: answers[2] ?? null,
@@ -106,18 +111,27 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
         done,
         nextQuestion: done ? null : qs[asked].q,
         questionTarget: done ? null : qs[asked].t,
-        draftTopics: (tele ? TELEMED_TOPICS : ideaTopics(idea)).slice(0, Math.min(5, 2 + asked)).map((t) => t.name),
+        draftTopics: TELEMED_TOPICS.slice(0, Math.min(5, 2 + asked)).map((t) => t.name),
       };
     }
     case "scoping_topics": {
       const idea = String(inp.idea ?? "");
       if (!isTelemed(idea)) {
-        const answers = ((inp.answers as string[]) ?? []).map((a) => `(mock) ${a.slice(0, 120)}`);
-        const topics = ideaTopics(idea);
+        const byField = answersByField((inp.answers as string[]) ?? []);
+        const topics = ideaTopics(idea, byField);
+        const said = (f: ScopeField, otherwise: string) => `(mock) ${byField[f] ?? otherwise}`;
+        const concepts = topics.filter((t) => !isPeople(t.name) && !FILLER_TOPICS.includes(t.name)).map((t) => inSentence(t.name));
         return {
-          summary: { population: answers[0] ?? "(mock) not stated", setting: answers[0] ?? "(mock) not stated", phenomenon: `(mock) ${idea.slice(0, 120)}`, outcome: answers[1] ?? "(mock) not stated", timeframe: answers[2] ?? "(mock) 2015 onwards", studyTypes: "(mock) Any design" },
+          summary: {
+            population: said("population", topics.find((t) => isPeople(t.name))?.name ?? "not stated"),
+            setting: said("setting", "not stated"),
+            phenomenon: `(mock) ${concepts.join(", ") || cleanAnswer(idea, 120)}`,
+            outcome: said("outcome", "not stated"),
+            timeframe: said("timeframe", "2015 onwards"),
+            studyTypes: said("studyTypes", "Any design"),
+          },
           conceptMap: {
-            nodes: topics.map((t, i) => ({ id: `n${i + 1}`, label: t.name, kind: i === 0 ? "phenomenon" : i === 1 ? "outcome" : "context" })),
+            nodes: topics.map((t, i) => ({ id: `n${i + 1}`, label: t.name, kind: isPeople(t.name) ? "population" : i === 0 ? "phenomenon" : "context" })),
             edges: topics.slice(1).map((_, i) => ({ from: "n1", to: `n${i + 2}`, label: "relates to" })),
           },
           topics,
@@ -144,14 +158,15 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
       };
     }
     case "search_builder": {
-      const topics = (inp.topics as { id: string; synonyms: string[]; controlledTerms: string[] }[]) ?? [];
+      const topics = (inp.topics as { id: string; name: string; synonyms: string[]; controlledTerms: string[] }[]) ?? [];
+      if (!telemedRun(inp, vars)) return ideaSearch(topics, summaryOf(inp.summary));
       const sea = '("Asia, Southeastern"[mh] OR "Southeast Asia"[tiab] OR Thailand[tiab] OR Vietnam[tiab] OR Indonesia[tiab] OR Malaysia[tiab] OR Philippines[tiab])';
       const seaOA = '("Southeast Asia" OR Thailand OR Vietnam OR Indonesia OR Malaysia OR Philippines)';
       return {
         criteria: { yearFrom: 2015, yearTo: null, languages: ["en"], studyTypes: ["any empirical design", "systematic and scoping reviews"], inclusion: ["(mock) Studies of telemedicine/telehealth in Southeast Asian countries"], exclusion: ["(mock) Studies outside Southeast Asia", "(mock) Technical-only engineering papers"] },
         queries: topics.flatMap((t) => [
-          { topicId: t.id, database: "pubmed", query: `(${["telemedicine[mh]", ...t.synonyms.slice(0, 4).map((s) => `"${s}"[tiab]`)].join(" OR ")}) AND ${sea}`, rationale: "(mock) Topic synonyms AND Southeast Asia block." },
-          { topicId: t.id, database: "openalex", query: `("telemedicine" OR "telehealth") AND (${t.synonyms.slice(0, 4).map((s) => `"${s}"`).join(" OR ")}) AND ${seaOA}`, rationale: "(mock) Same concept blocks as keywords." },
+          { topicId: t.id, database: "pubmed", query: `(${["telemedicine[mh]", ...termsOf(t).map((s) => `"${s}"[tiab]`)].join(" OR ")}) AND ${sea}`, rationale: "(mock) Topic synonyms AND Southeast Asia block." },
+          { topicId: t.id, database: "openalex", query: `("telemedicine" OR "telehealth") AND (${quoted(termsOf(t))}) AND ${seaOA}`, rationale: "(mock) Same concept blocks as keywords." },
         ]),
       };
     }
@@ -167,12 +182,20 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
     }
     case "ranking": {
       const { batch, summaries, topic } = inp as { batch: { id: string; title: string; abstract: string | null }[]; summaries: ({ studyType: string; setting: string } | null)[]; topic: { synonyms: string[]; name: string } };
+      const tele = telemedRun(inp, vars);
+      // Any other idea: the setting criterion uses the place the user named, if any (not Southeast Asia).
+      const place = tele ? null : namedPlace(summaryOf(vars.summary));
+      const placeWords = place ? phrases(place).map((w) => w.toLowerCase()) : [];
       return {
         scores: batch.map((p, i) => {
           const text = `${p.title} ${p.abstract ?? ""}`.toLowerCase();
           const hits = [topic.name, ...topic.synonyms].filter((s) => text.includes(s.toLowerCase().split(" ")[0])).length;
           const st = summaries[i]?.studyType ?? "other";
           const design = /systematic|randomized/.test(st) ? 5 : /cohort|qualitative|mixed|cross/.test(st) ? 3 : /review/.test(st) ? 3 : 1;
+          if (!tele) {
+            const there = placeWords.some((w) => text.includes(w));
+            return { paperId: p.id, topicFit: Math.min(5, hits + 1), topicFitWhy: `(mock) ${hits} topic terms appear in title/abstract.`, designStrength: design, designStrengthWhy: `(mock) Study type: ${st}.`, settingMatch: place ? (there ? 5 : 1) : 3, settingMatchWhy: (place ? (there ? `(mock) Mentions ${place}.` : `(mock) Does not mention ${place}.`) : "(mock) You did not name a place, so every paper scores the middle.").slice(0, 200), overall: `(mock) Keyword-overlap score. ${SAMPLE_NOTE}` };
+          }
           const sea = SEA.some((c) => text.includes(c.toLowerCase())) ? 5 : 1;
           return { paperId: p.id, topicFit: Math.min(5, hits + 1), topicFitWhy: `(mock) ${hits} topic terms appear in title/abstract.`, designStrength: design, designStrengthWhy: `(mock) Study type: ${st}.`, settingMatch: sea, settingMatchWhy: sea === 5 ? "(mock) Mentions a Southeast Asian setting." : "(mock) No Southeast Asian setting mentioned.", overall: "(mock) Keyword-overlap score." };
         }),
@@ -233,9 +256,9 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
       return {
         themes,
         matrix: matrix.length ? matrix : [{ paperId: claims[0].paperId, theme: themes[0], value: claims[0].statement.slice(0, 200), stance: "neutral", claimIds: [claims[0].id] }],
-        contradictions: twoPapers.length === 2 ? [{ theme: themes[0], description: "(mock) Placeholder contradiction between two papers' key findings, generated to demo highlighting.", claimIds: twoPapers.map((c) => c.id) }] : [],
+        contradictions: twoPapers.length === 2 ? [{ theme: themes[0], description: "(mock) sample conflict: two papers' key findings paired at random to show how a conflict is highlighted. They do not necessarily disagree.", claimIds: twoPapers.map((c) => c.id) }] : [],
         known: kf.length ? [{ statement: `(mock) ${kf.length} key findings were extracted for this topic.`, claimIds: kf.slice(0, 5).map((c) => c.id) }] : [],
-        contested: twoPapers.length === 2 ? [{ statement: "(mock) Findings differ between studies.", claimIds: twoPapers.map((c) => c.id) }] : [],
+        contested: twoPapers.length === 2 ? [{ statement: "(mock) sample conflict: shows where findings that differ between studies would appear.", claimIds: twoPapers.map((c) => c.id) }] : [],
         unknown: [{ statement: "(mock) Gaps signalled by the studies' own limitations.", claimIds: (lim.length ? lim : claims).slice(0, 4).map((c) => c.id) }],
       };
     }
@@ -248,6 +271,14 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
         return { it: it.id, cs: cs.length ? cs : [links[0].claimId] };
       };
       const designs = ["Qualitative interview study", "Cross-sectional survey", "Mixed-methods implementation study"];
+      if (!telemedRun(inp, vars)) {
+        return {
+          questions: ideaQuestions(topics, summaryOf(vars.summary)).map((c, k) => {
+            const { it, cs } = pickClaims(k);
+            return { ...c, design: designs[k], gapClaimIds: cs, synthesisIds: [it] };
+          }),
+        };
+      }
       return {
         questions: [0, 1, 2].map((k) => {
           const t = topics[k % topics.length];
@@ -262,7 +293,7 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
             synthesisIds: [it],
             feasibility: "(mock) Feasible with a small purposive sample over 6 months.",
             weakness: "(mock) Limited generalisability across countries.",
-            noveltyQueries: { pubmed: `telemedicine[mh] AND (${t.synonyms.slice(0, 2).map((s) => `"${s}"[tiab]`).join(" OR ")}) AND "Asia, Southeastern"[mh]`, openalex: `"telemedicine" AND (${t.synonyms.slice(0, 2).map((s) => `"${s}"`).join(" OR ")}) AND "Southeast Asia"` },
+            noveltyQueries: { pubmed: `telemedicine[mh] AND (${tiab(termsOf(t, 2))}) AND "Asia, Southeastern"[mh]`, openalex: `"telemedicine" AND (${quoted(termsOf(t, 2))}) AND "Southeast Asia"` },
           };
         }),
       };

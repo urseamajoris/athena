@@ -3,6 +3,7 @@ import { config } from "../config";
 import { httpJson } from "./http";
 import type { SearchAdapter, SourceRecord } from "./types";
 import { openalexTypes } from "./filters";
+import { dropEmptyGroups } from "./syntax";
 import type { Criteria } from "../db/schema";
 import { normalizeDoi, chunk } from "../util";
 
@@ -89,12 +90,14 @@ export const openalex: SearchAdapter = {
   name: "openalex",
   label: "OpenAlex",
   syntaxGuide: `OpenAlex works search (sent as search.title_abstract_keywords, matching titles, abstracts and OpenAlex keywords; stemmed). Boolean operators AND/OR/NOT must be UPPERCASE; use parentheses and "double quotes" for phrases. No field tags, no MeSH. Avoid wildcards (if you use one, e.g. barrier*, the whole query is run unstemmed). Keep the whole string under ~1500 characters and use at most ~15 OR terms. Example: ("telemedicine" OR "telehealth" OR "mHealth") AND ("Southeast Asia" OR Thailand OR Vietnam OR Indonesia). Do NOT put year or language limits in the query; they are added from the shared criteria as filters.`,
-  async count(query, criteria, log) {
+  async count(rawQuery, criteria, log) {
+    const query = dropEmptyGroups(rawQuery);
     const p = new URLSearchParams({ [searchParam(query)]: query, filter: openalexFilter(criteria), per_page: "1", select: "id" });
     const j = await httpJson<OAList>("openalex", `${BASE}/works?${p}`, { headers: headers(), log });
     return j.meta.count;
   },
-  async search(query, criteria, cap, { log, onPage }) {
+  async search(rawQuery, criteria, cap, { log, onPage }) {
+    const query = dropEmptyGroups(rawQuery);
     let cursor: string | null = "*";
     const all: SourceRecord[] = [];
     let total = 0;
