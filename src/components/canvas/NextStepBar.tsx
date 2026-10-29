@@ -19,7 +19,8 @@ export function NextStepBar({ floating = false }: { floating?: boolean }) {
   if (!node || panel) return null;
   const next = nextAction(node, graph, input);
   const task = taskFor(node, input);
-  const check = node.status === "review";
+  // Step 1 needs no separate check: the idea is on the card, so the bar offers the same action as the card.
+  const check = node.status === "review" && node.kind !== "idea";
   if (!next && !check) return null;
   return (
     <section aria-label="Next step" className={cx(floating ? "pointer-events-auto rounded-md border border-line-strong bg-bg-1 shadow-lg" : "sticky top-0 z-10 border-b border-line bg-bg-0")}>
