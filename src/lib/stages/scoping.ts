@@ -74,7 +74,9 @@ export async function nextScopingTurn(projectId: string) {
     projectId,
     stage: 2,
     vars: { idea: wrapData("research idea", p.idea), transcript: wrapData("conversation", t.text), asked: String(t.asked), maxQuestions: String(MAX_SCOPING_QUESTIONS) },
-    check: (o) => (!o.done && !o.nextQuestion ? "nextQuestion is required when done=false" : scopingOrderProblem(o, t.asked)),
+    check: (o) => (!o.done && !o.nextQuestion ? "nextQuestion is required when done=false" : null),
+    // The question order is a preference: a second reply still out of order is used rather than failing the turn.
+    prefer: (o) => scopingOrderProblem(o, t.asked),
   });
   if (data.done || !data.nextQuestion) {
     (await addMessage(projectId, "assistant", "Thanks — I have what I need. Next I'll turn this into search topics you can edit.", { kind: "done", done: true, coverage: data.coverage, draftTopics: data.draftTopics }));

@@ -9,7 +9,7 @@ import { categoriesFor, categoryHex, type ColorBy } from "@/lib/shared/categorie
 /** On-screen size of every point, in CSS pixels: the same near and far, so size carries no meaning. */
 const POINT_PX = 11;
 /** The axes, their labels and the points (see the axis lines below), so a narrow canvas never cuts them off. */
-const FIT: Fit = { halfWidth: 5.7, halfHeight: 3.5, depth: 1.5, target: [-0.6, -0.2, 0] };
+const FIT: Fit = { halfWidth: 6.3, halfHeight: 3.5, depth: 1.5, target: [-0.2, -0.2, 0] };
 
 function Cloud({ pts, color, shape, faded, onHover, onOpen }: { pts: Placed[]; color: string; shape: Parameters<typeof shapeTexture>[0]; faded: boolean; onHover: (p: Placed | null) => void; onOpen: (id: string) => void }) {
   const geo = useMemo(() => {

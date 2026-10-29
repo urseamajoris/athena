@@ -57,6 +57,8 @@ export interface CallOpts<T> {
   stage?: number | null;
   /** Extra semantic validation (e.g. grounded-ID checks). Return an error message to trigger the retry. */
   check?: (out: T) => string | null;
+  /** A preference, not a rule: when it fails the model is asked once to fix it, and the second reply is kept anyway. */
+  prefer?: (out: T) => string | null;
   /** Deterministic clean-up applied after schema validation and before `check` (e.g. repairing ID formatting). */
   normalize?: (out: T) => T;
 }
@@ -91,7 +93,7 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
             ...row,
           }).run());
 
-  const validate = (raw: string): { ok: true; data: T } | { ok: false; error: string } => {
+  const validate = (raw: string, attempt: number): { ok: true; data: T } | { ok: false; error: string } => {
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
@@ -103,6 +105,8 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
     const data = opts.normalize ? opts.normalize(r.data) : r.data;
     const extra = opts.check?.(data);
     if (extra) return { ok: false, error: extra };
+    const wish = attempt === 1 ? opts.prefer?.(data) : null;
+    if (wish) return { ok: false, error: wish };
     return { ok: true, data };
   };
 
@@ -144,7 +148,7 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
       const apiCost = typeof u?.cost_in_usd_ticks === "number" ? u.cost_in_usd_ticks / 1e10 : null;
       const raw = res.choices[0]?.message?.content ?? "";
       lastRaw = raw;
-      const v = validate(raw);
+      const v = validate(raw, attempt);
       (await log({
                 status: v.ok ? "ok" : "invalid",
                 error: v.ok ? null : v.error,

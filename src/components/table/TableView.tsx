@@ -439,7 +439,7 @@ export function TableView() {
           <button className="btn-ghost btn-sm" disabled={!activeFilters.length && !q.trim()} onClick={() => { view.reset(); setQ(""); }}><RotateCcw className="h-3 w-3" aria-hidden /> Reset filters</button>
           <span className="text-12 text-fg-2">{all.length} papers in total{missing ? ` · ${missing} not yet summarised` : ""}{ranked ? ` · ${selectedPapers} ${selectedPapers === 1 ? "paper" : "different papers"} selected for appraisal${selectedTotal > selectedPapers ? ` (the topic counts add up to ${selectedTotal}: some papers are selected in more than one topic)` : ""}` : ""}</span>
         </div>
-        {setting && ranked && !rankingRunning && selectedPapers > 0 && (
+        {setting && ranked && !scoring && selectedPapers > 0 && (
           inSetting * 2 < selectedPapers ? (
             <p className="flex items-start gap-2 text-fg-0"><AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden /><span><strong className="font-semibold">Only {inSetting} of {selectedPapers} selected papers are clearly set in {setting}</strong>, the setting of your idea (as far as their abstracts show). Check the papers marked “Setting may differ” or “Setting not reported” before you appraise them, or add {setting} to the searches in step 3.</span></p>
           ) : (
