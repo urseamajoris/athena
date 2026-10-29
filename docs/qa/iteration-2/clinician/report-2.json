@@ -1,0 +1,228 @@
+{
+ "persona": "clinician",
+ "completed": true,
+ "stage_reached": 9,
+ "would_have_quit_at": "I would not have quit on usability: the 9 steps finished in about 45 helper commands. I would have stopped trusting the result at step 6 or 9. The demo papers are about Southeast Asian telemedicine, \"Hip fracture surgery\" got 0 selected papers, and the novelty check lists \"Precision medicine in Thailand\" as the top hit. Even with real data I would have given up at step 7 if every one of 12 papers needed a separate Reject tap, and at step 9 when I found no way to email the report to myself from the phone.",
+ "activity": "Created account okafor.qa2@example.com (Dr Okafor). Created one project (prj_b024e175093d4956) with the idea \"Does tele-rehabilitation help older adults recover after hip fracture surgery?\". Answered 1 of 5 scoping questions, then used Skip the rest. Kept 4 suggested topics. Ran all 8 searches, which gave 135 fetched, 51 duplicates and 84 unique papers. Summarised 84 papers. Applied the Trial filter on the table (2 of 84). Opened one paper. Ranked the papers (12 selected, 0 for Hip fracture surgery) and chose \"Appraise anyway\" after the warning dialog. Rejected all 12 not-found quotes one by one. Synthesised the evidence and opened one quote chip. Got 3 candidate research questions and chose Candidate 3. Finished and exported: clicked Download Markdown (no visible feedback), opened Larger preview, and clicked Open printable report (the page did not change in the helper browser). No console errors or failed requests at any step. Two clicks timed out and succeeded on retry: \"Suggest research questions\" while a quote popover was open, and \"Canvas\" while a panel covered it.",
+ "categories_and_colours": "Found and understood. Retrieval step and Summary table: study-type chips and legend carry a colour plus a shape plus a count (Trial blue circle, Cohort orange square, Cross-sectional green triangle, Qualitative amber diamond, Systematic/scoping review pink star, Other design green cross, Not reported grey ring). Article type chips (Journal article 59, Review article 12, Preprint 5, Editorial/letter/comment 8) are plain-ink chips with no colour. Tapping a chip filters, and a tick appears on it. A line reads \"Showing 2 of 84: trial. 82 papers are hidden by your filters (still in the review)\" with a visible Reset filters, which is clear and honest. The Colour by dropdown (Study type, Topic, Source database) and the \"Show as 2D/3D\" toggle exist in the retrieval chart. Problems: (1) the chart dots are tiny and hard to tap on a phone; (2) the retrieval step counts \"Not reported 73\" study types but the table step shows \"Not reported 14\" (AI-filled), and the first is explained only in small grey text; (3) \"Trial\" includes protocols with no results, and \"Systematic / scoping review\" includes a 2-page editorial; (4) \"Trial\" in the chip but \"Randomised trial\" in the paper detail; (5) two overlapping groupings, \"Review article 12\" (article type) and \"Systematic / scoping review 8\" (study type), are not explained; (6) the chart's key shows only the categories present after filtering, so the legend changes size. I understood the colours and shapes without being told because the legend sits beside every chip.",
+ "validity_assessment": "Mixed. Strong on process honesty: a demo banner on every page, \"(mock)\" prefixes, a note that the search \"is a recorded example, not built from your topics\", and the zero-selected warning for Hip fracture surgery (\"Appraise anyway\" is a deliberate choice). Quote checking is visible and traceable: each statement has quote chips (\"Sujarwoto et al. 2022 \u00b7 finding 2\") that open the exact quote with \"found word for word\" and \"Open paper\". Each appraisal says \"Full text\" or \"Abstract only\". The report header says \"Demo: scripted AI and recorded sample papers; not a real review\" and counts quotes (found 119, not found 12, rejected by you 12). The novelty caveat is present: \"Finding none does not prove a question is new\". The app never claims novelty.\n\nWeaknesses (partly demo artefacts, but a real user would be misled):\n(a) The review content has nothing to do with hip fracture or rehabilitation (Singapore mHealth, Indonesian COVID apps). The \"Known\" statement is only \"(mock) 8 key findings were extracted for this topic\", and the \"Contested\" one is a labelled sample conflict \"paired at random ... not necessarily disagree\".\n(b) The novelty check reports 2,207 PubMed hits for \"tele-rehabilitation AND hip fracture surgery\" but lists \"Precision medicine in Thailand\" as the #1 hit. The count and the papers contradict each other.\n(c) The three candidate questions are all qualitative or associational (experience, association, barriers). None asks the physician's actual question, whether it helps, as an intervention (PICO) question. Candidate 2 reads \"association between tele-rehabilitation and hip fracture surgery among adults over 65 after hip fracture surgery\".\n(d) The same planted fake quote (\"clearly proves the intervention works everywhere\", \"deliberately altered\") appears on all 12 papers, and the not-found box says \"(mock) Paraphrase presented as a quote \u2014 should be flagged\" in front of the user. \"Accept anyway\" sits right beside Reject, which makes it easy to accept an unverified quote.\n(e) Some \"key finding\" cells are not findings (a bibliographic citation string, or \"Clinical trials.gov, NCT03117842\").\n(f) Quote \"found word for word\" is correctly caveated as \"not that they prove the answer\".\n(g) The chosen question keeps the \"(mock)\" prefix in the report, so it cannot be forwarded as is.\nThe workflow would produce a traceable review if the data were real, but this demo cannot show that the app produces a valid one.",
+ "narrative": "I landed on a dark page that said \"Turn a rough idea into a research question you can back up with real papers\", and I knew within 3 seconds to tap Start a review. Sign-up was short, though the password hint sat on top of the password box. I typed my hip-fracture tele-rehabilitation question. The next screen asked \"Tell us what you want to research\" with my idea already filled in, so I felt I was being asked twice. The demo banner reassured me it was scripted, but also told me the papers would be about Southeast Asian telemedicine, so I expected junk. Scoping was easy and \"Skip the rest\" saved me time. Topics were clear: Keep, Edit, Delete. I liked the \"4 more to cover\" count, but it stayed stale after I answered. Searches ran in a few seconds and the \"135 fetched, 51 duplicates, 84 papers\" sentence was a good plain summary. I also liked the colour and shape chips that filtered the table, and the \"Showing 2 of 84\" line. Ranking warned me that Hip fracture surgery had no papers, which I appreciated. Appraisal was the heaviest part. I had to reject one fake quote on each of 12 papers, and scrolling inside a panel on a phone was fiddly. The synthesis was empty filler (\"8 key findings were extracted\"), but quote chips opened the real sentence. The three candidate questions did not ask whether tele-rehab works, and the novelty check listed an unrelated Thai paper. I picked candidate 3 and reached export. Download Markdown gave no sign that anything happened. I can't email a .md file from my phone, and the printable report did not open for me. In a real session I'd have quit here.",
+ "three_second_test": [
+  {
+   "page": "Landing /",
+   "understood_in_3s": true,
+   "note": "(a) Turns a rough idea into a research question backed by real papers. (b) Read the headline. (c) Tap Start a review. The two-library jargon (PubMed, OpenAlex) is explained inline. The demo video at the bottom has text too tiny to read at 375px. The page does not mention demo mode up front."
+  },
+  {
+   "page": "Sign up",
+   "understood_in_3s": true,
+   "note": "(a) Create an account. (b) Type email and password. (c) Tap Create account. The password hint overlaps the input box."
+  },
+  {
+   "page": "New review /s/new",
+   "understood_in_3s": true,
+   "note": "(a) Step 1: describe the idea. (b) Type a sentence or tap an example. (c) Start my review. Example chips and the 'write at least a sentence' hint help."
+  },
+  {
+   "page": "Overview (list) right after starting",
+   "understood_in_3s": false,
+   "note": "(a) A list of steps. (b) Tap Open step 1. (c) Unclear. I had just typed my idea, so 'Tell us what you want to research' with the idea already filled in felt like a repeat. The tiny 'Your turn' tag and the demo banner compete for attention."
+  },
+  {
+   "page": "Scoping Q&A",
+   "understood_in_3s": true,
+   "note": "(a) Answer a few questions to sharpen the idea. (b) Type an answer. (c) Send answer or Skip the rest. 'What we know so far' is below the fold."
+  },
+  {
+   "page": "Keep the search topics",
+   "understood_in_3s": true,
+   "note": "(a) Choose topics. (b) Tap Keep. (c) Keep 4 suggested topics. The Edit and Delete targets are small."
+  },
+  {
+   "page": "Search builder (topic and queries)",
+   "understood_in_3s": false,
+   "note": "(a) Check searches. (b) Not sure. The step 3 topic panel shows a one-line truncated synonyms field. The queries page has long text with AND/OR 'groups' and 'title/abstract' tags, and 'Count matches' is easy to miss. (c) Run all 8 searches, a clear primary button."
+  },
+  {
+   "page": "Retrieval",
+   "understood_in_3s": true,
+   "note": "(a) What was found. (b) Read '135 fetched, 51 duplicates, 84 papers'. (c) Summarise the papers. The facet chips are clear. The chart is far below the fold."
+  },
+  {
+   "page": "Summary table",
+   "understood_in_3s": true,
+   "note": "(a) Skim papers and fix cells. (b) Tap a study-type chip. (c) Rank the papers. The 3-item checklist helps. The study-type counts differ from the retrieval step."
+  },
+  {
+   "page": "Ranking",
+   "understood_in_3s": true,
+   "note": "(a) Check which papers go forward. (b) Pick a topic. (c) Appraise selected papers. The 'Keep 3\u20135 papers per topic' item is ticked done while a topic has 0."
+  },
+  {
+   "page": "Appraisal",
+   "understood_in_3s": true,
+   "note": "(a) Review each paper's quality checklist and decide unverified quotes. (b) Tick 'Show only quotes I need to decide'. (c) Next paper, then Summarise the evidence. Wording like 'AI: Unclear', 'found word for word' and 'not found, you decide' is clear. The long explainer paragraph costs a screen."
+  },
+  {
+   "page": "Synthesis",
+   "understood_in_3s": true,
+   "note": "(a) What is known, contested and unknown. (b) Read the Known and Contested cards and tap a chip. (c) Suggest research questions. The content is generic filler in the demo."
+  },
+  {
+   "page": "Research question",
+   "understood_in_3s": true,
+   "note": "(a) Pick one of 3 candidates. (b) Compare Gap, Feasibility and Weakness. (c) Choose this question. Cards are long on a phone and the Choose buttons are far apart."
+  },
+  {
+   "page": "Export",
+   "understood_in_3s": true,
+   "note": "(a) Download my review. (b) Choose a format. (c) Download Markdown. Nothing shows that the download happened. 'Markdown, plain text with formatting marks such as #' is jargon for a clinician."
+  }
+ ],
+ "findings": [
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Research question / Export",
+   "what_happened": "The question 'Does it help?' was turned into three candidates that are all qualitative or associational: experiences, 'association between tele-rehabilitation and hip fracture surgery among adults over 65 after hip fracture surgery', and barriers and enablers. None is an effectiveness (PICO) question. Candidate 2 repeats itself. The chosen question keeps a '(mock)' prefix in the final report.",
+   "expected": "At least one candidate that matches the user's intent (an intervention or outcome comparison), grammatical wording, and a clearly labelled demo placeholder that does not read as a real finding.",
+   "evidence": "docs/qa/iteration-2/clinician/20-rq.jpg, docs/qa/iteration-2/clinician/22-export.jpg",
+   "suggested_fix": "Make the scripted candidates reflect the user's wording and include one comparative or effectiveness question. In real mode, ensure the PICO/PECO phrasing does not repeat the population. Strip '(mock)' only if the report states demo status elsewhere, which it already does."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Research question (novelty check)",
+   "what_happened": "The novelty check reports 2,207 PubMed matches for 'tele-rehabilitation AND hip fracture surgery', and the #1 hit is 'Precision medicine in Thailand (2019)'. The count and the papers shown contradict each other. The text says the search is a fresh database search.",
+   "expected": "Hits that are plausibly related to the query, or a clear note that in demo mode the listed papers are unrelated sample records.",
+   "evidence": "docs/qa/iteration-2/clinician/20b-reasoning.jpg",
+   "suggested_fix": "In demo mode label the novelty hits as unrelated samples next to the count, or suppress the count. In real mode, do not present the top hits unless they match."
+  },
+  {
+   "severity": "major",
+   "category": "clarity",
+   "page": "Export",
+   "what_happened": "I wanted a report I could email to myself from a phone. The main download is a Markdown file ('plain text with formatting marks such as # for headings'). Tapping Download Markdown gave no toast, progress or confirmation. 'Open printable report' (the readable version, which can be saved as PDF) did not visibly change the page. There is no email, share or copy-link option. The first-time Markdown explanation is jargon.",
+   "expected": "A readable format by default (PDF or web page), clear feedback that a file was saved, and a way to send or share it from a phone.",
+   "evidence": "docs/qa/iteration-2/clinician/22-export.jpg, docs/qa/iteration-2/clinician/23d-after-dl.jpg, docs/qa/iteration-2/clinician/25-printable.jpg",
+   "suggested_fix": "Make the printable report/PDF the first choice for the report. Show a confirmation after download ('Saved review.md'). Add Share or Email me this report. Open the printable page in the same tab or tell the user it opens in a new one."
+  },
+  {
+   "severity": "major",
+   "category": "copy",
+   "page": "Appraisal",
+   "what_happened": "Every one of the 12 papers carries the same planted fake quote. The unverified quote box reads '(mock) Paraphrase presented as a quote \u2014 should be flagged ... deliberately altered' and 'which clearly proves the intervention works everywhere'. Rejecting needs one tap per paper (12 times), and 'Accept anyway' sits next to Reject with similar weight.",
+   "expected": "Fewer, varied examples in demo mode, a bulk action (Reject all not-found), and the risky action given less prominence than the safe one.",
+   "evidence": "docs/qa/iteration-2/clinician/18d.jpg, docs/qa/iteration-2/clinician/18e-rejected.jpg",
+   "suggested_fix": "Add 'Reject all not-found quotes on this paper/all papers'. Style 'Accept anyway' as a secondary or confirm-required action. Do not show developer notes ('should be flagged') to users."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Synthesis",
+   "what_happened": "The Known / Contested / Unknown statements are placeholders: '(mock) 8 key findings were extracted for this topic', '(mock) sample conflict ... paired at random ... not necessarily disagree', 'Gaps signalled by the studies' own limitations'. The three topic tabs cannot give a clinician anything to decide on. The chip labels 'Narvaez 2024 \u00b7 finding 2' do not say what the finding is until tapped.",
+   "expected": "Statements that summarise the finding in words, with the quote chip as evidence, or a clear 'demo placeholder' state.",
+   "evidence": "docs/qa/iteration-2/clinician/19c-synth3.jpg, docs/qa/iteration-2/clinician/19d-synth4.jpg",
+   "suggested_fix": "Show a short quote preview on each chip. In demo mode say plainly that this step shows the layout only. In real mode, the Known statements need actual content."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Ranking / Summary table",
+   "what_happened": "A 2-page editorial ('Technology Literacy as a Barrier to Telehealth During COVID-19') is labelled 'Systematic / scoping review' with a citation string as its key finding. Two protocols are labelled 'Trial' (they have no results) and the key finding is just 'Clinical trials.gov, NCT03117842'. The paper detail says 'Randomised trial' while the chip says 'Trial'.",
+   "expected": "Study-type labels that match the paper, protocols flagged as protocols, and key findings that are findings.",
+   "evidence": "docs/qa/iteration-2/clinician/14d-trial.jpg, docs/qa/iteration-2/clinician/15-paper.jpg, docs/qa/iteration-2/clinician/16c-scoring.jpg",
+   "suggested_fix": "Add a 'Protocol' category or flag. Reject registry IDs and bibliographic strings as key findings. Use the same name for a category everywhere."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Retrieval / Summary table",
+   "what_happened": "The retrieval step shows Study type 'Not reported 73' (database labels only) and the table step shows 'Not reported 14' (after AI). Only a small grey line explains the difference. 'Review article 12' (article type) and 'Systematic / scoping review 8' (study type) overlap in meaning without explanation.",
+   "expected": "A short explanation of the two groupings that moves with the numbers.",
+   "evidence": "docs/qa/iteration-2/clinician/12e-bottom.jpg, docs/qa/iteration-2/clinician/14b-table2.jpg",
+   "suggested_fix": "Put 'before AI reading' and 'after AI reading' next to the numbers, and a one-line 'article type is how it was published; study type is how it was done'."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Sign up",
+   "what_happened": "On the sign-up form the password hint ('At least 10 characters, not containing the name part of your email.') is drawn inside the password input box and overlaps the field.",
+   "expected": "The hint sits below the field.",
+   "evidence": "docs/qa/iteration-2/clinician/02-signup.jpg",
+   "suggested_fix": "Fix the hint's positioning so it sits under the input and does not overlap it."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Overview after starting / Step 1",
+   "what_happened": "After typing my idea on /s/new, I land on a list with 'Tell us what you want to research' and an 'Open step 1' button. Opening it shows my idea already typed and asks for 'Start scoping'. I felt I was asked twice. The 'What happens in this step 8 s' label is unclear.",
+   "expected": "Skip straight to the scoping questions, or tell me my idea is saved and the next click is scoping.",
+   "evidence": "docs/qa/iteration-2/clinician/04-questions.jpg, docs/qa/iteration-2/clinician/05-step1.jpg",
+   "suggested_fix": "Move directly into scoping, or reword step 1 as 'Your idea is saved. Check it, then continue'. Say '8-second video' instead of '8 s'."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Retrieval chart / Keep topics",
+   "what_happened": "On a phone the 2D chart dots are tiny (about 4 px), and Edit/Delete links on topics are small tap targets. Panel scroll was fiddly: some actions needed the page focused before keys scrolled the panel, and screenshots showed only the top of the panel. The 'Open printable report' link shows no visible focus style.",
+   "expected": "Thumb-friendly targets (44 px) and a clear scroll area.",
+   "evidence": "docs/qa/iteration-2/clinician/12f-pgdn.jpg, docs/qa/iteration-2/clinician/08-topics-list.jpg",
+   "suggested_fix": "Enlarge tap areas and offer a tappable list fallback to the dots. Add a visible focus style. Make the panel the scroll container for touch."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Ranking checklist",
+   "what_happened": "The checklist item 'Keep 3\u20135 papers per topic' is ticked done while Hip fracture surgery has 0 papers selected and a warning says fewer than 3 are selected for it. The 'Appraise selected papers' button stays enabled and the interstitial must be cleared.",
+   "expected": "Checklist reflects the warning (not done).",
+   "evidence": "docs/qa/iteration-2/clinician/16a-rank-top.jpg, docs/qa/iteration-2/clinician/17b-top.jpg",
+   "suggested_fix": "Mark the checklist item done only when every topic has at least 3 selected papers."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Scoping Q&A",
+   "what_happened": "After answering a scoping question, the line '4 more to cover: where, what you want to know...' stays unchanged. It still lists the same topics after the second question. 'Search topics taking shape' only shows 3 topics and 'Measurement and outcomes' appears later with no explanation.",
+   "expected": "The counts and list update after each answer.",
+   "evidence": "docs/qa/iteration-2/clinician/06b-q2.jpg",
+   "suggested_fix": "Recompute the 'still to cover' list after each answer."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Overview canvas",
+   "what_happened": "On a phone the canvas opens panned to the far right, with only the 'Questions' and 'Export' nodes partly cropped. There is no clear way to see the whole map without hunting for zoom controls. List view is better, but the Canvas toggle is the first option.",
+   "expected": "The canvas fits the whole review or defaults to the list on phones.",
+   "evidence": "docs/qa/iteration-2/clinician/28-canvas.jpg",
+   "suggested_fix": "Default to List on narrow screens, or auto-fit the canvas."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Landing",
+   "what_happened": "The 'See a review take shape' video is illustrated with tiny text that cannot be read at 375 px. The landing page says nothing about demo mode up front, only in the app after sign-up, and the 'What Athena will not do' disclosure is hidden at the bottom.",
+   "expected": "Readable text in the demo, and an early statement that this is a demo.",
+   "evidence": "docs/qa/iteration-2/clinician/01c-landing-bottom.jpg, docs/qa/iteration-2/clinician/01d-wontdo.jpg",
+   "suggested_fix": "Scale up the video text for narrow screens. Add a one-line demo notice near the Start button."
+  },
+  {
+   "severity": "polish",
+   "category": "copy",
+   "page": "Paper details / Retrieval",
+   "what_happened": "The paper detail shows 'Contemporary clinical trials \u00b7 2025 \u00b7 ? citations' and the per-query counts show identical numbers for different queries (PubMed 9,245 for two queries, OpenAlex 707 for two). The demo banner appears on every page rather than once as the intent describes.",
+   "expected": "Hide unknown counts rather than show '?', distinct counts per query, and one dismissible demo note.",
+   "evidence": "docs/qa/iteration-2/clinician/15-paper.jpg, docs/qa/iteration-2/clinician/12-retrieval.jpg",
+   "suggested_fix": "Show 'citations not available' only when needed, make recorded counts distinct, and remember the dismissed banner."
+  },
+  {
+   "severity": "polish",
+   "category": "clarity",
+   "page": "UX intent comparison",
+   "what_happened": "Compared with docs/ux-intent.md, steps matched the intended reading and the colour rule ('colours and shapes show kind of study; legend; click to show one kind') was understood. Differences: Step 1 duplicates /s/new; the 'Single next action' on Export is Download but nothing confirms it; demo mode is meant to be announced once and dismissible but returns on each page; the Overview canvas does not highlight the step that needs the user on a phone.",
+   "expected": "The pages behave as the intent table says.",
+   "evidence": "docs/qa/iteration-2/clinician/28-canvas.jpg, docs/qa/iteration-2/clinician/05-step1.jpg",
+   "suggested_fix": "Align the Export confirmation, demo-banner persistence, and mobile canvas default with the intent document."
+  }
+ ]
+}
