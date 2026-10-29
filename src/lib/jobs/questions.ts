@@ -47,7 +47,6 @@ export async function questionsJob(ctx: JobContext) {
       ),
       claims: wrapData("claims", claims.map((c) => `${c.id} — ${c.paperId} — ${c.field} — ${c.statement}`).join("\n")),
     },
-    mockInput: { items, links, claims, topics },
     normalize: (o) => ({
       questions: o.questions.map((q) => ({ ...q, gapClaimIds: q.gapClaimIds.map((x) => repairId(x, claimIds)), synthesisIds: q.synthesisIds.map((x) => repairId(x, items.map((i) => i.id))) })),
     }),

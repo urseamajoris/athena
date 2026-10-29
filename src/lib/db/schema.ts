@@ -356,7 +356,7 @@ export const aiCalls = sqliteTable("ai_calls", {
   outputTokens: integer("output_tokens").notNull().default(0),
   reasoningTokens: integer("reasoning_tokens").notNull().default(0),
   costUsd: real("cost_usd").notNull().default(0),
-  costSource: text("cost_source").notNull().default("estimate"), // api | estimate | mock
+  costSource: text("cost_source").notNull().default("estimate"), // api | estimate
   status: text("status").notNull(), // ok | invalid | error | refused
   error: text("error"),
   attempt: integer("attempt").notNull().default(1),

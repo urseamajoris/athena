@@ -36,7 +36,6 @@
   ],
   "exclude": [
     "data",
-    "fixtures",
     "node_modules",
     "remotion"
   ]

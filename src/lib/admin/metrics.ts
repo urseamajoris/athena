@@ -107,7 +107,6 @@ export interface VerdictInput {
   sourceErrorRates: { source: string; requests: number; errorRate: number }[];
   keyProblem: string | null;
   modelProblems: string[];
-  mockMode: boolean;
   /** Errors reported by users' browsers (page errors and unhandled promise rejections). */
   clientErrorsLastHour?: number;
   topClientError?: { page: string; message: string } | null;
@@ -132,7 +131,7 @@ export function verdict(i: VerdictInput): { level: Level; reasons: { level: Leve
   if (i.keyProblem) add("amber", i.keyProblem);
   for (const m of i.modelProblems) add("amber", m);
   const level: Level = reasons.some((r) => r.level === "red") ? "red" : reasons.length ? "amber" : "green";
-  if (!reasons.length) reasons.push({ level: "green", text: i.mockMode ? "Demo mode: AI is scripted and nothing is spent. No problems found." : "No problems found." });
+  if (!reasons.length) reasons.push({ level: "green", text: "No problems found." });
   return { level, reasons };
 }
 

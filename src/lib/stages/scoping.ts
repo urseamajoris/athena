@@ -74,7 +74,6 @@ export async function nextScopingTurn(projectId: string) {
     projectId,
     stage: 2,
     vars: { idea: wrapData("research idea", p.idea), transcript: wrapData("conversation", t.text), asked: String(t.asked), maxQuestions: String(MAX_SCOPING_QUESTIONS) },
-    mockInput: { idea: p.idea, asked: t.asked, answers: t.msgs.filter((m) => m.role === "user").map((m) => m.text) },
     check: (o) => (!o.done && !o.nextQuestion ? "nextQuestion is required when done=false" : null),
   });
   if (data.done || !data.nextQuestion) {
@@ -112,7 +111,6 @@ export async function generateTopics(projectId: string) {
     projectId,
     stage: 2,
     vars: { idea: wrapData("research idea", p.idea), transcript: wrapData("conversation", t.text) },
-    mockInput: { idea: p.idea, answers: t.msgs.filter((m) => m.role === "user").map((m) => m.text) },
     check: (o) => {
       const ids = new Set(o.conceptMap.nodes.map((n) => n.id));
       const bad = o.conceptMap.edges.filter((e) => !ids.has(e.from) || !ids.has(e.to));

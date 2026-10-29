@@ -40,7 +40,6 @@ export async function buildQueries(projectId: string) {
       databases: SEARCH_DATABASES.join(", "),
       syntax: SEARCH_DATABASES.map((d) => `- ${d}: ${adapters[d].syntaxGuide}`).join("\n"),
     },
-    mockInput: { topics, summary: p.scopingSummary },
     check: (o) => {
       const bad = unknownIds(o.queries.map((q) => q.topicId), topicIds);
       if (bad.length) return `Unknown topicId(s): ${bad.join(", ")}. Use only: ${topicIds.join(", ")}`;

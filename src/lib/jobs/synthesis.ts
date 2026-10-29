@@ -72,7 +72,6 @@ export async function synthesisJob(ctx: JobContext) {
             ),
             claims: wrapData("claims", claims.map((c) => `${c.id} | ${c.paperId} | ${c.field} | ${c.statement} | quote: "${c.quote}"`).join("\n")),
           },
-          mockInput: { claims, papers, topic: t },
           normalize: (o) => {
             const fc = (a: string[]) => a.map((x) => repairId(x, claimIds));
             return {
