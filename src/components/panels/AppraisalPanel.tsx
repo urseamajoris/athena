@@ -129,7 +129,7 @@ export function AppraisalPanel() {
           </>
         ) : action ? (
           <>
-            {markLast && <button className="btn-secondary" onClick={() => current && canvasStore.getState().markReviewed(projectId, current.id)}>Mark this paper as looked at</button>}
+            {markLast && <button className="btn-secondary" onClick={() => { if (!current) return; setActive(current.id); canvasStore.getState().markReviewed(projectId, current.id); }}>Mark this paper as looked at</button>}
             <ActionButton action={action} primary showReason />
           </>
         ) : list.length > 0 ? (

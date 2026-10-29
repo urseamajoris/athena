@@ -6,7 +6,7 @@ import { RadioGroup } from "radix-ui";
 import { projectPath, useApi } from "../api";
 import { ErrorState, Spinner, cx } from "../ui";
 import { Disclosure } from "../disclosure";
-import { useSession } from "../session/SessionContext";
+import { canvasStore, useSession } from "../session/SessionContext";
 import { PanelFooter, Stat } from "./common";
 import { useQuestions } from "./QuestionsPanel";
 import { fmtInt } from "@/lib/shared/format";
@@ -64,7 +64,11 @@ export function ExportView({ full = false }: { full?: boolean }) {
         <section aria-label="Your research question" className="rounded-md border border-line bg-bg-1 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-12 text-fg-2">Your research question</p>
-            <Link href={`/s/${projectId}?node=questions`} className="btn-ghost btn-sm"><Pencil className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Edit the question</Link>
+            {full ? (
+              <Link href={`/s/${projectId}?node=questions`} className="btn-ghost btn-sm"><Pencil className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Edit the question</Link>
+            ) : (
+              <button className="btn-ghost btn-sm" onClick={() => canvasStore.getState().openPanel("questions")}><Pencil className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Edit the question</button>
+            )}
           </div>
           <p className="text-16 font-semibold leading-snug">{q.text}</p>
         </section>

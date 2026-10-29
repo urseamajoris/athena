@@ -20,6 +20,15 @@ const STOP = new Set(
 );
 const PEOPLE = /^(adults?|children|child|kids|nurses?|workers?|students?|pat(?:ie|ei)nts?|teenagers?|adolescents?|youth|women|men|mothers?|fathers?|parents?|people|persons?|staff|doctors?|physicians?|clinicians?|residents?|infants?|carers?|caregivers?|users?|girls?|boys?|families|employees?|survivors?|veterans?|elderly|seniors?|pupils?|learners?|teachers?|midwives|pharmacists?|athletes?|smokers?|drivers?|populations?)$/i;
 const ANYWHERE = /^(any|anywhere|any (country|countries|place|setting|where)|all countries|global(ly)?|worldwide|world ?wide|not important|no preference|doesn'?t matter|does not matter)$/i;
+// Answers that name no place even though they are longer ("any country is fine", "not sure", "no specific country").
+const NO_PLACE = /\b(anywhere|any (country|countries|place|setting|region)|all countries|global(ly)?|worldwide|world ?wide|internationally|no (preference|specific|particular)|not (sure|important|specific)|unsure|don'?t know|doesn'?t matter|does not matter|whatever)\b/i;
+// Place names keep their capital inside a sentence, however the user typed them ("thailand" → "Thailand").
+const PLACES = new Map(
+  ("Afghanistan Africa America Argentina Asia Australia Austria Bangladesh Belgium Brazil Brunei Cambodia Canada Chile China Colombia Denmark Egypt England " +
+    "Ethiopia Europe Finland France Germany Ghana Greece India Indonesia Iran Iraq Ireland Israel Italy Japan Kenya Korea Laos Malawi Malaysia Mexico Morocco " +
+    "Myanmar Nepal Netherlands Nigeria Norway Pakistan Peru Philippines Poland Portugal Russia Rwanda Scotland Singapore Spain Sweden Switzerland Taiwan " +
+    "Tanzania Thailand Turkey Uganda Ukraine Vietnam Wales Zambia Zimbabwe Bangkok London Nairobi Manila Jakarta Hanoi").split(" ").map((p) => [p.toLowerCase(), p]),
+);
 const NO_SINGULAR = new Set(["diabetes", "measles", "mumps", "rabies", "herpes", "scabies", "series", "species", "news", "status", "analysis", "physics", "aids"]);
 /** Filler topics used only to reach the minimum of four. */
 export const FILLER_TOPICS = ["Measurement and outcomes", "Context and setting"];
@@ -27,7 +36,7 @@ export const FILLER_TOPICS = ["Measurement and outcomes", "Context and setting"]
 const norm = (w: string) => w.toLowerCase().replace(/['’]/g, "");
 const isAcronym = (w: string) => /[A-Z].*[A-Z]|[a-z][A-Z]/.test(w) || /^[A-Z]{2,}$/.test(w);
 /** Lower-case a phrase for use inside a sentence, keeping acronyms ("long COVID", "ICU nurses"). */
-export const inSentence = (p: string) => p.split(" ").map((w) => (isAcronym(w) ? w : w.toLowerCase())).join(" ");
+export const inSentence = (p: string) => p.split(" ").map((w) => (isAcronym(w) ? w : PLACES.get(w.toLowerCase()) ?? w.toLowerCase())).join(" ");
 const capFirst = (p: string) => p.charAt(0).toUpperCase() + p.slice(1);
 
 /** Text between wrapData markers (the model input), or the text itself. */
@@ -43,7 +52,7 @@ export function cleanAnswer(s: string | undefined | null, max = 200): string | n
 }
 
 /** True when a setting answer names a place (not "any country"). */
-export const isSpecificPlace = (s: string | null | undefined) => !!s && !ANYWHERE.test(s.trim().replace(/[.!]+$/, ""));
+export const isSpecificPlace = (s: string | null | undefined) => !!s && !ANYWHERE.test(s.trim().replace(/[.!]+$/, "")) && !NO_PLACE.test(s);
 
 export function firstYear(s: string | null | undefined): number | null {
   const m = (s ?? "").match(/\b(19[5-9]\d|20\d{2})\b/);
@@ -65,7 +74,7 @@ function editDistance(a: string, b: string): number {
 function respell(word: string, vocab: string[]): string {
   const w = word.toLowerCase();
   if (w.length < 5 || vocab.includes(w)) return word;
-  const fix = vocab.find((v) => v[0] === w[0] && v !== `${w}s` && w !== `${v}s` && editDistance(w, v) <= (w.length >= 8 ? 2 : 1));
+  const fix = vocab.find((v) => v[0] === w[0] && v !== `${w}s` && w !== `${v}s` && editDistance(w, v) <= (w.length >= 6 ? 2 : 1));
   return fix ? (word[0] === word[0].toUpperCase() ? capFirst(fix) : fix) : word;
 }
 
@@ -188,7 +197,7 @@ export const quoted = (terms: string[]) => terms.map((s) => `"${s}"`).join(" OR 
 export const termsOf = (t: { name?: string; synonyms?: string[] }, n = 4) => (t.synonyms?.length ? t.synonyms : [t.name || "topic"]).slice(0, n);
 
 /** Searches built from the user's topics: each topic's words AND the main concept (the main concept AND the next one). */
-export function ideaSearch<T extends { id: string; name: string; synonyms: string[] }>(topics: T[], sum: Record<string, string | null>) {
+export function ideaSearch<T extends { id: string; name: string; synonyms: string[] }>(topics: T[], sum: Record<string, string | null>, note = SAMPLE_NOTE) {
   const pop = clause(sum.population);
   const place = namedPlace(sum);
   const concepts = conceptsOf(topics, place);
@@ -206,8 +215,8 @@ export function ideaSearch<T extends { id: string; name: string; synonyms: strin
     queries: topics.flatMap((t) => {
       const partner = partnerOf(t);
       return [
-        { topicId: t.id, database: "pubmed" as const, query: `(${tiab(termsOf(t))})${partner ? ` AND (${tiab(termsOf(partner, 3))})` : ""}`, rationale: `(mock) This topic's words${partner ? ` AND "${inSentence(partner.name)}"` : ""}. ${SAMPLE_NOTE}`.slice(0, 240) },
-        { topicId: t.id, database: "openalex" as const, query: `(${quoted(termsOf(t))})${partner ? ` AND (${quoted(termsOf(partner, 3))})` : ""}`, rationale: `(mock) Same concept blocks as keywords. ${SAMPLE_NOTE}` },
+        { topicId: t.id, database: "pubmed" as const, query: `(${tiab(termsOf(t))})${partner ? ` AND (${tiab(termsOf(partner, 3))})` : ""}`, rationale: `(mock) This topic's words${partner ? ` AND "${inSentence(partner.name)}"` : ""}.${note ? ` ${note}` : ""}`.slice(0, 240) },
+        { topicId: t.id, database: "openalex" as const, query: `(${quoted(termsOf(t))})${partner ? ` AND (${quoted(termsOf(partner, 3))})` : ""}`, rationale: `(mock) Same concept blocks as keywords.${note ? ` ${note}` : ""}` },
       ];
     }),
   };
@@ -218,7 +227,7 @@ export function ideaSearch<T extends { id: string; name: string; synonyms: strin
  * it is associated with the second concept (PECO), and what helps or hinders it (PICo). Each has its own gap,
  * feasibility and weakness.
  */
-export function ideaQuestions(topics: { name: string; synonyms: string[] }[], sum: Record<string, string | null>) {
+export function ideaQuestions(topics: { name: string; synonyms: string[] }[], sum: Record<string, string | null>, note = SAMPLE_NOTE) {
   const place = namedPlace(sum);
   const concepts = conceptsOf(topics, place);
   const a = concepts[0] ?? topics[0];
@@ -236,5 +245,5 @@ export function ideaQuestions(topics: { name: string; synonyms: string[] }[], su
     { framework: "PICo" as const, text: `(mock) How do ${pop ?? "the people involved"} experience ${A}${where}?`, structure: [who, { element: "Interest", value: a.name }, context], gap: "(mock) Sample gap: few included papers describe how people experience this.", feasibility: "(mock) Feasible with 15 to 25 interviews over 6 months.", weakness: "(mock) A small sample may not transfer to other groups." },
     { framework: "PECO" as const, text: `(mock) Is there an association between ${A} and ${B}${among}?`, structure: [who, { element: "Exposure", value: a.name }, { element: "Comparison", value: `Less or no ${A}` }, { element: "Outcome", value: b.name }], gap: "(mock) Sample gap: the included papers do not measure this link directly.", feasibility: "(mock) Feasible with an online survey of about 300 people.", weakness: "(mock) A survey shows an association, not a cause." },
     { framework: "PICo" as const, text: `(mock) What helps or hinders ${A}${among}${where}?`, structure: [who, { element: "Interest", value: `What helps or hinders ${A}` }, context], gap: "(mock) Sample gap: barriers and enablers are rarely compared across settings.", feasibility: "(mock) Feasible over 12 months with a survey and follow-up interviews.", weakness: "(mock) Larger and slower than a single-method study." },
-  ].map((c) => ({ ...c, text: c.text.slice(0, 400), structure: c.structure.map((s) => ({ ...s, value: s.value.slice(0, 300) })), gap: `${c.gap} ${SAMPLE_NOTE}`, noveltyQueries: novelty }));
+  ].map((c) => ({ ...c, text: c.text.slice(0, 400), structure: c.structure.map((s) => ({ ...s, value: s.value.slice(0, 300) })), gap: `${c.gap}${note ? ` ${note}` : ""}`, noveltyQueries: novelty }));
 }

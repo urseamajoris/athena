@@ -166,8 +166,9 @@ export function buildGraph(input: GraphInput): Graph {
     const id = `query:${t.id}`;
     queryIds.push(id);
     // After retrieval: what each search matched when it ran. Before: the dry-run counts, in words when missing.
-    const ran = qs.some((q) => q.run);
-    const counts = qs.map((q) => `${DB_LABEL[q.database] ?? q.database} ${q.run ? (q.run.failed ? "failed" : q.run.count === null ? "done" : fmt(q.run.count)) : q.dryRunError ? "failed" : q.dryRunCount === null ? "not counted" : fmt(q.dryRunCount)}`);
+    // "Ran:" only when every search of the topic has a current run; otherwise each run count says so itself.
+    const ran = qs.every((q) => q.run);
+    const counts = qs.map((q) => `${DB_LABEL[q.database] ?? q.database} ${q.run ? (q.run.failed ? "failed" : q.run.count === null ? "done" : `${fmt(q.run.count)}${ran ? "" : " (ran)"}`) : q.dryRunError ? "failed" : q.dryRunCount === null ? "not counted" : fmt(q.dryRunCount)}`);
     add({ id, kind: "query", stages: [3], title: t.name, status: toStatus(s3), key: `${ran ? "Ran: " : ""}${counts.join(" · ")}`, parents: [`topic:${t.id}`], topicId: t.id, staleReason: s3 === "stale" ? reason(3) : undefined });
   }
 

@@ -82,7 +82,9 @@ export async function updateQuery(projectId: string, queryId: string, queryStrin
 export async function updateCriteria(projectId: string, criteria: Criteria) {
   const p = (await getProject(projectId));
   (await db.update(schema.projects).set({ criteria, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run());
-  (await db.update(schema.queries).set({ dryRunCount: null, dryRunAt: null }).where(eq(schema.queries.projectId, projectId)).run());
+  // Counts depend only on years, languages and the hard filter: other criteria (inclusion, exclusion, study types) keep them.
+  const counted = (c: Criteria | null) => JSON.stringify([c?.yearFrom ?? null, c?.yearTo ?? null, c?.languages ?? [], c?.hardFilter ?? []]);
+  if (counted(p.criteria) !== counted(criteria)) (await db.update(schema.queries).set({ dryRunCount: null, dryRunAt: null }).where(eq(schema.queries.projectId, projectId)).run());
   (await logDecision(projectId, 3, "criteria_edited", p.criteria, criteria));
   const was = (p.criteria?.hardFilter ?? []).join(",");
   const now = (criteria.hardFilter ?? []).join(",");

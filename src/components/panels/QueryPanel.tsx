@@ -157,7 +157,9 @@ function QueryPreview({ q, label, criteria, run, cap: MAX, beforeCount, onChange
     : null;
   const ranDone = run?.status === "done" || run?.status === "failed";
   const ranCurrent = !!run && run.queryString === q.queryString && JSON.stringify(countInputs(run.criteria)) === JSON.stringify(countInputs(criteria));
-  const wasLine = verdict && track?.before && track.inputs === inputs && track.before.count !== track.count
+  // In demo mode a count comes from a recorded sample picked by the request, so a change is not caused by the edit.
+  const { data: status } = useApi<{ mockMode: boolean }>("/api/status");
+  const wasLine = status?.mockMode ? null : verdict && track?.before && track.inputs === inputs && track.before.count !== track.count
     ? `It was ${fmtInt(track.before.count)} before you changed ${changedParts(track.before.inputs, inputs)}.`
     : !res && track && track.inputs !== inputs ? `It was ${fmtInt(track.count)} before you changed ${changedParts(track.inputs, inputs)}; count again to see the new number.` : null;
   return (
@@ -251,7 +253,7 @@ function QueryEditor({ q, label, onChange }: { q: Query; label: string; onChange
 interface Draft { yearFrom: string; yearTo: string; languages: string; studyTypes: string; inclusion: string; exclusion: string; hardFilter: string[] }
 const toDraft = (c: Criteria): Draft => ({ yearFrom: c.yearFrom?.toString() ?? "", yearTo: c.yearTo?.toString() ?? "", languages: c.languages.join(", "), studyTypes: c.studyTypes.join(", "), inclusion: c.inclusion.join("\n"), exclusion: c.exclusion.join("\n"), hardFilter: c.hardFilter ?? [] });
 const commas = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
-const lines = (s: string) => s.split(/\n|;/).map((x) => x.trim()).filter(Boolean);
+const lines = (s: string) => s.split("\n").map((x) => x.trim()).filter(Boolean);
 const year = (s: string) => (s.trim() && Number.isFinite(Number(s)) ? Number(s) : null);
 const fromDraft = (d: Draft, base: Criteria): Criteria => ({ ...base, yearFrom: year(d.yearFrom), yearTo: year(d.yearTo), languages: commas(d.languages), studyTypes: commas(d.studyTypes), inclusion: lines(d.inclusion), exclusion: lines(d.exclusion), hardFilter: d.hardFilter });
 const critKey = (c: Criteria) => JSON.stringify([c.yearFrom, c.yearTo, c.languages, c.studyTypes, c.inclusion, c.exclusion, c.hardFilter ?? []]);
@@ -266,7 +268,8 @@ function useCriteriaDraft(saved: Criteria | null, onSaved: (d: SearchData) => vo
   const [base, setBase] = useState<Criteria | null>(saved); // the saved criteria the draft started from
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<unknown>(null);
-  const dirty = !!(draft && base && critKey(fromDraft(draft, base)) !== critKey(base));
+  // Compared as typed: a saved item containing a comma must not make a just-opened form look edited.
+  const dirty = !!(draft && base && JSON.stringify(draft) !== JSON.stringify(toDraft(base)) && critKey(fromDraft(draft, base)) !== critKey(base));
   useEffect(() => {
     if (!saved || (base && critKey(saved) === critKey(base))) return;
     if (!dirty) setDraft(toDraft(saved)); // newly saved criteria replace the form only when it has no unsaved changes

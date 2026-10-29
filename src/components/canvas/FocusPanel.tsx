@@ -153,17 +153,21 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
     if (!aside) return;
     let owned = aside.contains(document.activeElement);
     const onFocusIn = (e: FocusEvent) => { owned = aside.contains(e.target as Node); };
+    // A click anywhere hands focus back to the user's own choice; only a later focusin inside the panel re-owns it.
+    const onPointerDown = () => { owned = false; };
     let frame = 0;
     const check = () => {
       frame = 0;
       const a = document.activeElement as HTMLElement | null;
       const lost = !a || a === document.body || !a.isConnected || (a as HTMLButtonElement).disabled === true;
-      if (owned && lost && usingKeyboard()) focusWithRing(headingRef.current);
+      if (owned && lost && usingKeyboard()) focusWithRing(headingRef.current, { reveal: true });
     };
     const mo = new MutationObserver(() => { frame ||= requestAnimationFrame(check); });
     mo.observe(aside, { subtree: true, childList: true, attributes: true, attributeFilter: ["disabled"] });
     document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("pointerdown", onPointerDown, true);
     return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
       mo.disconnect();
       cancelAnimationFrame(frame);
       document.removeEventListener("focusin", onFocusIn);

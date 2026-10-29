@@ -291,7 +291,8 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
           const few = cmd.stage === 6 ? thinTopics(summary?.ranking ?? []) : [];
           if (few.length && !(await new Promise<boolean>((resolve) => setThin({ topics: few, resolve })))) return;
           // Summarising the evidence leaves undecided quotes out: say so and ask first.
-          const left = cmd.stage === 7 ? (summary?.appraisal.pending ?? 0) : 0;
+          // Read the count fresh: the live summary lags a decision made a moment ago.
+          const left = cmd.stage === 7 ? ((await api<CanvasSummary>(projectPath(projectId, "canvas")).catch(() => summary))?.appraisal.pending ?? 0) : 0;
           if (left && !(await new Promise<boolean>((resolve) => setLeaveOut({ count: left, resolve })))) {
             store.openPanel("appraisal");
             return;

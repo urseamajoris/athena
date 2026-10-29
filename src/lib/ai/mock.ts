@@ -1,4 +1,5 @@
 import "server-only";
+import { config } from "../config";
 /*
  * MOCK_MODE model responders. They are deterministic and build schema-valid output FROM THE INPUT they are
  * given (real records from fixtures), so every downstream check (grounded IDs, quote verification) is
@@ -66,6 +67,9 @@ function telemedRun(inp: AnyRec, vars: Record<string, string>) {
   const idea = String(inp.idea ?? "") || unwrapData(vars.idea);
   return !idea || isTelemed(idea);
 }
+
+/** Recorded sample papers only when the databases are mocked too (with mock AI alone the papers are real). */
+const sampleNote = () => (config.mockMode ? SAMPLE_NOTE : "");
 
 export async function mockRespond(prompt: string, vars: Record<string, string>, input: unknown): Promise<unknown> {
   const inp = (input ?? {}) as AnyRec;
@@ -159,7 +163,7 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
     }
     case "search_builder": {
       const topics = (inp.topics as { id: string; name: string; synonyms: string[]; controlledTerms: string[] }[]) ?? [];
-      if (!telemedRun(inp, vars)) return ideaSearch(topics, summaryOf(inp.summary));
+      if (!telemedRun(inp, vars)) return ideaSearch(topics, summaryOf(inp.summary), sampleNote());
       const sea = '("Asia, Southeastern"[mh] OR "Southeast Asia"[tiab] OR Thailand[tiab] OR Vietnam[tiab] OR Indonesia[tiab] OR Malaysia[tiab] OR Philippines[tiab])';
       const seaOA = '("Southeast Asia" OR Thailand OR Vietnam OR Indonesia OR Malaysia OR Philippines)';
       return {
@@ -193,8 +197,9 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
           const st = summaries[i]?.studyType ?? "other";
           const design = /systematic|randomized/.test(st) ? 5 : /cohort|qualitative|mixed|cross/.test(st) ? 3 : /review/.test(st) ? 3 : 1;
           if (!tele) {
-            const there = placeWords.some((w) => text.includes(w));
-            return { paperId: p.id, topicFit: Math.min(5, hits + 1), topicFitWhy: `(mock) ${hits} topic terms appear in title/abstract.`, designStrength: design, designStrengthWhy: `(mock) Study type: ${st}.`, settingMatch: place ? (there ? 5 : 1) : 3, settingMatchWhy: (place ? (there ? `(mock) Mentions ${place}.` : `(mock) Does not mention ${place}.`) : "(mock) You did not name a place, so every paper scores the middle.").slice(0, 200), overall: `(mock) Keyword-overlap score. ${SAMPLE_NOTE}` };
+            // Whole words only: "US" must not match "using", nor "UK" "leukocyte".
+            const there = placeWords.some((w) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(text));
+            return { paperId: p.id, topicFit: Math.min(5, hits + 1), topicFitWhy: `(mock) ${hits} topic terms appear in title/abstract.`, designStrength: design, designStrengthWhy: `(mock) Study type: ${st}.`, settingMatch: place ? (there ? 5 : 1) : 3, settingMatchWhy: (place ? (there ? `(mock) Mentions ${place}.` : `(mock) Does not mention ${place}.`) : "(mock) You did not name a place, so every paper scores the middle.").slice(0, 200), overall: `(mock) Keyword-overlap score.${sampleNote() ? ` ${sampleNote()}` : ""}` };
           }
           const sea = SEA.some((c) => text.includes(c.toLowerCase())) ? 5 : 1;
           return { paperId: p.id, topicFit: Math.min(5, hits + 1), topicFitWhy: `(mock) ${hits} topic terms appear in title/abstract.`, designStrength: design, designStrengthWhy: `(mock) Study type: ${st}.`, settingMatch: sea, settingMatchWhy: sea === 5 ? "(mock) Mentions a Southeast Asian setting." : "(mock) No Southeast Asian setting mentioned.", overall: "(mock) Keyword-overlap score." };
@@ -273,7 +278,7 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
       const designs = ["Qualitative interview study", "Cross-sectional survey", "Mixed-methods implementation study"];
       if (!telemedRun(inp, vars)) {
         return {
-          questions: ideaQuestions(topics, summaryOf(vars.summary)).map((c, k) => {
+          questions: ideaQuestions(topics, summaryOf(vars.summary), sampleNote()).map((c, k) => {
             const { it, cs } = pickClaims(k);
             return { ...c, design: designs[k], gapClaimIds: cs, synthesisIds: [it] };
           }),

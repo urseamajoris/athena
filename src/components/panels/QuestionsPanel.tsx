@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Pencil } from "lucide-react";
 import { api, projectPath, useApi } from "../api";
 import { Badge, EmptyState, ErrorState, Loading, Spinner, cx } from "../ui";
@@ -58,6 +58,16 @@ export function QuestionsPanel() {
   const [err, setErr] = useState<unknown>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  // Closing the editor removes the button that had focus: give focus back to "Edit this question".
+  const editBtn = useRef<HTMLButtonElement>(null);
+  const refocus = useRef(false);
+  const closeEditor = () => { refocus.current = true; setEditing(false); };
+  useEffect(() => {
+    if (!editing && refocus.current) {
+      refocus.current = false;
+      editBtn.current?.focus();
+    }
+  }, [editing]);
   const node = graph.nodes.find((n) => n.id === "questions");
   const action = node ? nextAction(node, graph, input) : null;
   if (isLoading) return <Loading />;
@@ -102,7 +112,7 @@ export function QuestionsPanel() {
                   {q.edited && <Badge>edited</Badge>}
                 </div>
                 {q.chosen && editing ? (
-                  <EditChosen key={q.id} q={q} finished={finished} onSaved={(d) => { mutate(d, { revalidate: false }); setEditing(false); }} onCancel={() => setEditing(false)} />
+                  <EditChosen key={q.id} q={q} finished={finished} onSaved={(d) => { mutate(d, { revalidate: false }); closeEditor(); }} onCancel={closeEditor} />
                 ) : (
                   <p className="font-medium leading-snug">{q.text}</p>
                 )}
@@ -118,7 +128,7 @@ export function QuestionsPanel() {
                     {q.chosen ? "Chosen" : <>Choose this question<span className="sr-only"> (candidate {i + 1})</span></>}
                   </button>
                   {q.chosen && !editing && (
-                    <button className="btn-secondary" onClick={() => setEditing(true)}>
+                    <button ref={editBtn} className="btn-secondary" onClick={() => setEditing(true)}>
                       <Pencil className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Edit this question
                     </button>
                   )}

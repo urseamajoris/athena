@@ -51,7 +51,8 @@ export async function summaryCsv(projectId: string): Promise<string> {
     p.openalexId,
   ]);
   const demo = (await demoLine(projectId));
-  return [...(demo ? [[demo]] : []), head, ...rows].map((r) => r.map(csvCell).join(",")).join("\n") + "\n";
+  // The header stays the first row (spreadsheet and pandas imports read it as column names); the demo note goes last.
+  return [head, ...rows, ...(demo ? [[demo]] : [])].map((r) => r.map(csvCell).join(",")).join("\n") + "\n";
 }
 
 function bibKey(p: { authors: string[]; year: number | null; title: string }, used: Set<string>) {

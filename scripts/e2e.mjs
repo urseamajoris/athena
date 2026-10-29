@@ -202,8 +202,10 @@ try {
   await shot("6-ranking");
   await page.getByRole("banner").getByRole("button", { name: "Appraise selected papers" }).click();
   // A topic with fewer than 3 papers asks first.
+  // Wait for whichever comes first: the dialog (its code may still be loading) or the approval itself.
   const anyway = page.getByRole("button", { name: "Appraise anyway" });
-  if (await anyway.waitFor({ timeout: 3000 }).then(() => true, () => false)) await anyway.click();
+  const asked = await Promise.race([anyway.waitFor({ timeout: 30000 }).then(() => true, () => false), waitApproved(6).then(() => false, () => false)]);
+  if (asked) await anyway.click();
   await waitApproved(6);
 
   // 7. Appraisal (back on the canvas)

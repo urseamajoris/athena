@@ -19,11 +19,13 @@ export const usingKeyboard = () => lastInput === "keyboard";
  * Focus an element outside the Tab order (a panel heading), with a visible ring for keyboard users
  * (globals.css: [data-focus-ring]) that goes away when focus moves on.
  */
-export function focusWithRing(el: HTMLElement | null) {
+export function focusWithRing(el: HTMLElement | null, { reveal = false } = {}) {
   if (!el) return;
   if (usingKeyboard()) {
     el.setAttribute("data-focus-ring", "");
     el.addEventListener("blur", () => el.removeAttribute("data-focus-ring"), { once: true });
   }
   el.focus({ preventScroll: true });
+  // A heading that has scrolled out of view (short screens, where the header scrolls) is brought back into view.
+  if (reveal) el.scrollIntoView({ block: "nearest" });
 }
