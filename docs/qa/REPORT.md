@@ -83,3 +83,53 @@ Six fix agents worked in parallel, one area each, each in its own git worktree. 
 | 13. Phones | A new "Open printable report" option is a self-contained HTML page that you can save as a PDF. |
 | 14. Admin | **AI calls:** one definition everywhere, "calls sent to the model". **Browser errors:** they are now reported to the server (rate-limited, no personal data) and count in the health verdict. **AI paused:** clicking an AI step while AI is off shows the calm paused card, not a red failure. |
 | 15. Minor | **Report:** no internal claim IDs; citations name only the papers. **Sign-up page:** the password hint no longer overlaps the field. **Labels:** canvas badges are explained in their tooltips. |
+
+## Iteration 2
+
+The same eight personas ran again on fresh servers built from the merged fixes.
+
+**Outcome:** all 7 user personas reached step 9 and the export. Nobody hit a blocker. Majors fell from 51 to **29**; there were 71 minor and 13 polish findings.
+
+**3-second test:**
+
+| Persona | Iteration 1 | Iteration 2 |
+|---|---|---|
+| undergrad | 12/14 | 10/14 |
+| masters | 10/16 | 11/16 |
+| phd | 13/14 | 10/14 |
+| clinician | 13/14 | 12/14 |
+| nonnative | 9/15 | 11/14 |
+| keyboard | 12/15 | 12/14 |
+| chaos | 16/19 | 13/15 |
+
+The pages a persona misread were mostly the busy ones: ranking, appraisal and the search builder.
+
+**What iteration 1's fixes changed for users:**
+
+- **No dead end after "Appraise selected papers".** No persona reported the `removeChild` error.
+- **Counters agreed** and rejected quotes stayed visible with Undo.
+- **"Found word for word" was read correctly** by most personas. Some still asked for a separate "does this quote support the answer?" check.
+- **Demo topics, searches and questions used the user's words**, and the exported files said they were a demo.
+- **Isolation held again.** Another user's project gave "Project not found", which reveals nothing about it.
+
+**Admin:** the kill-switch check passed again. The AI-call count stayed at 48 while AI was off and rose to 50 only after AI was turned back on. The blocked call was shown as "1 blocked, not sent". The admin found no ideas, papers, keys or emails in URLs.
+
+The admin's first report failed the report schema, and it then sent a blank placeholder. The workflow now tells agents to resend the same content when the schema rejects it. Its 9 minor and polish findings were recovered from its transcript, but its per-server telemetry comparison was not. One of them: the mock QA servers had inherited the real xAI key from the environment. The dashboard showed only its masked last 4 characters, and the key was never used. QA servers now start with every API key removed from their environment.
+
+### Findings, merged and ranked
+
+| # | Severity | Personas | Finding |
+|---|---|---|---|
+| 1 | major (clarity) | 4 | The ranking checklist ticked "Keep 3–5 papers per topic" while the warning on the same page said topics had fewer than 3. |
+| 2 | major (validity) | 2 | A paper was marked both "does not match the topic" and "Selected for appraisal". |
+| 3 | major (validity) | 4 | The novelty check said "No closely matching records were returned" directly under "2,207 matching records". |
+| 4 | major (validity) | 6 | Demo synthesis statements were content-free ("(mock) 8 key findings were extracted"). Gap quotes were unrelated to the gap. The planted altered quote appeared in every paper. |
+| 5 | major (validity) | 2 | Demo candidate questions: the PECO breakdown reversed exposure and outcome. For "does X help?" no candidate was an effect question. |
+| 6 | major (bug) | 1 | After "Summarise without them", the panel stayed on step 7, with "Next paper" as its primary action. |
+| 7 | major (validity) | 3 | A topic with 0 papers silently disappeared from the synthesis. |
+| 8 | major (a11y) | 1 | On the table page the primary button came after about 95 Tab stops. Focus was lost after Esc in List view, after hiding the demo note, after moving to a new page, and after "Keep" on a list row. |
+| 9 | major (clarity) | 1 | Editing a topic at step 3 reopened step 2 for the whole review, with no message. |
+| 10 | major (clarity) | 1 | The export gave no visible confirmation on a phone, and the printable report was easy to miss. |
+| 11 | major (validity) | 1 | The report did not say the search is a scoping aid, capped at 40 records per search and run topic by topic, not an exhaustive systematic search. |
+| 12 | major (validity) | 1 | Demo counts did not reconcile between the dry run and the retrieval run. This is a demo-fixture artefact: recorded samples are picked by request. |
+| 13 | minor | 2+ | After typing the idea, step 1 asked for it again. Deleting a topic had no undo. The "Project not found" page had no header, a pointless "Try again", and called it a "session". The demo admin panel showed a key tail and real model names for mock calls. Skipped scoping questions appeared in the report as mock defaults. |
