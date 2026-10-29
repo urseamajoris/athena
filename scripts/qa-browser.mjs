@@ -19,6 +19,9 @@
 //   node scripts/qa-browser.mjs <persona> stop
 //
 // --zoom=2 with --viewport=1366x900 behaves like 200% browser zoom (a 683×450 CSS-pixel window at 2× density).
+// It never drives a server that could spend: before each command it reads that server's /api/status (as the
+// signed-in persona) and refuses if the server has an xAI key. Before sign-in /api/status answers 401, and
+// nothing can start an AI step yet.
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
@@ -26,6 +29,7 @@ import os from "node:os";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { keyProblem } from "./lib/no-key.mjs";
 
 const require = createRequire(import.meta.url);
 const [persona, cmd, ...rest] = process.argv.slice(2);
@@ -127,6 +131,21 @@ async function daemon() {
     });
   }
 
+  async function guard(url) {
+    let u;
+    try {
+      u = new URL(url);
+    } catch {
+      return;
+    }
+    if (!/^https?:$/.test(u.protocol)) return;
+    const r = await ctx.request.get(`${u.origin}/api/status`, { failOnStatusCode: false }).catch(() => null);
+    if (!r || r.status() === 401) return;
+    const why = keyProblem(await r.json().catch(() => null));
+    if (why) throw new Error(`refusing to drive ${u.origin}: ${why}. With a key, AI steps spend real money; use a server with no xAI key.`);
+  }
+  const READ_ONLY = new Set(["shot", "look", "focus", "wait", "url", "problems"]);
+
   const run = {
     async open([url]) { await page.goto(url, { waitUntil: "domcontentloaded" }); await settle(); return `opened ${page.url()}`; },
     async shot([name = `shot-${Date.now()}`]) {
@@ -206,6 +225,7 @@ async function daemon() {
     }
     try {
       if (!run[c]) throw new Error(`unknown command "${c}"`);
+      if (!READ_ONLY.has(c)) await guard(c === "open" ? a?.[0] : page.url());
       res.end(String(await run[c](a ?? [])));
     } catch (e) {
       res.statusCode = 400;

@@ -11,11 +11,11 @@ Written before any code changed (Step 0 of the canvas-first redesign brief), the
 | `/api/projects`, `/api/projects/[id]` | route handlers | list, create, read, delete projects |
 | `/api/projects/[id]/[...path]` | `src/lib/api.ts` | every stage endpoint (approve, run, keep, reopen, scoping, topics, queries, criteria, papers, ranking, appraisals, claims, synthesis, questions, novelty, export, log, reverify) |
 | `/api/projects/[id]/events` | SSE | stage states, latest job per stage, costs, live retrieval runs (800 ms tick) |
-| `/api/status` | route handler | mock flags, model resolution, spend and budget |
+| `/api/status` | route handler | model resolution, AI state (on, budget reached, key missing), spend and budget |
 
 Stage components (`src/components/stages/*`): `IdeaStage`, `ScopingStage` (chat, coverage, `TopicEditor`, `ConceptMap`), `SearchStage` (`QueryEditor`, `CriteriaCard`), `RetrievalStage`, `SummaryStage` (table with inline AI-cell editing), `RankingStage` (per-topic cards, rubric bars, swap), `AppraisalStage` (paper list, claims, checklist, highlighted source text, accept/reject), `SynthesisStage` (matrix, contradictions, known/contested/unknown, `ClaimChip`), `QuestionsStage` (three candidates, novelty, refine), `FinalSummary` (exports). Shared: `ui.tsx`, `StatusPill.tsx`, `PaperDrawer.tsx`, `api.ts` (fetch + SWR).
 
-Mock mode already exists: `MOCK_MODE=true` (recorded HTTP fixtures + deterministic mock model). `MOCK_AI=true` mocks only the model.
+At the time of the redesign the app had a built-in mock mode (recorded HTTP fixtures and a scripted model). It has since been removed: to work without spending, run with no xAI key, and AI steps say "AI is not set up" while everything else works.
 
 ## Route mapping
 
@@ -27,7 +27,7 @@ Mock mode already exists: `MOCK_MODE=true` (recorded HTTP fixtures + determinist
 | `/s/[id]` | **new** canvas, replaces `Wizard` | Hosts every stage component in the Focus panel. |
 | `/s/[id]/table` | **new**, merges `SummaryStage` + `RankingStage` | TanStack Table + Virtual. |
 | `/s/[id]/export` | **new**, from `FinalSummary` + export links | Adds a text preview of each format. |
-| `/settings` | **new** | Mock status, spend, keys present (booleans only), theme. Replaces the header `StatusPill`. |
+| `/settings` | **new** | How the server runs (AI on, off or not set up), spend, keys present (booleans only), theme. Replaces the header `StatusPill`. |
 | `/projects/[id]?stage=N` | **redirect** → `/s/[id]?node=<stage key>` | e.g. `?stage=7` → `?node=appraisal`. No stage → `/s/[id]`. |
 
 ## Node types → stages → components
@@ -68,16 +68,16 @@ Per-stage actions stay global on the server (one retrieval job runs every query,
 | Questions panel | Choose a research question | Export |
 | Export view (`/s/[id]/export`) | Download | Download |
 | Quote check | Confirm the quote matches its source | none filled (accept / reject are outline buttons; the verdict is the content) |
-| Settings | Confirm mock mode | none (read-only status) |
+| Settings | See how the server runs | none (read-only status) |
 
 ## Where the brief bends to fit the real app
 
 1. **A sixth node status, "Needs review".** The brief lists idle, running, done, stale, error. The app's core rule is "AI proposes, the user confirms": every stage stops in `needs_review` until approved. Folding that into "done" would hide the checkpoint, so nodes show *Needs review* between *Running* and *Done*.
 2. **Keyboard: `A` adds a child, `Shift+A` adds a sibling, Enter opens the Focus panel.** The brief asks for Tab = child and Enter = sibling, but also Enter = open panel, and also "you can tab through the whole view and nothing traps focus" (QA item 5, WCAG 2.1.2). Intercepting Tab on nodes would trap keyboard users inside the canvas. The canvas is one Tab stop (roving focus, arrows move along edges); `A`/`Shift+A` open the add menu.
-3. **"Re-run downstream" keeps the checkpoints.** One action starts the cascade; it re-runs the first stale step, and after each step the user reviews and approves before the next one re-runs (approval resumes the cascade automatically). A fully automatic cascade would auto-approve AI output and, in real mode, re-spend the whole pipeline budget.
+3. **"Re-run downstream" keeps the checkpoints.** One action starts the cascade; it re-runs the first stale step, and after each step the user reviews and approves before the next one re-runs (approval resumes the cascade automatically). A fully automatic cascade would auto-approve AI output and, with a key, re-spend the whole pipeline budget.
 4. **Ghost subtopics.** "Branch subtopics" calls the existing topic generator; the topics it returns appear as ghost nodes until accepted (Enter) or dismissed (Esc, deletes the topic). Acceptance is remembered per session in the browser; once stage 2 is approved every topic counts as accepted. Topics the user adds are never ghosts.
 5. **Things in the brief with no backend, left out rather than faked:** per-query source toggles (retrieval always runs both databases), an appraisal template switcher (the template follows the study type; "Re-appraise" stays), appraisal notes, synthesis model options, export citation style. The panels show what is real (e.g. the template in use, the model used).
-6. **Mock mode toggle** is a locked-on status outside production; mock vs real is a server environment setting, and flipping it from a page is the kind of switch that spends money by accident.
+6. **No spend toggle on ordinary pages.** Whether AI can spend is decided on the server: an xAI key (environment or set by an admin), the admin's AI switch and the budget. A switch on an ordinary page is the kind of control that spends money by accident.
 7. **Optional libraries** (tldraw sketch layer, three.js background) are left out for the performance budget.
 8. **Zoomed-out overview.** Below 50 % zoom, where card text is too small to read, cards keep kind, status badge (icon + text), title and trust counts; the key line and outline action buttons return on zoom-in, and the dot grid is not drawn. The frontier card keeps its primary action. This is what lets a 300-node session pan at 60 fps (see `qa/report-final.md`).
 9. **The first HTML carries the data.** Session, table, export, sessions and settings pages pass server-read data to SWR as `fallback`, so content renders before JavaScript and revalidates after hydration. Before hydration the viewport is unknown, so `/s/[id]` renders the List view for phones and the canvas placeholder for wider screens, and CSS shows the right one.
