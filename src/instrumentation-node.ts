@@ -15,8 +15,25 @@ if (config.mockMode && (config.xaiApiKey || config.openalexApiKey)) {
 }
 
 // Apply database migrations (local file or Turso) before anything reads the database.
-await ready();
+// A remote database (Turso) can time out on a cold start: retry, and never crash the server over it
+// (a failed hook turns every request on this instance into a 500).
+let dbReady = false;
+for (let attempt = 1; attempt <= 3 && !dbReady; attempt++) {
+  try {
+    await ready();
+    dbReady = true;
+  } catch (e) {
+    console.error(`[athena] database not ready (attempt ${attempt}/3):`, e);
+    if (attempt < 3) await new Promise((r) => setTimeout(r, 500 * attempt));
+  }
+}
 
 // Server start: confirm model IDs with xAI and resume jobs interrupted by a restart.
 await checkModels();
-(await resumeJobs());
+if (dbReady) {
+  try {
+    await resumeJobs();
+  } catch (e) {
+    console.error("[athena] could not resume interrupted jobs:", e);
+  }
+}
