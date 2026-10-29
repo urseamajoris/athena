@@ -4,7 +4,7 @@ import { api, projectPath, useApi } from "../api";
 import { ErrorState, Loading, Spinner } from "../ui";
 import { Disclosure } from "../disclosure";
 import { canvasStore, useSession } from "../session/SessionContext";
-import { FOUND_MEANS, QuoteVerdict, SourcePassage } from "./evidence";
+import { FOUND_MEANS, QuoteVerdict, SourcePassage, partsSuffix } from "./evidence";
 import type { AppraisalDetailData } from "./AppraisalPanel";
 
 /** Quote node: does the quote match its source? Quote beside the highlighted passage, and the verdict. */
@@ -45,7 +45,10 @@ export function QuotePanel({ claimId }: { claimId: string }) {
         <section aria-label="Source passage">
           <h3 className="label">Source passage</h3>
           {c.verified && text && c.matchStart !== null && c.matchEnd !== null ? (
-            <SourcePassage text={text} start={c.matchStart} end={c.matchEnd} />
+            <>
+              <SourcePassage text={text} start={c.matchStart} end={c.matchEnd} />
+              {partsSuffix(c) && c.verificationNote && <p className="mt-1 text-12 text-fg-2">{c.verificationNote} The passage above is the first part.</p>}
+            </>
           ) : (
             <p className="rounded-sm border border-err-line px-3 py-2 text-fg-1">Not found word for word in the retrieved text. {c.verificationNote?.replace(/^(UNVERIFIED:\s*)?(Quote not found in the retrieved source text\.\s*)?/, "")}</p>
           )}

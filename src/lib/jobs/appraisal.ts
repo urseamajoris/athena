@@ -7,7 +7,7 @@ import { structuredCall, isAiStop } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { Appraisal, EXTRACTION_FIELDS } from "../stages/ai-schemas";
 import { CHECKLISTS, FIELD_GUIDANCE, TEMPLATE_LABEL, templateFor } from "../stages/templates";
-import { closestPassage, normalizeWithMap, sectionAt, verifyQuote } from "../quotes";
+import { closestPassage, joinedWithoutEllipsis, normalizeWithMap, sectionAt, verifyQuote } from "../quotes";
 import { errMsg, newId } from "../util";
 import { logDecision } from "../project";
 import { getAppraisalText } from "./fulltext";
@@ -20,15 +20,18 @@ const itemKey = (s: string) => s.toLowerCase().replace(/^\s*\d+[.)]\s*/, "").rep
 export function checkQuote(sent: string, sections: { title: string; start: number }[], quote: string, pre?: ReturnType<typeof normalizeWithMap>) {
   const r = verifyQuote(sent, quote, pre);
   if (r.verified) {
-    const sec = sectionAt(sections, r.start!);
-    return { verified: true, matchStart: r.start, matchEnd: r.end, verificationNote: `${r.note}${sec ? ` Found in: ${sec}.` : ""}` };
+    // The stored span is the first part (a real passage, never the unquoted text between parts); the note names
+    // the section of every part.
+    const secs = [...new Set(r.parts.map((p) => sectionAt(sections, p.start)).filter(Boolean))];
+    return { verified: true, matchStart: r.start, matchEnd: r.end, verificationNote: `${r.note}${secs.length ? ` Found in: ${secs.join("; ")}.` : ""}` };
   }
+  const joined = joinedWithoutEllipsis(sent, quote, pre);
   const near = closestPassage(sent, quote);
   return {
     verified: false,
     matchStart: null,
     matchEnd: null,
-    verificationNote: `${r.note}${near && near.overlap >= 0.5 ? ` Closest passage in the text (${near.overlap >= 0.995 ? "the same words, but not in this order or form" : `${Math.round(near.overlap * 100)}% of words match`}): "${near.text.slice(0, 400)}"` : ""}`,
+    verificationNote: `${r.note}${joined ? ` ${joined}` : ""}${near && near.overlap >= 0.5 ? ` Closest passage in the text (${near.overlap >= 0.995 ? "the same words, but not in this order or form" : `${Math.round(near.overlap * 100)}% of words match`}): "${near.text.slice(0, 400)}"` : ""}`,
   };
 }
 

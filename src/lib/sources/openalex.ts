@@ -6,6 +6,7 @@ import { openalexTypes } from "./filters";
 import { dropEmptyGroups } from "./syntax";
 import type { Criteria } from "../db/schema";
 import { normalizeDoi, chunk } from "../util";
+import { usableAbstract } from "./abstract";
 
 /*
  * OpenAlex (https://help.openalex.org): API key required for real budgets ($1/day free; search $1 per 1k calls,
@@ -66,7 +67,7 @@ export function mapWork(w: OAWork): SourceRecord {
     authors: (w.authorships ?? []).map((a) => a.author?.display_name ?? "").filter(Boolean),
     year: w.publication_year ?? null,
     journal: w.primary_location?.source?.display_name ?? null,
-    abstract: invertedToText(w.abstract_inverted_index),
+    abstract: usableAbstract(invertedToText(w.abstract_inverted_index)),
     language: w.language ?? null,
     publicationTypes: w.type ? [w.type] : [],
     citationCount: w.cited_by_count ?? null,
