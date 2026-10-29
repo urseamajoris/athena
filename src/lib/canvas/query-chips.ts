@@ -66,3 +66,6 @@ export function queryBlocks(q: string): QueryBlock[] {
   if (cur.terms.length) blocks.push(cur);
   return blocks;
 }
+
+/** Remove empty groups ("AND ()"), which a topic with no synonyms can produce and which no database accepts. */
+export { dropEmptyGroups } from "../sources/syntax";

@@ -4,6 +4,7 @@ import { db, schema } from "./db";
 import { getProject, latestJob, stageCosts } from "./project";
 import { STAGES, scrubIds } from "./shared/stages";
 import { isUndecided, type CanvasSummary, type ClaimLite } from "./shared/canvas";
+import type { Criteria } from "./db/schema";
 import { scopingState } from "./stages/scoping";
 
 const ids = (a: string[]) => a.concat(["-"]);
@@ -214,12 +215,16 @@ export async function decisionLogView(projectId: string) {
   return (await db.select().from(schema.decisionLog).where(eq(schema.decisionLog.projectId, projectId)).orderBy(asc(schema.decisionLog.createdAt)).all());
 }
 
+/** The criteria that change what a database returns (inclusion/exclusion only guide ranking). */
+const filtersKey = (c: Criteria | null) => JSON.stringify([c?.yearFrom ?? null, c?.yearTo ?? null, c?.languages ?? [], c?.hardFilter ?? []]);
+
 /** Compact summary for the canvas: one key number per node, cheap enough to stream over SSE. */
 export async function canvasView(projectId: string): Promise<CanvasSummary> {
   const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
   const sc = (await scopingState(projectId));
   const qs = (await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
   const runs = (await db.select().from(schema.searchRuns).where(eq(schema.searchRuns.projectId, projectId)).all());
+  const criteria = (await db.select({ criteria: schema.projects.criteria }).from(schema.projects).where(eq(schema.projects.id, projectId)).get())?.criteria ?? null;
   const paperIds = (await db.select({ id: schema.papers.id }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all()).map((p) => p.id);
   const sums = (await db.select({ edited: schema.paperSummaries.edited }).from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, ids(paperIds))).all());
   const scores = (await db.select({ topicId: schema.scores.topicId, selected: schema.scores.selected }).from(schema.scores).where(inArray(schema.scores.topicId, ids(topics.map((t) => t.id)))).all());
@@ -240,7 +245,12 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
   return {
     topics: topics.map((t) => ({ id: t.id, name: t.name, origin: t.origin, approved: t.approved, synonyms: t.synonyms.length, controlledTerms: t.controlledTerms.length })),
     scoping: { messages: sc.messages.length, asked: sc.asked, maxQuestions: sc.maxQuestions, done: sc.done, awaitingAnswer: sc.awaitingAnswer },
-    queries: qs.map((q) => ({ id: q.id, topicId: q.topicId, database: q.database, dryRunCount: q.dryRunCount, dryRunError: q.dryRunError })),
+    queries: qs.map((q) => {
+      // The query's retrieval result, while it still describes this query (same text and database filters).
+      const r = runs.find((x) => x.queryId === q.id && (x.status === "done" || x.status === "failed"));
+      const current = !!r && r.queryString === q.queryString && filtersKey(r.criteria) === filtersKey(criteria);
+      return { id: q.id, topicId: q.topicId, database: q.database, dryRunCount: q.dryRunCount, dryRunError: q.dryRunError, run: r && current ? { count: r.resultCount, failed: r.status === "failed" } : null };
+    }),
     retrieval: {
       runs: runs.length,
       done: runs.filter((r) => r.status === "done").length,
