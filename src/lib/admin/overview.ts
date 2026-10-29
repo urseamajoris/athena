@@ -251,8 +251,9 @@ export async function adminOverview() {
       byDay: dailySeries(sentCalls, 14, now, (r) => r.createdAt, (r) => r.costUsd),
       callsByDay: dailySeries(sentCalls, 14, now, (r) => r.createdAt),
       byStage: group((r) => (r.stage ? `${r.stage}. ${STAGES[r.stage - 1]?.title ?? ""}` : "other")),
-      byModel: group((r) => r.model),
-      byPrompt: group((r) => `${r.prompt} ${r.version.startsWith("v") ? r.version : `v${r.version}`}`),
+      // Mock calls are logged under the model they stand in for; label them so no one reads them as paid calls.
+      byModel: group((r) => (r.costSource === "mock" ? `mock (stands in for ${r.model})` : r.model)),
+      byPrompt: group((r) => `${r.prompt} ${r.version.startsWith("v") ? r.version : `v${r.version}`}${r.costSource === "mock" ? " (mock)" : ""}`),
     },
     users: {
       total: users.length,

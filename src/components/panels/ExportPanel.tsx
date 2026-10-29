@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { Download, Maximize2, Pencil, Printer } from "lucide-react";
+import { Check, Download, Maximize2, Pencil, Printer } from "lucide-react";
 import { RadioGroup } from "radix-ui";
 import { projectPath, useApi } from "../api";
 import { ErrorState, Spinner, cx } from "../ui";
@@ -12,7 +12,7 @@ import { useQuestions } from "./QuestionsPanel";
 import { fmtInt } from "@/lib/shared/format";
 
 export const FORMATS = [
-  { id: "markdown", label: "Report", ext: "Markdown", open: "plain text with formatting marks such as # for headings; for a formatted copy, open the printable report", help: "Your question, the search strategy, the papers you chose, appraisals with checked quotes, the synthesis and every decision you made." },
+  { id: "markdown", label: "Report", ext: "Markdown", open: "a text file to edit or keep; to read, print or save it as PDF, open the printable report", help: "Your question, the search strategy, the papers you chose, appraisals with checked quotes, the synthesis and every decision you made." },
   { id: "csv", label: "Spreadsheet of all papers", ext: "CSV", open: "opens in Excel, Numbers or Google Sheets", help: "Every paper found, with its study type, setting and key finding (AI-drafted, plus your corrections)." },
   { id: "bibtex", label: "Reference list", ext: "BibTeX", open: "imports into Zotero, EndNote or Mendeley", help: "The papers you selected for appraisal, ready to cite." },
 ] as const;
@@ -51,6 +51,12 @@ export function ExportView({ full = false }: { full?: boolean }) {
   const total = preview?.lines ?? 0;
   const count = total > shown.length ? ` · first ${shown.length} of ${fmtInt(total)} lines` : "";
   const a = summary?.appraisal;
+  // Next to the Download button (the footer on a phone), so the person who tapped it sees that something happened.
+  const status = (
+    <p role="status" className="flex min-w-0 flex-1 basis-48 items-center gap-1 text-12 text-fg-1 empty:sr-only">
+      {downloaded === format && <><Check className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden /> Download started: the {fmt.label.toLowerCase()} ({fmt.ext} file). Find it in your browser’s downloads{format === "markdown" ? ", or open the printable report to read it now" : ""}.</>}
+    </p>
+  );
   return (
     <div className="space-y-4">
       {full && (
@@ -73,6 +79,14 @@ export function ExportView({ full = false }: { full?: boolean }) {
           <p className="text-16 font-semibold leading-snug">{q.text}</p>
         </section>
       )}
+      {/* First, before the file formats: phones cannot open Markdown, and most people want to read the report.
+          The same report as a web page, to read, print or save as PDF. */}
+      <section aria-label="Printable report" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-line p-3">
+        <a className="btn-secondary min-h-11 max-sm:w-full" href={projectPath(projectId, "export/html")} target="_blank" rel="noopener">
+          <Printer className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Open printable report<span className="sr-only"> (opens in a new tab)</span>
+        </a>
+        <span className="text-12 text-fg-1">Read the report on any device, print it or save it as PDF. Opens in a new tab.</span>
+      </section>
       <RadioGroup.Root value={format} onValueChange={(v) => setFormat(v as Format)} aria-label="Format" className={cx("grid gap-2", full && "sm:grid-cols-3")}>
         {FORMATS.map((f) => (
           <RadioGroup.Item key={f.id} value={f.id} className={cx("flex min-h-11 items-start gap-3 rounded-md border px-3 py-2 text-left", format === f.id ? "border-fg-1 bg-bg-2" : "border-line hover:bg-bg-2")}>
@@ -86,21 +100,14 @@ export function ExportView({ full = false }: { full?: boolean }) {
           </RadioGroup.Item>
         ))}
       </RadioGroup.Root>
-      {/* Phones cannot open Markdown: the same report as a web page, to read, print or save as PDF. */}
-      <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <a className="btn-secondary min-h-11" href={projectPath(projectId, "export/html")} target="_blank" rel="noopener">
-          <Printer className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Open printable report
-        </a>
-        <span className="text-12 text-fg-2">The report as a web page: read it on any device, print it or save it as PDF.</span>
-      </p>
       {full && (
         <div className="sticky bottom-0 z-10 -mx-4 border-t border-line bg-bg-0 px-4 py-3 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
           <a className="btn-primary min-h-11 w-full sm:w-auto" href={href} download onClick={() => setDownloaded(format)}>
             <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Download the {fmt.label.toLowerCase()} ({fmt.ext})
           </a>
+          <div className="mt-2">{status}</div>
         </div>
       )}
-      <p role="status" className="text-12 text-fg-1 empty:sr-only">{downloaded === format ? `Downloading the ${fmt.label.toLowerCase()} (${fmt.ext}). It will be in your browser’s downloads.` : ""}</p>
       <section aria-label="Preview">
         <div className="mb-2 flex items-center justify-between gap-2">
           {full ? <h2 className="text-12 font-medium text-fg-2">Preview{count}</h2> : <h3 className="text-12 font-medium text-fg-2">Preview{count}</h3>}
@@ -130,6 +137,7 @@ export function ExportView({ full = false }: { full?: boolean }) {
       </Disclosure>
       {!full && (
         <PanelFooter>
+          {status}
           <a className="btn-primary" href={href} download onClick={() => setDownloaded(format)}>
             <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Download {fmt.ext}
           </a>
