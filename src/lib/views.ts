@@ -208,6 +208,8 @@ export async function questionsView(projectId: string) {
     questions: qs.map((q) => ({ ...q, text: scrubIds(q.text), gap: scrubIds(q.gap), feasibility: scrubIds(q.feasibility), weakness: scrubIds(q.weakness), design: scrubIds(q.design), structure: Object.fromEntries(Object.entries(q.structure).map(([k, v]) => [k, scrubIds(v)])), claimIds: links.filter((l) => l.ownerId === q.id).map((l) => l.claimId) })),
     claims: Object.fromEntries((await withOrdinals(claims)).map((c) => [c.id, c])),
     papers: Object.fromEntries(papers.map((p) => [p.id, p])),
+    // Every paper this review collected: the novelty check compares each question with them too.
+    ownTitles: (await db.select({ title: schema.papers.title }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all()).map((p) => p.title),
   };
 }
 

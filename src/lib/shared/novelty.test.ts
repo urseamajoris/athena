@@ -67,3 +67,22 @@ test("a large count is never headlined as a sign the question is new; demo recor
   assert.doesNotMatch(demo.headline, /suggests/);
   assert.match(demo.headline, /recorded sample/);
 });
+
+// Real run 2 (undergraduate): an unrelated title was flagged, and the paper in the review that asks the question was not.
+const gpa = (over: Partial<NoveltyInput> = {}) =>
+  q({
+    text: "Is sleep duration associated with cumulative GPA at graduation among university students?",
+    structure: { Population: "University students", Exposure: "Sleep duration and sleep quality", Outcome: "Cumulative GPA at graduation" },
+    ...over,
+  });
+test("a title on the same exposure but another outcome is not the same question", () => {
+  assert.equal(looksLikeSameQuestion(gpa(), "Association between Sleep Quality and Duration and Periodontal Disease among University Students"), false);
+  assert.equal(looksLikeSameQuestion(gpa(), "Sleep duration and quality in university students: a cross-sectional survey"), true);
+});
+test("the review's own papers are checked too, even in demo mode", () => {
+  const own = "Consequences of inadequate sleep during the college years: sleep deprivation, GPA and college graduation";
+  assert.equal(looksLikeSameQuestion(gpa(), own), true);
+  const v = noveltyVerdict(gpa(), { demo: true, ownTitles: ["Precision medicine in Thailand", own] });
+  assert.deepEqual(v.own, [own]);
+  assert.match(v.headline, /^One of the papers in this review looks like the same question/);
+});

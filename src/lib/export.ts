@@ -131,11 +131,12 @@ export async function markdownReport(projectId: string): Promise<string> {
     L.push(`Framework: ${chosen.framework}\n`);
     for (const [k, v] of Object.entries(chosen.structure)) L.push(`- **${k}:** ${v}`);
     L.push(`\n- **Design:** ${chosen.design}\n- **Gap:** ${chosen.gap} ${cite(chosen.claimIds)}\n- **Feasibility:** ${chosen.feasibility}\n- **Main weakness:** ${chosen.weakness}\n`);
-    const nv = noveltyVerdict(chosen, { demo: demo === DEMO_LINE });
+    const nv = noveltyVerdict(chosen, { demo: demo === DEMO_LINE, ownTitles: allPapers.map((x) => x.title) });
     L.push(`**Novelty check (what was found — not proof of novelty):** ${nv.headline}\n`);
     for (const n of nv.notes) L.push(`${n}\n`);
     for (const nq of chosen.noveltyQueries) L.push(`- ${nq.database}: \`${nq.query}\` → ${nq.error ? `failed (${nq.error})` : `${nq.count ?? "?"} records contain the search words${demo === DEMO_LINE ? " (sample count)" : ""}`}`);
     chosen.noveltyMatches.forEach((m, i) => L.push(`  - ${m.title} (${m.year ?? "n.d."}) — ${ref(m)} — ${m.similarityNote}${nv.close[i] ? " — **looks like the same question**" : ""}`));
+    for (const t of nv.own) L.push(`  - ${t} — already in this review — **looks like the same question**`);
     L.push("");
   }
   L.push(`## 2. Scoping\n`);

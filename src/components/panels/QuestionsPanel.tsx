@@ -43,7 +43,7 @@ export interface RQ {
   noveltyQueries: { database: string; query: string; count: number | null; error: string | null }[];
   noveltyMatches: Match[]; noveltyStatus: string; chosen: boolean; edited: boolean; claimIds: string[];
 }
-export interface QData { questions: RQ[]; claims: Record<string, ClaimRef>; papers: Record<string, PaperRef> }
+export interface QData { questions: RQ[]; claims: Record<string, ClaimRef>; papers: Record<string, PaperRef>; ownTitles?: string[] }
 
 export function useQuestions() {
   const { projectId } = useSession();
@@ -109,7 +109,7 @@ export function QuestionsPanel() {
           <ul className="space-y-3" aria-label="Candidate research questions">
             {data.questions.map((q, i) => {
               const fw = frameworkOf(q);
-              const v = noveltyVerdict(q, { demo });
+              const v = noveltyVerdict(q, { demo, ownTitles: data.ownTitles });
               // Top records whose titles look like this very question: warned about on the card itself, not only in
               // the reasoning. Not in demo mode, where the records are recorded samples unrelated to the question.
               const same = demo || !known ? [] : q.noveltyMatches.filter((_, j) => v.close[j]);
@@ -132,13 +132,14 @@ export function QuestionsPanel() {
                   <dt className="text-fg-2">Structure</dt><dd className="text-fg-1">{fw}{FRAMEWORK[fw] ? ` (${FRAMEWORK[fw]})` : ""}</dd>
                   <dt className="text-fg-2">Novelty check</dt><dd className="text-fg-1">{v.headline}{demo && <span className="text-fg-2"> (demo: sample records)</span>}</dd>
                 </dl>
-                {same.length > 0 && (
+                {same.length + v.own.length > 0 && (
                   <div role="note" className="mt-2 rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-12">
                     <p className="flex items-start gap-2 text-fg-0">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden />
-                      <span><strong className="font-semibold">May already be studied:</strong> {same.length === 1 ? "this record looks" : `these ${same.length} records look`} like the same question. Read {same.length === 1 ? "it" : "them"} before you choose this one.</span>
+                      <span><strong className="font-semibold">May already be studied:</strong> {same.length + v.own.length === 1 ? "this paper looks" : `these ${same.length + v.own.length} papers look`} like the same question. Read {same.length + v.own.length === 1 ? "it" : "them"} before you choose this one.</span>
                     </p>
                     <ul className="mt-1 space-y-1 pl-6">
+                      {v.own.map((t) => <li key={t} className="text-fg-1">{t} <span className="text-fg-2">(already in this review)</span></li>)}
                       {same.map((m, j) => <li key={j} className="text-fg-1">{m.title} <span className="text-fg-2">({m.year ?? "n.d."})</span> <MatchLink m={m} /></li>)}
                     </ul>
                   </div>
@@ -169,7 +170,7 @@ export function QuestionsPanel() {
                     <p>{q.feasibility}</p>
                     <h4 className="label mt-3">Main weakness</h4>
                     <p>{q.weakness}</p>
-                    <Novelty q={q} demo={demo} onRerun={(d) => mutate(d, { revalidate: false })} />
+                    <Novelty q={q} demo={demo} ownTitles={data.ownTitles} onRerun={(d) => mutate(d, { revalidate: false })} />
                   </Disclosure>
                 </div>
               </li>
@@ -195,10 +196,10 @@ function MatchLink({ m }: { m: Match }) {
   return m.openalexId ? <>OpenAlex {m.openalexId}</> : null;
 }
 
-function Novelty({ q, demo, onRerun }: { q: RQ; demo: boolean; onRerun: (d: QData) => void }) {
+function Novelty({ q, demo, ownTitles, onRerun }: { q: RQ; demo: boolean; ownTitles?: string[]; onRerun: (d: QData) => void }) {
   const { projectId } = useSession();
   const [busy, setBusy] = useState(false);
-  const v = noveltyVerdict(q, { demo });
+  const v = noveltyVerdict(q, { demo, ownTitles });
   return (
     <div className="mt-3 rounded-sm bg-bg-2 p-3 text-12">
       <div className="flex items-center justify-between gap-2">
