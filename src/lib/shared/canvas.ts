@@ -4,7 +4,8 @@ import type { StageState } from "./stages";
 export interface CanvasSummary {
   topics: { id: string; name: string; origin: string; approved: boolean; synonyms: number; controlledTerms: number }[];
   scoping: { messages: number; asked: number; maxQuestions: number; done: boolean; awaitingAnswer: boolean };
-  queries: { id: string; topicId: string; database: string; dryRunCount: number | null; dryRunError: string | null }[];
+  /** `run`: how the query went in retrieval, while its text and database filters are unchanged since. */
+  queries: { id: string; topicId: string; database: string; dryRunCount: number | null; dryRunError: string | null; run?: { count: number | null; failed: boolean } | null }[];
   retrieval: { runs: number; done: number; failed: number; running: number; fetched: number; unique: number; perSource: Record<string, { fetched: number; newUnique: number; failed: number }> };
   table: { papers: number; summarised: number; edited: number };
   ranking: { topicId: string; name: string; importanceRank: number | null; selected: number; scored: number }[];

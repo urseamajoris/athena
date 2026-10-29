@@ -45,7 +45,14 @@ test("one Query node per topic, showing dry-run counts per database", () => {
   const q1 = g.nodes.find((n) => n.id === "query:t1")!;
   assert.equal(q1.key, "PubMed 979 · OpenAlex 1,630");
   assert.deepEqual(q1.parents, ["topic:t1"]);
-  assert.equal(g.nodes.find((n) => n.id === "query:t2")!.key, "PubMed – · OpenAlex failed");
+  assert.equal(g.nodes.find((n) => n.id === "query:t2")!.key, "PubMed not counted · OpenAlex failed");
+});
+
+test("after retrieval, a Query node shows what each search matched when it ran", () => {
+  const ran = QUERIES.map((q) => ({ ...q, run: q.topicId === "t2" ? { count: q.database === "pubmed" ? 2207 : null, failed: q.database === "openalex" } : null }));
+  const g = buildGraph(input({ states: states(3), summary: summary({ queries: ran }) }));
+  assert.equal(g.nodes.find((n) => n.id === "query:t2")!.key, "Ran: PubMed 2,207 · OpenAlex failed");
+  assert.equal(g.nodes.find((n) => n.id === "query:t1")!.key, "PubMed 979 · OpenAlex 1,630");
 });
 
 test("all queries merge into one Corpus; its incoming edges animate while retrieval runs", () => {

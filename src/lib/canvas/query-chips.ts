@@ -66,3 +66,13 @@ export function queryBlocks(q: string): QueryBlock[] {
   if (cur.terms.length) blocks.push(cur);
   return blocks;
 }
+
+/** Remove empty groups ("AND ()"), which a topic with no synonyms can produce and which no database accepts. */
+export function dropEmptyGroups(q: string): string {
+  let s = q;
+  for (let prev = ""; prev !== s; ) {
+    prev = s;
+    s = s.replace(/\s*\b(?:AND|OR|NOT)\s*\(\s*\)/gi, "").replace(/^\s*\(\s*\)\s*(?:AND|OR|NOT)\b\s*/i, "").replace(/\(\s*\)/g, "");
+  }
+  return s.trim();
+}

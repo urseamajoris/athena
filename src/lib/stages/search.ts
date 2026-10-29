@@ -9,6 +9,7 @@ import { getProject, HttpError, logDecision, markDownstreamStale, setStageState 
 import { newId, nowIso, errMsg } from "../util";
 import { adapters } from "../sources";
 import { SEARCH_DATABASES, type SearchDatabase } from "../sources/types";
+import { dropEmptyGroups } from "../canvas/query-chips";
 
 export async function searchState(projectId: string) {
   const p = (await getProject(projectId));
@@ -57,7 +58,8 @@ export async function buildQueries(projectId: string) {
           const k = `${q.topicId}/${q.database}`;
           if (seen.has(k)) continue; // one query per database per topic
           seen.add(k);
-          stmts.push(db.insert(schema.queries).values({ id: newId("q"), projectId, topicId: q.topicId, database: q.database, queryString: q.query, aiQueryString: q.query, rationale: q.rationale }));
+          const query = dropEmptyGroups(q.query); // e.g. "AND ()" for a topic without synonyms: invalid in every database
+          stmts.push(db.insert(schema.queries).values({ id: newId("q"), projectId, topicId: q.topicId, database: q.database, queryString: query, aiQueryString: query, rationale: q.rationale }));
         }
         stmts.push(db.update(schema.projects).set({ criteria: data.criteria, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)));
         await batchWrite(stmts);

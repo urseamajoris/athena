@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import { Box, Square } from "lucide-react";
 import { Legend } from "../categories";
@@ -8,6 +8,15 @@ import { cx } from "../ui";
 import { useReducedMotion, useTheme, useVizMode } from "./support";
 import { AXIS_NOTE, countBy, place, type MapPoint } from "./paper-points";
 import { categoriesFor, categoryVar, COLOR_BY, type ColorBy } from "@/lib/shared/categories";
+
+/** Touch-only screens (no hover): the legend and chart hints say "tap" and "pinch", not "hover" and "scroll". */
+const NO_HOVER = "(hover: none)";
+function subHover(cb: () => void) {
+  const mq = window.matchMedia(NO_HOVER);
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+}
+const useTouchOnly = () => useSyncExternalStore(subHover, () => window.matchMedia(NO_HOVER).matches, () => false);
 
 const PaperMap3D = dynamic(() => import("./PaperMap3D"), { ssr: false, loading: () => <div className="flex h-[380px] items-center justify-center text-12 text-fg-2">Loading the 3D map…</div> });
 
@@ -42,9 +51,10 @@ function PaperMap2D({ points, colorBy, topics, isolated, highlight, onOpen, labe
 /**
  * Papers as points, coloured and shaped by category, with a legend that highlights (hover) and isolates (click)
  * a category, and a "Color by" switch. 3D when WebGL is available, 2D otherwise or on request. Decorative to the
- * task: every number it shows is also in the legend counts and the caption.
+ * task: every number it shows is also in the legend counts and the caption. `of` is the number of papers in the
+ * review when the caller already filtered `points` (e.g. by article type), so the caption says "Showing X of Y".
  */
-export function PaperMap({ points, colorBy, onColorBy, topics, onOpen, layers, title, dimUnselected = false, colorChoices }: { points: MapPoint[]; colorBy: ColorBy; onColorBy: (c: ColorBy) => void; topics: { id: string; name: string }[]; onOpen: (id: string) => void; layers: number; title: string; dimUnselected?: boolean; colorChoices?: ColorBy[] }) {
+export function PaperMap({ points, colorBy, onColorBy, topics, onOpen, layers, title, dimUnselected = false, colorChoices, of }: { points: MapPoint[]; colorBy: ColorBy; onColorBy: (c: ColorBy) => void; topics: { id: string; name: string }[]; onOpen: (id: string) => void; layers: number; title: string; dimUnselected?: boolean; colorChoices?: ColorBy[]; of?: number }) {
   const [pref, setPref] = useState<"auto" | "2d">("auto");
   const mode = useVizMode(pref);
   const reduced = useReducedMotion();
@@ -53,8 +63,11 @@ export function PaperMap({ points, colorBy, onColorBy, topics, onOpen, layers, t
   const [highlight, setHighlight] = useState<string | null>(null);
   const counts = useMemo(() => countBy(points), [points]);
   const scored = points.some((p) => p.score !== null);
-  const caption = `${points.length} papers. ${AXIS_NOTE(scored, colorBy)}${dimUnselected ? " Faded: not selected for appraisal." : ""}`;
+  const touch = useTouchOnly();
   const shown = isolated ? points.filter((p) => p.cat === isolated) : points;
+  const total = of ?? points.length;
+  const caption = `${shown.length < total ? `Showing ${shown.length} of ${total} papers` : `${total} papers`}. ${AXIS_NOTE(scored, colorBy)}${dimUnselected ? " Faded: not selected for appraisal." : ""}`;
+  const dimLabel = (COLOR_BY.find((c) => c.key === colorBy)?.label ?? colorBy).toLowerCase();
   return (
     <figure className="rounded-md border border-line bg-bg-1 p-3">
       <figcaption className="flex flex-wrap items-center justify-between gap-2">
@@ -73,7 +86,7 @@ export function PaperMap({ points, colorBy, onColorBy, topics, onOpen, layers, t
           )}
         </span>
       </figcaption>
-      <Legend dim={colorBy} topics={topics} counts={counts} highlight={highlight} isolated={isolated} onHighlight={setHighlight} onIsolate={setIsolated} className="mt-2" title={isolated ? `Showing only one category (${counts[isolated] ?? 0} papers). Click it again to show all.` : "Key: hover to highlight, click to show only that category"} />
+      <Legend dim={colorBy} topics={topics} counts={counts} highlight={highlight} isolated={isolated} onHighlight={setHighlight} onIsolate={setIsolated} className="mt-2" title={isolated ? `Showing only one category (${counts[isolated] ?? 0} papers). ${touch ? "Tap" : "Click"} it again to show all.` : touch ? `Key (${dimLabel}): tap a category to show only that one` : `Key (${dimLabel}): hover or focus to highlight, click to show only that category`} />
       <div className={cx("mt-2", !mode && "h-[300px]")}>
         {mode === "3d" ? (
           <PaperMap3D points={shown} colorBy={colorBy} topics={topics} theme={theme} isolated={null} highlight={highlight} animate={!reduced} onOpen={onOpen} layers={layers} label={caption} dimUnselected={dimUnselected} />
@@ -81,7 +94,7 @@ export function PaperMap({ points, colorBy, onColorBy, topics, onOpen, layers, t
           <PaperMap2D points={shown} colorBy={colorBy} topics={topics} isolated={null} highlight={highlight} onOpen={onOpen} label={caption} dimUnselected={dimUnselected} />
         ) : null}
       </div>
-      <p className="mt-2 text-12 text-fg-2">{caption}{mode === "3d" ? " Drag to turn, scroll to zoom." : ""}</p>
+      <p className="mt-2 text-12 text-fg-2">{caption}{mode === "3d" ? (touch ? " Drag to turn, pinch to zoom." : " Drag to turn, scroll to zoom.") : ""}</p>
     </figure>
   );
 }
