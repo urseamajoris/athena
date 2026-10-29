@@ -57,7 +57,9 @@ export function QuestionsPanel() {
   const { projectId, refresh, states, graph, input } = useSession();
   const { data, error, isLoading, mutate } = useQuestions();
   // Demo mode: the novelty search returns recorded sample records, which the verdict must say.
-  const demo = !!useApi<{ mockMode: boolean }>("/api/status").data?.mockMode;
+  const status = useApi<{ mockMode: boolean }>("/api/status").data;
+  const demo = !!status?.mockMode;
+  const known = !!status; // until the mode is known, no "may already be studied" warning (demo records would flash it)
   const [err, setErr] = useState<unknown>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -110,7 +112,7 @@ export function QuestionsPanel() {
               const v = noveltyVerdict(q, { demo });
               // Top records whose titles look like this very question: warned about on the card itself, not only in
               // the reasoning. Not in demo mode, where the records are recorded samples unrelated to the question.
-              const same = demo ? [] : q.noveltyMatches.filter((_, j) => v.close[j]);
+              const same = demo || !known ? [] : q.noveltyMatches.filter((_, j) => v.close[j]);
               return (
               <li key={q.id} className={cx("rounded-md border p-3", q.chosen ? "border-fg-1" : "border-line")} aria-label={`Candidate ${i + 1}`}>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">

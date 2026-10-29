@@ -14,9 +14,13 @@ const I = { className: "h-3 w-3", strokeWidth: 2, "aria-hidden": true } as const
 /** What "found" means, in one line: shown wherever the verdict badges are explained. */
 export const FOUND_MEANS = "Found means the words are in the paper, not that they prove the answer.";
 
-/** ", in two parts" for a verified quote joined from separate passages with "…" (counted as the check counts them). */
-export function partsSuffix(c: { verified: boolean; quote?: string }) {
-  return c.verified && c.quote ? partsLabel(c.quote) : "";
+/**
+ * ", in two parts" for a verified quote joined from separate passages with "…" (counted as the check counts them).
+ * Only when the stored check itself says so: a quote verified by the older check (one span across all parts) shows
+ * the plain wording until it is re-checked.
+ */
+export function partsSuffix(c: { verified: boolean; quote?: string; verificationNote?: string | null }) {
+  return c.verified && c.quote && (c.verificationNote ?? "").startsWith("Found word for word, in") ? partsLabel(c.quote) : "";
 }
 
 /** The quote check's verdict, always visible and never colour-only (icon + text). */

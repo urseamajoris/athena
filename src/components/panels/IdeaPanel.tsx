@@ -461,7 +461,7 @@ export function TopicPanel({ topicId }: { topicId: string }) {
         <div role="status" className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-fg-0">
           <p className="flex items-start gap-2">
             <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden />
-            <span><strong className="font-semibold">Step 2 is open again.</strong> You changed a topic, so the topics need approving again. Use “Go to step 2” below, check the topics, then press “Use these topics” to continue.</span>
+            <span><strong className="font-semibold">Step 2 is open again.</strong> You changed a topic, so the topics need approving again. Check the topics, then press “Use these topics” below to continue.</span>
           </p>
         </div>
       )}

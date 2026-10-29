@@ -10,5 +10,5 @@ export function paperCount(claimIds: string[], claims: Record<string, { paperId:
 export function paperCountLabel(n: number, kind: string): { text: string; title: string } | null {
   if (n < 1) return null;
   if (n === 1 && kind === "known") return { text: "1 paper only", title: "All its quotes come from one paper: this is one study's finding, not agreement between papers." };
-  return { text: `${n} paper${n === 1 ? "" : "s"}`, title: `Its quotes come from ${n === 1 ? "one paper" : `${n} different papers`}.` };
+  return { text: `${n} paper${n === 1 ? "" : "s"}`, title: `Its quotes come from ${n === 1 ? "one paper" : `${n} different papers. Check they are separate studies, not a preprint and its journal version or two reports of one cohort`}.` };
 }

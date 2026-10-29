@@ -36,7 +36,7 @@ const MIN_CHARS = 80;
 const MIN_WORDS = 12;
 
 /** Sentence boundaries: after . ! or ? and before a capital or digit, but not after a title or "et al.". */
-const BOUNDARY = /(?<!\b(?:Dr|Mr|Mrs|Ms|Prof|Fig|No|vs|al|St|Inc|Ltd|Co|e\.g|i\.e)\.)(?<=[.!?])\s+(?=["“(]?[A-Z0-9])/g;
+const BOUNDARY = /(?<!\b(?:Dr|Mr|Mrs|Ms|Prof|Fig|No|vs|al|St|Inc|Ltd|Co|e\.g|i\.e)\.)(?<=[.!?])\s+(?=["“(]?[A-Z0-9]|©|\([cC]\)\s)/g;
 
 export function isBoilerplateSentence(s: string): boolean {
   return BOILERPLATE.some((re) => re.test(s.trim()));

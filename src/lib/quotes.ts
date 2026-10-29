@@ -9,8 +9,11 @@ const MAP: Record<string, string> = {
   "‐": "-", "‑": "-", "‒": "-", "–": "-", "—": "-", "−": "-", "­": "-",
 };
 
-/** Quote marks and apostrophes, in any style: dropped on both sides (models swap straight, curly and none). */
-const QUOTE_MARKS = /["'`´‘’‚‛′“”„″«»]/;
+/** Double quote marks, in any style: dropped on both sides. Apostrophes are kept (as "'"): "patient's" ≠ "patients". */
+const QUOTE_MARKS = /["`´‚“”„″«»]/;
+const APOSTROPHES = /[‘’‛′]/;
+/** No space is kept next to these, so "n = 463" = "n=463", "93 %" = "93%" and "p < 0.05" = "p<0.05". */
+const TIGHT = new Set(["=", "%", "<", ">", "±", "/", "+"]);
 
 /**
  * Spans skipped on BOTH sides before matching. They are layout or citation apparatus, not content, and models
@@ -28,20 +31,42 @@ const SKIPS = [
 ];
 
 /**
- * Normalise and keep a map from each normalised char back to its original index. Whitespace, hyphens/dashes and
- * quote marks are dropped on both sides, so "In-depth" = "In depth" = "Indepth" (and the PDF line-break
- * hyphenation "in-\ndepth"), "n = 463" = "n=463" and "93 %" = "93%". Every letter, digit and other punctuation
- * mark must still match in order, so a changed, added or dropped word still fails.
+ * Normalise and keep a map from each normalised char back to its original index. Whitespace runs become one space
+ * and hyphens/dashes count as a space, so "In-depth" = "In depth" (and the PDF line-break hyphenation "in-\ndepth"),
+ * but word boundaries stay: "a symptomatic" ≠ "asymptomatic". No space is kept next to = % < > ± / +, so
+ * "n = 463" = "n=463". Double quote marks are dropped and curly apostrophes made straight. Every letter, digit and
+ * other punctuation mark must still match in order, so a changed, added or dropped word still fails.
  */
 export function normalizeWithMap(text: string): { norm: string; map: number[] } {
   const skip = new Uint8Array(text.length);
   for (const re of SKIPS) for (const m of text.matchAll(re)) for (let k = m.index!; k < m.index! + m[0].length; k++) skip[k] = 1;
   let norm = "";
   const map: number[] = [];
+  let pendingSpace = -1; // index of a space (or dash) waiting to see what comes next
   for (let i = 0; i < text.length; i++) {
     if (skip[i]) continue;
-    const ch = MAP[text[i]] ?? text[i];
-    if (ch === "-" || QUOTE_MARKS.test(ch) || /\s/.test(ch)) continue;
+    let ch = MAP[text[i]] ?? text[i];
+    if (QUOTE_MARKS.test(ch)) continue;
+    if (ch === "'" || APOSTROPHES.test(ch)) {
+      // An apostrophe sits inside a word ("patient's") or after a plural s ("patients' views"); any other single
+      // quote is a quotation mark ('most') and is dropped like a double one.
+      const prev = text[i - 1] ?? "", next = text[i + 1] ?? "";
+      const letter = (c: string) => /\p{L}/u.test(c);
+      if (!((letter(prev) && letter(next)) || (/s/i.test(prev) && !letter(next)))) continue;
+      ch = "'";
+    }
+    if (ch === "-" || /\s/.test(ch)) {
+      if (pendingSpace < 0) pendingSpace = i;
+      continue;
+    }
+    if (pendingSpace >= 0) {
+      // No space at the start, after "(" or "[", or before closing punctuation (a removed citation leaves "word ." behind).
+      if (norm && !" ([".includes(norm[norm.length - 1]) && !TIGHT.has(norm[norm.length - 1]) && !TIGHT.has(ch) && !".,;:!?)]".includes(ch)) {
+        norm += " ";
+        map.push(pendingSpace);
+      }
+      pendingSpace = -1;
+    }
     const lower = ch.toLowerCase();
     // Keep a 1:1 mapping (toLowerCase can expand some chars; keep first char).
     norm += lower[0];
@@ -51,7 +76,7 @@ export function normalizeWithMap(text: string): { norm: string; map: number[] } 
 }
 
 export function normalizeQuote(q: string): string {
-  return normalizeWithMap(q.trim()).norm;
+  return normalizeWithMap(q.trim()).norm.trim();
 }
 
 /** Where a quote is cut: an ellipsis ("...", ". . .", "…"), with or without square brackets. */
@@ -62,7 +87,8 @@ const ELLIPSIS = /\[?(?:\.\s?){2}\.\.*\]?|\[?…\]?/;
  * ("found word for word, in two parts") counts parts exactly as the check does.
  */
 export function quoteParts(quote: string): string[] {
-  return quote.trim().split(ELLIPSIS).map((p) => p.trim()).filter((p) => normalizeQuote(p).length > 0);
+  // A part with no letter or digit (the full stop after a trailing "…") is punctuation, not a part.
+  return quote.trim().split(ELLIPSIS).map((p) => p.trim()).filter((p) => /[\p{L}\p{N}]/u.test(p));
 }
 
 /** "two", "three", ... for the part count in notes and badges. */
@@ -98,7 +124,7 @@ export function verifyQuote(source: string, quote: string, pre?: { norm: string;
   const { norm, map } = pre ?? normalizeWithMap(source);
   const raw = quoteParts(q);
   // Sentence punctuation either side of an ellipsis (and at the very end) belongs to the cut, not to the words.
-  const pieces = raw.map((p) => normalizeQuote(p).replace(/^[.,;:!?]+|[.,;:]+$/g, ""));
+  const pieces = raw.map((p) => normalizeQuote(p).replace(/^[\s.,;:!?]+|[\s.,;:]+$/g, ""));
   if (!pieces.length || pieces.some((p) => !p)) return fail("Quote is empty after normalisation.");
   if (pieces.length > 1 && raw.some((p, i) => wordCount(p) < MIN_PART_WORDS || pieces[i].length < MIN_PART_CHARS)) {
     return fail(`Each part of a quote joined with "…" must be at least ${MIN_PART_WORDS} words long to verify.`);
@@ -106,22 +132,14 @@ export function verifyQuote(source: string, quote: string, pre?: { norm: string;
   if (pieces.length === 1 && pieces[0].length < 8) return fail("Quote is too short to verify reliably.");
   const found: { at: number; len: number }[] = [];
   let from = 0;
-  let inOrder = true;
   for (let i = 0; i < pieces.length; i++) {
     const p = pieces[i];
-    // Prefer the next occurrence after the previous part; otherwise any occurrence that does not overlap a part
-    // already found (models often quote the body and then the abstract, or the other way round).
-    let at = norm.indexOf(p, from);
+    // Each part after the previous one, as "…" promises: parts in another order are a different statement.
+    const at = norm.indexOf(p, from);
     if (at < 0) {
-      for (let k = norm.indexOf(p); k >= 0; k = norm.indexOf(p, k + 1)) {
-        if (!found.some((f) => k < f.at + f.len && f.at < k + p.length)) {
-          at = k;
-          inOrder = false;
-          break;
-        }
+      if (pieces.length > 1 && norm.includes(p)) {
+        return fail(`Each part is in the paper word for word, but part ${i + 1} comes earlier in the paper than the part before it: the quote puts separate passages in a different order.`);
       }
-    }
-    if (at < 0) {
       return fail(pieces.length > 1 ? `Part ${i + 1} of ${pieces.length} not found in the source text: "${raw[i].slice(0, 80)}"` : "Quote not found in the retrieved source text.");
     }
     found.push({ at, len: p.length });
@@ -130,7 +148,7 @@ export function verifyQuote(source: string, quote: string, pre?: { norm: string;
   const parts = found.map((f) => ({ start: map[f.at], end: map[f.at + f.len - 1] + 1 }));
   const note =
     parts.length > 1
-      ? `Found word for word, in ${countWord(parts.length)} parts: the quote joins separate passages with "…".${inOrder ? "" : " The parts are in a different order in the paper."}`
+      ? `Found word for word, in ${countWord(parts.length)} parts: the quote joins separate passages with "…".`
       : "Verified: exact match after whitespace/punctuation normalisation.";
   return { verified: true, start: parts[0].start, end: parts[0].end, parts, note };
 }
@@ -142,7 +160,8 @@ export function verifyQuote(source: string, quote: string, pre?: { norm: string;
  */
 export function joinedWithoutEllipsis(source: string, quote: string, pre?: { norm: string; map: number[] }): string | null {
   if (quoteParts(quote).length !== 1) return null;
-  const sentences = quote.trim().split(/(?<=[.!?])\s+(?=["“(]?[A-Z0-9])/).filter((s) => wordCount(s) >= MIN_PART_WORDS);
+  // Every sentence must be found (none skipped as "too short"), or the note could vouch for an inserted sentence.
+  const sentences = quote.trim().split(/(?<=[.!?])\s+(?=["“(]?[A-Z0-9])/).filter((s) => wordCount(s) > 0);
   if (sentences.length < 2) return null;
   const p = pre ?? normalizeWithMap(source);
   const found = sentences.map((s) => verifyQuote(source, s, p));

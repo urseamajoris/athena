@@ -18,12 +18,11 @@ test("fabricated quote fails", () => {
   const r = verifyQuote(src, "Adoption was high in all provinces");
   assert.equal(r.verified, false);
 });
-test("ellipsis parts are each verified; the note says when they are out of the paper's order", () => {
+test("ellipsis parts are each verified, in the paper's order; swapped parts are not verified but the note says why", () => {
   const inOrder = verifyQuote(src, "A total of 1,204 patients ... Adoption was limited by connectivity");
   assert.equal(inOrder.verified, true);
-  assert.doesNotMatch(inOrder.note, /different order/);
   const swapped = verifyQuote(src, "Adoption was limited by connectivity ... A total of 1,204 patients");
-  assert.equal(swapped.verified, true);
+  assert.equal(swapped.verified, false);
   assert.match(swapped.note, /different order/);
   assert.equal(verifyQuote(src, "Adoption was limited by bandwidth ... A total of 1,204 patients").verified, false);
 });
@@ -61,7 +60,10 @@ import { joinedWithoutEllipsis, normalizeQuote, partsLabel, quoteParts } from ".
 test("hyphens, spaces around = and %, and quote marks do not break a match", () => {
   const t = "In-depth interviews were conducted with 50 HCWs. The majority were female (n = 463, 93 %), and 'most' were nurses.";
   assert.equal(verifyQuote(t, "In depth interviews were conducted with 50 HCWs.").verified, true);
-  assert.equal(verifyQuote(t, "Indepth interviews were conducted with 50 HCWs").verified, true);
+  // Word boundaries are kept: a hyphen counts as a space, never as nothing ("a symptomatic" ≠ "asymptomatic").
+  assert.equal(verifyQuote(t, "Indepth interviews were conducted with 50 HCWs").verified, false);
+  assert.equal(verifyQuote("Of these, 40 were a symptomatic carriers.", "40 were asymptomatic carriers").verified, false);
+  assert.equal(verifyQuote("The patient's views were sought.", "the patients views were sought").verified, false);
   assert.equal(verifyQuote(t, "The majority were female (n=463, 93%), and “most” were nurses.").verified, true);
   assert.equal(normalizeQuote("In-depth"), normalizeQuote("in depth"));
   // changed numbers or words still fail
@@ -90,11 +92,10 @@ test("an ellipsis quote is verified only if every part is found, and stores each
   assert.deepEqual([r.start, r.end], [r.parts[0].start, r.parts[0].end]);
   assert.ok(!paper.slice(r.start!, r.end!).includes("worked full time"));
 });
-test("ellipsis parts may come from anywhere in the paper, but the note says when the order differs", () => {
+test("ellipsis parts out of the paper's order are not verified: the note says each part is there, in another order", () => {
   const r = verifyQuote(paper, "Of 400 222 HCWs invited, 22 496 (5.6%) completed the questionnaire (). ... A total of 3754 and 8439 HCWs with and without comorbidities, respectively, were included.");
-  assert.equal(r.verified, true);
-  assert.match(r.note, /in two parts.*different order/);
-  assert.ok(r.parts[1].start < r.parts[0].start);
+  assert.equal(r.verified, false);
+  assert.match(r.note, /different order/);
   // A passage cannot be used twice: the same words repeated are not two passages.
   assert.equal(verifyQuote(paper, "Among HCWs with comorbidities, work ability was lower. ... Among HCWs with comorbidities, work ability was lower.").verified, false);
 });

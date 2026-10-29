@@ -66,7 +66,7 @@ export async function synthesisJob(ctx: JobContext) {
                   const a = apps.find((y) => y.paperId === x.id);
                   const s = sums.find((y) => y.paperId === x.id);
                   // First author and journal let the model tell a preprint and its journal version apart as one study.
-                  return `${x.id} — ${x.title} — ${x.authors[0] ?? "n/a"} — ${x.journal ?? "n/a"} — ${x.year ?? "n/a"} —${STUDY_TYPE_LABEL[(s?.studyType ?? "not_reported") as StudyType] ?? s?.studyType} — ${a?.textSource === "full_text" ? "full text" : "abstract only"}`;
+                  return `${x.id} — ${x.title} — ${x.authors[0] ?? "n/a"} — ${x.journal ?? "n/a"} — ${x.year ?? "n/a"} — ${STUDY_TYPE_LABEL[(s?.studyType ?? "not_reported") as StudyType] ?? s?.studyType} — ${a?.textSource === "full_text" ? "full text" : "abstract only"}`;
                 })
                 .join("\n"),
             ),

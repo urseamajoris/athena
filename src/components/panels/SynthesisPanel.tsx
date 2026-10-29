@@ -30,7 +30,7 @@ export interface SynData {
 
 const KIND_LABEL = { known: "Known", contested: "Contested", unknown: "Unknown" } as const;
 // "Known" does not claim agreement: a statement may rest on one paper, which its paper count then says.
-const KIND_HELP = { known: "What the papers report. A finding from 1 paper is one study, not agreement: check the paper count", contested: "Where the papers disagree", unknown: "What has not been studied yet: the gaps your question can fill" } as const;
+const KIND_HELP = { known: "What the papers report. A finding from 1 paper is one study, not agreement; with more, check they are separate studies", contested: "Where the papers disagree", unknown: "What has not been studied yet: the gaps your question can fill" } as const;
 // "Contested" and the contradictions box share one categorical hue and the balance icon; amber stays reserved for
 // "Your turn" and "Out of date", red for errors.
 const KIND_ICON = { known: CheckCircle2, contested: Scale, unknown: HelpCircle } as const;
@@ -135,8 +135,6 @@ export function SynthesisPanel() {
               )}
               {(["known", "contested", "unknown"] as const).map((kind) => {
                 const Icon = KIND_ICON[kind];
-                // Papers this topic's synthesis drew on, so an empty section says how many were compared.
-                const compared = new Set([...t.cells.map((c) => c.paperId), ...t.items.flatMap((i) => i.claimIds.map((id) => data.claims[id]?.paperId))].filter(Boolean)).size;
                 return (
                 <section key={kind} aria-label={KIND_LABEL[kind]} className="rounded-md border border-line p-3">
                   <h3 className={cx("flex items-center gap-2 font-semibold", KIND_TONE[kind])}><Icon className="h-4 w-4" strokeWidth={2} aria-hidden />{KIND_LABEL[kind]}</h3>
@@ -155,7 +153,7 @@ export function SynthesisPanel() {
                         <div className="mt-1 flex flex-wrap items-center gap-1"><PaperCount claimIds={i.claimIds} kind={kind} claims={data.claims} />{i.claimIds.map((id) => <ClaimChip key={id} id={id} claims={data.claims} papers={data.papers} stale={stale} />)}</div>
                       </li>
                     ))}
-                    {!t.items.some((i) => i.kind === kind) && <li className="italic text-fg-2">None found among the {compared === 1 ? "1 paper" : `${compared} papers`} compared.</li>}
+                    {!t.items.some((i) => i.kind === kind) && <li className="italic text-fg-2">None found.</li>}
                   </ul>
                 </section>
                 );

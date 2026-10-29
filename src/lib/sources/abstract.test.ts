@@ -51,3 +51,9 @@ test("ordinary study sentences are not mistaken for boilerplate", () => {
     "Sick leave data were available for 92% of participants.",
   ]) assert.equal(isBoilerplateSentence(s), false, s);
 });
+
+test("a copyright line right after the conclusion is cut without the conclusion", () => {
+  const a = "Background: Burnout is common in ICU nurses. Methods: A randomised trial of 120 nurses. Results: Burnout fell by 30%. Conclusions: Mindfulness training reduced burnout scores substantially at six months. © 2021 Elsevier Ltd. All rights reserved.";
+  const out = usableAbstract(a)!;
+  assert.match(out, /reduced burnout scores substantially at six months\.$/);
+});
