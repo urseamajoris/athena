@@ -227,7 +227,7 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
   const criteria = (await db.select({ criteria: schema.projects.criteria }).from(schema.projects).where(eq(schema.projects.id, projectId)).get())?.criteria ?? null;
   const paperIds = (await db.select({ id: schema.papers.id }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all()).map((p) => p.id);
   const sums = (await db.select({ edited: schema.paperSummaries.edited }).from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, ids(paperIds))).all());
-  const scores = (await db.select({ topicId: schema.scores.topicId, selected: schema.scores.selected, subScores: schema.scores.subScores }).from(schema.scores).where(inArray(schema.scores.topicId, ids(topics.map((t) => t.id)))).all());
+  const scores = (await db.select({ topicId: schema.scores.topicId, paperId: schema.scores.paperId, selected: schema.scores.selected, subScores: schema.scores.subScores }).from(schema.scores).where(inArray(schema.scores.topicId, ids(topics.map((t) => t.id)))).all());
   const apps = (await db.select({ id: schema.appraisals.id, status: schema.appraisals.status, textSource: schema.appraisals.textSource }).from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids(paperIds))).all());
   const cl = (await db.select({ verified: schema.claims.verified, notReported: schema.claims.notReported, userAccepted: schema.claims.userAccepted, userRejected: schema.claims.userRejected }).from(schema.claims).where(inArray(schema.claims.appraisalId, ids(apps.map((a) => a.id)))).all());
   const items = (await db.select({ kind: schema.synthesisItems.kind }).from(schema.synthesisItems).where(eq(schema.synthesisItems.projectId, projectId)).all());
@@ -260,7 +260,7 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
       unique: paperIds.length,
       perSource,
     },
-    table: { papers: paperIds.length, summarised: sums.length, edited: sums.filter((s) => s.edited).length },
+    table: { papers: paperIds.length, summarised: sums.length, edited: sums.filter((s) => s.edited).length, selectedPapers: new Set(scores.filter((s) => s.selected).map((s) => s.paperId)).size },
     ranking: [...topics]
       .sort((a, b) => (a.importanceRank ?? 99) - (b.importanceRank ?? 99) || a.sortOrder - b.sortOrder)
       .map((t) => {

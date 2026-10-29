@@ -17,8 +17,14 @@ const STOP = new Set(
     "interested want wants know knowledge gap gaps effect effects impact impacts role relationship relationships association associations influence " +
     "influences factor factors help helps helping improve improves improving affect affects affecting reduce reduces reducing increase increases " +
     "increasing recover recovers recovering control controls shape shapes compare compared comparing study studies research review evidence measure " +
-    "measured measuring any all kind kinds aged way ways lot lots get gets make makes some other").split(" "),
+    "measured measuring any all kind kinds aged way ways lot lots get gets make makes some other whether if because since means").split(" "),
 );
+// Inside an answer, words that make a clause of it ("less sleep means lower grades"): an answer gives search words
+// only from the terms around them ("sleep", "grades"), never the sentence.
+const ANSWER_STOP = new Set([
+  ...STOP,
+  ..."mean meaning lower higher better worse more less fewer lead leads leading cause causes caused become becomes think feel like linked link links".split(" "),
+]);
 const PEOPLE = /^(adults?|children|child|kids|nurses?|workers?|students?|pat(?:ie|ei)nts?|teenagers?|adolescents?|youth|women|men|mothers?|fathers?|parents?|people|persons?|staff|doctors?|physicians?|clinicians?|residents?|infants?|carers?|caregivers?|users?|girls?|boys?|families|employees?|survivors?|veterans?|elderly|seniors?|pupils?|learners?|teachers?|midwives|pharmacists?|athletes?|smokers?|drivers?|populations?)$/i;
 const ANYWHERE = /^(any|anywhere|any (country|countries|place|setting|where)|all countries|global(ly)?|worldwide|world ?wide|not important|no preference|doesn'?t matter|does not matter)$/i;
 // Answers that name no place even though they are longer ("any country is fine", "not sure", "no specific country").
@@ -97,7 +103,7 @@ export const respellCommon = (text: string) => text.replace(/[A-Za-z]{6,}/g, (w)
  * Key phrases in the user's words: runs of words between stop words and punctuation, so multi-word concepts stay
  * together ("hip fracture surgery", "long COVID", "peer support groups"). At most four words per phrase.
  */
-export function phrases(text: string, vocabFrom: string[] = []): string[] {
+export function phrases(text: string, vocabFrom: string[] = [], stop: Set<string> = STOP): string[] {
   const vocab = [...new Set(vocabFrom.join(" ").toLowerCase().split(/[^a-z0-9-]+/).filter((w) => w.length >= 5))];
   const out: string[] = [];
   let run: string[] = [];
@@ -111,7 +117,7 @@ export function phrases(text: string, vocabFrom: string[] = []): string[] {
   };
   for (const tok of text.replace(/[^A-Za-z0-9'’\-\s]+/g, " | ").split(/\s+/)) {
     const w = tok.replace(/^[-'’]+|[-'’]+$/g, "");
-    if (!w || tok === "|" || STOP.has(norm(w))) flush();
+    if (!w || tok === "|" || stop.has(norm(w))) flush();
     else run.push(respell(w, vocab));
   }
   flush();
@@ -151,10 +157,11 @@ export function ideaTopics(idea: string, answers: Answers = {}): MockTopic[] {
   const fromAnswer = (field: ScopeField, label: string) => {
     const a = answers[field];
     if (!a || (field === "setting" && !isSpecificPlace(a))) return;
-    const p = phrases(a.split(/[,;]/)[0], answerText)[0];
+    const p = phrases(a.split(/[,;]/)[0], answerText, ANSWER_STOP)[0];
     if (!p) return;
     const near = topics.find((t) => shares(t.name, p));
-    if (near) near.synonyms = [...new Set([...near.synonyms, inSentence(p)])].slice(0, 6);
+    // A synonym is a short term; a longer run of words from an answer is not one.
+    if (near) near.synonyms = p.split(" ").length <= 3 ? [...new Set([...near.synonyms, inSentence(p)])].slice(0, 6) : near.synonyms;
     else topics.push({ name: capFirst(p), synonyms: synonymsFor(p), controlledTerms: [], rationale: `(mock) From your answer about ${label}: "${inSentence(p)}".` });
   };
   fromAnswer("population", "who to study");
@@ -201,8 +208,15 @@ export function summaryOf(raw: unknown): Record<string, string | null> {
     }),
   );
 }
+/** At most `max` characters, cut between words (never inside one) and without a dangling "of a" at the end. */
+export function upToWord(s: string, max: number): string {
+  if (s.length <= max) return s;
+  const words = s.slice(0, max + 1).split(/\s+/).slice(0, -1);
+  while (words.length > 1 && STOP.has(norm(words[words.length - 1]))) words.pop();
+  return words.join(" ") || s.slice(0, max);
+}
 /** The first clause of an answer, for use inside a sentence. */
-export const clause = (s: string | null | undefined) => (s ? inSentence(s.split(/[,;(]/)[0].trim().slice(0, 60)) : null);
+export const clause = (s: string | null | undefined) => (s ? inSentence(upToWord(s.split(/[,;(]/)[0].trim(), 90)) : null);
 /** The place the user named, or null for "anywhere" / no answer. */
 export const namedPlace = (sum: Record<string, string | null>) => (isSpecificPlace(sum.setting) ? clause(sum.setting) : null);
 
@@ -262,12 +276,20 @@ function contrastOf(name: string): string {
   return /[a-z]s$/.test(last) && !/(ss|us|is)$/.test(last) && !NO_SINGULAR.has(last) ? `Fewer ${a}` : `Less ${a}`;
 }
 
-/** The outcome in the idea's verb: "help older adults recover after hip fracture surgery" → "recovery after hip fracture surgery". */
+/**
+ * The outcome in the idea's verb: "help older adults recover after hip fracture surgery" → "recovery after hip fracture
+ * surgery", or just "recovery" when the population already says what it is after ("adults … after surgical repair of a
+ * hip fracture"), so the question does not say it twice.
+ */
 function outcomeInIdea(idea: string, pop: string | null): string | null {
   const m = idea.match(/\brecover(?:y|s|ing|ed)?\b(?:\s+(after|from)\s+([^?.!,;]+))?/i);
   if (!m) return null;
   const what = m[2] ? inSentence(m[2].trim().split(/\s+/).slice(0, 5).join(" ")) : null;
-  return what && !(pop ?? "").toLowerCase().includes(what.toLowerCase()) ? `recovery ${m[1].toLowerCase()} ${what}` : "recovery";
+  if (!what) return "recovery";
+  const popWords = new Set((pop ?? "").toLowerCase().split(/[^a-z0-9]+/));
+  const content = what.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !STOP.has(w));
+  const repeated = content.length > 0 && content.filter((w) => popWords.has(w)).length * 2 >= content.length;
+  return repeated ? "recovery" : `recovery ${m[1].toLowerCase()} ${what}`;
 }
 
 /**

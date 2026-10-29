@@ -187,9 +187,10 @@ export function buildGraph(input: GraphInput): Graph {
   const s6 = st(states, 6);
   if (s5 !== "not_started" && nodes.some((n) => n.id === "corpus")) {
     const tableState: StageState = s5 !== "approved" ? s5 : s6 === "not_started" ? "needs_review" : s6;
-    const selected = (s?.ranking ?? []).reduce((a, t) => a + t.selected, 0);
+    // Different papers (a paper selected in two topics is appraised once), not the sum of the topics' counts.
     const t = s?.table;
-    const key = !t ? "Summary table" : s5 === "running" ? `${fmt(t.summarised)} of ${fmt(t.papers)} summarised` : s6 === "not_started" || s6 === "running" ? `${plural(t.papers, "row")}${s6 === "running" ? " · ranking" : ""}` : `${plural(t.papers, "row")} · ${fmt(selected)} selected`;
+    const selected = t?.selectedPapers ?? (s?.ranking ?? []).reduce((a, x) => a + x.selected, 0);
+    const key = !t ? "Summary table" : s5 === "running" ? `${fmt(t.summarised)} of ${fmt(t.papers)} summarised` : s6 === "not_started" || s6 === "running" ? `${plural(t.papers, "row")}${s6 === "running" ? " · ranking" : ""}` : `${plural(t.papers, "row")} · ${plural(selected, "paper")} selected`;
     add({ id: "table", kind: "table", stages: [5, 6], title: "Summary & ranking", status: toStatus(tableState), key, parents: ["corpus"], progress: jobProgress(input.jobs, s5 === "approved" ? 6 : 5), staleReason: tableState === "stale" ? reason(s5 === "stale" ? 5 : 6) : undefined });
   }
 

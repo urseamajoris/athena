@@ -4,6 +4,7 @@ import { db, schema } from "../db";
 import { europePmcFullText, europePmcLookup } from "../sources/europepmc";
 import { unpaywall } from "../sources/unpaywall";
 import { httpFetch } from "../sources/http";
+import { fullTextMatchesTitle, ownTitle } from "../sources/match";
 import { newId, errMsg } from "../util";
 
 type Paper = typeof schema.papers.$inferSelect;
@@ -25,13 +26,25 @@ export interface TextResult {
  *  1. Europe PMC full text (PMC open-access subset; Europe PMC only serves fullTextXML for OA articles)
  *  2. Unpaywall best OA location with a CC licence → PDF text extracted in memory (the PDF itself is never stored)
  *  3. otherwise the abstract, labelled abstract-only
+ * A full text whose title clearly is not the paper's (a source can file a text under the wrong record) is never
+ * used: quotes would be checked against another paper's words.
  */
 export async function getAppraisalText(paper: Paper, log: (l: string) => void): Promise<TextResult> {
   const existing = (await db.select().from(schema.sourceTexts).where(eq(schema.sourceTexts.paperId, paper.id)).all());
-  const ft = existing.find((e) => e.kind === "full_text");
+  const reasons: string[] = [];
+  let mismatch = false;
+  const belongs = (text: string, from: string) => {
+    if (fullTextMatchesTitle(paper.title, text)) return true;
+    const other = ownTitle(text);
+    reasons.push(`the full text from ${from} is ${other ? `titled “${other.slice(0, 120)}”` : "about a different paper"}`);
+    log(`✗ ${from} full text does not match “${paper.title.slice(0, 60)}”${other ? ` (it is “${other.slice(0, 60)}”)` : ""}; not used`);
+    mismatch = true;
+    return false;
+  };
+  // A stored text from before this check that is not the paper's is skipped (and looked for again below).
+  const ft = existing.find((e) => e.kind === "full_text" && fullTextMatchesTitle(paper.title, e.text));
   if (ft) return { sourceTextId: ft.id, kind: "full_text", note: `Full text from ${ft.source}${ft.license ? ` (licence: ${ft.license})` : ""}.` };
 
-  const reasons: string[] = [];
   // 1. Europe PMC / PMC
   try {
     let pmcid = paper.pmcid;
@@ -43,13 +56,13 @@ export async function getAppraisalText(paper: Paper, log: (l: string) => void): 
     }
     if (pmcid) {
       const t = await europePmcFullText(pmcid, log);
-      if (t) {
+      if (t && belongs(t.text, `Europe PMC (${pmcid})`)) {
         const id = newId("st");
         (await db.insert(schema.sourceTexts).values({ id, paperId: paper.id, kind: "full_text", source: "europepmc", license: license ?? "PMC open-access subset", url: `https://europepmc.org/article/PMC/${pmcid}`, text: t.text, sections: t.sections, fullLength: t.text.length }).run());
         if (!paper.pmcid) (await db.update(schema.papers).set({ pmcid }).where(eq(schema.papers.id, paper.id)).run());
         return { sourceTextId: id, kind: "full_text", note: `Full text from Europe PMC (${pmcid}; licence: ${license ?? "PMC open-access subset"}).` };
       }
-      reasons.push(`${pmcid} has no open full text in Europe PMC`);
+      if (!t) reasons.push(`${pmcid} has no open full text in Europe PMC`);
     } else reasons.push("not in PubMed Central");
   } catch (e) {
     reasons.push(`Europe PMC failed: ${errMsg(e)}`);
@@ -73,12 +86,11 @@ export async function getAppraisalText(paper: Paper, log: (l: string) => void): 
           sections.push({ title: `Page ${i + 1}`, start: full.length });
           full += `${pg.replace(/[ \t]+/g, " ").trim()}\n\n`;
         });
-        if (full.trim().length > 1500) {
+        if (full.trim().length > 1500 && belongs(full, "the open-access PDF")) {
           const id = newId("st");
           (await db.insert(schema.sourceTexts).values({ id, paperId: paper.id, kind: "full_text", source: "unpaywall_pdf", license: u.license, url: u.pdfUrl, text: full.trim(), sections, fullLength: full.trim().length }).run());
           return { sourceTextId: id, kind: "full_text", note: `Full text extracted from an open-access PDF found via Unpaywall (licence: ${u.license}). PDF text extraction can garble tables and columns.` };
-        }
-        reasons.push("open PDF had too little extractable text");
+        } else if (full.trim().length <= 1500) reasons.push("open PDF had too little extractable text");
       } else if (u?.isOa) {
         reasons.push(`open-access copy exists but licence is ${u.license ?? "not stated"}, so it is not used`);
       } else reasons.push("no open-access copy found by Unpaywall");
@@ -89,7 +101,9 @@ export async function getAppraisalText(paper: Paper, log: (l: string) => void): 
 
   // 3. Abstract fallback
   const abs = existing.find((e) => e.kind === "abstract");
-  const note = `Full text was not legally available: ${reasons.join("; ")}.`;
+  const note = mismatch
+    ? `The full text found did not match this paper, so the abstract was used (${reasons.join("; ")}).`
+    : `Full text was not legally available: ${reasons.join("; ")}.`;
   if (abs) return { sourceTextId: abs.id, kind: "abstract", note };
   const text = `TITLE\n${paper.title}\n\nABSTRACT\n${paper.abstract ?? "(no abstract available)"}`;
   const id = newId("st");
