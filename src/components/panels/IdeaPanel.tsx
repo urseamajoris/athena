@@ -94,6 +94,15 @@ export function IdeaPanel() {
     if (data?.awaitingAnswer && !local) answerRef.current?.focus({ preventScroll: true });
   }, [data?.messages.length, data?.awaitingAnswer, local]);
 
+  // Before step 1 is approved the idea saves itself shortly after typing stops, so every "Sharpen my idea" button
+  // (the panel's and the canvas card's) uses what is on screen.
+  useEffect(() => {
+    // Above the early returns (hooks always run); only once the data has loaded, when saveIdea can run.
+    if (!data || ideaApproved || idea.trim() === project.idea.trim() || idea.trim().length < 10) return;
+    const t = setTimeout(() => void saveIdea(), 800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idea, ideaApproved]);
   if (isLoading) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (!data) return null;
@@ -131,14 +140,6 @@ export function IdeaPanel() {
       return false;
     }
   }
-  // Before step 1 is approved the idea saves itself shortly after typing stops, so every "Sharpen my idea" button
-  // (the panel's and the canvas card's) uses what is on screen.
-  useEffect(() => {
-    if (ideaApproved || !dirty || idea.trim().length < 10) return;
-    const t = setTimeout(() => void saveIdea(), 800);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idea, ideaApproved]);
   async function send(e: React.FormEvent) {
     e.preventDefault();
     if (!answer.trim()) return;
