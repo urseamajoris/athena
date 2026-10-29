@@ -15,7 +15,7 @@ import path from "node:path";
 type Any = any;
 const { chromium } = require("playwright") as Any; // the pre-installed Playwright (NODE_PATH)
 const { AxeBuilder } = require("@axe-core/playwright") as Any;
-const Database = require("better-sqlite3") as Any;
+const { createClient } = require("@libsql/client") as Any;
 
 // ---------------------------------------------------------------- options
 const arg = (k: string, d?: string) => process.argv.find((a) => a.startsWith(`--${k}=`))?.split("=")[1] ?? (process.argv.includes(`--${k}`) ? "true" : d);
@@ -166,19 +166,27 @@ async function seed(): Promise<{ F: Fixtures; ids: Record<string, string>; pins:
     }),
   ]);
   // Freeze a running retrieval and a failed summary step (direct DB edits; the job runner never sees them).
-  const db = new Database(DB);
-  const setState = (pid: string, n: number, s: string) => {
-    const row = db.prepare("select stage_states from projects where id = ?").get(pid);
+  const client = createClient({ url: `file:${path.resolve(DB)}` });
+  const db = {
+    prepare: (sql: string) => ({
+      get: async (...args: Any[]) => (await client.execute({ sql, args })).rows[0],
+      all: async (...args: Any[]) => (await client.execute({ sql, args })).rows,
+      run: async (...args: Any[]) => client.execute({ sql, args }),
+    }),
+    close: () => client.close(),
+  };
+  const setState = async (pid: string, n: number, s: string) => {
+    const row = (await db.prepare("select stage_states from projects where id = ?").get(pid));
     const st = JSON.parse(row.stage_states);
     st[String(n)] = s;
-    db.prepare("update projects set stage_states = ? where id = ?").run(JSON.stringify(st), pid);
+    (await db.prepare("update projects set stage_states = ? where id = ?").run(JSON.stringify(st), pid));
   };
-  setState(F.running, 4, "running");
-  db.prepare("update jobs set status = 'running', ended_at = null, progress = ? where project_id = ? and stage = 4").run(JSON.stringify({ done: 6, total: 10, message: "Searching OpenAlex: Policy, regulation and governance" }), F.running);
-  const runs = db.prepare('select id from search_runs where project_id = ? order by "order" desc limit 4').all(F.running);
-  for (const r of runs) db.prepare("update search_runs set status = 'running', fetched_count = fetched_count / 2, new_unique_count = new_unique_count / 2 where id = ?").run(r.id);
-  setState(F.error, 5, "failed");
-  db.prepare("update jobs set status = 'failed', error = ?, ended_at = ? where project_id = ? and stage = 5").run("The AI response did not pass validation after one retry: 8 rows were returned for a batch of 10 papers.", new Date().toISOString(), F.error);
+  (await setState(F.running, 4, "running"));
+  (await db.prepare("update jobs set status = 'running', ended_at = null, progress = ? where project_id = ? and stage = 4").run(JSON.stringify({ done: 6, total: 10, message: "Searching OpenAlex: Policy, regulation and governance" }), F.running));
+  const runs = (await db.prepare('select id from search_runs where project_id = ? order by "order" desc limit 4').all(F.running));
+  for (const r of runs) (await db.prepare("update search_runs set status = 'running', fetched_count = fetched_count / 2, new_unique_count = new_unique_count / 2 where id = ?").run(r.id));
+  (await setState(F.error, 5, "failed"));
+  (await db.prepare("update jobs set status = 'failed', error = ?, ended_at = ? where project_id = ? and stage = 5").run("The AI response did not pass validation after one retry: 8 rows were returned for a batch of 10 papers.", new Date().toISOString(), F.error));
   db.close();
 
   const firstTopic = async (pid: string) => (await call(pid, "scoping")).topics[0].id;
