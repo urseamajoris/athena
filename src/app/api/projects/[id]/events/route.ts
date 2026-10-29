@@ -12,13 +12,13 @@ export async function GET(req: Request, ctx: Ctx) {
   const enc = new TextEncoder();
   let timer: ReturnType<typeof setInterval> | undefined;
   const stream = new ReadableStream({
-    start(controller) {
+    async start(controller) {
       let last = "";
-      const tick = () => {
+      const tick = async () => {
         try {
-          const v = projectView(id);
+          const v = (await projectView(id));
           const running = Object.values(v.jobs).some((j) => j && (j.status === "running" || j.status === "queued"));
-          const payload = JSON.stringify({ stageStates: v.project.stageStates, staleReasons: v.project.staleReasons, jobs: v.jobs, costs: v.costs, retrieval: running || v.project.stageStates["4"] !== "not_started" ? retrievalView(id) : null, canvas: canvasView(id) });
+          const payload = JSON.stringify({ stageStates: v.project.stageStates, staleReasons: v.project.staleReasons, jobs: v.jobs, costs: v.costs, retrieval: running || v.project.stageStates["4"] !== "not_started" ? (await retrievalView(id)) : null, canvas: (await canvasView(id)) });
           if (payload !== last) {
             last = payload;
             controller.enqueue(enc.encode(`data: ${payload}\n\n`));
@@ -29,7 +29,7 @@ export async function GET(req: Request, ctx: Ctx) {
           controller.enqueue(enc.encode(`event: error\ndata: ${JSON.stringify({ error: (e as Error).message })}\n\n`));
         }
       };
-      tick();
+      (await tick());
       timer = setInterval(tick, 800);
       req.signal.addEventListener("abort", () => {
         clearInterval(timer);

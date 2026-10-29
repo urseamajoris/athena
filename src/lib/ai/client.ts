@@ -30,8 +30,8 @@ function client() {
 export const aiLimit = (g.__aiLimit ??= limiter(config.aiConcurrency));
 const noEffort = (g.__noEffort ??= new Set());
 
-export function totalSpend(): number {
-  const r = db.select({ s: sql<number>`coalesce(sum(${schema.aiCalls.costUsd}),0)` }).from(schema.aiCalls).get();
+export async function totalSpend(): Promise<number> {
+  const r = (await db.select({ s: sql<number>`coalesce(sum(${schema.aiCalls.costUsd}),0)` }).from(schema.aiCalls).get());
   return r?.s ?? 0;
 }
 
@@ -73,17 +73,17 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
   const user = fill(prompt.user, opts.vars);
   const jsonSchema = toXaiSchema(opts.schema);
 
-  const log = (row: Partial<typeof schema.aiCalls.$inferInsert>) =>
-    db.insert(schema.aiCalls).values({
-      id: newId("ai"),
-      projectId: opts.projectId ?? null,
-      stage: opts.stage ?? null,
-      promptName: prompt.name,
-      promptVersion: prompt.version,
-      model,
-      status: "ok",
-      ...row,
-    }).run();
+  const log = async (row: Partial<typeof schema.aiCalls.$inferInsert>) =>
+    (await db.insert(schema.aiCalls).values({
+            id: newId("ai"),
+            projectId: opts.projectId ?? null,
+            stage: opts.stage ?? null,
+            promptName: prompt.name,
+            promptVersion: prompt.version,
+            model,
+            status: "ok",
+            ...row,
+          }).run());
 
   const validate = (raw: string): { ok: true; data: T } | { ok: false; error: string } => {
     let parsed: unknown;
@@ -104,7 +104,7 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
     const out = await mockRespond(opts.prompt, opts.vars, opts.mockInput);
     const raw = JSON.stringify(out);
     const v = validate(raw);
-    log({ status: v.ok ? "ok" : "invalid", costSource: "mock", error: v.ok ? null : v.error, inputTokens: Math.round((system.length + user.length) / 4), outputTokens: Math.round(raw.length / 4) });
+    (await log({ status: v.ok ? "ok" : "invalid", costSource: "mock", error: v.ok ? null : v.error, inputTokens: Math.round((system.length + user.length) / 4), outputTokens: Math.round(raw.length / 4) }));
     if (!v.ok) throw new AiValidationError(`Mock response failed validation: ${v.error}`, raw);
     return { data: v.data, model: `mock:${model}`, promptVersion: prompt.version };
   }
@@ -118,9 +118,9 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
   let lastError = "";
   let lastRaw = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const spent = totalSpend();
+    const spent = (await totalSpend());
     if (spent >= config.budgetUsd) {
-      log({ status: "refused", error: `budget reached ($${spent.toFixed(2)} of $${config.budgetUsd})` });
+      (await log({ status: "refused", error: `budget reached ($${spent.toFixed(2)} of $${config.budgetUsd})` }));
       throw new BudgetError(`xAI budget cap reached ($${spent.toFixed(2)} of $${config.budgetUsd}). Raise XAI_BUDGET_USD to continue.`);
     }
     const started = Date.now();
@@ -143,18 +143,18 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
       const raw = res.choices[0]?.message?.content ?? "";
       lastRaw = raw;
       const v = validate(raw);
-      log({
-        status: v.ok ? "ok" : "invalid",
-        error: v.ok ? null : v.error,
-        attempt,
-        inputTokens: input,
-        cachedTokens: cached,
-        outputTokens: output,
-        reasoningTokens: reasoning,
-        costUsd: apiCost ?? estimateCost(model, input, cached, output),
-        costSource: apiCost !== null ? "api" : "estimate",
-        durationMs: Date.now() - started,
-      });
+      (await log({
+                status: v.ok ? "ok" : "invalid",
+                error: v.ok ? null : v.error,
+                attempt,
+                inputTokens: input,
+                cachedTokens: cached,
+                outputTokens: output,
+                reasoningTokens: reasoning,
+                costUsd: apiCost ?? estimateCost(model, input, cached, output),
+                costSource: apiCost !== null ? "api" : "estimate",
+                durationMs: Date.now() - started,
+              }));
       if (v.ok) return { data: v.data, model, promptVersion: prompt.version };
       lastError = v.error;
       messages.push({ role: "assistant", content: raw });
@@ -166,7 +166,7 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
         attempt--; // not a validation attempt; retry without the parameter
         continue;
       }
-      log({ status: "error", error: msg.slice(0, 500), attempt, durationMs: Date.now() - started });
+      (await log({ status: "error", error: msg.slice(0, 500), attempt, durationMs: Date.now() - started }));
       throw e;
     }
   }

@@ -30,7 +30,7 @@ cp .env.example .env      # keys are only needed for production runs
 npm run dev               # http://localhost:3000, mock mode by default
 ```
 
-Requires Node 20 or later (tested on Node 22). The SQLite database is created and migrated automatically at `data/athena.db`.
+Requires Node 20 or later (tested on Node 22). The local SQLite database is created and migrated automatically at `data/athena.db` (or set `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` to use Turso).
 
 ### Mock mode (the default; no keys needed)
 
@@ -71,7 +71,8 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 | `ATHENA_ENV` | `production` allows paid API calls. Anything else (the default) forces mock mode. |
 | `MOCK_MODE`, `MOCK_AI`, `RECORD_FIXTURES` | See above. |
 | `SIMULATE_SOURCE_FAILURE` | Comma list such as `openalex`. Forces that source to fail, to test failure handling. |
-| `DATABASE_PATH` | SQLite file (default `data/athena.db`). |
+| `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Turso (libSQL) database for production. When the URL is empty the app uses the local file at `DATABASE_PATH`. |
+| `DATABASE_PATH` | Local SQLite file (default `data/athena.db`), used when `TURSO_DATABASE_URL` is empty. |
 
 ---
 
@@ -80,7 +81,7 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 **Stack.** TypeScript end to end:
 
 - **App:** Next.js 15 (App Router) with React 19 and Tailwind 4. API routes handle all server work.
-- **Storage:** SQLite through Drizzle and better-sqlite3, in one file. Migrations are committed in `drizzle/` and applied on startup.
+- **Storage:** libSQL through Drizzle and `@libsql/client`: a Turso database when `TURSO_DATABASE_URL` is set, otherwise a local SQLite file. Migrations are committed in `drizzle/` and applied on server start (`src/instrumentation-node.ts`).
 - **Validation:** zod 4 for every model response and every request body.
 - **Model calls:** the `openai` SDK pointed at `https://api.x.ai/v1`.
 - **Background jobs:** an in-process runner whose state lives in SQLite. Progress streams to the browser over server-sent events.

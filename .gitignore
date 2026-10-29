@@ -11,3 +11,4 @@ test-results
 # visual-audit screenshots (the final round is copied to docs/screenshots/redesign)
 qa/shots/
 qa/lh/
+.vercel

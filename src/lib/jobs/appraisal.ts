@@ -1,6 +1,6 @@
 import "server-only";
 import { eq, inArray } from "drizzle-orm";
-import { db, schema } from "../db";
+import { db, schema, batchWrite, type BatchItem } from "../db";
 import type { ChecklistItem } from "../db/schema";
 import { config } from "../config";
 import { structuredCall, BudgetError } from "../ai/client";
@@ -36,68 +36,68 @@ export function checkQuote(sent: string, sections: { title: string; start: numbe
  * Re-run quote verification on stored claims against the stored text (no AI call). Used after the verifier
  * improves. User accept/reject decisions are kept. Returns how many claims changed status.
  */
-export function reverifyProject(projectId: string) {
-  const paperIds = db.select({ id: schema.papers.id }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all().map((r) => r.id);
-  const apps = db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, paperIds.concat(["-"]))).all();
+export async function reverifyProject(projectId: string) {
+  const paperIds = (await db.select({ id: schema.papers.id }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all()).map((r) => r.id);
+  const apps = (await db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, paperIds.concat(["-"]))).all());
   let changed = 0;
   let checked = 0;
   for (const a of apps) {
     if (!a.sourceTextId) continue;
-    const st = db.select().from(schema.sourceTexts).where(eq(schema.sourceTexts.id, a.sourceTextId)).get();
+    const st = (await db.select().from(schema.sourceTexts).where(eq(schema.sourceTexts.id, a.sourceTextId)).get());
     if (!st) continue;
     const sent = a.charsSentToModel ? st.text.slice(0, a.charsSentToModel) : st.text;
     const pre = normalizeWithMap(sent);
-    for (const c of db.select().from(schema.claims).where(eq(schema.claims.appraisalId, a.id)).all()) {
+    for (const c of (await db.select().from(schema.claims).where(eq(schema.claims.appraisalId, a.id)).all())) {
       if (c.notReported) continue;
       checked++;
       const v = checkQuote(sent, st.sections, c.quote, pre);
       if (v.verified !== c.verified) changed++;
-      db.update(schema.claims).set(v).where(eq(schema.claims.id, c.id)).run();
+      (await db.update(schema.claims).set(v).where(eq(schema.claims.id, c.id)).run());
     }
   }
   return { checked, changed };
 }
 
-export function selectedPaperIds(projectId: string): string[] {
-  const topics = db.select({ id: schema.topics.id }).from(schema.topics).where(eq(schema.topics.projectId, projectId)).all().map((t) => t.id);
-  const sel = db.select().from(schema.scores).where(inArray(schema.scores.topicId, topics.concat(["-"]))).all().filter((s) => s.selected);
+export async function selectedPaperIds(projectId: string): Promise<string[]> {
+  const topics = (await db.select({ id: schema.topics.id }).from(schema.topics).where(eq(schema.topics.projectId, projectId)).all()).map((t) => t.id);
+  const sel = (await db.select().from(schema.scores).where(inArray(schema.scores.topicId, topics.concat(["-"]))).all()).filter((s) => s.selected);
   return [...new Set(sel.map((s) => s.paperId))];
 }
 
 export async function appraisalJob(ctx: JobContext) {
   const { projectId } = ctx;
-  const ids = selectedPaperIds(projectId);
+  const ids = (await selectedPaperIds(projectId));
   if (!ids.length) throw new Error("No papers are selected in the Ranking stage.");
   const onlyIds = (ctx.params.paperIds as string[] | undefined) ?? null;
-  const papers = db.select().from(schema.papers).where(inArray(schema.papers.id, ids)).all();
-  const existing = db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids)).all();
+  const papers = (await db.select().from(schema.papers).where(inArray(schema.papers.id, ids)).all());
+  const existing = (await db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids)).all());
   // Remove appraisals for papers no longer selected, and the ones being redone.
-  const projectPaperIds = db.select({ id: schema.papers.id }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all().map((r) => r.id);
-  const deselected = db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, projectPaperIds.concat(["-"]))).all().filter((a) => !ids.includes(a.paperId));
-  for (const a of deselected) db.delete(schema.appraisals).where(eq(schema.appraisals.id, a.id)).run();
+  const projectPaperIds = (await db.select({ id: schema.papers.id }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all()).map((r) => r.id);
+  const deselected = (await db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, projectPaperIds.concat(["-"]))).all()).filter((a) => !ids.includes(a.paperId));
+  for (const a of deselected) (await db.delete(schema.appraisals).where(eq(schema.appraisals.id, a.id)).run());
   const todo = papers.filter((p) => {
     const ex = existing.find((a) => a.paperId === p.id);
     if (onlyIds) return onlyIds.includes(p.id);
     return !ex || ex.status !== "done" || ctx.params.force;
   });
-  for (const p of todo) db.delete(schema.appraisals).where(eq(schema.appraisals.paperId, p.id)).run();
+  for (const p of todo) (await db.delete(schema.appraisals).where(eq(schema.appraisals.paperId, p.id)).run());
 
   let finished = 0;
-  ctx.progress(0, todo.length, `Appraising ${todo.length} selected papers`);
+  (await ctx.progress(0, todo.length, `Appraising ${todo.length} selected papers`));
   await Promise.all(
     todo.map(async (paper) => {
-      if (ctx.cancelled()) return;
-      const summary = db.select().from(schema.paperSummaries).where(eq(schema.paperSummaries.paperId, paper.id)).get();
+      if ((await ctx.cancelled())) return;
+      const summary = (await db.select().from(schema.paperSummaries).where(eq(schema.paperSummaries.paperId, paper.id)).get());
       const template = templateFor(summary?.studyType);
       const appraisalId = newId("ap");
-      db.insert(schema.appraisals).values({ id: appraisalId, paperId: paper.id, textSource: "abstract", templateType: template, status: "running" }).run();
+      (await db.insert(schema.appraisals).values({ id: appraisalId, paperId: paper.id, textSource: "abstract", templateType: template, status: "running" }).run());
       try {
-        const txt = await getAppraisalText(paper, (l) => ctx.log(l));
-        const st = db.select().from(schema.sourceTexts).where(eq(schema.sourceTexts.id, txt.sourceTextId)).get()!;
+        const txt = await getAppraisalText(paper, async (l) => (await ctx.log(l)));
+        const st = (await db.select().from(schema.sourceTexts).where(eq(schema.sourceTexts.id, txt.sourceTextId)).get())!;
         const truncated = st.text.length > config.appraisalMaxChars;
         const sent = truncated ? st.text.slice(0, config.appraisalMaxChars) : st.text;
         const note = txt.note + (truncated ? ` The model was given the first ${config.appraisalMaxChars.toLocaleString()} of ${st.text.length.toLocaleString()} characters; content after that was not read.` : "");
-        db.update(schema.appraisals).set({ sourceTextId: st.id, textSource: txt.kind, textNote: note, charsSentToModel: sent.length }).where(eq(schema.appraisals.id, appraisalId)).run();
+        (await db.update(schema.appraisals).set({ sourceTextId: st.id, textSource: txt.kind, textNote: note, charsSentToModel: sent.length }).where(eq(schema.appraisals.id, appraisalId)).run());
         const checklist = CHECKLISTS[template];
         const guidance = FIELD_GUIDANCE[template];
         const { data, model, promptVersion } = await structuredCall({
@@ -150,23 +150,25 @@ export async function appraisalJob(ctx: JobContext) {
           answer: c.answer,
           claimId: c.answer === "not_reported" && !c.quote.trim() ? null : mk("checklist", `${c.item}: ${c.answer.replace("_", " ")}`, c.quote, c.location, c.answer === "not_reported" && !c.quote.trim()),
         }));
-        db.transaction((tx) => {
-          for (const r of claimRows) tx.insert(schema.claims).values(r).run();
-          tx.update(schema.appraisals).set({ checklist: cl, status: "done", model, promptVersion }).where(eq(schema.appraisals.id, appraisalId)).run();
-        });
+        {
+    const stmts: BatchItem<"sqlite">[] = [];
+                    for (const r of claimRows) stmts.push(db.insert(schema.claims).values(r));
+                    stmts.push(db.update(schema.appraisals).set({ checklist: cl, status: "done", model, promptVersion }).where(eq(schema.appraisals.id, appraisalId)));
+                    await batchWrite(stmts);
+  }
         const unv = claimRows.filter((c) => !c.verified && !c.notReported).length;
-        ctx.log(`✓ ${paper.title.slice(0, 60)}… — ${txt.kind === "full_text" ? "full text" : "abstract only"}, ${claimRows.length} claims, ${unv} unverified`);
+        (await ctx.log(`✓ ${paper.title.slice(0, 60)}… — ${txt.kind === "full_text" ? "full text" : "abstract only"}, ${claimRows.length} claims, ${unv} unverified`));
       } catch (e) {
-        db.update(schema.appraisals).set({ status: "failed", error: errMsg(e) }).where(eq(schema.appraisals.id, appraisalId)).run();
-        ctx.log(`✗ appraisal failed for ${paper.id}: ${errMsg(e)}`);
+        (await db.update(schema.appraisals).set({ status: "failed", error: errMsg(e) }).where(eq(schema.appraisals.id, appraisalId)).run());
+        (await ctx.log(`✗ appraisal failed for ${paper.id}: ${errMsg(e)}`));
         if (e instanceof BudgetError) throw e;
       } finally {
         finished++;
-        ctx.progress(finished, todo.length, `Appraised ${finished}/${todo.length}`);
+        (await ctx.progress(finished, todo.length, `Appraised ${finished}/${todo.length}`));
       }
     }),
   );
-  const res = db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids)).all();
-  logDecision(projectId, 7, "appraisals_generated", null, { appraised: res.filter((a) => a.status === "done").length, failed: res.filter((a) => a.status === "failed").length, fullText: res.filter((a) => a.textSource === "full_text").length }, "ai");
+  const res = (await db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids)).all());
+  (await logDecision(projectId, 7, "appraisals_generated", null, { appraised: res.filter((a) => a.status === "done").length, failed: res.filter((a) => a.status === "failed").length, fullText: res.filter((a) => a.textSource === "full_text").length }, "ai"));
   if (!res.some((a) => a.status === "done")) throw new Error("No appraisal succeeded.");
 }

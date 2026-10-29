@@ -5,7 +5,7 @@ import type { RubricScores } from "../db/schema";
 import { structuredCall, unknownIds, BudgetError } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { RankingBatch, TopicImportance } from "../stages/ai-schemas";
-import { chunk, errMsg, newId } from "../util";
+import { chunk, errMsg, newId, forEachSeq } from "../util";
 import { getProject, logDecision } from "../project";
 import type { JobContext } from "./runner";
 import { citationScore, recencyScore, weightedTotal } from "../scoring";
@@ -17,15 +17,15 @@ const MAX_PER_TOPIC = 60;
 
 export async function rankingJob(ctx: JobContext) {
   const { projectId } = ctx;
-  const p = getProject(projectId);
-  const topics = db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all();
+  const p = (await getProject(projectId));
+  const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
   const topicIds = topics.map((t) => t.id);
-  db.delete(schema.scores).where(inArray(schema.scores.topicId, topicIds.concat(["-"]))).run();
+  (await db.delete(schema.scores).where(inArray(schema.scores.topicId, topicIds.concat(["-"]))).run());
 
-  const links = db.select().from(schema.paperTopics).where(inArray(schema.paperTopics.topicId, topicIds.concat(["-"]))).all();
-  const papers = db.select().from(schema.papers).where(eq(schema.papers.projectId, projectId)).all();
-  const summaries = db.select().from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, papers.map((x) => x.id).concat(["-"]))).all();
-  const hits = db.select().from(schema.paperHits).all();
+  const links = (await db.select().from(schema.paperTopics).where(inArray(schema.paperTopics.topicId, topicIds.concat(["-"]))).all());
+  const papers = (await db.select().from(schema.papers).where(eq(schema.papers.projectId, projectId)).all());
+  const summaries = (await db.select().from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, papers.map((x) => x.id).concat(["-"]))).all());
+  const hits = (await db.select().from(schema.paperHits).all());
   const bestRank = new Map<string, number>();
   for (const h of hits) bestRank.set(h.paperId, Math.min(bestRank.get(h.paperId) ?? 1e9, h.rank));
   const sum = new Map(summaries.map((s) => [s.paperId, s]));
@@ -38,14 +38,14 @@ export async function rankingJob(ctx: JobContext) {
       .filter(Boolean)
       .sort((a, b) => (bestRank.get(a.id) ?? 0) - (bestRank.get(b.id) ?? 0))
       .slice(0, MAX_PER_TOPIC);
-    if (links.filter((l) => l.topicId === t.id).length > MAX_PER_TOPIC) ctx.log(`Topic "${t.name}": scoring the ${MAX_PER_TOPIC} highest-relevance papers of ${links.filter((l) => l.topicId === t.id).length}.`);
+    if (links.filter((l) => l.topicId === t.id).length > MAX_PER_TOPIC) (await ctx.log(`Topic "${t.name}": scoring the ${MAX_PER_TOPIC} highest-relevance papers of ${links.filter((l) => l.topicId === t.id).length}.`));
     for (const b of chunk(ps, BATCH)) jobs.push({ topic: t, batch: b });
   }
   let finished = 0;
-  ctx.progress(0, jobs.length + 1, `Scoring ${jobs.length} batches across ${topics.length} topics`);
+  (await ctx.progress(0, jobs.length + 1, `Scoring ${jobs.length} batches across ${topics.length} topics`));
   await Promise.all(
     jobs.map(async ({ topic, batch }) => {
-      if (ctx.cancelled()) return;
+      if ((await ctx.cancelled())) return;
       const ids = batch.map((x) => x.id);
       try {
         const { data } = await structuredCall({
@@ -78,35 +78,35 @@ export async function rankingJob(ctx: JobContext) {
           const rec = recencyScore(paper.year);
           const cit = citationScore(paper.citationCount, paper.year);
           const sub: RubricScores = { topicFit: r.topicFit, designStrength: r.designStrength, settingMatch: r.settingMatch, recency: rec.score, citationImpact: cit.score };
-          db.insert(schema.scores).values({
-            id: newId("sc"),
-            paperId: r.paperId,
-            topicId: topic.id,
-            subScores: sub,
-            rationales: { topicFit: r.topicFitWhy, designStrength: r.designStrengthWhy, settingMatch: r.settingMatchWhy, recency: rec.why, citationImpact: cit.why },
-            total: weightedTotal(sub),
-            rationale: r.overall,
-          }).onConflictDoNothing().run();
+          (await db.insert(schema.scores).values({
+                        id: newId("sc"),
+                        paperId: r.paperId,
+                        topicId: topic.id,
+                        subScores: sub,
+                        rationales: { topicFit: r.topicFitWhy, designStrength: r.designStrengthWhy, settingMatch: r.settingMatchWhy, recency: rec.why, citationImpact: cit.why },
+                        total: weightedTotal(sub),
+                        rationale: r.overall,
+                      }).onConflictDoNothing().run());
         }
       } catch (e) {
         if (e instanceof BudgetError) throw e;
-        ctx.log(`Scoring batch for "${topic.name}" failed: ${errMsg(e)}`);
+        (await ctx.log(`Scoring batch for "${topic.name}" failed: ${errMsg(e)}`));
       } finally {
         finished++;
-        ctx.progress(finished, jobs.length + 1, `Scored ${finished}/${jobs.length} batches`);
+        (await ctx.progress(finished, jobs.length + 1, `Scored ${finished}/${jobs.length} batches`));
       }
     }),
   );
 
   // Select top N per topic.
-  const all = db.select().from(schema.scores).where(inArray(schema.scores.topicId, topicIds.concat(["-"]))).all();
+  const all = (await db.select().from(schema.scores).where(inArray(schema.scores.topicId, topicIds.concat(["-"]))).all());
   for (const t of topics) {
     const top = all.filter((s) => s.topicId === t.id).sort((a, b) => b.total - a.total).slice(0, DEFAULT_SELECT);
-    for (const s of top) db.update(schema.scores).set({ selected: true }).where(eq(schema.scores.id, s.id)).run();
+    for (const s of top) (await db.update(schema.scores).set({ selected: true }).where(eq(schema.scores.id, s.id)).run());
   }
 
   // Order topics by importance.
-  ctx.progress(jobs.length, jobs.length + 1, "Ordering topics by importance");
+  (await ctx.progress(jobs.length, jobs.length + 1, "Ordering topics by importance"));
   try {
     const stats = topics.map((t) => {
       const ss = all.filter((s) => s.topicId === t.id);
@@ -129,12 +129,12 @@ export async function rankingJob(ctx: JobContext) {
       },
     });
     const sorted = [...data.order].sort((a, b) => a.rank - b.rank);
-    sorted.forEach((o, i) => db.update(schema.topics).set({ importanceRank: i + 1, importanceJustification: o.justification }).where(eq(schema.topics.id, o.topicId)).run());
+    await forEachSeq(sorted, async (o, i) => (await db.update(schema.topics).set({ importanceRank: i + 1, importanceJustification: o.justification }).where(eq(schema.topics.id, o.topicId)).run()));
   } catch (e) {
     if (e instanceof BudgetError) throw e;
-    ctx.log(`Topic ordering failed; keeping the original order: ${errMsg(e)}`);
-    topics.forEach((t, i) => db.update(schema.topics).set({ importanceRank: i + 1, importanceJustification: "Original order (AI ordering failed)" }).where(eq(schema.topics.id, t.id)).run());
+    (await ctx.log(`Topic ordering failed; keeping the original order: ${errMsg(e)}`));
+    await forEachSeq(topics, async (t, i) => (await db.update(schema.topics).set({ importanceRank: i + 1, importanceJustification: "Original order (AI ordering failed)" }).where(eq(schema.topics.id, t.id)).run()));
   }
-  logDecision(projectId, 6, "ranking_generated", null, { scored: all.length }, "ai");
+  (await logDecision(projectId, 6, "ranking_generated", null, { scored: all.length }, "ai"));
   if (!all.length) throw new Error("No papers could be scored.");
 }

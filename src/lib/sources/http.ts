@@ -165,7 +165,7 @@ export async function httpFetch(source: SourceName, url: string, opts: FetchOpts
     return { status: m.status, text: m.text, contentType: m.contentType, cached: true };
   }
 
-  const hit = db.select().from(schema.httpCache).where(eq(schema.httpCache.key, key)).get();
+  const hit = (await db.select().from(schema.httpCache).where(eq(schema.httpCache.key, key)).get());
   if (hit && hit.expiresAt > nowIso()) {
     opts.log?.(`[cache] ${safeUrl}`);
     if (!okStatuses.includes(hit.status)) throw new SourceError(source, `HTTP ${hit.status} (cached)`, hit.status);
@@ -202,10 +202,10 @@ export async function httpFetch(source: SourceName, url: string, opts: FetchOpts
         // Cache successes and definitive 404s (but not PDFs: we never store PDFs).
         if (source !== "pdf") {
           const expires = new Date(Date.now() + (opts.ttlHours ?? config.cacheTtlHours) * 3600_000).toISOString();
-          db.insert(schema.httpCache)
-            .values({ key, url: safeUrl, status: res.status, contentType, body: text, expiresAt: expires })
-            .onConflictDoUpdate({ target: schema.httpCache.key, set: { status: res.status, body: text, contentType, expiresAt: expires, createdAt: nowIso() } })
-            .run();
+          (await db.insert(schema.httpCache)
+                        .values({ key, url: safeUrl, status: res.status, contentType, body: text, expiresAt: expires })
+                        .onConflictDoUpdate({ target: schema.httpCache.key, set: { status: res.status, body: text, contentType, expiresAt: expires, createdAt: nowIso() } })
+                        .run());
           recordFixture(source, url, opts.body, res.status, contentType, text);
         }
       }
