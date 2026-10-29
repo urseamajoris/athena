@@ -19,9 +19,11 @@ export const config = {
   models: {
     fast: process.env.XAI_MODEL_FAST || "grok-4.3",
     summary: process.env.XAI_MODEL_SUMMARY || process.env.XAI_MODEL_FAST || "grok-4.3",
-    reasoning: process.env.XAI_MODEL_REASONING || "grok-4.20-0309-reasoning",
+    reasoning: process.env.XAI_MODEL_REASONING || "grok-4.3",
   },
   fastReasoningEffort: process.env.XAI_FAST_REASONING_EFFORT ?? "low",
+  /** Effort for the reasoning role (appraisal, synthesis, questions). Low keeps thinking tokens, billed as output, small. */
+  reasoningEffort: process.env.XAI_REASONING_EFFORT ?? "low",
   budgetUsd: num(process.env.XAI_BUDGET_USD, 5),
   aiConcurrency: Math.max(1, num(process.env.AI_CONCURRENCY, 4)),
   maxResultsPerQuery: Math.max(1, num(process.env.MAX_RESULTS_PER_QUERY, 40)),
@@ -32,6 +34,9 @@ export const config = {
   /** USD per 1M tokens, used only when the API does not report cost. Source: docs.x.ai/docs/models (Oct 2026). */
   pricing: {
     default: { input: 1.25, cachedInput: 0.2, output: 2.5 },
+    "grok-4.3": { input: 1.25, cachedInput: 0.2, output: 2.5 },
+    "grok-4.20-0309-reasoning": { input: 1.25, cachedInput: 0.2, output: 2.5 },
+    "grok-4.20-0309-non-reasoning": { input: 1.25, cachedInput: 0.2, output: 2.5 },
   } as Record<string, { input: number; cachedInput: number; output: number }>,
 };
 
