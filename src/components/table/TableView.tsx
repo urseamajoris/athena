@@ -234,7 +234,7 @@ export function TableView() {
   const warnNow = ranked && stage === 6 && !movedOn;
   const short = warnNow ? coverage.short : [];
   const few = warnNow ? coverage.few : [];
-  const step3 = nodeForStage(graph, 3);
+  const step3For = (topicId: string) => graph.nodes.find((n) => n.id === `query:${topicId}`)?.id ?? nodeForStage(graph, 3);
   const checklist =
     stage === 5
       ? [
@@ -361,7 +361,12 @@ export function TableView() {
                     {few.map((t) => `${t.name} (${t.matching === 0 ? "no papers match" : `only ${t.matching} match${t.matching === 1 ? "es" : ""}`}${t.selected !== t.matching ? `, ${t.selected} selected` : ""})`).join("; ")}.{" "}
                     Every matching paper is already selected, so {few.length === 1 ? "this topic" : "these topics"} will have little or no evidence. Papers that do not match a topic are not selected for it. To find more, change the search words in step 3.
                   </p>
-                  {step3 && <TransitionLink href={`/s/${projectId}?node=${encodeURIComponent(step3)}`} prefetch={false} className="btn-secondary btn-sm">Edit the searches (step 3)</TransitionLink>}
+                  <span className="flex flex-wrap gap-2">
+                    {few.map((t) => {
+                      const id = step3For(t.id);
+                      return id ? <TransitionLink key={t.id} href={`/s/${projectId}?node=${encodeURIComponent(id)}`} prefetch={false} className="btn-secondary btn-sm">Edit the searches for {t.name} (step 3)</TransitionLink> : null;
+                    })}
+                  </span>
                 </div>
               </div>
             )}
@@ -497,7 +502,8 @@ function PaperCards({ rows, sorting, groupBy, topics, onOpen, onToggle }: { rows
                 <span className="tabular-nums">{r.year ?? "year unknown"}</span>
                 <CategoryChip dim="study" value={r.cats.study[0]} />
                 {r.score && <span className="tabular-nums">score {r.score.total}</span>}
-                {r.rank !== null && r.score && <TopicFit score={r.score} />}
+                {/* Same topic-match words as the desktop table, including under "All topics" (no rank there). */}
+                {r.score && (r.rank !== null ? <TopicFit score={r.score} /> : r.score.topicFit < MIN_TOPIC_FIT && (r.score.selected ? <TopicFit score={r.score} /> : <span className="text-fg-2">matches no topic</span>))}
                 {r.kept && <span className="inline-flex items-center gap-1 text-ok"><CheckCircle2 className="h-3 w-3" aria-hidden />selected{r.rank === null && r.selectedIn > 1 ? ` in ${r.selectedIn} topics` : ""}</span>}
               </span>
               {r.summary && <span className="mt-1 line-clamp-2 block text-12 text-fg-2">{r.summary.keyFinding}</span>}

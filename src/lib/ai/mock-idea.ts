@@ -251,12 +251,15 @@ function inIdeaOrder<T extends { name: string; synonyms: string[] }>(topics: T[]
 }
 
 /** What an exposure is compared with: usual care for a treatment, people without a condition, otherwise less of it. */
+const USED = /\b(apps?|applications?|devices?|phones?|smartphones?|screens?|media|internet|platforms?|tools?|games?|gaming|technolog\w*|wearables?|drugs?|medicines?|medications?|substances?|alcohol|cannabis|tobacco|cigarettes?|vaping|e-cigarettes?|chatbots?|software|websites?)\b/i;
 function contrastOf(name: string): string {
   const a = inSentence(name);
   if (INTERVENTION.test(a)) return `Usual care, without ${a}`;
   if (CONDITION.test(a)) return `Without ${a}`;
+  // Only things people use get "less use of" (apps, phones, alcohol); other plurals are counted ("fewer night shifts").
+  if (USED.test(a)) return `Less use of ${a}`;
   const last = a.split(" ").pop() ?? "";
-  return /[a-z]s$/.test(last) && !/(ss|us|is)$/.test(last) && !NO_SINGULAR.has(last) ? `Less use of ${a}` : `Less ${a}`;
+  return /[a-z]s$/.test(last) && !/(ss|us|is)$/.test(last) && !NO_SINGULAR.has(last) ? `Fewer ${a}` : `Less ${a}`;
 }
 
 /** The outcome in the idea's verb: "help older adults recover after hip fracture surgery" → "recovery after hip fracture surgery". */

@@ -52,3 +52,18 @@ test("zero records, failures, pending and demo mode", () => {
   assert.match(demo.notes[0], /^Demo mode: these counts and records are recorded samples/);
   assert.equal(demo.notes.length, 1);
 });
+
+test("hyphen spellings match, a generic word alone does not, and the intervention is required", () => {
+  assert.equal(looksLikeSameQuestion(q(), "Telerehabilitation versus usual care for older adults after hip fracture"), true);
+  assert.equal(looksLikeSameQuestion(q(), "Functional ability of older adults in nursing homes"), false);
+  assert.equal(looksLikeSameQuestion(q(), "Walking ability in adults after hip fracture surgery"), false);
+});
+
+test("a large count is never headlined as a sign the question is new; demo records never are", () => {
+  const busy = noveltyVerdict(q({ noveltyQueries: [{ database: "pubmed", query: "x", count: 8058, error: null }], noveltyMatches: [{ title: "Precision medicine in Thailand" }] }));
+  assert.doesNotMatch(busy.headline, /suggests/);
+  assert.match(busy.headline, /8,058 records/);
+  const demo = noveltyVerdict(q({ noveltyMatches: [{ title: "Precision medicine in Thailand" }] }), { demo: true });
+  assert.doesNotMatch(demo.headline, /suggests/);
+  assert.match(demo.headline, /recorded sample/);
+});

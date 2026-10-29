@@ -305,7 +305,8 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
             const choice = await new Promise<"appraise" | "back" | "edit">((resolve) => setThin({ topics: few, resolve }));
             if (choice === "edit") {
               // Step 3 lives on the canvas: open its panel there (from the table page, go to the canvas first).
-              const id = nodeForStage(graph, 3);
+              // The searches of the (first) thin topic, not simply the first topic's.
+              const id = graph.nodes.find((n) => n.id === `query:${few[0].topicId}`)?.id ?? nodeForStage(graph, 3);
               if (id && window.location.pathname === `/s/${projectId}`) store.openPanel(id);
               else if (id) router.push(`/s/${projectId}?node=${encodeURIComponent(id)}`);
             }

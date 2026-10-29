@@ -37,7 +37,8 @@ const STOP = new Set(
 
 /** Lower-case word stems: "Nursing nurses" → ["nurs", "nurs"]. Six letters at most, so endings rarely matter. */
 export function stems(s: string): string[] {
-  return (s.toLowerCase().replace(/\(mock\)/g, " ").match(/[a-z][a-z0-9]+/g) ?? [])
+  // Hyphens are dropped first, so "Tele-rehabilitation" and "Telerehabilitation" give the same stem.
+  return (s.toLowerCase().replace(/\(mock\)/g, " ").replace(/(\w)-(\w)/g, "$1$2").match(/[a-z][a-z0-9]+/g) ?? [])
     .filter((w) => w.length >= 3 && !STOP.has(w))
     .map((w) => w.replace(/(ations|ation|ings|ing|ies|es|ed|s|e)$/, "").slice(0, 6))
     .filter((w) => w.length >= 3);
@@ -47,20 +48,25 @@ export function stems(s: string): string[] {
  * The parts of the question a matching study must share: the structure's elements (population, exposure,
  * outcome …) without the comparison and design, which titles rarely name. Elements with no content words drop out.
  */
-function elements(q: Pick<NoveltyInput, "text" | "structure">): Set<string>[] {
-  const parts = Object.entries(q.structure)
+function elements(q: Pick<NoveltyInput, "text" | "structure">): { key: boolean; words: Set<string> }[] {
+  return Object.entries(q.structure)
     .filter(([k]) => !/compar|design|research.?type/i.test(k))
-    .map(([, v]) => new Set(stems(v)))
-    .filter((s) => s.size);
-  return parts;
+    .map(([k, v]) => ({ key: /interven|expos|interest|phenomen/i.test(k), words: new Set(stems(v)) }))
+    .filter((p) => p.words.size);
 }
 
-/** Does this title look like the same question? It must touch nearly every element (all but one, at least two). */
+/**
+ * Does this title look like the same question? It must touch nearly every element (all but one, at least two),
+ * always including the intervention / exposure / phenomenon, which is what makes a question new. An element is
+ * touched by two of its words (one if it has only one), so a generic word like "adults" alone does not count.
+ */
 export function looksLikeSameQuestion(q: Pick<NoveltyInput, "text" | "structure">, title: string): boolean {
   const words = new Set(stems(title));
   const parts = elements(q);
   if (parts.length) {
-    const hit = parts.filter((p) => [...p].some((w) => words.has(w))).length;
+    const touched = (p: { words: Set<string> }) => [...p.words].filter((w) => words.has(w)).length >= Math.min(2, p.words.size);
+    if (parts.some((p) => p.key && !touched(p))) return false;
+    const hit = parts.filter(touched).length;
     return hit >= Math.min(parts.length, Math.max(2, parts.length - 1));
   }
   // No usable structure: at least half of the question's own content words, and at least two.
@@ -86,7 +92,9 @@ export function noveltyVerdict(q: NoveltyInput, { demo = false }: { demo?: boole
   const n = q.noveltyMatches.length;
   const k = close.filter(Boolean).length;
   let headline: string;
-  if (k) headline = `${n === 1 ? "The top record looks" : `${k} of the top ${n} records look${k === 1 ? "s" : ""}`} like the same question: read ${k === 1 ? "it" : "them"} before you claim a gap.`;
+  if (demo) headline = "Demo mode: these are recorded sample records, so they say nothing about whether your question is new. Real searches run in real mode.";
+  else if (k) headline = `${n === 1 ? "The top record looks" : `${k} of the top ${n} records look${k === 1 ? "s" : ""}`} like the same question: read ${k === 1 ? "it" : "them"} before you claim a gap.`;
+  else if (n && most >= MANY_RECORDS) headline = `${n === 1 ? "The top record does not look" : `None of the top ${n} records looks`} like the same question, but ${fmtInt(most)} records use these words: read the closest ones before you claim a gap.`;
   else if (n) headline = `${n === 1 ? "The top record does not look" : `None of the top ${n} records looks`} like the same question. That suggests, but does not prove, that it is new.`;
   else if (most) headline = `${fmtInt(most)} records contain the search words, but none were returned to compare with your question. Look at them in the database before you claim a gap.`;
   else headline = "No records contain these search words. That does not prove the question is new: try other words for the same idea.";

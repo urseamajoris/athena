@@ -131,6 +131,14 @@ export function IdeaPanel() {
       return false;
     }
   }
+  // Before step 1 is approved the idea saves itself shortly after typing stops, so every "Sharpen my idea" button
+  // (the panel's and the canvas card's) uses what is on screen.
+  useEffect(() => {
+    if (ideaApproved || !dirty || idea.trim().length < 10) return;
+    const t = setTimeout(() => void saveIdea(), 800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idea, ideaApproved]);
   async function send(e: React.FormEvent) {
     e.preventDefault();
     if (!answer.trim()) return;
@@ -162,7 +170,7 @@ export function IdeaPanel() {
         <div>
           <label htmlFor="idea-edit" className="label">Your research idea</label>
           <textarea id="idea-edit" className="input min-h-36 leading-relaxed" value={idea} placeholder="e.g. What is the knowledge gap in implementing telemedicine in Southeast Asia?" onChange={(e) => setIdea(e.target.value)} />
-          <p className="mt-2 text-12 text-fg-2">{dirty ? "Changed, not saved yet: “Sharpen my idea” saves it." : "Saved."} It does not need to be a polished question yet.</p>
+          <p className="mt-2 text-12 text-fg-2">{!dirty ? "Saved." : idea.trim().length < 10 ? "Write at least a sentence (10 characters) and it saves itself." : "Saving…"} It does not need to be a polished question yet.</p>
         </div>
       ) : null}
 

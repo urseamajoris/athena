@@ -1,5 +1,7 @@
 import "server-only";
 import { config } from "../config";
+import { db, schema } from "../db";
+import { inArray } from "drizzle-orm";
 /*
  * MOCK_MODE model responders. They are deterministic and build schema-valid output FROM THE INPUT they are
  * given (real records from fixtures), so every downstream check (grounded IDs, quote verification) is
@@ -77,11 +79,18 @@ const sampleNote = () => (config.mockMode ? SAMPLE_NOTE : "");
  */
 const ALTERED_PER_REVIEW = 2;
 const alteredIn = new Map<string, Set<string>>();
-function getsAlteredQuote(paper: { id?: string; projectId?: string } | undefined): boolean {
+async function getsAlteredQuote(paper: { id?: string; projectId?: string } | undefined): Promise<boolean> {
   if (!paper?.id) return true;
   const ids = alteredIn.get(paper.projectId ?? "") ?? new Set<string>();
   alteredIn.set(paper.projectId ?? "", ids);
   if (ids.has(paper.id)) return true;
+  // Forget papers whose appraisal is gone (re-retrieval gives new ids; re-appraisal replaces the old ones), so a
+  // re-run review still gets its one or two altered quotes.
+  if (ids.size) {
+    const kept = await db.select({ id: schema.appraisals.paperId }).from(schema.appraisals).where(inArray(schema.appraisals.paperId, [...ids])).all();
+    const still = new Set(kept.map((k) => k.id));
+    for (const id of [...ids]) if (!still.has(id)) ids.delete(id);
+  }
   if (ids.size >= ALTERED_PER_REVIEW) return false;
   ids.add(paper.id);
   return true;
@@ -253,7 +262,7 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
       });
       // An overstated quote that is not in the paper, in one or two papers per review, so the check can be seen to catch it.
       const kf = extractions.find((e) => e.field === "key_findings" && e.quote);
-      if (kf && getsAlteredQuote(paper)) {
+      if (kf && (await getsAlteredQuote(paper))) {
         const quote = `${kf.quote.split(" ").slice(0, 6).join(" ")} which clearly proves the intervention works everywhere`;
         extractions.push({ field: "key_findings", statement: `(mock) ${quote}`, notReported: false, quote, location: "(mock) demo example: this quote was changed on purpose" });
       }

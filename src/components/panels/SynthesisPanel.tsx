@@ -55,6 +55,8 @@ export function SynthesisPanel() {
   const ran = ["needs_review", "approved", "stale"].includes(states["8"] ?? "");
   const empty = ran ? data.topics.filter((t) => !t.items.length && !t.cells.length) : [];
   const whyEmpty = (id: string) => {
+    // When the synthesis is out of date the current selection is not the one it was built from: no reason then.
+    if (states["8"] === "stale") return "the synthesis was made before the latest changes";
     const r = summary?.ranking.find((x) => x.topicId === id);
     if (r && r.scored === 0) return "no papers were found for it";
     if (r && r.selected === 0 && r.matching === 0) return "none of the papers found matches it, so none was selected";
