@@ -28,50 +28,39 @@ The rules the app is built around:
 
 ```bash
 npm install
-cp .env.example .env      # keys are only needed for production runs
-npm run dev               # http://localhost:3000, mock mode by default
+cp .env.example .env      # leave XAI_API_KEY empty to try the app without spending
+npm run dev               # http://localhost:3000
 ```
 
 Requires Node 20 or later (tested on Node 22). The local SQLite database is created and migrated automatically at `data/athena.db` (or set `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` to use Turso).
 
-### Mock mode (the default; no keys needed)
+### Running and testing without a key
 
-Mock mode is on everywhere except `ATHENA_ENV=production`, so `npm run dev`, the tests and the QA scripts never spend money.
+There is one mode. The databases are always real, and the AI is real only when an xAI key is configured.
 
-- Paid APIs (xAI model calls, OpenAlex, which is metered by key) are only called when `ATHENA_ENV=production`.
-- Every attempted paid call is counted in `/api/status` (`paidCalls`); outside production the call throws and is logged.
-- A server started outside production with `MOCK_MODE=false` (or `MOCK_AI=true` alone, which still hits OpenAlex) refuses to start and says why.
-- Keys present in the environment during a mock run are reported in the log and never used.
-
-For a real run: `ATHENA_ENV=production MOCK_MODE=false npm run dev`.
-
-Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, OpenAlex, Europe PMC, Crossref and Unpaywall responses, with keys and email removed) and uses deterministic mock model responders in `src/lib/ai/mock.ts`.
-
-- The responders build schema-valid output from the real input records, so grounding checks, quote verification, deduplication and the whole UI behave as they do in real mode.
-- Free-text mock output is prefixed `(mock)`.
-- In one or two appraised papers per review, one quote is altered on purpose, so you can see the "unverified" path.
-- With the test idea and the mock scoping answers, queries match the recorded fixtures exactly. For other queries a fixture recorded for the same endpoint is served.
-- Full text that came from open PDFs is not in the fixtures, because PDFs and PDF text are never recorded. Those papers fall back to abstract-only in mock mode.
-
-`MOCK_AI=true` mocks only the model and calls the real databases. It costs nothing in xAI credit, but OpenAlex is metered, so it also needs `ATHENA_ENV=production`. Combine it with `RECORD_FIXTURES=true` to re-record `fixtures/http/`.
+- **No key: the way to test without spending.** Leave `XAI_API_KEY` empty (in the shell and in `.env`) and set no key in the admin dashboard. Every AI step then stops before any request to xAI, with "AI is not set up on this server yet: no xAI API key is configured. An administrator can add one in the dashboard. Your work is saved." AI steps show that message where they would have run, the table and export pages show an "AI is not set up yet." banner, and Settings says "AI not set up: no xAI key". Each refused call is logged in `ai_calls` as `paused`, with no cost.
+- **What works with no key:** accounts, the idea, skipping the scoping questions, adding, editing, merging, deleting and approving topics by hand, the canvas and List view, exports of what exists, the account and settings pages, and the admin dashboard. The scoping questions, suggested topics, the search builder and every step after it need AI output.
+- **The database APIs are always called for real:** PubMed, OpenAlex, Europe PMC, Crossref, Unpaywall and open PDFs. They are free; OpenAlex uses `OPENALEX_API_KEY` only if it is set. With no AI no searches are written, so retrieval does not run either.
+- **The AI switch.** An admin can also turn AI off in the dashboard. AI steps then pause in the same way, with "AI is paused by the administrator".
+- **With a key, AI spends real money.** Set `XAI_API_KEY` (or paste a key in the admin dashboard) only when you mean to spend. Outside `ATHENA_ENV=production` the server logs a warning at startup when a key is set. Jobs that stopped because no key was set resume when a key is added, as they do when AI is switched back on.
+- **The budget is a hard $5 total.** `XAI_BUDGET_USD` (default 5) caps all xAI spend ever recorded in the database, not per run or per month. At the cap every AI step is refused ("AI budget reached"). About $3.22 of the $5 had been spent when mock mode was removed; raise the cap only as a deliberate decision.
 
 ### Keys and configuration (`.env.example`)
 
 | Variable | Purpose |
 |---|---|
-| `XAI_API_KEY` | xAI (Grok) key. Server-side only. |
+| `XAI_API_KEY` | xAI (Grok) key. Server-side only. Leave it empty to run without spending: AI steps then show "AI is not set up". A key set in the admin dashboard takes precedence. |
 | `OPENALEX_API_KEY` | OpenAlex key, sent as a bearer header and never put in URLs. |
 | `CONTACT_EMAIL` | Sent to PubMed (`email=`), Crossref (`mailto=`) and Unpaywall (`email=`), as their terms ask. |
 | `NCBI_API_KEY` | Optional. Raises PubMed from 3 to 10 requests per second. |
 | `XAI_MODEL_FAST`, `XAI_MODEL_SUMMARY`, `XAI_MODEL_REASONING` | Model IDs for each role (see below). |
 | `XAI_FAST_REASONING_EFFORT` | `reasoning_effort` for the fast models (default `low`). Dropped automatically if a model rejects it. |
-| `XAI_BUDGET_USD` | Hard cap on recorded xAI spend in this database (default 5). AI calls are refused once it is reached. An admin can lower it in the dashboard; raising it above this value needs an explicit confirmation. |
+| `XAI_BUDGET_USD` | Hard cap on the total xAI spend ever recorded in this database (default 5). AI calls are refused once it is reached. An admin can lower it in the dashboard; raising it above this value needs an explicit confirmation. |
 | `AI_CONCURRENCY` | Concurrency limit for per-paper model calls (default 4). |
 | `MAX_RESULTS_PER_QUERY` | Pagination cap per query (default 40). |
 | `APPRAISAL_MAX_CHARS` | Characters of full text sent to the model per appraisal (default 60,000). Truncation is shown in the UI and the report. |
 | `HTTP_CACHE_TTL_HOURS` | HTTP cache lifetime (default 168). |
-| `ATHENA_ENV` | `production` allows paid API calls. Anything else (the default) forces mock mode. |
-| `MOCK_MODE`, `MOCK_AI`, `RECORD_FIXTURES` | See above. |
+| `ATHENA_ENV` | `production` marks a deployed server (shown in `/api/status` and the dashboard). It does not decide whether AI runs: an xAI key does. |
 | `SIMULATE_SOURCE_FAILURE` | Comma list such as `openalex`. Forces that source to fail, to test failure handling. |
 | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Turso (libSQL) database for production. When the URL is empty the app uses the local file at `DATABASE_PATH`. |
 | `DATABASE_PATH` | Local SQLite file (default `data/athena.db`), used when `TURSO_DATABASE_URL` is empty. |
@@ -84,9 +73,9 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 - **Accounts.** Sign up, log in, log out, change password, download your data, delete your account (with its projects). Passwords are hashed with scrypt; sessions are HTTP-only, SameSite=Lax cookies backed by the `sessions` table; logins are rate-limited per email and per IP; state-changing requests must come from the same origin.
 - **Isolation.** Every project route, the live-progress stream and the exports check that the project belongs to the signed-in user, and every paper, quote, appraisal or question ID is checked against that project. Another user's project answers 404, for admins too: the dashboard shows counts and metadata, never research ideas, papers or notes.
 - **Admin dashboard (`/admin`).** A green/amber/red verdict with its reasons; health (uptime, memory, database size, job runner, error rate); users, sign-ups and how far projects get through the nine steps; AI calls, tokens, cost by day, step and model, latency and failures; data-source requests, errors, 429s and latency; jobs; quality signals; recent errors and an audit log. Admins can disable, delete or reset the password of a user and change roles; every action is logged.
-- **AI switch.** Turning AI off stops every model call at once, with no restart: running jobs pause at their next call ("AI is paused by the administrator. Your work is saved.") and resume when it is back on. Nothing falls back to mock output, and searching PubMed and OpenAlex keeps working.
+- **AI switch.** Turning AI off stops every model call at once, with no restart: running jobs pause at their next call ("AI is paused by the administrator. Your work is saved.") and resume when it is back on. Nothing falls back to made-up output, and searching PubMed and OpenAlex keeps working. With no xAI key configured, AI steps stop in the same way, with "AI is not set up".
 - **xAI key.** An admin can paste, test, replace and clear a key. It is encrypted at rest, never sent back to the browser (only its last 4 characters, who set it and when, and the last test result), and never written to logs, the decision log, `ai_calls`, errors or exports. A key set in the dashboard takes precedence over `XAI_API_KEY`; clearing it falls back to the environment.
-- **Budget.** Spend against the limit, by step, model and day, with a projection; a warning at 80%, and a hard stop at the limit that users see as "AI budget reached".
+- **Budget.** Spend against the limit, by step, model and day, with a projection; a warning at 80%, and a hard stop at the limit that users see as "AI budget reached". The limit is a total over the database's whole history (`XAI_BUDGET_USD`, default $5).
 - **Upgrading an existing database.** `drizzle/0001_accounts_admin.sql` only adds tables and columns. At the first start with `ADMIN_EMAIL`/`ADMIN_PASSWORD` set, the admin is created and every project without an owner is assigned to it.
 
 ---
@@ -104,12 +93,12 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 
 ```
 prompts/                 one versioned prompt file per AI step (<name>.v<N>.md)
-fixtures/http/           recorded API responses for MOCK_MODE (keys/email stripped)
 drizzle/                 SQL migrations
 remotion/                the landing-page demo composition (rendered by scripts/render-demo.mjs)
 public/demo/             rendered demo video (MP4, WebM) and poster
-scripts/                 e2e.mjs (Playwright UI test), api-flow.mjs (API-only run), visual-audit.ts (QA loop),
-                         render-demo.mjs, screens.mjs
+scripts/                 e2e.mjs (Playwright UI test), security.mjs (isolation and admin checks), visual-audit.ts
+                         (QA loop), ux-shots.mjs, qa-browser.mjs, render-demo.mjs, screens.mjs; lib/no-key.mjs
+                         (the check that stops a script from driving a server with an xAI key)
 qa/                      visual-audit reports (qa/report-<round>.md); screenshots in qa/shots/ (git-ignored)
 docs/redesign-map.md     how the canvas redesign maps onto the real routes and components
 src/app/                 /, /sessions, /s/new, /s/[id] (canvas), /s/[id]/table, /s/[id]/export, /settings,
@@ -122,10 +111,10 @@ src/components/session/  session provider (data, SSE, commands, confirm dialogs)
 src/components/table/    the summary and ranking table
 src/components/ui.tsx    base components on design tokens (badges, dialogs, menus, disclosure)
 src/lib/canvas/          graph derivation, next actions and stage gating, layout, canvas store (unit-tested)
-src/lib/paid-guard.ts    when paid APIs may be called (unit-tested)
+src/lib/paid-guard.ts    the run mode (`ATHENA_ENV`) (unit-tested)
 src/lib/design/          WCAG contrast helpers and the token contrast test
 src/lib/db/              Drizzle schema + client
-src/lib/ai/              xAI client (structured calls, budget, cost), prompt loader, schema conversion, model check, mock responders
+src/lib/ai/              xAI client (structured calls, key, AI switch and budget checks, cost), prompt loader, schema conversion, model check
 src/lib/sources/         pubmed, openalex, crossref, unpaywall, europepmc + cached/rate-limited HTTP layer
 src/lib/stages/          zod schemas for AI outputs, appraisal templates, scoping/search logic
 src/lib/jobs/            job runner + retrieval, summaries, ranking, appraisal (+ full text), synthesis, questions
@@ -195,7 +184,7 @@ src/lib/export.ts        Markdown report, CSV, BibTeX
 - Summaries and scores are batched (8 and 10 papers per call).
 - The fast models run with `reasoning_effort=low`.
 - Each stage header shows calls, tokens and dollars for that stage. Cost is taken from xAI's `cost_in_usd_ticks` when present, otherwise estimated from published prices.
-- `XAI_BUDGET_USD` is a hard stop.
+- `XAI_BUDGET_USD` is a hard stop on total recorded spend (default $5).
 
 **HTTP layer** (`src/lib/sources/http.ts`)
 
@@ -217,7 +206,7 @@ src/lib/export.ts        Markdown report, CSV, BibTeX
 
 ### Models
 
-Model roles are read from the environment and checked against `GET /v1/models` at startup. The resolution appears in the header tooltip and `/api/status`. If a configured slug has been retired, the closest current Grok text model is substituted and flagged in the UI.
+Model roles are read from the environment and checked against `GET /v1/models` whenever an xAI key is configured (with no key each role shows as unchecked). The resolution appears in the header tooltip and `/api/status`. If a configured slug has been retired, the closest current Grok text model is substituted and flagged in the UI.
 
 | Role | Used for | Default | Status (checked 2026-10-28) |
 |---|---|---|---|
@@ -264,48 +253,51 @@ Room for later features is already in the schema:
 - **Novelty check:** the AI writes one targeted query per database for each candidate question. The app runs them and shows the top five real records from each, marking any already in the review. It is presented as "what was found", never as proof of novelty.
 - **Scoping:** the topic list builds live as draft names while the chat runs. Full topics (synonyms, MeSH, rationale) are generated when the user clicks "Build my search topics". This saves a model call per chat turn. A user may approve fewer than 4 topics; the UI warns but allows it.
 - **Next.js config:** `next.config.mjs` instead of `.ts`, because Next 15's TypeScript config loader breaks with TypeScript 7. TypeScript is pinned to 5.9.
-- **Dev watcher:** the dev server ignores `data/`, `fixtures/` and `e2e-artifacts/`. SQLite writes there would otherwise trigger rebuilds and Fast Refresh remounts that wipe form state.
+- **Dev watcher:** the dev server ignores `data/` and `e2e-artifacts/`. SQLite writes there would otherwise trigger rebuilds and Fast Refresh remounts that wipe form state.
 
 ---
 
 ## Testing
 
-Everything here runs in mock mode with no keys; it is the default outside production, and a real key is refused there (see **Mock mode**).
+Nothing here spends money. Run the server with no xAI key: `XAI_API_KEY` empty and no key set in the admin dashboard. Every script that drives a server reads `/api/status` first and refuses to run if the server has a key; `npm run qa` starts its own server with `XAI_API_KEY` and `OPENALEX_API_KEY` stripped from its environment.
 
 ```bash
-npm test                                          # unit tests: quote verification, paid-API guard, colour contrast of the tokens,
+npm test                                          # unit tests: quote verification, the run mode, colour contrast of the tokens,
                                                   # canvas graph, stage gating and next actions, layout, persisted canvas state
-npm run build && npm start                        # production build on :3000
-node scripts/api-flow.mjs                         # drive all nine stages through the HTTP API
-node scripts/e2e.mjs http://localhost:3000        # drive all nine stages through the canvas in a browser (Playwright), with checks
-npm run qa -- --round=N                           # visual audit: builds fixtures, screenshots every view, scores the 12-item checklist
+npm run build && XAI_API_KEY= OPENALEX_API_KEY= npm start
+                                                  # production build on :3000, with no key (empty values, because Next.js
+                                                  # fills unset variables from .env)
+node scripts/e2e.mjs http://localhost:3000        # drive the canvas in a browser (Playwright) as far as it goes without AI, with checks
+npm run qa -- --round=N                           # visual audit: its own no-key server, the no-AI states, every view, the 12-item checklist
 npm run demo:render                               # re-render the landing page's canvas demo video (Remotion, build time only)
 npm run explainers:render                         # re-render the nine "What happens in this step" explainers (Remotion → public/explainers/)
-ADMIN_EMAIL=… ADMIN_PASSWORD=… BASE=http://localhost:3000 npm run test:security
-                                                  # 47 checks: isolation between users on every route, login rate limits, same-origin,
-                                                  # admin-only routes (403), the AI switch pausing and resuming a job, the key never
-                                                  # appearing in any response, log or export, budget changes, the audit log
-node scripts/ux-shots.mjs http://localhost:3000 N # screenshots of every page and state at 375/768/1366 px → docs/screenshots/ux/<page>/vN/
+ADMIN_EMAIL=… ADMIN_PASSWORD=… npm run test:security
+                                                  # isolation between users on every route, login rate limits, same-origin,
+                                                  # admin-only routes (403), AI steps refused with no key and with AI off (503, no
+                                                  # cost), the key never appearing in any response or export, budget changes, the audit log
+node scripts/ux-shots.mjs http://localhost:3000 N # screenshots of every page and state reachable without a key at 375/768/1366 px
+                                                  # → docs/screenshots/ux/<page>/vN/
 node scripts/qa-browser.mjs <persona> <command>   # a persistent browser driven from the shell (used by the simulated-user QA agents)
 ```
 
-`scripts/e2e.mjs` checks the acceptance criteria directly. It uses the test idea throughout: *"What is the knowledge gap in implementing telemedicine in Southeast Asia?"*
+The scripts default to `http://localhost:3000`; pass another base URL as the first argument (`npm run test:security -- <url>`). With the server's `ADMIN_EMAIL`/`ADMIN_PASSWORD` in the environment, `e2e.mjs` also checks server-wide that no AI call was sent and nothing was spent, and `ux-shots.mjs` adds the admin dashboard and the AI-off state.
 
-- ≤5 scoping questions and 4–8 topics.
-- One query per database per topic, with dry-run counts.
-- Retrieval completes and deduplicates, including after a page reload.
-- Every paper has a DOI, PMID or OpenAlex ID.
-- 3–5 papers are selected per topic, and topics carry an importance order.
-- A paper swap works.
-- Every appraisal is labelled; every extracted claim has a quote; verified quotes map to real spans.
-- Accepting an unverified quote works.
-- Synthesis cites only verified or accepted claims.
-- There are three questions with claim links and novelty results.
-- A question can be chosen and edited, and all three exports download.
-- Editing a topic after retrieval marks stages 3–9 stale.
-- No browser console errors.
+`scripts/e2e.mjs` signs up through the UI and uses the test idea throughout: *"What is the knowledge gap in implementing telemedicine in Southeast Asia?"* It checks that:
 
-`scripts/visual-audit.ts` (`npm run qa`) starts its own production server in mock mode with the keys stripped from its environment and a fresh database. It seeds sessions through the API (empty, scoping, ghost subtopics, running, error, stale, done, ranked, and a 300-node session). It then screenshots every view and Focus panel at 1440×900 and 390×844, in dark and light, with reduced motion on and off, into `qa/shots/<round>/`, and scores each shot against the 12-item checklist into `qa/report-<round>.md`. The checks are:
+- the idea saves;
+- "Sharpen my idea" shows the plain AI-not-set-up message, with no spinner left running and no question stored;
+- the scoping questions can be skipped, and topics can be added, edited, deleted and approved by hand;
+- the search builder shows the AI-not-set-up message and writes nothing;
+- nothing was spent: AI cost $0, and every AI call of the project was refused;
+- another account cannot open the project;
+- the report (with the idea and the topics), the spreadsheet and the reference list download, under the "AI is not set up yet." banner;
+- editing an approved topic reopens step 2;
+- the account page shows $0.00 of AI use and Settings say AI is not set up;
+- there are no browser console errors (the browser's log line for each refused AI request, HTTP 503, is expected and left out).
+
+It writes its checks to `e2e-artifacts/run/results.json` with `mode: "no-key"`.
+
+`scripts/visual-audit.ts` (`npm run qa`) starts its own production server with no keys and a fresh database. It seeds the states reachable without AI through the API (an idea, the AI-not-set-up state, topics added by hand and approved, AI switched off) and screenshots every view and Focus panel, plus the account, settings and admin pages, at 1440×900 and 390×844, in dark and light, with reduced motion on and off, into `qa/shots/<round>/`. It scores each shot against the 12-item checklist into `qa/report-<round>.md`. The checks are:
 - the accent count and the squint test;
 - collapsed-by-default disclosures;
 - axe-core (serious and critical issues);
@@ -314,15 +306,21 @@ node scripts/qa-browser.mjs <persona> <command>   # a persistent browser driven 
 - overflow, overlap and 44 px tap targets at 390 px;
 - state badges carrying icon and text;
 - the 4-pt grid and type-size count;
-- 300-node pan frame rate and List-view parity;
+- List-view parity and the canvas JS budget;
 - Lighthouse mobile;
-- console errors and paid-API calls.
+- console errors, paid-API calls and AI spend.
 
-See **Test results** below for what was actually run.
+Views that need AI output (the scoping chat, searches, papers, appraisals, synthesis, questions, the 300-node session and its pan frame rate) cannot be reached without a key; the report lists them under "Not covered without an xAI key".
+
+See **Test results** below.
 
 ## Test results
 
-### Canvas redesign (mock mode, no keys, $0)
+**Needs a fresh run.** Mock mode was removed after the runs below, and the scripts were rewritten for a server with no xAI key. The rewritten `npm test`, `scripts/e2e.mjs`, `scripts/security.mjs`, `npm run qa` and `scripts/ux-shots.mjs` have no recorded results yet: run them as described under **Testing** and record the results here.
+
+Everything below is history. It was measured in mock mode (the canvas redesign) or with live AI (before the redesign), on code that has since changed.
+
+### Canvas redesign (mock mode, since removed; no keys, $0)
 
 All of this ran with every API key removed from the server's environment. The paid-API guard counted **0 attempted calls**, so the redesign spent nothing.
 
@@ -419,6 +417,6 @@ Approximate AI cost by stage in that run:
 - **What quote verification proves.** It shows that the quoted words exist in the text. It does not prove the AI's paraphrase is faithful to the quote. The "location" field is supplied by the model; the app adds the computed section for verified quotes.
 - **Synthesis** is per topic, over the selected papers only. There is no cross-topic synthesis.
 - **Novelty check** shows the top five relevance-ranked records per database for one AI-written query. It is a prompt for the student's own checking, not a guarantee.
-- **Mock-mode fixtures** match the test idea. Other ideas in mock mode get fixture data borrowed from the same endpoint, which is fine for UI work and meaningless as evidence.
+- **Testing without a key stops at step 3.** With no xAI key the scoping questions, suggested topics, searches and every later step cannot run. The automated scripts therefore cover steps 1–3, accounts, isolation, the admin area and exports; steps 4–9 are only exercised by a real run with a key, which spends money.
 - **Cost display.** Costs come from xAI's reported `cost_in_usd_ticks`. If xAI stops reporting it, the app falls back to the price table in `src/lib/config.ts`, which must then be kept current.
 - **Accessibility and browsers.** The app is keyboard-navigable, with labelled controls, `aria-current`, `aria-sort`, a focus-managed drawer and dialog, and visible focus rings. It has not been audited with a screen reader. It was tested at 1366×900 in Chromium; narrow screens get a stage drop-down instead of the sidebar.
