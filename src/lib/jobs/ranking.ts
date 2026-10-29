@@ -1,7 +1,6 @@
 import "server-only";
 import { asc, eq, inArray } from "drizzle-orm";
 import { db, schema } from "../db";
-import type { RubricScores } from "../db/schema";
 import { structuredCall, unknownIds, isAiStop } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { RankingBatch, TopicImportance } from "../stages/ai-schemas";
@@ -9,7 +8,8 @@ import { PER_TOPIC } from "../shared/stages";
 import { chunk, errMsg, newId, forEachSeq } from "../util";
 import { getProject, logDecision } from "../project";
 import type { JobContext } from "./runner";
-import { citationScore, defaultSelection, recencyScore, weightedTotal } from "../scoring";
+import { applyRankingRules, citationScore, defaultSelection, recencyScore } from "../scoring";
+import { ideaSetting } from "../shared/scope";
 
 const BATCH = 10;
 /** Max papers scored per topic (highest database relevance first) to bound cost. */
@@ -18,6 +18,7 @@ const MAX_PER_TOPIC = 60;
 export async function rankingJob(ctx: JobContext) {
   const { projectId } = ctx;
   const p = (await getProject(projectId));
+  const setting = ideaSetting(p.scopingSummary);
   const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
   const topicIds = topics.map((t) => t.id);
   // A resumed job (after AI was paused) keeps the scores it already has and scores only the rest.
@@ -60,6 +61,7 @@ export async function rankingJob(ctx: JobContext) {
           vars: {
             idea: wrapData("research idea", p.idea),
             summary: wrapData("scoping summary", JSON.stringify(p.scopingSummary ?? {})),
+            setting: setting ? wrapData("setting", setting) : "none named (rate settingMatch for the population only)",
             topic: `${topic.name} — ${topic.rationale}`,
             papers: batch
               .map((x) => {
@@ -79,15 +81,16 @@ export async function rankingJob(ctx: JobContext) {
           const paper = batch.find((x) => x.id === r.paperId)!;
           const rec = recencyScore(paper.year);
           const cit = citationScore(paper.citationCount, paper.year);
-          const sub: RubricScores = { topicFit: r.topicFit, designStrength: r.designStrength, settingMatch: r.settingMatch, recency: rec.score, citationImpact: cit.score };
+          // Off-setting papers and papers that only share words with the idea score low, and say why.
+          const ruled = applyRankingRules(r, { recency: rec.score, citationImpact: cit.score }, setting);
           (await db.insert(schema.scores).values({
                         id: newId("sc"),
                         paperId: r.paperId,
                         topicId: topic.id,
-                        subScores: sub,
-                        rationales: { topicFit: r.topicFitWhy, designStrength: r.designStrengthWhy, settingMatch: r.settingMatchWhy, recency: rec.why, citationImpact: cit.why },
-                        total: weightedTotal(sub),
-                        rationale: r.overall,
+                        subScores: ruled.sub,
+                        rationales: { topicFit: ruled.topicFitWhy, designStrength: r.designStrengthWhy, settingMatch: ruled.settingMatchWhy, recency: rec.why, citationImpact: cit.why },
+                        total: ruled.total,
+                        rationale: ruled.overall,
                       }).onConflictDoNothing().run());
         }
       } catch (e) {

@@ -15,6 +15,7 @@ import { TopicUndo } from "./topic-undo";
 const TopicConstellation = dynamic(() => import("../viz/TopicConstellation").then((m) => m.TopicConstellation), { ssr: false, loading: () => <Loading label="Drawing your topics…" /> });
 import { stageAction } from "@/lib/canvas/actions";
 import { frontierStage, isGhostTopic } from "@/lib/canvas/graph";
+import { meshText, splitHeadings } from "@/lib/shared/scope";
 
 interface Topic { id: string; name: string; synonyms: string[]; controlledTerms: string[]; rationale: string; origin: string; approved: boolean }
 export interface ScopingData {
@@ -478,8 +479,9 @@ export function TopicPanel({ topicId }: { topicId: string }) {
       <label className="block text-12 text-fg-1">Synonyms (comma-separated)
         <input className="input mt-1" key={`s-${t.synonyms.join()}`} defaultValue={t.synonyms.join(", ")} onBlur={(e) => e.target.value !== t.synonyms.join(", ") && patch({ synonyms: splitList(e.target.value) })} />
       </label>
-      <label className="block text-12 text-fg-1">Controlled vocabulary (MeSH)
-        <input className="input mt-1 font-mono" key={`c-${t.controlledTerms.join()}`} defaultValue={t.controlledTerms.join(", ")} placeholder="none" onBlur={(e) => e.target.value !== t.controlledTerms.join(", ") && patch({ controlledTerms: splitList(e.target.value) })} />
+      {/* One heading per line: real MeSH headings contain commas ("Asia, Southeastern"), so commas never split them. */}
+      <label className="block text-12 text-fg-1">MeSH headings (one per line)
+        <textarea className="input mt-1 min-h-20 font-mono" rows={Math.max(2, t.controlledTerms.length)} key={`c-${meshText(t.controlledTerms)}`} defaultValue={meshText(t.controlledTerms)} placeholder="none" onBlur={(e) => splitHeadings(e.target.value).join("\n") !== meshText(t.controlledTerms) && patch({ controlledTerms: splitHeadings(e.target.value) })} />
       </label>
       <p className="text-12 text-fg-2">Changes save when you leave a field.</p>
       {err ? <ErrorState error={err} /> : null}

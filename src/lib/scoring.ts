@@ -47,3 +47,29 @@ export function citationScore(cites: number | null, year: number | null, now = n
 export function weightedTotal(s: RubricScores) {
   return Math.round(RUBRIC.reduce((acc, r) => acc + (s[r.key] / 5) * r.weight * 100, 0));
 }
+
+/** When the idea names a setting, a paper not shown to be in it gets this share of its score (half: at most 42). */
+export const OFF_SETTING_FACTOR = 0.5;
+
+/**
+ * The deterministic rules on top of the AI's ratings for one paper and topic:
+ * - a paper the AI marks as only sharing words with the idea (a "mobile health clinic", a van, for an idea about
+ *   mobile apps) gets topic fit 1 at most, so it is never pre-selected;
+ * - when the idea names a setting, a paper rated 0–1 for setting (set elsewhere, or its setting not reported)
+ *   has its score halved, so papers from the idea's setting come first (and the order among the others is kept).
+ * Each rule that applies says so in the reasons the ranking table shows.
+ */
+export function applyRankingRules(
+  ai: { topicFit: number; topicFitWhy: string; designStrength: number; settingMatch: number; settingMatchWhy: string; overall: string; onlySharesWords?: boolean },
+  formula: Pick<RubricScores, "recency" | "citationImpact">,
+  setting: string | null,
+): { sub: RubricScores; topicFitWhy: string; settingMatchWhy: string; overall: string; total: number } {
+  const sub: RubricScores = { topicFit: ai.onlySharesWords ? Math.min(ai.topicFit, 1) : ai.topicFit, designStrength: ai.designStrength, settingMatch: ai.settingMatch, ...formula };
+  const topicFitWhy = ai.onlySharesWords ? `Different subject that only shares words with your idea: ${ai.topicFitWhy}` : ai.topicFitWhy;
+  const overall = ai.onlySharesWords ? `It only shares words with your idea, so it does not match the topic. ${ai.overall}` : ai.overall;
+  const total = weightedTotal(sub);
+  if (!setting || sub.settingMatch > 1) return { sub, topicFitWhy, settingMatchWhy: ai.settingMatchWhy, overall, total };
+  const low = Math.round(total * OFF_SETTING_FACTOR);
+  const why = sub.settingMatch === 0 ? `it is set outside ${setting}` : `its setting is not reported, so it may not be ${setting}`;
+  return { sub, topicFitWhy, settingMatchWhy: `${ai.settingMatchWhy} (Score halved: your idea is about ${setting}.)`, overall: `${overall} Score halved (${total} to ${low}) because ${why}.`, total: low };
+}
