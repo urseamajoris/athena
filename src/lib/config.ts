@@ -1,25 +1,16 @@
 import "server-only";
-import { assertPaidAllowed, resolveMode, type PaidService } from "./paid-guard";
+import { countPaidCall, resolveMode, type PaidCalls } from "./paid-guard";
 
 const mode = resolveMode(process.env);
 
-function bool(v: string | undefined, d = false) {
-  if (v === undefined || v === "") return d;
-  return ["1", "true", "yes", "on"].includes(v.toLowerCase());
-}
 function num(v: string | undefined, d: number) {
   const n = Number(v);
   return v !== undefined && v !== "" && Number.isFinite(n) ? n : d;
 }
 
 export const config = {
-  /** ATHENA_ENV=production: the only environment where paid APIs (xAI, OpenAlex) may be called. */
+  /** ATHENA_ENV=production: the live deployment. Whether AI runs depends on the xAI key, not on this flag. */
   production: mode.production,
-  /** Recorded fixtures + mock model. On by default everywhere except production. */
-  mockMode: mode.mockMode,
-  /** Mock only the model (real HTTP). Implied by MOCK_MODE. Useful for zero-cost pipeline tests and for recording fixtures. */
-  mockAi: mode.mockAi,
-  recordFixtures: bool(process.env.RECORD_FIXTURES),
   xaiApiKey: process.env.XAI_API_KEY ?? "",
   xaiBaseUrl: process.env.XAI_BASE_URL || "https://api.x.ai/v1",
   openalexApiKey: process.env.OPENALEX_API_KEY ?? "",
@@ -46,18 +37,11 @@ export const config = {
 
 export type ModelRole = keyof typeof config.models;
 
-const g = globalThis as unknown as { __paidCalls?: { attempted: number; blocked: number } };
-/** Every attempt to call a paid API since the server started; QA asserts this stays at zero. */
+const g = globalThis as unknown as { __paidCalls?: PaidCalls };
+/** Every call to a paid API (xAI, OpenAlex) since the server started; tests run with no keys and expect zero. */
 export const paidCalls = (g.__paidCalls ??= { attempted: 0, blocked: 0 });
 
-/** Call immediately before any network request to a paid API. Throws (and counts) outside production. */
-export function guardPaid(service: PaidService, what: string) {
-  paidCalls.attempted++;
-  try {
-    assertPaidAllowed(mode, service, what);
-  } catch (e) {
-    paidCalls.blocked++;
-    console.error(`[athena] ${(e as Error).message}`);
-    throw e;
-  }
+/** Call immediately before any network request to a paid API. Counts it for the admin telemetry; never throws. */
+export function countPaid() {
+  countPaidCall(paidCalls);
 }

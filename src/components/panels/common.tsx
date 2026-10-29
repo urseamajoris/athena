@@ -54,19 +54,19 @@ export function JobStatus({ stage }: { stage: number }) {
   return <p className="text-12 text-fg-2">{(states[String(stage)] ?? "not_started") === "not_started" ? "This step has not run yet." : "No job information."}</p>;
 }
 
-/** A job stopped because AI was switched off or the budget ran out: nothing is lost, and it can continue. */
+/** A job stopped because AI was switched off, has no key or the budget ran out: nothing is lost, and it can continue. */
 function PausedJob({ stage }: { stage: number }) {
   const { jobs, ai, projectId, refresh } = useSession();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
   const j = jobs[String(stage)]!;
-  const canResume = ai.enabled && !ai.budgetReached;
+  const canResume = ai.enabled && !ai.budgetReached && !ai.keyMissing;
   return (
     <div className="rounded-md border border-warn-line bg-warn-soft p-3" role="status">
-      <p className="flex items-center gap-2 font-medium text-fg-0"><PauseCircle className="h-4 w-4 text-warn" strokeWidth={2} aria-hidden /> {ai.budgetReached ? "AI budget reached" : !ai.enabled ? "AI is paused by the administrator" : "Paused"}</p>
+      <p className="flex items-center gap-2 font-medium text-fg-0"><PauseCircle className="h-4 w-4 text-warn" strokeWidth={2} aria-hidden /> {ai.keyMissing ? "AI is not set up yet" : ai.budgetReached ? "AI budget reached" : !ai.enabled ? "AI is paused by the administrator" : "Paused"}</p>
       <p className="mt-1 text-fg-1">
         Your work is saved: {j.progress.done} of {j.progress.total} done.{" "}
-        {canResume ? "AI is available again, so you can continue." : "This step continues automatically when the administrator turns AI back on or raises the budget."}
+        {canResume ? "AI is available again, so you can continue." : ai.keyMissing ? "This step continues automatically once an administrator adds an xAI API key." : "This step continues automatically when the administrator turns AI back on or raises the budget."}
       </p>
       {canResume && (
         <button

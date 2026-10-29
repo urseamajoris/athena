@@ -8,8 +8,8 @@ Shared on every step page:
 - **One primary action**, accent-filled, in the panel footer (desktop) or a bottom bar (phones). A panel whose step is not the current one offers "Go to step N" instead, so no page is a dead end.
 - **Headline = the task**, in plain words, then one sentence of what to do. Detail (costs, raw queries, weights, model names) sits behind "Details" or ⋯.
 - **What happens in this step:** an 8-second explainer video (pre-rendered with Remotion) and the same three lines as text. Collapsed by default.
-- **States:** running (live progress, "safe to close"), paused (AI off or budget: "Your work is saved", Resume when possible), failed (what went wrong, Retry), out of date (why, Keep or Bring up to date, link to the step that needs approval first).
-- **Demo mode** is announced once in a dismissible note: scripted AI, recorded sample papers, "(mock)" text, nothing charged.
+- **States:** running (live progress, "safe to close"), paused (AI off, budget, or no xAI key: "Your work is saved", Resume when possible), failed (what went wrong, Retry), out of date (why, Keep or Bring up to date, link to the step that needs approval first).
+- **No xAI key:** AI steps say "AI is not set up yet" (an administrator adds a key); the work is saved, everything that needs no AI still works, and nothing is charged.
 
 | Page | It is for | Do first | Single next action |
 |---|---|---|---|
@@ -29,7 +29,7 @@ Shared on every step page:
 | Export (final) | Your literature review is ready to download | Check the question and pick a format | **Download** |
 | Overview (canvas / list) | The whole review at a glance | Find the highlighted step that needs you | The current step's action |
 | Account | Your profile, password, AI use, data | Change what you came for | (no single primary: separate forms) |
-| Settings | Appearance and how the server runs (demo mode, AI on/off) | Pick a theme | (none) |
+| Settings | Appearance and how the server runs (AI on, off or not set up) | Pick a theme | (none) |
 | Admin `/admin` | "Is Athena healthy, and what needs my attention?" | Read the verdict and its reasons | Act on the first reason (AI & API key panel is next) |
 
 ## Categories and colour coding

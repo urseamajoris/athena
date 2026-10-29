@@ -56,10 +56,6 @@ export function useQuestions() {
 export function QuestionsPanel() {
   const { projectId, refresh, states, graph, input } = useSession();
   const { data, error, isLoading, mutate } = useQuestions();
-  // Demo mode: the novelty search returns recorded sample records, which the verdict must say.
-  const status = useApi<{ mockMode: boolean }>("/api/status").data;
-  const demo = !!status?.mockMode;
-  const known = !!status; // until the mode is known, no "may already be studied" warning (demo records would flash it)
   const [err, setErr] = useState<unknown>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -109,10 +105,10 @@ export function QuestionsPanel() {
           <ul className="space-y-3" aria-label="Candidate research questions">
             {data.questions.map((q, i) => {
               const fw = frameworkOf(q);
-              const v = noveltyVerdict(q, { demo, ownTitles: data.ownTitles });
+              const v = noveltyVerdict(q, { ownTitles: data.ownTitles });
               // Top records whose titles look like this very question: warned about on the card itself, not only in
-              // the reasoning. Not in demo mode, where the records are recorded samples unrelated to the question.
-              const same = demo || !known ? [] : q.noveltyMatches.filter((_, j) => v.close[j]);
+              // the reasoning.
+              const same = q.noveltyMatches.filter((_, j) => v.close[j]);
               return (
               <li key={q.id} className={cx("rounded-md border p-3", q.chosen ? "border-fg-1" : "border-line")} aria-label={`Candidate ${i + 1}`}>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -130,7 +126,7 @@ export function QuestionsPanel() {
                   <dt className="text-fg-2">Feasibility</dt><dd className="line-clamp-2 text-fg-1">{q.feasibility}</dd>
                   <dt className="text-fg-2">Weakness</dt><dd className="line-clamp-2 text-fg-1">{q.weakness}</dd>
                   <dt className="text-fg-2">Structure</dt><dd className="text-fg-1">{fw}{FRAMEWORK[fw] ? ` (${FRAMEWORK[fw]})` : ""}</dd>
-                  <dt className="text-fg-2">Novelty check</dt><dd className="text-fg-1">{v.headline}{demo && <span className="text-fg-2"> (demo: sample records)</span>}</dd>
+                  <dt className="text-fg-2">Novelty check</dt><dd className="text-fg-1">{v.headline}</dd>
                 </dl>
                 {same.length + v.own.length > 0 && (
                   <div role="note" className="mt-2 rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-12">
@@ -170,7 +166,7 @@ export function QuestionsPanel() {
                     <p>{q.feasibility}</p>
                     <h4 className="label mt-3">Main weakness</h4>
                     <p>{q.weakness}</p>
-                    <Novelty q={q} demo={demo} ownTitles={data.ownTitles} onRerun={(d) => mutate(d, { revalidate: false })} />
+                    <Novelty q={q} ownTitles={data.ownTitles} onRerun={(d) => mutate(d, { revalidate: false })} />
                   </Disclosure>
                 </div>
               </li>
@@ -196,10 +192,10 @@ function MatchLink({ m }: { m: Match }) {
   return m.openalexId ? <>OpenAlex {m.openalexId}</> : null;
 }
 
-function Novelty({ q, demo, ownTitles, onRerun }: { q: RQ; demo: boolean; ownTitles?: string[]; onRerun: (d: QData) => void }) {
+function Novelty({ q, ownTitles, onRerun }: { q: RQ; ownTitles?: string[]; onRerun: (d: QData) => void }) {
   const { projectId } = useSession();
   const [busy, setBusy] = useState(false);
-  const v = noveltyVerdict(q, { demo, ownTitles });
+  const v = noveltyVerdict(q, { ownTitles });
   return (
     <div className="mt-3 rounded-sm bg-bg-2 p-3 text-12">
       <div className="flex items-center justify-between gap-2">
@@ -211,10 +207,10 @@ function Novelty({ q, demo, ownTitles, onRerun }: { q: RQ; demo: boolean; ownTit
       {v.notes.map((n) => <p key={n} className="mt-1 text-fg-1">{n}</p>)}
       <ul className="mt-2 space-y-1 text-fg-2">
         {q.noveltyQueries.map((n) => (
-          <li key={n.database}><strong className="font-medium">{n.database}</strong>: {n.error ? <span className="text-err">failed: {n.error}</span> : `${n.count == null ? "?" : fmtInt(n.count)} records contain the search words${demo ? " (sample count)" : ""}`}<code className="block truncate font-mono" title={n.query}>{n.query}</code></li>
+          <li key={n.database}><strong className="font-medium">{n.database}</strong>: {n.error ? <span className="text-err">failed: {n.error}</span> : `${n.count == null ? "?" : fmtInt(n.count)} records contain the search words`}<code className="block truncate font-mono" title={n.query}>{n.query}</code></li>
         ))}
       </ul>
-      {q.noveltyMatches.length > 0 && <p className="mt-2 text-fg-2">Top records{demo ? " (recorded samples)" : ""}:</p>}
+      {q.noveltyMatches.length > 0 && <p className="mt-2 text-fg-2">Top records:</p>}
       <ol className="mt-1 space-y-2">
         {q.noveltyMatches.map((m, i) => (
           <li key={i} className="text-fg-1">

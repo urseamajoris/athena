@@ -1,19 +1,9 @@
 import { config } from "./lib/config";
-import { startupProblem } from "./lib/paid-guard";
 import { checkModels } from "./lib/ai/models";
-import { resumeJobs } from "./lib/jobs";
+import { resumeJobs, resumeJobsPausedForNoKey } from "./lib/jobs";
 import { ready } from "./lib/db";
 import { ensureAdminFromEnv } from "./lib/auth/server";
-
-// Refuse to start in a configuration that would spend money outside production.
-const problem = startupProblem(config);
-if (problem) {
-  console.error(`\n[athena] REFUSING TO START: ${problem}\n`);
-  throw new Error(problem);
-}
-if (config.mockMode && (config.xaiApiKey || config.openalexApiKey)) {
-  console.warn("[athena] Mock mode: API keys are present in the environment but will not be used.");
-}
+import { aiState, budgetLimit, effectiveXaiKey } from "./lib/settings";
 
 // Apply database migrations (local file or Turso) before anything reads the database.
 // A remote database (Turso) can time out on a cold start: retry, and never crash the server over it
@@ -26,6 +16,17 @@ for (let attempt = 1; attempt <= 3 && !dbReady; attempt++) {
   } catch (e) {
     console.error(`[athena] database not ready (attempt ${attempt}/3):`, e);
     if (attempt < 3) await new Promise((r) => setTimeout(r, 500 * attempt));
+  }
+}
+
+// With an xAI key (admin-set or XAI_API_KEY) AI steps spend real money: say so once outside production.
+// With no key every AI step pauses before any call, so nothing is spent.
+if (!config.production) {
+  try {
+    const [{ key }, limit] = dbReady ? await Promise.all([effectiveXaiKey(), budgetLimit()]) : [{ key: config.xaiApiKey }, config.budgetUsd];
+    if (key) console.warn(`[athena] An xAI key is set: AI steps will call xAI and spend real money (budget $${limit}).`);
+  } catch (e) {
+    console.error("[athena] could not read the key settings:", e);
   }
 }
 
@@ -45,6 +46,9 @@ if (dbReady) {
   }
   try {
     await resumeJobs();
+    // A key added to the environment since: jobs that paused for want of one carry on.
+    const ai = await aiState();
+    if (ai.enabled && !ai.keyMissing && !ai.budgetReached) await resumeJobsPausedForNoKey();
   } catch (e) {
     console.error("[athena] could not resume interrupted jobs:", e);
   }

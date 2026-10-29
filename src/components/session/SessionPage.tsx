@@ -13,7 +13,6 @@ import { frontierNodeId, frontierStage } from "@/lib/canvas/graph";
 import { STAGES } from "@/lib/shared/stages";
 import { StageRail } from "../canvas/StageRail";
 import { focusWithRing } from "../canvas/focus";
-import { DemoBanner } from "./DemoBanner";
 import { AiPausedBanner } from "./AiPausedBanner";
 
 /** Move focus to the page's one next action (in the header on wide screens, the bottom bar on narrow ones), for
@@ -102,7 +101,6 @@ function Frame({ node, title, children, showAction }: { node: string; title: str
         {forward && <span className="max-md:hidden" data-page-action>{forward}</span>}
         <AppMenu />
       </header>
-      <DemoBanner />
       <AiPausedBanner />
       <main id="main" ref={mainRef} className="min-h-0 flex-1 overflow-hidden">{children}</main>
       {action && <div className="shrink-0 border-t border-line bg-bg-1 px-4 py-2 md:hidden [&_button]:w-full" data-page-action><ActionButton action={action} primary showReason /></div>}

@@ -1,15 +1,24 @@
-// Security and data-isolation test against a running server (mock mode). Costs nothing.
+// Security and data-isolation test against a running server with no xAI key. Costs nothing.
 // Usage: node scripts/security.mjs [baseUrl]   (admin checks need ADMIN_EMAIL / ADMIN_PASSWORD of that server)
 //
+// It reads /api/status first and refuses to run if the server has an xAI key, so every AI step is refused before
+// any request to xAI. User A's project is built by hand (idea, skipped questions, topics), without AI.
 // Every project route is read from src/lib/api.ts, so a route added later is covered automatically.
 // - anonymous requests get 401 on every route;
 // - user B gets 404 on every route of user A's project (and A's project never appears in B's list or pages);
-// - IDs of A's objects (papers, scores, claims, appraisals, synthesis items, questions, topics, queries)
-//   never resolve inside B's own project, and A's data is unchanged afterwards;
-// - cross-site writes are refused, login is rate-limited, session cookies are HttpOnly.
+// - IDs of A's topics never resolve inside B's own project, and A's data is unchanged afterwards;
+// - cross-site writes are refused, login is rate-limited, session cookies are HttpOnly;
+// - with no key, and with AI switched off, AI steps are refused (503, no cost) and the project is unchanged.
+//
+// Dropped when mock mode was removed, because they need AI output (a real run with a key covers them):
+// - IDs of papers, ranking scores, claims, appraisals, synthesis items and questions not resolving inside another
+//   project (without AI there are none; those routes are still in the 401 and 404 sweeps);
+// - with AI off, database retrieval still runs, and a running AI job pauses and resumes when AI is back on;
+// - after AI is back on, AI steps work again;
+// - the dashboard never contains paper titles (topic names are checked instead).
 import fs from "node:fs";
 import { Client } from "./lib/client.mjs";
-import { runFlow } from "./api-flow.mjs";
+import { requireNoKey } from "./lib/no-key.mjs";
 
 const base = process.argv.find((a) => a.startsWith("http")) ?? "http://localhost:3000";
 const checks = [];
@@ -19,6 +28,9 @@ const check = (name, ok, detail = "") => {
 };
 const stamp = Date.now();
 
+// Refuses to go on (exit 2) if the server has an xAI key.
+const { status: statusBefore } = await requireNoKey(base);
+
 const ROUTES = [...fs.readFileSync(new URL("../src/lib/api.ts", import.meta.url), "utf8").matchAll(/\bon\("(GET|POST|PATCH|PUT|DELETE)", "([^"]+)"/g)].map((m) => ({ method: m[1], path: m[2] }));
 check("router routes discovered", ROUTES.length >= 40, `${ROUTES.length} routes`);
 
@@ -26,29 +38,34 @@ const A = await new Client(base, "A").signup(`sec-a-${stamp}@example.org`);
 const B = await new Client(base, "B").signup(`sec-b-${stamp}@example.org`);
 const anon = new Client(base, "anon");
 
-console.log("building user A's project (mock pipeline)…");
-const pa = await runFlow(A, { until: 9 });
+console.log("building user A's project by hand (no AI)…");
+const IDEA_A = "What is the knowledge gap in implementing telemedicine in Southeast Asia?";
+const TOPICS = [
+  { name: "Telemedicine adoption in ASEAN countries", synonyms: ["telehealth", "teleconsultation"], rationale: "The main phenomenon." },
+  { name: "Barriers and facilitators for health workers", synonyms: ["obstacles", "enablers"], rationale: "What blocks or helps it." },
+  { name: "Rural and underserved patients", synonyms: ["remote areas"], rationale: "The population that matters most." },
+];
+const pa = (await A.json("/api/projects", { body: { idea: IDEA_A } })).id;
+await A.json(`/api/projects/${pa}/stages/1/approve`, { body: {} });
+const refused = await A.raw(`/api/projects/${pa}/scoping/start`, { body: {} });
+const refusedBody = await refused.json().catch(() => ({}));
+check("with no xAI key, an AI step is refused with the not-set-up message", refused.status === 503 && refusedBody.kind === "ai_paused" && /not set up/i.test(refusedBody.error ?? ""), `${refused.status} ${refusedBody.error ?? ""}`);
+await A.json(`/api/projects/${pa}/scoping/skip`, { body: {} });
+for (const t of TOPICS) await A.json(`/api/projects/${pa}/topics`, { body: t });
+await A.json(`/api/projects/${pa}/stages/2/approve`, { body: {} });
+const build = await A.raw(`/api/projects/${pa}/search/build`, { body: {} });
+const buildBody = await build.json().catch(() => ({}));
+check("with no xAI key, the search builder is refused and writes nothing", build.status === 503 && buildBody.kind === "ai_paused" && (await A.json(`/api/projects/${pa}/search`)).topics.every((t) => t.queries.length === 0), `${build.status} ${buildBody.error ?? ""}`);
 const pb = (await B.json("/api/projects", { body: { idea: "How does screen time affect sleep quality in teenagers?" } })).id;
 
-// A's object IDs, gathered through A's own (legitimate) reads.
+// A's object IDs, gathered through A's own (legitimate) reads. Without AI only topics exist; the other object
+// routes get made-up IDs, which is enough for the 401 and 404 sweeps (the project is checked first).
 const g = (p) => A.json(`/api/projects/${pa}/${p}`);
-const [papers, ranking, appraisals, synthesis, questions, scoping, search] = await Promise.all([g("papers"), g("ranking"), g("appraisals"), g("synthesis"), g("questions"), g("scoping"), g("search")]);
-const firstAppraisal = appraisals.appraisals[0];
-const detail = await g(`appraisals/${firstAppraisal.id}`);
-const scoreRows = ranking.rows ?? ranking.topics?.flatMap((t) => t.rows ?? t.papers ?? []) ?? [];
-const scoreId = JSON.stringify(ranking).match(/"(sc_[a-z0-9]+|score_[a-z0-9]+)"/)?.[1] ?? scoreRows[0]?.scoreId ?? scoreRows[0]?.id;
-const ids = {
-  pid: papers.papers[0].id,
-  sid: JSON.stringify(synthesis).match(/"(sy_[a-f0-9]+)"/)?.[1] ?? "sy_missing",
-  aid: firstAppraisal.id,
-  cid: detail.claims[0].id,
-  qid: questions.questions[0].id,
-  tid: scoping.topics[0].id,
-  kind: "markdown",
-  n: "5",
-};
-const queryId = search.topics[0].queries[0].id;
-check("collected A's object IDs", Object.values(ids).every((v) => v && !String(v).includes("missing")) && !!scoreId && !!queryId, JSON.stringify({ ...ids, scoreId, queryId }));
+const scoping = await g("scoping");
+check("A's project was built without AI", scoping.topics.length === TOPICS.length && (await A.json(`/api/projects/${pa}`)).project.stageStates["2"] === "approved", `${scoping.topics.length} topics`);
+const ids = { pid: "pap_none", sid: "sy_none", aid: "app_none", cid: "cl_none", qid: "rq_none", tid: scoping.topics[0].id, kind: "markdown", n: "5" };
+const queryId = "q_none";
+const scoreId = "sc_none";
 
 const fill = (path, extra = {}) => path.replace(/:([a-z]+)/g, (_, k) => ({ ...ids, qid: path.startsWith("queries") ? queryId : ids.qid, sid: path.startsWith("ranking/scores") ? scoreId : ids.sid, ...extra })[k] ?? "x");
 const bodyFor = (r) => {
@@ -65,7 +82,7 @@ const bodyFor = (r) => {
   return r.method === "GET" ? undefined : {};
 };
 
-const snapshot = async () => JSON.stringify(await Promise.all([g("papers"), g("ranking"), g("synthesis"), g("questions"), g(`appraisals/${firstAppraisal.id}`), g("scoping"), A.json(`/api/projects/${pa}`).then((v) => v.project)]));
+const snapshot = async () => JSON.stringify(await Promise.all([g("scoping"), g("search"), g("papers"), A.json(`/api/projects/${pa}`).then((v) => v.project)]));
 const before = await snapshot();
 
 // 1. Anonymous: 401 everywhere.
@@ -94,14 +111,13 @@ check("another user gets 404 on every route of a project they do not own", bad.l
 const bList = await B.json("/api/projects");
 check("another user's project is not in my list", !bList.projects.some((p) => p.id === pa) && bList.projects.some((p) => p.id === pb));
 
-// 3. A's object IDs inside B's own project never resolve.
+// 3. A's topic IDs inside B's own project never resolve (the only object IDs that exist without AI).
 bad = [];
-for (const r of ROUTES.filter((x) => x.path.includes(":") || ["ranking/select", "ranking/swap", "topics/merge"].includes(x.path))) {
-  if (r.path === "stages/:n/approve" || r.path === "stages/:n/run" || r.path === "stages/:n/cancel" || r.path === "stages/:n/keep" || r.path === "stages/:n/reopen" || r.path === "export/:kind") continue; // not object IDs
+for (const r of ROUTES.filter((x) => x.path.includes(":tid") || x.path === "topics/merge")) {
   const res = await B.raw(`/api/projects/${pb}/${fill(r.path)}`, { method: r.method, body: bodyFor(r) });
   if (res.status < 400 || res.status >= 500) bad.push(`${r.method} ${r.path} → ${res.status}`);
 }
-check("IDs from another project never resolve inside my project", bad.length === 0, bad.join("; "));
+check("topic IDs from another project never resolve inside my project", bad.length === 0, bad.join("; "));
 check("the other user's data is unchanged after all of the above", (await snapshot()) === before);
 
 // 4. Pages: B cannot see A's idea; anonymous is sent to log in.
@@ -180,67 +196,75 @@ if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
   // Privacy: the dashboard shows aggregates, never content.
   const ov = await admin.json("/api/admin/overview");
   const ovText = JSON.stringify(ov) + JSON.stringify(await admin.json("/api/admin/users"));
-  const titles = papers.papers.slice(0, 20).map((p) => p.title.slice(0, 30));
-  check("the dashboard never contains research ideas or paper titles", !ovText.includes(ideaA.slice(0, 30)) && titles.every((t) => !ovText.includes(t)));
+  const topicNames = scoping.topics.map((t) => t.name.slice(0, 30));
+  check("the dashboard never contains research ideas or topic names", !ovText.includes(ideaA.slice(0, 30)) && topicNames.every((t) => !ovText.includes(t)));
   check("the dashboard never contains password hashes", !/scrypt\$/.test(ovText));
-  check("the dashboard counts the users and projects this test created", ov.users.total >= 3 && ov.users.projects >= 2 && ov.ai.totals.calls > 0, `${ov.users.total} users, ${ov.users.projects} projects, ${ov.ai.totals.calls} AI calls`);
+  check("the dashboard counts the users, projects and refused AI calls this test created", ov.users.total >= 3 && ov.users.projects >= 2 && ov.ai.totals.calls > 0 && ov.ai.totals.paused > 0, `${ov.users.total} users, ${ov.users.projects} projects, ${ov.ai.totals.calls} AI calls (${ov.ai.totals.paused} refused)`);
 
-  // The xAI key: stored encrypted, never returned, never logged, never exported.
+  // The xAI key: stored encrypted, never returned, never logged, never exported. The key here is made up, and AI is
+  // switched off while it is set: setting a key where there was none resumes paused jobs only while AI is on, so no AI
+  // step runs. The server may check the key against xAI's free model list, which rejects it, so nothing is spent.
   const SAMPLE = `xai-SAMPLE${stamp}TESTKEYdoNotUse0123456789`;
-  const put = await admin.raw("/api/admin/key", { method: "PUT", body: { key: SAMPLE } });
-  const putText = await put.text();
-  check("an admin can set a key, and the response does not contain it", put.status === 200 && !putText.includes(SAMPLE) && putText.includes(SAMPLE.slice(-4)), `status ${put.status}`);
-  const leaks = [];
-  const scan = async (label, c, path, opts) => { const t = await (await c.raw(path, opts)).text(); if (t.includes(SAMPLE) || t.includes(SAMPLE.slice(4, 20))) leaks.push(label); };
-  await scan("overview", admin, "/api/admin/overview");
-  await scan("key status", admin, "/api/admin/key");
-  await scan("key test", admin, "/api/admin/key/test", { body: {} });
-  await scan("users", admin, "/api/admin/users");
-  await scan("status", admin, "/api/status");
-  await scan("A status", A, "/api/status");
-  for (const k of ["markdown", "html", "csv", "bibtex"]) await scan(`export ${k}`, A, `/api/projects/${pa}/export/${k}`);
-  await scan("log", A, `/api/projects/${pa}/log`);
-  await scan("account export", A, "/api/account/export");
-  for (const f of [process.env.SECURITY_DB, process.env.SECURITY_DB && `${process.env.SECURITY_DB}-wal`, process.env.SECURITY_LOG].filter(Boolean)) {
-    if (fs.existsSync(f) && fs.readFileSync(f).includes(Buffer.from(SAMPLE))) leaks.push(`file ${f.split("/").pop()}`);
-  }
-  check("the key never appears in a response, export, the database file or the server log", leaks.length === 0, leaks.length ? `leaked in: ${leaks.join(", ")}` : `checked ${process.env.SECURITY_DB ? "responses, exports, database and log" : "responses and exports (set SECURITY_DB / SECURITY_LOG to scan files too)"}`);
-  const ks = await admin.json("/api/admin/key");
-  check("the admin-set key is in use and shown masked", ks.inUse === "admin" && ks.masked === `••••${SAMPLE.slice(-4)}`, `${ks.inUse} ${ks.masked}`);
-  const tested = await admin.json("/api/admin/key/test", { body: {} });
-  check("Test key records a result (outside production it makes no request)", !!tested.lastTest && typeof tested.lastTest.message === "string", tested.lastTest?.message);
-  const cleared = await admin.json("/api/admin/key", { method: "DELETE" });
-  check("clearing the key falls back to the environment key", cleared.inUse !== "admin" && !cleared.admin, cleared.inUse);
-
-  // AI off switch: AI steps refused (no call, no cost, no mock fallback), retrieval still works, jobs pause and resume.
-  await admin.json("/api/admin/ai", { body: { enabled: false } });
-  const pd = (await A.json("/api/projects", { body: { idea: "Does peer tutoring improve exam results for first-year nursing students?" } })).id;
-  await A.json(`/api/projects/${pd}/stages/1/approve`, { body: {} });
-  const off = await A.raw(`/api/projects/${pd}/scoping/start`, { body: {} });
-  const offBody = await off.json();
-  check("with AI off, an AI step is refused with the paused message", off.status === 503 && offBody.kind === "ai_paused" && /paused by the administrator/i.test(offBody.error), `${off.status} ${offBody.error}`);
-  const wait = async (c, pid, n, want, ms = 60_000) => {
-    const end = Date.now() + ms;
-    for (;;) {
-      const v = await c.json(`/api/projects/${pid}`);
-      if (want(v.project.stageStates[String(n)], v.jobs[String(n)]?.status)) return v;
-      if (Date.now() > end) return v;
-      await new Promise((r) => setTimeout(r, 500));
-    }
+  const aiWasOn = ov.ai.enabled;
+  // Afterwards (and if anything below throws), the made-up key is cleared and the AI switch is put back as it was.
+  const restore = async () => {
+    await admin.raw("/api/admin/key", { method: "DELETE" }).catch(() => {});
+    await admin.raw("/api/admin/ai", { body: { enabled: aiWasOn } }).catch(() => {});
   };
-  await A.json(`/api/projects/${pa}/stages/4/run`, { body: { force: true } });
-  const r4 = await wait(A, pa, 4, (s) => s === "needs_review");
-  check("with AI off, database retrieval (no AI) still runs", r4.project.stageStates["4"] === "needs_review", r4.project.stageStates["4"]);
-  await A.json(`/api/projects/${pa}/stages/4/approve`, { body: {} });
-  await A.json(`/api/projects/${pa}/stages/5/run`, { body: { force: true } });
-  const p5 = await wait(A, pa, 5, (_s, j) => j === "paused");
-  check("with AI off, a running AI job pauses cleanly (not failed)", p5.jobs["5"]?.status === "paused" && p5.project.stageStates["5"] === "running", `${p5.jobs["5"]?.status} / ${p5.project.stageStates["5"]}`);
-  const ovOff = await admin.json("/api/admin/overview");
-  check("the dashboard shows AI off and the refused calls", ovOff.ai.enabled === false && ovOff.ai.totals.paused > 0 && ovOff.verdict.level !== "green", `paused calls ${ovOff.ai.totals.paused}, verdict ${ovOff.verdict.level}`);
-  const on = await admin.json("/api/admin/ai", { body: { enabled: true } });
-  const r5 = await wait(A, pa, 5, (s) => s === "needs_review");
-  check("turning AI back on resumes the paused job", on.resumedJobs >= 1 && r5.project.stageStates["5"] === "needs_review", `resumed ${on.resumedJobs}, stage 5 ${r5.project.stageStates["5"]}`);
-  check("after resuming, AI steps work again", (await A.raw(`/api/projects/${pd}/scoping/start`, { body: {} })).status === 200);
+  try {
+    await admin.json("/api/admin/ai", { body: { enabled: false } });
+    const put = await admin.raw("/api/admin/key", { method: "PUT", body: { key: SAMPLE } });
+    const putText = await put.text();
+    check("an admin can set a key, and the response does not contain it", put.status === 200 && !putText.includes(SAMPLE) && putText.includes(SAMPLE.slice(-4)), `status ${put.status}`);
+    const leaks = [];
+    const scan = async (label, c, path, opts) => { const t = await (await c.raw(path, opts)).text(); if (t.includes(SAMPLE) || t.includes(SAMPLE.slice(4, 20))) leaks.push(label); };
+    await scan("overview", admin, "/api/admin/overview");
+    await scan("key status", admin, "/api/admin/key");
+    await scan("key test", admin, "/api/admin/key/test", { body: {} });
+    await scan("users", admin, "/api/admin/users");
+    await scan("status", admin, "/api/status");
+    await scan("A status", A, "/api/status");
+    for (const k of ["markdown", "html", "csv", "bibtex"]) await scan(`export ${k}`, A, `/api/projects/${pa}/export/${k}`);
+    await scan("log", A, `/api/projects/${pa}/log`);
+    await scan("account export", A, "/api/account/export");
+    const ks = await admin.json("/api/admin/key");
+    check("the admin-set key is in use and shown masked", ks.inUse === "admin" && ks.masked === `••••${SAMPLE.slice(-4)}`, `${ks.inUse} ${ks.masked}`);
+    const cleared = await admin.json("/api/admin/key", { method: "DELETE" });
+    check("clearing the key leaves the server with no key (none in the environment)", cleared.inUse === "none" && !cleared.admin, cleared.inUse);
+    for (const f of [process.env.SECURITY_DB, process.env.SECURITY_DB && `${process.env.SECURITY_DB}-wal`, process.env.SECURITY_LOG].filter(Boolean)) {
+      if (fs.existsSync(f) && fs.readFileSync(f).includes(Buffer.from(SAMPLE))) leaks.push(`file ${f.split("/").pop()}`);
+    }
+    check("the key never appears in a response, export, the database file or the server log", leaks.length === 0, leaks.length ? `leaked in: ${leaks.join(", ")}` : `checked ${process.env.SECURITY_DB ? "responses, exports, database and log" : "responses and exports (set SECURITY_DB / SECURITY_LOG to scan files too)"}`);
+    check("after clearing, /api/status says no key is configured", (await admin.json("/api/status")).ai?.keyMissing === true);
+    // Tested with no key, so the test contacts nothing.
+    const tested = await admin.json("/api/admin/key/test", { body: {} });
+    check("Test key with no key records a result without contacting xAI", !!tested.lastTest && tested.lastTest.ok === false && typeof tested.lastTest.message === "string", tested.lastTest?.message);
+
+    // AI off switch (with no key as well): AI steps refused with no call and no cost; the project stays intact.
+    const pd = (await A.json("/api/projects", { body: { idea: "Does peer tutoring improve exam results for first-year nursing students?" } })).id;
+    await A.json(`/api/projects/${pd}/stages/1/approve`, { body: {} });
+    const intact = async () => (await snapshot()) + JSON.stringify(await Promise.all([A.json(`/api/projects/${pd}/scoping`), A.json(`/api/projects/${pd}`).then((v) => [v.project.idea, v.project.stageStates])]));
+    const intactBefore = await intact();
+    await admin.json("/api/admin/ai", { body: { enabled: false } });
+    const off = await A.raw(`/api/projects/${pd}/scoping/start`, { body: {} });
+    const offBody = await off.json().catch(() => ({}));
+    check("with AI off, an AI step is refused (503, paused)", off.status === 503 && offBody.kind === "ai_paused" && /paused by the administrator|not set up/i.test(offBody.error ?? ""), `${off.status} ${offBody.error ?? ""}`);
+    const offBuild = await A.raw(`/api/projects/${pa}/search/build`, { body: {} });
+    check("with AI off, the search builder is refused too", offBuild.status === 503 && (await offBuild.json().catch(() => ({}))).kind === "ai_paused", `status ${offBuild.status}`);
+    const ovOff = await admin.json("/api/admin/overview");
+    check("the dashboard shows AI off and the refused calls", ovOff.ai.enabled === false && ovOff.ai.totals.paused > ov.ai.totals.paused && ovOff.verdict.level !== "green", `refused calls ${ov.ai.totals.paused} → ${ovOff.ai.totals.paused}, verdict ${ovOff.verdict.level}`);
+    const on = await admin.json("/api/admin/ai", { body: { enabled: true } });
+    check("AI can be switched back on", on.enabled === true && (await admin.json("/api/status")).ai?.enabled === true);
+    const stillOff = await A.raw(`/api/projects/${pd}/scoping/start`, { body: {} });
+    const stillBody = await stillOff.json().catch(() => ({}));
+    check("with AI on but no key, AI steps are still refused with the not-set-up message", stillOff.status === 503 && stillBody.kind === "ai_paused" && /not set up/i.test(stillBody.error ?? ""), `${stillOff.status} ${stillBody.error ?? ""}`);
+    check("the refused AI steps left the project data intact", (await intact()) === intactBefore);
+    const pdView = await A.json(`/api/projects/${pd}`);
+    const pdCosts = Object.values(pdView.costs ?? {});
+    check("refused AI steps cost nothing", pdCosts.every((c) => c.cost === 0 && c.failures === c.calls) && pdCosts.reduce((a, c) => a + c.calls, 0) > 0, pdCosts.map((c) => `${c.calls} calls $${c.cost}`).join(", "));
+  } finally {
+    await restore();
+  }
 
   // Budget: raising above the server's limit needs an explicit confirmation; every change is logged.
   const env = ov.ai.budget.envUsd;
@@ -270,6 +294,8 @@ if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
   const audit = (await admin.json("/api/admin/overview")).audit.map((a) => a.action);
   const want = ["xai_key_set", "xai_key_tested", "xai_key_cleared", "ai_disabled", "ai_enabled", "budget_changed", "user_disabled", "user_enabled", "password_reset", "role_changed", "login_failed"];
   check("every admin action and security event is in the audit log", want.every((w) => audit.includes(w)), want.filter((w) => !audit.includes(w)).join(", ") || "all present");
+  const statusAfter = await admin.json("/api/status");
+  check("nothing was spent during the run", statusAfter.spendUsd === statusBefore.spendUsd, `recorded spend $${statusBefore.spendUsd?.toFixed(4)} → $${statusAfter.spendUsd?.toFixed(4)}`);
 } else {
   console.log("(admin checks skipped: set ADMIN_EMAIL and ADMIN_PASSWORD to the server's admin)");
 }

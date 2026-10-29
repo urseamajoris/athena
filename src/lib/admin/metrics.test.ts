@@ -74,7 +74,7 @@ test("budget exhaustion projection", () => {
   assert.equal(projectExhaustion(calls, 15, 15, now).daysLeft, 0);
 });
 
-const ok: VerdictInput = { dbOk: true, requestsLastHour: 100, errors5xxLastHour: 0, stuckJobs: 0, pausedJobs: 0, aiEnabled: true, spent: 1, limit: 15, sourceErrorRates: [], keyProblem: null, modelProblems: [], mockMode: false };
+const ok: VerdictInput = { dbOk: true, requestsLastHour: 100, errors5xxLastHour: 0, stuckJobs: 0, pausedJobs: 0, aiEnabled: true, spent: 1, limit: 15, sourceErrorRates: [], keyProblem: null, modelProblems: [] };
 test("verdict: green, amber and red rules", () => {
   assert.equal(verdict(ok).level, "green");
   assert.equal(verdict({ ...ok, aiEnabled: false }).level, "amber");

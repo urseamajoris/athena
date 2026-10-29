@@ -57,6 +57,8 @@ export async function adminOverview() {
   const active = (ms: number) => users.filter((u) => u.lastActiveAt && Date.parse(u.lastActiveAt) >= now - ms).length;
 
   // ---- AI ----
+  // Rows logged by the old scripted (mock) model were never sent to xAI: they are left out of every count.
+  const notMock = sql`coalesce(${schema.aiCalls.costSource}, '') <> 'mock'`;
   const totals = await db
     .select({
       status: schema.aiCalls.status,
@@ -69,13 +71,14 @@ export async function adminOverview() {
       retries: sql<number>`sum(case when ${schema.aiCalls.attempt} > 1 then 1 else 0 end)`,
     })
     .from(schema.aiCalls)
+    .where(notMock)
     .groupBy(schema.aiCalls.status)
     .all();
   const sum = (k: "n" | "cost" | "input" | "cached" | "output" | "reasoning" | "retries", f: (s: string) => boolean = () => true) => totals.filter((t) => f(t.status)).reduce((a, t) => a + Number(t[k] ?? 0), 0);
   const recentCalls = await db
-    .select({ createdAt: schema.aiCalls.createdAt, costUsd: schema.aiCalls.costUsd, stage: schema.aiCalls.stage, model: schema.aiCalls.model, prompt: schema.aiCalls.promptName, version: schema.aiCalls.promptVersion, status: schema.aiCalls.status, durationMs: schema.aiCalls.durationMs, costSource: schema.aiCalls.costSource })
+    .select({ createdAt: schema.aiCalls.createdAt, costUsd: schema.aiCalls.costUsd, stage: schema.aiCalls.stage, model: schema.aiCalls.model, prompt: schema.aiCalls.promptName, version: schema.aiCalls.promptVersion, status: schema.aiCalls.status, durationMs: schema.aiCalls.durationMs })
     .from(schema.aiCalls)
-    .where(gt(schema.aiCalls.createdAt, since30))
+    .where(and(gt(schema.aiCalls.createdAt, since30), notMock))
     .all();
   // One definition of "AI calls" everywhere on the dashboard: calls sent to the model. Calls refused because AI
   // was switched off or the budget was reached are logged too, but never sent; they are counted only as "blocked".
@@ -93,8 +96,7 @@ export async function adminOverview() {
     }
     return [...m.entries()].map(([k, v]) => ({ key: k, ...v })).sort((a, b) => b.cost - a.cost || b.calls - a.calls);
   };
-  const real = sentCalls.filter((c) => c.costSource !== "mock");
-  const lat = real.map((c) => c.durationMs).filter((x) => x > 0);
+  const lat = sentCalls.map((c) => c.durationMs).filter((x) => x > 0);
   const callTotal = sum("n");
   const sent = sum("n", (s) => !isBlocked(s));
 
@@ -195,7 +197,7 @@ export async function adminOverview() {
 
   return {
     generatedAt: iso(now),
-    mode: { production: config.production, mockMode: config.mockMode, mockAi: config.mockAi },
+    mode: { production: config.production },
     verdict: verdict({
       dbOk: database.ok,
       requestsLastHour: reqHour.length,
@@ -208,9 +210,8 @@ export async function adminOverview() {
       spent,
       limit: budget.limitUsd,
       sourceErrorRates: sources.map((s) => ({ source: s.source, requests: s.requests, errorRate: s.errorRate })),
-      keyProblem: key.problem ?? (!config.mockAi && key.inUse === "none" ? "No xAI key is configured: AI steps will fail." : null),
+      keyProblem: key.problem ?? (key.inUse === "none" ? "No xAI key is configured: AI steps are paused until one is added." : null),
       modelProblems,
-      mockMode: config.mockMode,
     }),
     health: {
       instance: {
@@ -252,9 +253,8 @@ export async function adminOverview() {
       byDay: dailySeries(sentCalls, 14, now, (r) => r.createdAt, (r) => r.costUsd),
       callsByDay: dailySeries(sentCalls, 14, now, (r) => r.createdAt),
       byStage: group((r) => (r.stage ? `${r.stage}. ${STAGES[r.stage - 1]?.title ?? ""}` : "other")),
-      // Mock calls are logged under the model they stand in for; label them so no one reads them as paid calls.
-      byModel: group((r) => (r.costSource === "mock" ? `mock (stands in for ${r.model})` : r.model)),
-      byPrompt: group((r) => `${r.prompt} ${r.version.startsWith("v") ? r.version : `v${r.version}`}${r.costSource === "mock" ? " (mock)" : ""}`),
+      byModel: group((r) => r.model),
+      byPrompt: group((r) => `${r.prompt} ${r.version.startsWith("v") ? r.version : `v${r.version}`}`),
     },
     users: {
       total: users.length,

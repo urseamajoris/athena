@@ -2,10 +2,14 @@
 //
 //   npm run build && npx tsx scripts/visual-audit.ts --round=1 [--only=view,view] [--quick] [--skip-lighthouse]
 //
-// Starts its own production server in mock mode (all API keys stripped from its environment, fresh
-// database), seeds fixtures covering every node state (empty, running, done, stale, error, a 300-node
-// session), screenshots every view and panel at 1440×900 and 390×844, dark and light, reduced motion on
-// and off, scores the 12-item checklist and writes qa/report-<round>.md (+ .json) and qa/shots/<round>/.
+// Starts its own production server with no xAI key (XAI_API_KEY, OPENALEX_API_KEY and the other keys are
+// stripped from its environment; fresh database, so no key set in a dashboard either), so every AI step is
+// refused before any request to xAI and nothing is spent. Seeds the states reachable without AI (empty canvas,
+// idea, the AI-not-set-up state, topics added by hand, AI switched off, account, settings, admin), screenshots
+// every view and panel at 1440×900 and 390×844, dark and light, reduced motion on and off, scores the 12-item
+// checklist and writes qa/report-<round>.md (+ .json) and qa/shots/<round>/. Views that need AI output (the
+// scoping chat, searches, papers, appraisals, synthesis, questions, the 300-node session) are listed in the
+// report as not covered.
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -15,14 +19,12 @@ import path from "node:path";
 type Any = any;
 const { chromium } = require("playwright") as Any; // the pre-installed Playwright (NODE_PATH)
 const { AxeBuilder } = require("@axe-core/playwright") as Any;
-const { createClient } = require("@libsql/client") as Any;
 
 // ---------------------------------------------------------------- options
 const arg = (k: string, d?: string) => process.argv.find((a) => a.startsWith(`--${k}=`))?.split("=")[1] ?? (process.argv.includes(`--${k}`) ? "true" : d);
 const ROUND = arg("round", "1")!;
 const ONLY = arg("only")?.split(",") ?? null;
 const LH_ONLY = arg("lh")?.split(",") ?? null; // Lighthouse only these pages (iteration)
-const PROFILE = arg("profile") === "true"; // log a CPU profile of the 300-node pan
 const QUICK = arg("quick") === "true"; // desktop dark only (fast iteration)
 const SKIP_LH = arg("skip-lighthouse") === "true" || (QUICK && !arg("lh"));
 const PORT = Number(arg("port", "3210"));
@@ -35,7 +37,7 @@ const CHROME = "/opt/pw-browsers/chromium";
 const t0 = Date.now();
 const log = (...a: unknown[]) => console.log(`[${((Date.now() - t0) / 1000).toFixed(0).padStart(4)}s]`, ...a);
 
-// ---------------------------------------------------------------- server (mock mode, no keys)
+// ---------------------------------------------------------------- server (no keys)
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "athena-audit-"));
 const DB = path.join(tmp, "audit.db");
 let server: ChildProcess;
@@ -56,7 +58,9 @@ async function startServer() {
   if (taken) throw new Error(`Port ${PORT} is already in use; stop that server or pass --port=`);
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
-  for (const k of ["XAI_API_KEY", "OPENALEX_API_KEY", "NCBI_API_KEY", "CONTACT_EMAIL", "ATHENA_ENV", "MOCK_MODE", "MOCK_AI", "RECORD_FIXTURES", "SIMULATE_SOURCE_FAILURE"]) delete env[k];
+  // Set empty rather than deleted: Next.js fills unset variables from .env files, so a deleted key could come back.
+  // TURSO_*: the audit must never open a shared database (it switches AI off and seeds accounts).
+  for (const k of ["XAI_API_KEY", "OPENALEX_API_KEY", "NCBI_API_KEY", "CONTACT_EMAIL", "SETTINGS_ENCRYPTION_KEY", "ATHENA_ENV", "SIMULATE_SOURCE_FAILURE", "TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN"]) env[k] = "";
   env.DATABASE_PATH = DB;
   env.ADMIN_EMAIL = AUDIT_ADMIN.email;
   env.ADMIN_PASSWORD = AUDIT_ADMIN.password;
@@ -67,7 +71,8 @@ async function startServer() {
     try {
       if (!COOKIE) await login();
       const s = await (await fetch(`${BASE}/api/status`, { headers: { cookie: COOKIE } })).json();
-      if (!s.mockMode || s.production) throw new Error(`refusing to audit: server is not in mock mode (${JSON.stringify(s)})`);
+      // The same rule as scripts/lib/no-key.mjs: never audit a server that could call xAI.
+      if (s.keys?.xai !== false || s.ai?.keyMissing !== true || s.production) throw new Error(`refusing to audit: the server has an xAI key or does not report that it has none (${JSON.stringify({ keys: s.keys, ai: s.ai, production: s.production })})`);
       return s;
     } catch (e) {
       if (String(e).includes("refusing")) throw e;
@@ -77,14 +82,13 @@ async function startServer() {
   throw new Error("server did not start");
 }
 
-// ---------------------------------------------------------------- fixtures (through the real API)
+// ---------------------------------------------------------------- fixtures (through the real API, without AI)
 const IDEA = "What is the knowledge gap in implementing telemedicine in Southeast Asia?";
-const ANSWERS = [
-  "Patients and health workers in ASEAN countries, especially rural and underserved areas.",
-  "Adoption, barriers and facilitators, acceptability, and policy readiness.",
-  "Publications from 2015 onwards; any design including qualitative studies and reviews.",
-  "Public and private systems, primary care and hospital teleconsultation.",
-  "English-language papers.",
+const TOPICS = [
+  { name: "Telemedicine adoption in ASEAN countries", synonyms: ["telehealth", "teleconsultation"], rationale: "The main phenomenon." },
+  { name: "Barriers and facilitators for health workers", synonyms: ["obstacles", "enablers"], rationale: "What blocks or helps it." },
+  { name: "Rural and underserved patients", synonyms: ["remote areas"], rationale: "The population that matters most." },
+  { name: "Policy and infrastructure readiness", synonyms: ["regulation", "digital infrastructure"], rationale: "What a health system needs first." },
 ];
 async function call<T = Any>(pid: string, p: string, body?: unknown, method?: string): Promise<T> {
   const r = await fetch(`${BASE}/api/projects${pid ? `/${pid}` : ""}${p ? `/${p}` : ""}`, { method: method ?? (body ? "POST" : "GET"), headers: { cookie: COOKIE, ...(body ? { "content-type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined });
@@ -93,132 +97,59 @@ async function call<T = Any>(pid: string, p: string, body?: unknown, method?: st
   return t ? JSON.parse(t) : (null as T);
 }
 const create = async (idea = IDEA) => (await call<{ id: string }>("", "", { idea })).id;
-async function waitStage(pid: string, n: number, wanted = ["needs_review"]) {
-  for (let i = 0; i < 600; i++) {
-    const v = await call(pid, "");
-    const s = v.project.stageStates[String(n)];
-    if (wanted.includes(s)) return;
-    if (s === "failed") throw new Error(`fixture stage ${n} failed: ${v.jobs[String(n)]?.error}`);
-    await new Promise((r) => setTimeout(r, 400));
-  }
-  throw new Error(`fixture stage ${n} timed out`);
+/** An AI step: with no key the server refuses it (503) before any request to xAI. */
+async function refused(pid: string, p: string) {
+  const r = await fetch(`${BASE}/api/projects/${pid}/${p}`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" }, body: "{}" });
+  if (r.status !== 503) throw new Error(`expected ${p} to be refused with no xAI key, got HTTP ${r.status}`);
 }
-async function scope(pid: string, full = true) {
+/** Idea approved, questions skipped, topics added by hand (and approved). */
+async function topicsByHand(pid: string, approve: boolean) {
   await call(pid, "stages/1/approve", {});
-  let s = await call(pid, "scoping/start", {});
-  let i = 0;
-  while (!s.done && s.awaitingAnswer && (full || i < 1)) s = await call(pid, "scoping/answer", { text: ANSWERS[i++ % ANSWERS.length] });
-  return s;
+  await call(pid, "scoping/skip", {});
+  for (const t of TOPICS) await call(pid, "topics", t);
+  if (approve) await call(pid, "stages/2/approve", {});
 }
-/** Run a project forward: stop when `until` is reached (stage awaiting review, or "done"). */
-async function pipeline(pid: string, until: number | "done", hooks: { beforeApprove2?: () => Promise<void>; afterRanking?: () => Promise<void> } = {}) {
-  await scope(pid);
-  await call(pid, "scoping/topics", {});
-  await hooks.beforeApprove2?.();
-  await call(pid, "stages/2/approve", {});
-  await call(pid, "search/build", {});
-  await call(pid, "search/dryrun-all", {});
-  if (until === 3) return;
-  await call(pid, "stages/3/approve", {});
-  for (let n = 4; n <= 9; n++) {
-    await waitStage(pid, n);
-    if (n === 6) await hooks.afterRanking?.();
-    if (until === n) return;
-    if (n === 9) {
-      const q = await call(pid, "questions");
-      await call(pid, `questions/${q.questions[0].id}/choose`, {});
-    }
-    await call(pid, `stages/${n}/approve`, {});
-  }
+async function setAi(enabled: boolean) {
+  const r = await fetch(`${BASE}/api/admin/ai`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" }, body: JSON.stringify({ enabled }) });
+  if (!r.ok) throw new Error(`switching AI ${enabled ? "on" : "off"} failed: HTTP ${r.status}`);
 }
 
 interface Fixtures { [k: string]: string }
 async function seed(): Promise<{ F: Fixtures; ids: Record<string, string>; pins: Record<string, string[]> }> {
   const F: Fixtures = {};
   const ids: Record<string, string> = {};
-  const pins: Record<string, string[]> = {};
   F.idea = await create();
-  F.scope = await create();
-  await scope(F.scope, false);
-  F.ghost = await create();
-  await scope(F.ghost);
-  await call(F.ghost, "scoping/topics", {});
-  F.query = await create();
-  F.full = await create();
-  F.q = await create();
-  F.stale = await create();
-  F.running = await create();
-  F.error = await create();
-  F.rank = await create();
-  F.big = await create();
-  await Promise.all([
-    pipeline(F.query, 3),
-    pipeline(F.full, "done"),
-    pipeline(F.q, 9).then(async () => {
-      const q = await call(F.q, "questions");
-      await call(F.q, `questions/${q.questions[0].id}/choose`, {});
-    }),
-    pipeline(F.stale, "done").then(async () => {
-      const s = await call(F.stale, "scoping");
-      await call(F.stale, `topics/${s.topics[0].id}`, { name: `${s.topics[0].name} (edited)` }, "PATCH");
-    }),
-    pipeline(F.running, 4),
-    pipeline(F.error, 5),
-    pipeline(F.rank, 6),
-    pipeline(F.big, "done", {
-      beforeApprove2: async () => {
-        for (const name of ["Cost and financing", "Workforce training", "Data privacy and security"]) await call(F.big, "topics", { name });
-      },
-      afterRanking: async () => {
-        const r = await call(F.big, "ranking");
-        for (const t of r.topics) {
-          const extra = t.scores.find((s: Any) => !s.selected);
-          if (extra) await call(F.big, "ranking/select", { scoreId: extra.id, selected: true });
-        }
-      },
-    }),
-  ]);
-  // Freeze a running retrieval and a failed summary step (direct DB edits; the job runner never sees them).
-  const client = createClient({ url: `file:${path.resolve(DB)}` });
-  const db = {
-    prepare: (sql: string) => ({
-      get: async (...args: Any[]) => (await client.execute({ sql, args })).rows[0],
-      all: async (...args: Any[]) => (await client.execute({ sql, args })).rows,
-      run: async (...args: Any[]) => client.execute({ sql, args }),
-    }),
-    close: () => client.close(),
-  };
-  const setState = async (pid: string, n: number, s: string) => {
-    const row = (await db.prepare("select stage_states from projects where id = ?").get(pid));
-    const st = JSON.parse(row.stage_states);
-    st[String(n)] = s;
-    (await db.prepare("update projects set stage_states = ? where id = ?").run(JSON.stringify(st), pid));
-  };
-  (await setState(F.running, 4, "running"));
-  (await db.prepare("update jobs set status = 'running', ended_at = null, progress = ? where project_id = ? and stage = 4").run(JSON.stringify({ done: 6, total: 10, message: "Searching OpenAlex: Policy, regulation and governance" }), F.running));
-  const runs = (await db.prepare('select id from search_runs where project_id = ? order by "order" desc limit 4').all(F.running));
-  for (const r of runs) (await db.prepare("update search_runs set status = 'running', fetched_count = fetched_count / 2, new_unique_count = new_unique_count / 2 where id = ?").run(r.id));
-  (await setState(F.error, 5, "failed"));
-  (await db.prepare("update jobs set status = 'failed', error = ?, ended_at = ? where project_id = ? and stage = 5").run("The AI response did not pass validation after one retry: 8 rows were returned for a batch of 10 papers.", new Date().toISOString(), F.error));
-  db.close();
-
+  // Idea approved; the first scoping question needs AI, so the panel says AI is not set up.
+  F.nokey = await create();
+  await call(F.nokey, "stages/1/approve", {});
+  await refused(F.nokey, "scoping/start");
+  F.topics = await create();
+  await topicsByHand(F.topics, false);
+  // Topics approved; writing the searches needs AI.
+  F.approved = await create();
+  await topicsByHand(F.approved, true);
+  await refused(F.approved, "search/build");
   const firstTopic = async (pid: string) => (await call(pid, "scoping")).topics[0].id;
-  ids.ghostTopic = await firstTopic(F.ghost);
-  ids.queryTopic = await firstTopic(F.query);
-  const claims = await call(F.full, "claims");
-  ids.quote = claims.find((c: Any) => c.verified)?.id ?? claims[0].id;
-  pins[F.full] = [ids.quote];
-  // 300-node session: pin enough quotes to reach 300 nodes in total.
-  const big = await call(F.big, "canvas");
-  const mainNodes = 1 + big.topics.length * 2 + 7;
-  const bigClaims = await call(F.big, "claims");
-  pins[F.big] = bigClaims.slice(0, Math.max(0, 300 - mainNodes)).map((c: Any) => c.id);
-  ids.bigNodes = String(mainNodes + pins[F.big].length);
-  return { F, ids, pins };
+  ids.topic = await firstTopic(F.topics);
+  ids.approvedTopic = await firstTopic(F.approved);
+  return { F, ids, pins: {} };
 }
 
+/** Views and checks that need AI output: a server with no key cannot reach them (listed in the report). */
+const NOT_COVERED = [
+  "panel-idea-scoping (the scoping chat: AI questions)",
+  "canvas-ghosts, panel-topic-ghost (topics suggested by the AI)",
+  "panel-query (searches written by the AI)",
+  "canvas-running, panel-corpus-running (retrieval needs the searches)",
+  "canvas-error, panel-table-error (summary rows are AI output)",
+  "canvas-done, panel-appraisal, panel-synthesis, panel-questions, panel-export, panel-quote (a finished review)",
+  "canvas-stale (needs retrieval and later steps)",
+  "table (papers, summaries and ranking)",
+  "canvas-300 and item 10's 300-node pan at ≥ 55 fps (the 300 nodes are pinned quotes from appraisals)",
+];
+
 // ---------------------------------------------------------------- views
-interface View { name: string; path: string; ready: string; anon?: boolean; noPrimary?: boolean; pins?: string; list?: string; canvasOnly?: boolean }
+interface View { name: string; path: string; ready: string; anon?: boolean; noPrimary?: boolean; pins?: string; list?: string; canvasOnly?: boolean; aiOff?: boolean }
 function views(F: Fixtures, ids: Record<string, string>): View[] {
   const s = (k: string, q = "") => `/s/${F[k]}${q}`;
   return [
@@ -227,25 +158,20 @@ function views(F: Fixtures, ids: Record<string, string>): View[] {
     { name: "settings", path: "/settings", ready: "#run-title", noPrimary: true },
     { name: "canvas-empty", path: "/s/new", ready: "#idea" },
     { name: "canvas-idea", path: s("idea"), ready: "[data-node-id],[data-list-node]" },
-    { name: "panel-idea-scoping", path: s("scope", "?node=idea"), ready: "[data-panel]" },
-    { name: "canvas-ghosts", path: s("ghost"), ready: "[data-node-id],[data-list-node]" },
-    { name: "panel-topic-ghost", path: s("ghost", `?node=topic:${ids.ghostTopic}`), ready: "[data-panel]" },
-    { name: "panel-query", path: s("query", `?node=query:${ids.queryTopic}`), ready: "[data-panel]" },
-    { name: "canvas-running", path: s("running"), ready: "[data-node-id],[data-list-node]", noPrimary: true },
-    { name: "panel-corpus-running", path: s("running", "?node=corpus"), ready: "[data-panel]", noPrimary: true },
-    { name: "canvas-error", path: s("error"), ready: "[data-node-id],[data-list-node]" },
-    { name: "panel-table-error", path: s("error", "?node=table"), ready: "[data-panel]" },
-    { name: "canvas-done", path: s("full"), ready: "[data-node-id],[data-list-node]", pins: F.full },
-    { name: "panel-appraisal", path: s("full", "?node=appraisal"), ready: "[data-panel]", pins: F.full },
-    { name: "panel-synthesis", path: s("full", "?node=synthesis"), ready: "[data-panel]", noPrimary: true },
-    { name: "panel-questions", path: s("q", "?node=questions"), ready: "[data-panel]" },
-    { name: "panel-export", path: s("full", "?node=export"), ready: "[data-panel] [aria-label=\"Report preview\"]" },
-    { name: "panel-quote", path: s("full", `?node=quote:${ids.quote}`), ready: "[data-panel]", pins: F.full, noPrimary: true },
-    { name: "canvas-stale", path: s("stale"), ready: "[data-node-id],[data-list-node]" },
-    { name: "canvas-300", path: s("big"), ready: "[data-node-id],[data-list-node]", pins: F.big },
-    { name: "list-view", path: s("full"), ready: "[data-list-node]", list: F.full, pins: F.full },
-    { name: "table", path: s("rank", "/table"), ready: "table tbody tr:visible, main li > button:visible" }, // cards below 1024 px
-    { name: "export-page", path: s("full", "/export"), ready: "main [aria-label=\"Report preview\"]" },
+    { name: "panel-idea", path: s("idea", "?node=idea"), ready: "[data-panel]" },
+    { name: "canvas-not-set-up", path: s("nokey"), ready: "[data-node-id],[data-list-node]" },
+    { name: "panel-idea-not-set-up", path: s("nokey", "?node=idea"), ready: "[data-panel]", noPrimary: true },
+    { name: "canvas-topics", path: s("topics"), ready: "[data-node-id],[data-list-node]" },
+    { name: "panel-idea-topics", path: s("topics", "?node=idea"), ready: "[data-panel]" },
+    { name: "panel-topic", path: s("topics", `?node=topic:${ids.topic}`), ready: "[data-panel]", noPrimary: true },
+    { name: "canvas-approved", path: s("approved"), ready: "[data-node-id],[data-list-node]" },
+    { name: "panel-topic-search", path: s("approved", `?node=topic:${ids.approvedTopic}`), ready: "[data-panel]" },
+    { name: "list-view", path: s("approved"), ready: "[data-list-node]", list: F.approved },
+    { name: "export-page", path: s("approved", "/export"), ready: "main [aria-label=\"Report preview\"]" },
+    { name: "account", path: "/account", ready: "h1", noPrimary: true },
+    { name: "admin", path: "/admin", ready: "h1", noPrimary: true },
+    { name: "settings-ai-off", path: "/settings", ready: "#run-title", noPrimary: true, aiOff: true },
+    { name: "admin-ai-off", path: "/admin", ready: "h1", noPrimary: true, aiOff: true },
   ].filter((v) => !ONLY || ONLY.includes(v.name));
 }
 
@@ -517,99 +443,6 @@ async function tabWalk(page: Any, where: string) {
   else pass(5, where, `${seen.length} tab stops`);
 }
 
-async function measureFps(page: Any, where: string) {
-  // The pan is driven from inside the page, one pointer move per animation frame, so the viewport changes on
-  // every frame (Playwright's mouse moves arrive about every 30 ms and would cap the drawn frame rate at ~30).
-  // The trace counts the frames the compositor actually drew; rAF shows whether the main thread kept up.
-  const cdp = await page.context().newCDPSession(page);
-  if (PROFILE) {
-    await cdp.send("Profiler.enable");
-    await cdp.send("Profiler.setSamplingInterval", { interval: 200 });
-    await cdp.send("Profiler.start");
-  }
-  await cdp.send("Tracing.start", { categories: "devtools.timeline,disabled-by-default-devtools.timeline.frame", transferMode: "ReturnAsStream" });
-  const raf = await page.evaluate(
-    () =>
-      new Promise<{ fps: number; frames: number; p95: number; moved: number }>((resolve) => {
-        const pane = document.querySelector(".react-flow__pane") as HTMLElement;
-        const vpEl = document.querySelector(".react-flow__viewport") as HTMLElement;
-        const r = pane.getBoundingClientRect();
-        const cx = r.left + r.width / 2;
-        const cy = r.top + r.height / 2;
-        const ev = (type: string, x: number, y: number) => new MouseEvent(type, { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, button: 0, buttons: type === "mouseup" ? 0 : 1 });
-        const before = vpEl.style.transform;
-        pane.dispatchEvent(ev("mousedown", cx, cy));
-        const gaps: number[] = [];
-        let n = 0;
-        let moved = 0;
-        let last = performance.now();
-        const start = last;
-        const tick = (t: number) => {
-          n++;
-          gaps.push(t - last);
-          last = t;
-          const a = ((t - start) / 1000) * Math.PI;
-          window.dispatchEvent(ev("mousemove", cx + Math.sin(a) * 300, cy + Math.cos(a) * 150 - 150));
-          if (vpEl.style.transform !== before) moved++;
-          if (t - start < 2000) requestAnimationFrame(tick);
-          else {
-            window.dispatchEvent(ev("mouseup", cx, cy));
-            gaps.sort((x, y) => x - y);
-            resolve({ fps: (n * 1000) / (t - start), frames: n, p95: gaps[Math.floor(gaps.length * 0.95)], moved });
-          }
-        };
-        requestAnimationFrame(tick);
-      }),
-  );
-  if (PROFILE) {
-    const { profile } = await cdp.send("Profiler.stop");
-    const self = new Map<string, number>();
-    const dt = profile.timeDeltas as number[];
-    const byId = new Map<number, Any>(profile.nodes.map((n: Any) => [n.id, n]));
-    (profile.samples as number[]).forEach((id, i) => {
-      const f = byId.get(id).callFrame;
-      const k = `${f.functionName || "(anon)"} ${path.basename(f.url)}:${f.lineNumber}:${f.columnNumber}`;
-      self.set(k, (self.get(k) ?? 0) + (dt[i] ?? 0) / 1000);
-    });
-    log("profile (self ms):\n" + [...self].sort((x, y) => y[1] - x[1]).slice(0, 30).map(([k, v]) => `${v.toFixed(0).padStart(6)} ${k}`).join("\n"));
-  }
-  let traceFps: number | null = null;
-  try {
-    const done = new Promise<Any>((r) => cdp.once("Tracing.tracingComplete", r));
-    await cdp.send("Tracing.end");
-    const { stream } = await done;
-    let data = "";
-    for (;;) {
-      const chunk = await cdp.send("IO.read", { handle: stream });
-      data += chunk.data;
-      if (chunk.eof) break;
-    }
-    const parsed = JSON.parse(data);
-    const events: Any[] = parsed.traceEvents ?? parsed;
-    if (PROFILE) {
-      const sum = new Map<string, { ms: number; n: number }>();
-      for (const e of events) {
-        if (e.ph !== "X" || !e.dur) continue;
-        const k = `${e.name} [${e.tid}]`;
-        const v = sum.get(k) ?? { ms: 0, n: 0 };
-        v.ms += e.dur / 1000;
-        v.n++;
-        sum.set(k, v);
-      }
-      log("trace (ms, count):\n" + [...sum].sort((x, y) => y[1].ms - x[1].ms).slice(0, 25).map(([k, v]) => `${v.ms.toFixed(0).padStart(6)} ${String(v.n).padStart(5)} ${k}`).join("\n"));
-    }
-    const draws = events.filter((e) => e.name === "DrawFrame").map((e) => e.ts).sort((a: number, b: number) => a - b);
-    if (draws.length > 10) traceFps = ((draws.length - 1) * 1e6) / (draws[draws.length - 1] - draws[0]);
-  } catch {}
-  const r1 = (x: number) => Math.round(x * 10) / 10;
-  metrics.canvasPanFps = { raf: r1(raf.fps), rafP95FrameMs: r1(raf.p95), trace: traceFps ? r1(traceFps) : null, framesWithPan: raf.moved };
-  if (raf.moved < raf.frames / 2) return fail(10, where, `the pan did not move the viewport (${raf.moved}/${raf.frames} frames)`);
-  const fps = traceFps ?? raf.fps;
-  const msg = `pans at ${fps.toFixed(1)} fps drawn (rAF ${raf.fps.toFixed(1)}, p95 frame ${raf.p95.toFixed(1)} ms)`;
-  if (fps >= 55 && raf.fps >= 55) pass(10, where, msg);
-  else fail(10, where, `${msg}, below 55`);
-}
-
 async function listMatchesGraph(browser: Any, path_: string, pins: string, where: string) {
   const ctx = await newContext(browser, { viewport: { width: 1440, height: 900 } });
   await ctx.addInitScript((s: string) => localStorage.setItem("athena-canvas", s), pins);
@@ -698,7 +531,7 @@ function sessionCookie() {
 
 async function main() {
   const status = await startServer();
-  log("server ready in mock mode; keys present to the server:", JSON.stringify(status.keys));
+  log("server ready with no xAI key; keys present to the server:", JSON.stringify(status.keys));
   const { F, ids, pins } = await seed();
   log("fixtures seeded", JSON.stringify(F));
   const V = views(F, ids);
@@ -723,13 +556,19 @@ async function main() {
       else await ctx.addCookies([sessionCookie()]);
       const page = await ctx.newPage();
       await page.addInitScript((s: string) => localStorage.setItem("athena-canvas", s), clientState(pins, v));
-      page.on("console", (m: Any) => m.type() === "error" && consoleErrors.push(`${tag}: ${m.text().slice(0, 160)}`));
+      // The browser logs every refused AI step (HTTP 503) as a failed resource load: expected with no key, so those
+      // are left out (checked when the view closes, after both events have arrived).
+      const refusedUrls = new Set<string>();
+      const logs: { text: string; url: string }[] = [];
+      page.on("response", (r: Any) => r.status() === 503 && r.url().includes("/api/projects/") && refusedUrls.add(r.url()));
+      page.on("console", (m: Any) => m.type() === "error" && logs.push({ text: m.text().slice(0, 160), url: m.location()?.url ?? "" }));
       page.on("pageerror", (e: Any) => consoleErrors.push(`${tag}: ${String(e).slice(0, 160)}`));
       page.on("request", (r: Any) => {
         const u = new URL(r.url());
         if (!["localhost", "127.0.0.1"].includes(u.hostname) && !u.protocol.startsWith("data") && !u.protocol.startsWith("blob")) externalRequests.push(`${tag}: ${r.url()}`);
       });
       try {
+        if (v.aiOff) await setAi(false);
         await page.goto(BASE + v.path);
         await page.locator(v.ready).first().waitFor({ timeout: 60000 });
         await page.waitForFunction(() => !document.querySelector("[data-panel] [aria-label=Loading], main > [aria-label=Loading]"), null, { timeout: 30000 }).catch(() => {});
@@ -782,6 +621,8 @@ async function main() {
       } catch (e) {
         fail(12, tag, `view failed to load: ${String(e).split("\n")[0]}`);
       } finally {
+        if (v.aiOff) await setAi(true).catch((e) => fail(12, tag, String(e)));
+        for (const l of logs) if (!(/status of 503/.test(l.text) && refusedUrls.has(l.url))) consoleErrors.push(`${tag}: ${l.text}`);
         await page.close();
       }
     }
@@ -789,32 +630,10 @@ async function main() {
     log(`variant ${vr.size}/${vr.theme}/${vr.motion} done`);
   }
 
-  // 10: canvas performance with the 300-node session, and List view = graph.
-  if (!ONLY || ONLY.includes("canvas-300")) {
-    const pinsBig = clientState(pins, { name: "", path: "", ready: "" });
-    const n = await listMatchesGraph(browser, `/s/${F.big}`, pinsBig, "canvas-300");
-    await listMatchesGraph(browser, `/s/${F.full}`, pinsBig, "canvas-done");
-    metrics.bigSessionNodes = n;
-    const ctx = await newContext(browser, { viewport: { width: 1440, height: 900 } });
-    await ctx.addInitScript((s: string) => localStorage.setItem("athena-canvas", s), pinsBig);
-    const page = await ctx.newPage();
-    await page.goto(`${BASE}/s/${F.big}`);
-    await page.locator("[data-node-id]").first().waitFor({ timeout: 60000 });
-    // Pan once the layout has settled (the elkjs refinement lands shortly after load).
-    await page.waitForFunction(
-      () =>
-        new Promise<boolean>((resolve) => {
-          const sig = () => [...document.querySelectorAll(".react-flow__node")].map((n) => (n as HTMLElement).style.transform).join("|") + (document.querySelector(".react-flow__viewport") as HTMLElement).style.transform;
-          const a = sig();
-          setTimeout(() => resolve(sig() === a), 1000);
-        }),
-      null,
-      { timeout: 20000, polling: 100 },
-    ).catch(() => log("canvas-300: layout still moving after 20 s"));
-    if (arg("fps-css")) await page.addStyleTag({ content: arg("fps-css") });
-    await measureFps(page, `canvas-300 (${n} nodes)`);
-    await ctx.close();
-    const b = (await bundleSize(browser, `/s/${F.full}`)) as Any;
+  // 10: List view = graph (the 300-node pan needs AI output: see NOT_COVERED). 11: canvas JS before the first node.
+  if (!ONLY || ONLY.includes("canvas-approved")) {
+    metrics.canvasNodes = await listMatchesGraph(browser, `/s/${F.approved}`, clientState(pins, { name: "", path: "", ready: "" }), "canvas-approved");
+    const b = (await bundleSize(browser, `/s/${F.approved}`)) as Any;
     if (b.initialGzipKb < 250) pass(11, "canvas route JS", `${b.initialGzipKb} kB gzip before the first node shows`);
     else fail(11, "canvas route JS", `${b.initialGzipKb} kB gzip before the first node shows (budget 250)`);
   }
@@ -822,7 +641,7 @@ async function main() {
 
   // 11: Lighthouse (mobile emulation, the default).
   if (!SKIP_LH) {
-    const pages: Record<string, string> = { landing: "/", sessions: "/sessions", settings: "/settings", "canvas-empty": "/s/new", "canvas-done": `/s/${F.full}`, table: `/s/${F.full}/table`, "export-page": `/s/${F.full}/export` };
+    const pages: Record<string, string> = { landing: "/", sessions: "/sessions", settings: "/settings", "canvas-empty": "/s/new", "canvas-approved": `/s/${F.approved}`, "export-page": `/s/${F.approved}/export` };
     const lh: Record<string, unknown> = {};
     for (const [name, p] of Object.entries(pages)) {
       if (LH_ONLY && !LH_ONLY.includes(name)) continue;
@@ -842,15 +661,18 @@ async function main() {
     metrics.lighthouse = lh;
   }
 
-  // 12: console errors and paid API calls.
+  // 12: console errors, paid API calls and AI spend.
   const end = await (await fetch(`${BASE}/api/status`, { headers: { cookie: COOKIE } })).json();
   metrics.paidCalls = end.paidCalls;
+  metrics.spendUsd = end.spendUsd;
   if (consoleErrors.length) fail(12, "all views", `${consoleErrors.length} console errors, e.g. ${consoleErrors.slice(0, 3).join(" | ")}`);
   else pass(12, "all views", "no console errors");
   if (externalRequests.length) fail(12, "all views", `browser requests to other hosts: ${externalRequests.slice(0, 3).join(" | ")}`);
   else pass(12, "all views", "no browser requests leave localhost");
-  if (end.paidCalls.attempted) fail(12, "server", `${end.paidCalls.attempted} paid API calls attempted`);
+  if (end.paidCalls?.attempted) fail(12, "server", `${end.paidCalls.attempted} paid API calls attempted`);
   else pass(12, "server", "0 paid API calls (xAI, OpenAlex) attempted");
+  if (end.spendUsd) fail(12, "server", `$${end.spendUsd} of AI spend recorded`);
+  else pass(12, "server", "$0 AI spend: every AI step was refused before any request to xAI");
 
   writeReport(shots, V.length);
 }
@@ -865,7 +687,7 @@ const ITEMS = [
   "No overflow, clipping or overlap at 390 px; tap targets ≥ 44 px",
   "Stale, verified and running are clear without colour (icon + text)",
   "4-pt spacing grid; at most 3 type sizes per view",
-  "Canvas: 300 nodes pan at ≥ 55 fps; List view matches the graph",
+  "Canvas: 300 nodes pan at ≥ 55 fps (needs AI output: not run without a key); List view matches the graph",
   "Lighthouse (mobile): Performance ≥ 90, Accessibility 100; landing LCP < 2 s; canvas initial JS < 250 kB gzip",
   "No console errors; no network calls to paid APIs",
 ];
@@ -880,7 +702,7 @@ function writeReport(shots: Shot[], viewCount: number) {
   })();
   const lines: string[] = [];
   lines.push(`# Visual audit, round ${ROUND}`, "");
-  lines.push(`Run ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC on commit \`${commit}\`. Production build, mock mode, API keys stripped from the server environment, fresh database. ${viewCount} views × ${QUICK ? "1 variant" : "8 variants (1440×900 and 390×844, dark and light, reduced motion on and off)"} = ${shots.length} screenshots in \`qa/shots/${ROUND}/\`.`, "");
+  lines.push(`Run ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC on commit \`${commit}\`. Production build, no xAI key (API keys stripped from the server environment), fresh database, so every AI step was refused and nothing was spent. ${viewCount} views × ${QUICK ? "1 variant" : "8 variants (1440×900 and 390×844, dark and light, reduced motion on and off)"} = ${shots.length} screenshots in \`qa/shots/${ROUND}/\`.`, "");
   lines.push("| # | Checklist item | Result | Checks | Failures |", "|---|---|---|---|---|");
   ITEMS.forEach((t, i) => {
     const rs = results.filter((r) => r.item === i + 1);
@@ -891,7 +713,8 @@ function writeReport(shots: Shot[], viewCount: number) {
     const rs = results.filter((r) => r.item === i + 1);
     return rs.length && rs.every((r) => r.ok);
   });
-  lines.push("", allPass ? "**All 12 items pass in this round.**" : "**Not all items pass yet.**", "");
+  lines.push("", allPass ? "**All 12 items pass on the views reachable without an xAI key.**" : "**Not all items pass yet.**", "");
+  lines.push("## Not covered without an xAI key", "", "Mock mode was removed, so views that need AI output are not seeded here; they need a real run with a key (which spends money):", "", ...NOT_COVERED.map((n) => `- ${n}`), "");
   lines.push("## Measurements", "", "```json", JSON.stringify(metrics, null, 2), "```", "");
   for (let i = 1; i <= 12; i++) {
     const f = results.filter((r) => r.item === i && !r.ok);
@@ -904,7 +727,7 @@ function writeReport(shots: Shot[], viewCount: number) {
   }
   fs.mkdirSync(path.join(ROOT, "qa"), { recursive: true });
   fs.writeFileSync(path.join(ROOT, `qa/report-${ROUND}.md`), lines.join("\n"));
-  fs.writeFileSync(path.join(ROOT, `qa/report-${ROUND}.json`), JSON.stringify({ round: ROUND, commit, allPass, metrics, results }, null, 2));
+  fs.writeFileSync(path.join(ROOT, `qa/report-${ROUND}.json`), JSON.stringify({ round: ROUND, commit, mode: "no-key", allPass, notCovered: NOT_COVERED, metrics, results }, null, 2));
   log(allPass ? "ALL 12 ITEMS PASS" : `${results.filter((r) => !r.ok).length} failing checks`, `→ qa/report-${ROUND}.md`);
 }
 

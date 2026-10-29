@@ -3,7 +3,8 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db, schema } from "../db";
 import { newId, nowIso, errMsg } from "../util";
 import { setStageState, logDecision } from "../project";
-import { AiPausedError, BudgetError } from "../ai/client";
+import { AiPausedError, AiUnavailableError, BudgetError } from "../ai/client";
+import { NO_KEY_MESSAGE } from "../ai/errors";
 
 /**
  * In-process job runner. Job state lives in SQLite (jobs table), so a page refresh or a client
@@ -11,9 +12,9 @@ import { AiPausedError, BudgetError } from "../ai/client";
  * On server start, jobs left "running" by a crashed process are re-queued and run again
  * (HTTP responses are cached, so re-running is cheap and deterministic).
  *
- * A job whose AI call is refused because AI was switched off or the budget is spent is *paused*, not failed:
- * its stage stays "running", the work done so far is kept, and it resumes (re-runs, skipping finished work)
- * when an admin turns AI back on or raises the budget, or when the user presses Resume.
+ * A job whose AI call is refused because AI was switched off, no xAI key is configured or the budget is spent is
+ * *paused*, not failed: its stage stays "running", the work done so far is kept, and it resumes (re-runs, skipping
+ * finished work) when an admin turns AI back on, adds a key or raises the budget, or when the user presses Resume.
  */
 
 export interface JobContext {
@@ -102,7 +103,7 @@ async function execute(id: string) {
     }
   } catch (e) {
     if (e instanceof AiPausedError || e instanceof BudgetError) {
-      const reason = e instanceof AiPausedError ? "ai_off" : "budget";
+      const reason = e instanceof AiUnavailableError ? "no_key" : e instanceof AiPausedError ? "ai_off" : "budget";
       logLines.push(`PAUSED ${e.message}`);
       (await flush(true));
       (await update(id, { status: "paused", error: e.message }));
@@ -147,7 +148,14 @@ export async function resumeJob(id: string): Promise<string> {
   return id;
 }
 
-/** Every paused job (after an admin turns AI back on or raises the budget). */
+/** Every paused job (after an admin turns AI back on, adds a key or raises the budget). */
+/** Startup: jobs paused only because no key was set resume once one is (e.g. XAI_API_KEY added and redeployed). */
+export async function resumeJobsPausedForNoKey(): Promise<number> {
+  const paused = (await db.select({ id: schema.jobs.id }).from(schema.jobs).where(and(eq(schema.jobs.status, "paused"), eq(schema.jobs.error, NO_KEY_MESSAGE))).all());
+  for (const j of paused) await resumeJob(j.id);
+  return paused.length;
+}
+
 export async function resumePausedJobs(): Promise<number> {
   const paused = (await db.select({ id: schema.jobs.id }).from(schema.jobs).where(eq(schema.jobs.status, "paused")).all());
   for (const j of paused) await resumeJob(j.id);

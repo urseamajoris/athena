@@ -23,7 +23,7 @@ async function read<T>(key: SettingKey): Promise<{ value: T; updatedAt: string; 
 async function write(key: SettingKey, value: unknown, by: string | null) {
   const now = nowIso();
   await db.insert(schema.appSettings).values({ key, value, updatedAt: now, updatedBy: by }).onConflictDoUpdate({ target: schema.appSettings.key, set: { value, updatedAt: now, updatedBy: by } }).run();
-  aiStateCache = null; // the switch or the limit changed: show it at once on this instance
+  aiStateCache = null; // the switch, the limit or the key changed: show it at once on this instance
 }
 
 async function remove(key: SettingKey) {
@@ -120,14 +120,20 @@ export async function keyStatus() {
  * For display only (the live-update stream asks every 800 ms per open tab): reused for a few seconds, so open
  * tabs do not sum the whole ai_calls table each time. The AI client checks the budget exactly before each call.
  */
-let aiStateCache: { at: number; value: Promise<{ enabled: boolean; budgetReached: boolean }> } | null = null;
+export interface AiState {
+  enabled: boolean;
+  budgetReached: boolean;
+  /** No xAI key is configured (admin-set or XAI_API_KEY): AI steps cannot run until one is added. */
+  keyMissing: boolean;
+}
+let aiStateCache: { at: number; value: Promise<AiState> } | null = null;
 const AI_STATE_MS = 5_000;
-export function aiState(): Promise<{ enabled: boolean; budgetReached: boolean }> {
+export function aiState(): Promise<AiState> {
   if (aiStateCache && Date.now() - aiStateCache.at < AI_STATE_MS) return aiStateCache.value;
   const value = (async () => {
     const { totalSpend } = await import("./ai/client");
-    const [enabled, limit, spent] = await Promise.all([aiEnabled(), budgetLimit(), totalSpend()]);
-    return { enabled, budgetReached: !config.mockAi && spent >= limit };
+    const [enabled, limit, spent, { key }] = await Promise.all([aiEnabled(), budgetLimit(), totalSpend(), effectiveXaiKey()]);
+    return { enabled, budgetReached: spent >= limit, keyMissing: !key };
   })();
   aiStateCache = { at: Date.now(), value };
   value.catch(() => { aiStateCache = null; });

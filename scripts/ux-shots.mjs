@@ -1,13 +1,16 @@
-// UX screenshots for the 3-second-test loop: every page in its key states at 375, 768 and 1366 px.
+// UX screenshots for the 3-second-test loop: every page reachable with no xAI key, in its key states, at 375, 768
+// and 1366 px.
 // Usage: node scripts/ux-shots.mjs <baseUrl> <version> [--only=page,page] [--widths=375,768,1366] [--theme=dark|light] [--out=dir]
-// Needs a mock-mode server whose ADMIN_EMAIL / ADMIN_PASSWORD are in this environment. Seeds its own projects
-// through the API (as a fresh user), then saves <out>/<page>/v<version>/<state>-<width>.jpg (default out:
-// docs/screenshots/ux) and <out>/<page>/v<version>/index.json with what each shot shows.
+// Needs a server with no xAI key (it reads /api/status first and refuses to run otherwise, so it never spends).
+// With the server's ADMIN_EMAIL / ADMIN_PASSWORD in this environment it also shoots the admin dashboard and the
+// AI-off state. Seeds its own projects through the API (as a fresh user, without AI), then saves
+// <out>/<page>/v<version>/<state>-<width>.jpg (default out: docs/screenshots/ux), <out>/<page>/v<version>/index.json
+// with what each shot shows, and <out>/not-covered-v<version>.json with the states that need AI output.
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 import { Client } from "./lib/client.mjs";
-import { runFlow } from "./api-flow.mjs";
+import { isAiRefusalLog, requireNoKey } from "./lib/no-key.mjs";
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
 
@@ -23,59 +26,42 @@ const EMAIL = `ux-${stamp}@example.org`;
 const PASSWORD = "ux-password-123";
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
-// ---- seed projects through the API ----
+// Refuses to go on (exit 2) if the server has an xAI key.
+const { status } = await requireNoKey(base);
+const hasAdmin = !!status.keys; // only the admin's status carries `keys`
+if (!hasAdmin) log("no admin credentials: the admin dashboard and AI-off shots are skipped (set ADMIN_EMAIL / ADMIN_PASSWORD)");
+
+// ---- seed projects through the API, without AI ----
 const user = await new Client(base, "ux").signup(EMAIL, PASSWORD);
 const call = (pid, p, body, method) => user.json(`/api/projects/${pid}${p ? `/${p}` : ""}`, { body, method });
-const waitStage = async (pid, n, want = ["needs_review"]) => {
-  for (let i = 0; i < 400; i++) {
-    const v = await call(pid, "");
-    if (want.includes(v.project.stageStates[String(n)])) return v;
-    await new Promise((r) => setTimeout(r, 300));
-  }
-  throw new Error(`stage ${n} did not reach ${want}`);
+/** An AI step: with no key the server refuses it (503) before any request to xAI. */
+const refused = async (pid, p) => {
+  const r = await user.raw(`/api/projects/${pid}/${p}`, { body: {} });
+  if (r.status !== 503) throw new Error(`expected ${p} to be refused with no xAI key, got HTTP ${r.status}`);
 };
 const IDEA = "What is the knowledge gap in implementing telemedicine in Southeast Asia?";
+const TOPICS = ["Telemedicine adoption in ASEAN countries", "Barriers and facilitators for health workers", "Rural and underserved patients", "Policy and infrastructure readiness"];
 log("seeding projects…");
 const P = {};
-// Mid-chat: idea approved, first question asked.
-P.chat = (await user.json("/api/projects", { body: { idea: "I'm interested in sleep and grades in university students" } })).id;
-await call(P.chat, "stages/1/approve", {});
-await call(P.chat, "scoping/start", {});
-// Topics proposed (ghosts), not approved.
-P.topics = (await user.json("/api/projects", { body: { idea: IDEA } })).id;
-await call(P.topics, "stages/1/approve", {});
-{
-  let s = await call(P.topics, "scoping/start", {});
-  const answers = ["Rural patients and the health workers who treat them, in ASEAN countries", "Whether telemedicine gets adopted, and what blocks or helps it", "2015 onwards, any design including interviews and reviews"];
-  for (let i = 0; !s.done && s.awaitingAnswer; i++) s = await call(P.topics, "scoping/answer", { text: answers[i % answers.length] });
-  await call(P.topics, "scoping/topics", {});
-}
-// Search builder awaiting review.
-P.search = (await user.json("/api/projects", { body: { idea: IDEA } })).id;
-await call(P.search, "stages/1/approve", {});
-await runFlow(user, { project: P.search, until: 2 });
-await call(P.search, "search/build", {});
-await call(P.search, "search/dryrun-all", {});
-// Finished review.
-P.done = await runFlow(user, { until: 9 });
-// Stale: a finished review whose topics were then edited.
-P.stale = await runFlow(user, { until: 9 });
-{
-  const sc = await call(P.stale, "scoping");
-  await call(P.stale, "stages/2/reopen", {});
-  await call(P.stale, `topics/${sc.topics[0].id}`, { synonyms: [...sc.topics[0].synonyms, "eHealth"] }, "PATCH");
-}
-// Stopped at each review point: table (5), ranking (6), appraisal (7), synthesis (8), questions (9).
-P.s5 = await runFlow(user, { until: 4 }); // approves 4 → summaries run
-await waitStage(P.s5, 5);
-P.s6 = await runFlow(user, { until: 5 });
-await waitStage(P.s6, 6);
-P.s7 = await runFlow(user, { until: 6 });
-await waitStage(P.s7, 7);
-P.s8 = await runFlow(user, { until: 7 });
-await waitStage(P.s8, 8);
-P.s9 = await runFlow(user, { until: 8 });
-await waitStage(P.s9, 9);
+// The idea, not yet approved.
+P.idea = (await user.json("/api/projects", { body: { idea: "I'm interested in sleep and grades in university students" } })).id;
+// Idea approved; the first scoping question needs AI, so the panel says AI is not set up.
+P.nokey = (await user.json("/api/projects", { body: { idea: IDEA } })).id;
+await call(P.nokey, "stages/1/approve", {});
+await refused(P.nokey, "scoping/start");
+// Questions skipped, topics added by hand, not yet approved.
+const withTopics = async (approve) => {
+  const pid = (await user.json("/api/projects", { body: { idea: IDEA } })).id;
+  await call(pid, "stages/1/approve", {});
+  await call(pid, "scoping/skip", {});
+  for (const name of TOPICS) await call(pid, "topics", { name });
+  if (approve) await call(pid, "stages/2/approve", {});
+  return pid;
+};
+P.topics = await withTopics(false);
+// Topics approved; writing the searches needs AI.
+P.approved = await withTopics(true);
+await refused(P.approved, "search/build");
 log("seeded", Object.keys(P).join(", "));
 
 // ---- shots ----
@@ -91,52 +77,81 @@ async function context(width, who = "user") {
   }
   return ctx;
 }
+const NOT_SET_UP = /AI is not set up/i;
 const SHOTS = [
   { page: "home", state: "landing", who: "anon", url: "/", what: "Landing page for a first-time visitor" },
   { page: "signup", state: "empty", who: "anon", url: "/signup?next=/s/new", what: "Create-account form" },
   { page: "login", state: "error", who: "anon", url: "/login", what: "Log-in form after a wrong password", act: async (p) => { await p.getByLabel("Email").fill("nobody@example.org"); await p.getByLabel("Password").fill("wrong-password-1"); await p.getByRole("button", { name: /log in/i }).click(); await p.getByText(/do not match/).waitFor(); } },
   { page: "projects", state: "populated", url: "/sessions", what: "My projects list (several projects at different steps)" },
   { page: "new", state: "empty", url: "/s/new", what: "Starting a new review: the empty canvas asking for the idea" },
-  { page: "idea", state: "chat", url: () => `/s/${P.chat}?node=idea`, what: "Scoping chat: the AI asks a clarifying question about the idea" },
-  { page: "scoping", state: "topics", url: () => `/s/${P.topics}?node=idea`, what: "Scoping: proposed search topics to accept or edit" },
-  { page: "search", state: "review", url: () => `/s/${P.search}?node=search`, what: "Search builder: database queries and dry-run counts to check" },
-  { page: "retrieval", state: "done", url: () => `/s/${P.s5}?node=retrieval`, what: "Retrieval finished: papers found and duplicates removed" },
-  { page: "summary", state: "review", url: () => `/s/${P.s5}/table`, what: "Summary table: one row per paper, to skim and correct" },
-  { page: "ranking", state: "review", url: () => `/s/${P.s6}/table`, what: "Ranking: scored papers with the top ones selected per topic" },
-  { page: "ranking", state: "map", url: () => `/s/${P.s6}/table`, what: "Ranking shown as a map of papers coloured by study type", act: async (p) => { await p.getByRole("button", { name: "Map", exact: true }).click(); await p.waitForTimeout(2500); await p.getByText("Papers by year and score").scrollIntoViewIfNeeded(); await p.waitForTimeout(800); } },
-  { page: "appraisal", state: "review", url: () => `/s/${P.s7}?node=appraisal`, what: "Appraisal: checking one paper at a time with verified quotes" },
-  { page: "synthesis", state: "review", url: () => `/s/${P.s8}?node=synthesis`, what: "Synthesis: what is known, contested and unknown" },
-  { page: "synthesis", state: "network", url: () => `/s/${P.s8}?node=synthesis`, what: "Synthesis evidence network: statements linked to papers coloured by study type", act: async (p) => { await p.getByRole("button", { name: /See the evidence network/ }).click(); await p.waitForTimeout(2500); await p.locator("[data-panel-body]").evaluate((el) => { const b = el.querySelector("button[aria-expanded=true]"); const all = [...el.querySelectorAll("button[aria-expanded=true]")]; const t = all.find((x) => /evidence network/.test(x.textContent)) ?? b; if (t) el.scrollTop = t.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - 8; }); await p.waitForTimeout(800); } },
-  { page: "questions", state: "review", url: () => `/s/${P.s9}?node=questions`, what: "Research questions: three candidates to choose from" },
-  { page: "final", state: "done", url: () => `/s/${P.done}/export`, what: "Finished review: download the report" },
-  { page: "canvas", state: "mid", url: () => `/s/${P.s7}`, what: "Session overview mid-way (step 7 waiting for review)" },
-  { page: "canvas", state: "stale", url: () => `/s/${P.stale}?node=summary`, what: "A later step is stale after an earlier edit" },
+  { page: "idea", state: "draft", url: () => `/s/${P.idea}?node=idea`, what: "The idea before it is approved: it saves itself" },
+  { page: "idea", state: "not-set-up", url: () => `/s/${P.nokey}?node=idea`, what: "“Sharpen my idea” with no xAI key: the plain AI-not-set-up message", act: async (p) => { await p.locator("[data-panel]").getByText(NOT_SET_UP).first().waitFor({ timeout: 20_000 }); } },
+  { page: "scoping", state: "manual-topics", url: () => `/s/${P.topics}?node=idea`, what: "Questions skipped, topics added by hand, ready to approve" },
+  { page: "canvas", state: "topics", url: () => `/s/${P.approved}`, what: "Session overview: the idea and the approved hand-made topics" },
+  { page: "search", state: "not-set-up", url: () => `/s/${P.approved}`, what: "“Write the searches” with no xAI key: the AI-not-set-up message", act: async (p) => { await p.getByRole("button", { name: "Write the searches" }).first().click(); await p.getByText(NOT_SET_UP).first().waitFor({ timeout: 20_000 }); await p.waitForTimeout(500); } },
+  { page: "export", state: "partial", url: () => `/s/${P.approved}/export`, what: "Export of what exists so far, under the “AI is not set up yet.” banner" },
   { page: "account", state: "populated", url: "/account", what: "Account page" },
-  { page: "settings", state: "populated", url: "/settings", what: "Settings" },
-  { page: "admin", state: "populated", who: "admin", url: "/admin", what: "Admin dashboard" },
+  { page: "settings", state: "populated", url: "/settings", what: "Settings: how this server runs Athena (AI not set up)" },
+  { page: "settings", state: "ai-off", url: "/settings", aiOff: true, what: "Settings while an administrator has switched AI off" },
+  { page: "admin", state: "populated", who: "admin", url: "/admin", what: "Admin dashboard (no xAI key)" },
+  { page: "admin", state: "ai-off", who: "admin", url: "/admin", aiOff: true, what: "Admin dashboard with AI switched off" },
 ];
-const todo = SHOTS.filter((s) => !ONLY || ONLY.includes(s.page));
-for (const s of todo) {
-  const dir = path.join(OUT, s.page, `v${version}`);
-  fs.mkdirSync(dir, { recursive: true });
-  const indexFile = path.join(dir, "index.json");
-  const index = fs.existsSync(indexFile) ? JSON.parse(fs.readFileSync(indexFile, "utf8")) : {};
-  for (const w of WIDTHS) {
-    const ctx = await context(w, s.who);
-    const p = await ctx.newPage();
-    p.on("pageerror", (e) => errors.push(`${s.page}/${s.state}@${w}: ${String(e).slice(0, 200)}`));
-    p.on("console", (m) => m.type() === "error" && errors.push(`${s.page}/${s.state}@${w}: ${m.text().slice(0, 200)}`));
-    await p.goto(base + (typeof s.url === "function" ? s.url() : s.url), { waitUntil: "networkidle" }).catch(() => {});
-    await p.waitForTimeout(1200);
-    if (s.act) await s.act(p).catch((e) => errors.push(`${s.page}: act failed ${e.message}`));
-    const file = path.join(dir, `${s.state}-${w}.jpg`);
-    await p.screenshot({ path: file, type: "jpeg", quality: 72 });
-    index[`${s.state}-${w}`] = { what: s.what, url: typeof s.url === "function" ? s.url().replace(/prj_[a-z0-9]+/, "<project>") : s.url, width: w, theme: THEME };
-    await ctx.close();
+// States the earlier mock mode could show and a server with no key cannot: they need AI output.
+const NOT_COVERED = [
+  ["idea/chat", "the scoping chat needs AI questions"],
+  ["scoping/topics", "suggested (ghost) topics are written by the AI"],
+  ["search/review", "the searches are written by the AI"],
+  ["retrieval/done", "retrieval needs the AI-written searches"],
+  ["summary/review", "summary rows are written by the AI"],
+  ["ranking/review, ranking/map", "ranking scores come from the AI"],
+  ["appraisal/review", "appraisals are written by the AI"],
+  ["synthesis/review, synthesis/network", "the synthesis is written by the AI"],
+  ["questions/review", "research questions are written by the AI"],
+  ["final/done", "a finished review needs every AI step"],
+  ["canvas/mid, canvas/stale", "both need retrieval and later steps"],
+].map(([shots, why]) => ({ shots, why }));
+const todo = SHOTS.filter((s) => (!ONLY || ONLY.includes(s.page)) && ((s.who !== "admin" && !s.aiOff) || hasAdmin));
+const admin = hasAdmin ? await new Client(base, "admin").login(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD) : null;
+const setAi = (enabled) => admin.json("/api/admin/ai", { body: { enabled } });
+// The AI-off shots put the switch back as they found it, never simply on.
+const aiWasOn = admin ? (await admin.json("/api/status")).ai?.enabled !== false : true;
+try {
+  for (const s of todo) {
+    const dir = path.join(OUT, s.page, `v${version}`);
+    fs.mkdirSync(dir, { recursive: true });
+    const indexFile = path.join(dir, "index.json");
+    const index = fs.existsSync(indexFile) ? JSON.parse(fs.readFileSync(indexFile, "utf8")) : {};
+    if (s.aiOff) await setAi(false);
+    try {
+      for (const w of WIDTHS) {
+        const ctx = await context(w, s.who);
+        const p = await ctx.newPage();
+        // The browser logs every refused AI step (HTTP 503) as a failed resource load: expected here.
+        const refusedUrls = new Set();
+        const logs = [];
+        p.on("response", (r) => r.status() === 503 && r.url().includes("/api/projects/") && refusedUrls.add(r.url()));
+        p.on("pageerror", (e) => errors.push(`${s.page}/${s.state}@${w}: ${String(e).slice(0, 200)}`));
+        p.on("console", (m) => m.type() === "error" && logs.push({ text: m.text().slice(0, 200), url: m.location()?.url ?? "" }));
+        await p.goto(base + (typeof s.url === "function" ? s.url() : s.url), { waitUntil: "networkidle" }).catch(() => {});
+        await p.waitForTimeout(1200);
+        if (s.act) await s.act(p).catch((e) => errors.push(`${s.page}/${s.state}@${w}: act failed ${e.message}`));
+        const file = path.join(dir, `${s.state}-${w}.jpg`);
+        await p.screenshot({ path: file, type: "jpeg", quality: 72 });
+        index[`${s.state}-${w}`] = { what: s.what, url: typeof s.url === "function" ? s.url().replace(/prj_[a-z0-9]+/, "<project>") : s.url, width: w, theme: THEME, mode: "no-key" };
+        for (const l of logs) if (!isAiRefusalLog(l.text, l.url, refusedUrls)) errors.push(`${s.page}/${s.state}@${w}: ${l.text}`);
+        await ctx.close();
+      }
+    } finally {
+      if (s.aiOff) await setAi(aiWasOn);
+    }
+    fs.writeFileSync(indexFile, JSON.stringify(index, null, 2));
+    log("✓", s.page, s.state);
   }
-  fs.writeFileSync(indexFile, JSON.stringify(index, null, 2));
-  log("✓", s.page, s.state);
+} finally {
+  await browser.close();
 }
-await browser.close();
+fs.mkdirSync(OUT, { recursive: true });
+fs.writeFileSync(path.join(OUT, `not-covered-v${version}.json`), JSON.stringify({ note: "Mock mode was removed. These states need AI output, so they are only reachable on a server with an xAI key (a real run, which spends money).", notCovered: NOT_COVERED }, null, 2));
+log(`not covered without a key: ${NOT_COVERED.map((n) => n.shots).join("; ")} → ${path.join(OUT, `not-covered-v${version}.json`)}`);
 if (errors.length) console.log(`console errors:\n${errors.join("\n")}`);
 else log("no console errors");

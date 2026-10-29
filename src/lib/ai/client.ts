@@ -3,36 +3,22 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { sql } from "drizzle-orm";
 import { db, schema } from "../db";
-import { config, guardPaid, type ModelRole } from "../config";
+import { config, countPaid, type ModelRole } from "../config";
 import { DATA_RULES, fill, loadPrompt } from "./prompts";
 import { toXaiSchema, zodErrorText } from "./schema";
 import { limiter, newId, errMsg } from "../util";
-import { mockRespond } from "./mock";
 import { resolvedModel } from "./models";
 import { aiEnabled, budgetLimit, effectiveXaiKey } from "../settings";
 import { fingerprint, redactSecrets } from "../auth/secrets";
+import { AiUnavailableError, AiValidationError, BudgetError, aiRefusal } from "./errors";
 export { repairId } from "../grounding";
-
-export class AiValidationError extends Error {
-  constructor(message: string, public raw?: string) {
-    super(message);
-  }
-}
-export class BudgetError extends Error {}
-/** The administrator switched AI off. Nothing was sent and nothing was spent; the work is kept. */
-export class AiPausedError extends Error {
-  constructor() {
-    super("AI is paused by the administrator. Your work is saved.");
-  }
-}
-/** Errors that must stop a whole job (not just one batch): it pauses or fails cleanly and can be resumed. */
-export const isAiStop = (e: unknown) => e instanceof BudgetError || e instanceof AiPausedError;
+export { AiPausedError, AiUnavailableError, AiValidationError, BudgetError, isAiStop } from "./errors";
 
 const g = globalThis as unknown as { __xai?: { client: OpenAI; fp: string }; __aiLimit?: ReturnType<typeof limiter>; __noEffort?: Set<string> };
 /** The SDK client for the key in force (admin-set or environment); rebuilt when the key changes. */
 async function client(): Promise<{ client: OpenAI; key: string }> {
   const { key } = await effectiveXaiKey();
-  if (!key) throw new Error("No xAI API key is configured. An administrator can set one in the dashboard, or set XAI_API_KEY.");
+  if (!key) throw new AiUnavailableError();
   const fp = fingerprint(key);
   if (!g.__xai || g.__xai.fp !== fp) {
     // The SDK retries 429/5xx with exponential backoff; we raise the retry count for xAI rate limits.
@@ -41,11 +27,13 @@ async function client(): Promise<{ client: OpenAI; key: string }> {
   return { client: g.__xai.client, key };
 }
 
-/** Refuses the call (and logs the refusal) when AI is switched off. No model call, no cost, no mock fallback. */
+/** Refuses the call (and logs the refusal) when AI is switched off or no key is configured. No model call, no cost. */
 async function assertAiOn(log: (row: Partial<typeof schema.aiCalls.$inferInsert>) => Promise<unknown>) {
-  if (await aiEnabled()) return;
-  await log({ status: "paused", error: "AI switched off by an administrator" });
-  throw new AiPausedError();
+  const [enabled, { key }] = await Promise.all([aiEnabled(), effectiveXaiKey()]);
+  const refused = aiRefusal({ enabled, key });
+  if (!refused) return;
+  await log(refused.row);
+  throw refused.error;
 }
 export const aiLimit = (g.__aiLimit ??= limiter(config.aiConcurrency));
 const noEffort = (g.__noEffort ??= new Set());
@@ -71,8 +59,6 @@ export interface CallOpts<T> {
   check?: (out: T) => string | null;
   /** Deterministic clean-up applied after schema validation and before `check` (e.g. repairing ID formatting). */
   normalize?: (out: T) => T;
-  /** Data passed to the mock responder in MOCK_MODE. */
-  mockInput?: unknown;
 }
 
 export interface CallResult<T> {
@@ -121,25 +107,16 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
   };
 
   await assertAiOn(log);
-  if (config.mockAi) {
-    const out = await mockRespond(opts.prompt, opts.vars, opts.mockInput);
-    const raw = JSON.stringify(out);
-    const v = validate(raw);
-    (await log({ status: v.ok ? "ok" : "invalid", costSource: "mock", error: v.ok ? null : v.error, inputTokens: Math.round((system.length + user.length) / 4), outputTokens: Math.round(raw.length / 4) }));
-    if (!v.ok) throw new AiValidationError(`Mock response failed validation: ${v.error}`, raw);
-    return { data: v.data, model: `mock:${model}`, promptVersion: prompt.version };
-  }
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: system },
     { role: "user", content: user },
   ];
 
-  guardPaid("xai", `${prompt.name} v${prompt.version}`);
   let lastError = "";
   let lastRaw = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
-    if (attempt > 1) await assertAiOn(log); // switched off between the attempt and its retry
+    if (attempt > 1) await assertAiOn(log); // switched off (or the key removed) between the attempt and its retry
     const spent = (await totalSpend());
     const limit = await budgetLimit();
     if (spent >= limit) {
@@ -147,6 +124,7 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
       throw new BudgetError(`AI budget reached ($${spent.toFixed(2)} of $${limit.toFixed(2)}). Your work is saved; the administrator can raise the limit.`);
     }
     const { client: xai, key } = await client();
+    countPaid();
     const started = Date.now();
     const useEffort = (opts.role === "fast" || opts.role === "summary") && config.fastReasoningEffort && !noEffort.has(model);
     try {

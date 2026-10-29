@@ -71,7 +71,7 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
       <div className="flex flex-wrap items-end justify-between gap-2">
         <h1 className="text-20 font-semibold">Is Athena healthy?</h1>
         <p className="text-12 text-fg-2" aria-live="off">
-          {d.mode.mockMode ? "Mock mode · " : d.mode.mockAi ? "Mock AI · " : "Live APIs · "}
+          {d.ai.key.inUse === "none" ? "AI not set up (no key) · " : !d.ai.enabled ? "AI switched off · " : "Live AI and databases · "}
           Updated <span suppressHydrationWarning>{relTime(d.generatedAt)}</span>, refreshes every 10 s {validating && <Spinner className="ml-1 h-3 w-3" label="Refreshing" />}
         </p>
       </div>
@@ -122,7 +122,7 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
         </div>
       </Section>
 
-      <Section id="ai-title" title="AI usage" intro={`${d.mode.mockAi ? "Mock mode: calls are counted, but they cost nothing." : "From the ai_calls log: every model call, its tokens and its cost."} Every count here is calls sent to the model; attempts blocked because AI was off or the budget was reached are never sent and are not counted (${num(d.ai.totals.blocked)} so far).`}>
+      <Section id="ai-title" title="AI usage" intro={`From the ai_calls log: every model call, its tokens and its cost. Every count here is calls sent to the model; attempts blocked because AI was off, no key was set or the budget was reached are never sent and are not counted (${num(d.ai.totals.blocked)} so far).`}>
         <div className="grid gap-6 md:grid-cols-2">
           <DailyBars title="AI spend per day (14 days)" data={d.ai.byDay} format={(v) => usd(v, 3)} />
           <DailyBars title="AI calls per day (14 days)" data={d.ai.callsByDay} />
@@ -131,7 +131,7 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
           <Stat label="Input tokens" value={num(d.ai.totals.tokens.input)} sub={`${num(d.ai.totals.tokens.cached)} cached`} />
           <Stat label="Output tokens" value={num(d.ai.totals.tokens.output)} sub={`${num(d.ai.totals.tokens.reasoning)} reasoning`} />
           {d.ai.latency.p50 === null ? (
-            <Stat label="AI latency p50" value="None yet" sub={d.mode.mockAi ? "Demo mode makes no live calls, so there is no latency." : "No live AI calls in the last 30 days."} />
+            <Stat label="AI latency p50" value="None yet" sub="No live AI calls in the last 30 days." />
           ) : (
             <Stat label="AI latency p50" value={ms(d.ai.latency.p50)} sub={`p90 ${ms(d.ai.latency.p90)} · p99 ${ms(d.ai.latency.p99)}`} />
           )}
@@ -144,7 +144,7 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
         </div>
       </Section>
 
-      <Section id="sources-title" title="Data sources (last 24 h)" intro="Every request to the literature databases, including cache hits and recorded fixtures.">
+      <Section id="sources-title" title="Data sources (last 24 h)" intro="Every request to the literature databases, including cache hits.">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-left text-12">
             <thead className="text-fg-2"><tr>{["Source", "Requests", "Live", "Cache hits", "Errors", "429s", "p50", "p95", ""].map((h) => <th key={h} className="py-1 pr-3 font-medium">{h}</th>)}</tr></thead>
@@ -320,7 +320,7 @@ function AiKeyPanel({ d, refresh }: { d: AdminOverview; refresh: () => void }) {
           <p className={cx("mt-1 flex items-center gap-2 text-16 font-semibold", d.ai.enabled ? "text-ok" : "text-warn")}>
             <Power className="h-4 w-4" strokeWidth={2} aria-hidden /> {d.ai.enabled ? "On" : "Off"}
           </p>
-          <p className="mt-1 text-fg-1">{d.ai.enabled ? "Users can run AI steps." : "No model calls are made and nothing is spent. Users see “AI is paused by the administrator. Your work is saved.” Database searches still work."}</p>
+          <p className="mt-1 text-fg-1">{d.ai.enabled ? (k.inUse === "none" ? "Users can run AI steps once an xAI key is set." : "Users can run AI steps.") : "No model calls are made and nothing is spent. Users see “AI is paused by the administrator. Your work is saved.” Database searches still work."}</p>
           {d.ai.changedAt && <p className="mt-1 text-12 text-fg-2" suppressHydrationWarning>Changed {relTime(d.ai.changedAt)}{d.ai.changedBy ? ` by ${d.ai.changedBy}` : ""}</p>}
           <button className={cx("mt-3 min-h-11", d.ai.enabled ? "btn-secondary" : "btn-primary")} disabled={busy === "ai"} onClick={() => (d.ai.enabled ? setConfirmOff(true) : toggle(true))}>
             {busy === "ai" && <Spinner />} {d.ai.enabled ? "Turn AI off…" : "Turn AI back on"}
@@ -334,8 +334,8 @@ function AiKeyPanel({ d, refresh }: { d: AdminOverview; refresh: () => void }) {
           <p className="mt-1 text-fg-1">
             {k.inUse === "admin" ? <>Set here{k.admin && <span suppressHydrationWarning> {relTime(k.admin.setAt)} by {k.admin.setBy ?? "an admin"}</span>}. It overrides the environment key.</> : k.inUse === "environment" ? "From the server environment (XAI_API_KEY)." : "Neither the environment nor this dashboard provides a key."}
           </p>
-          {/* Demo mode never calls the model, so a key on the server is neither used nor charged. */}
-          {d.mode.mockAi && <p className="mt-1 font-medium text-fg-0">Demo mode: no key is used and nothing is spent.</p>}
+          {/* With no key, AI steps pause before any call: nothing is spent until a key is added. */}
+          {k.inUse === "none" && <p className="mt-1 font-medium text-fg-0">AI is not set up: AI steps pause and nothing is spent until a key is added.</p>}
           {k.problem && <p className="mt-1 text-12 text-warn">{k.problem}</p>}
           {k.lastTest && (
             <p className={cx("mt-1 flex items-start gap-1 text-12", k.lastTest.ok ? "text-ok" : "text-fg-1")}>
@@ -387,7 +387,7 @@ function AiKeyPanel({ d, refresh }: { d: AdminOverview; refresh: () => void }) {
       </div>
       <Disclosure title="Models" meta={d.ai.models.map((m) => m.status).join(" · ")}>
         <ul className="space-y-1 text-12">{d.ai.models.map((m) => <li key={m.role}><span className="font-medium">{m.role}</span>: <span className="font-mono">{m.resolved}</span> <span className="text-fg-2">({m.note})</span></li>)}</ul>
-        <p className="mt-2 text-12 text-fg-2">Paid API calls attempted since this instance started: {d.ai.paidCalls.attempted} ({d.ai.paidCalls.blocked} blocked outside production).</p>
+        <p className="mt-2 text-12 text-fg-2">Paid API calls attempted since this instance started: {d.ai.paidCalls.attempted}.</p>
       </Disclosure>
 
       <Modal
