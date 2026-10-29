@@ -1,9 +1,8 @@
 "use client";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
-import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import Scene3D from "./Scene3D";
+import Scene3D, { Label } from "./Scene3D";
 import { shapeTexture } from "./shapes3d";
 import { slotHex, topicCategories } from "@/lib/shared/categories";
 
@@ -43,7 +42,7 @@ export default function TopicConstellation3D({ idea, topics, theme, animate, lab
         <sphereGeometry args={[0.32, 24, 24]} />
         <meshStandardMaterial color={ink} />
       </mesh>
-      <Html position={[0, -0.6, 0]} center style={{ color: ink, fontSize: 12, width: 180, textAlign: "center", pointerEvents: "none" }}>Your idea</Html>
+      <Label position={[0, -0.6, 0]} center style={{ color: ink, fontSize: 12, width: 180, textAlign: "center", pointerEvents: "none" }}>Your idea</Label>
       {topics.map((t, i) => {
         const c = cats[i];
         const color = slotHex(c?.slot ?? null, theme);
@@ -58,10 +57,10 @@ export default function TopicConstellation3D({ idea, topics, theme, animate, lab
               <spriteMaterial map={shapeTexture(c?.shape ?? "circle")} color={color} />
             </sprite>
             <Orbit center={pos[i]} color={color} n={Math.min(10, t.synonyms.length + t.controlledTerms.length)} radius={0.55} speed={0.25 + i * 0.03} animate={animate} />
-            <Html position={[pos[i].x, pos[i].y - 0.75, pos[i].z]} center style={{ color: ink, fontSize: 12, width: 150, textAlign: "center", pointerEvents: "none", lineHeight: "16px" }}>
+            <Label position={[pos[i].x, pos[i].y - 0.75, pos[i].z]} center style={{ color: ink, fontSize: 12, width: 150, textAlign: "center", pointerEvents: "none", lineHeight: "16px" }}>
               {t.name}
               <span style={{ display: "block", color: sub, fontSize: 12 }}>{t.synonyms.length} synonyms · {t.controlledTerms.length} MeSH</span>
-            </Html>
+            </Label>
           </group>
         );
       })}

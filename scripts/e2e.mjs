@@ -186,7 +186,8 @@ try {
   await page.reload();
   await page.getByRole("group", { name: "Topic" }).getByRole("button").nth(1).waitFor();
   const rank = await api("/ranking");
-  check("3–5 papers selected per topic", rank.topics.every((t) => { const n = t.scores.filter((s) => s.selected).length; return n >= 3 && n <= 5; }), rank.topics.map((t) => t.scores.filter((s) => s.selected).length).join(","));
+  // Up to 4 per topic, and only papers that match the topic (topic fit 2/5 or more), so a topic may have fewer.
+  check("at most 5 papers selected per topic, none without a topic match", rank.topics.every((t) => { const sel = t.scores.filter((s) => s.selected); return sel.length <= 5 && sel.every((s) => s.topicFit >= 2); }), rank.topics.map((t) => t.scores.filter((s) => s.selected).length).join(","));
   check("topics ordered by importance with justification", rank.topics.every((t) => t.importanceRank && t.importanceJustification));
   // swap one selection: open a selected row's details and swap it for another paper
   await page.getByRole("group", { name: "Topic" }).getByRole("button").nth(1).click();
@@ -200,6 +201,9 @@ try {
   check("user can swap a selected paper", rank2.topics.some((t) => t.scores.some((s) => s.userChanged)));
   await shot("6-ranking");
   await page.getByRole("banner").getByRole("button", { name: "Appraise selected papers" }).click();
+  // A topic with fewer than 3 papers asks first.
+  const anyway = page.getByRole("button", { name: "Appraise anyway" });
+  if (await anyway.waitFor({ timeout: 3000 }).then(() => true, () => false)) await anyway.click();
   await waitApproved(6);
 
   // 7. Appraisal (back on the canvas)

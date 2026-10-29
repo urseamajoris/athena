@@ -79,6 +79,16 @@ export const RUBRIC = [
   { key: "citationImpact", label: "Citation impact", weight: 0.1, by: "formula" },
 ] as const;
 
+/** Papers kept per topic for appraisal ("3–5"). Fewer is allowed when few papers match a topic, but is said plainly. */
+export const PER_TOPIC = { min: 3, max: 5 } as const;
+/** Topic fit below this (0–1 of 5: unrelated, no topic terms in title or abstract) means the paper does not match the topic. */
+export const MIN_TOPIC_FIT = 2;
+
+/** Topics with fewer papers selected than the minimum, in the order given. */
+export function thinTopics<T extends { selected: number }>(topics: T[]): T[] {
+  return topics.filter((t) => t.selected < PER_TOPIC.min);
+}
+
 /** Surname from either PubMed style ("Teoh KW") or OpenAlex style ("Carl Froilan D. Leochico"). */
 export function surname(name: string | undefined | null): string {
   if (!name) return "Anon";

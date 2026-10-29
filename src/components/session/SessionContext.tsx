@@ -5,7 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useSWRConfig } from "swr";
 import { api, projectPath, useApi } from "../api";
 import dynamic from "next/dynamic";
-import { STAGES, STATE_LABEL, type StageState } from "@/lib/shared/stages";
+import { STAGES, STATE_LABEL, thinTopics, type StageState } from "@/lib/shared/stages";
 import type { CanvasSummary, ClaimLite, JobLite } from "@/lib/shared/canvas";
 import { buildGraph, nodeForStage, type Graph, type GraphInput } from "@/lib/canvas/graph";
 import { cascadeStep, type Cmd } from "@/lib/canvas/actions";
@@ -14,6 +14,7 @@ import type { Pos } from "@/lib/canvas/layout";
 const PaperDialog = dynamic(() => import("./PaperDialog").then((m) => m.PaperDialog), { ssr: false });
 const ConfirmEditDialog = dynamic(() => import("./SessionDialogs").then((m) => m.ConfirmEditDialog), { ssr: false });
 const AddTopicDialog = dynamic(() => import("./SessionDialogs").then((m) => m.AddTopicDialog), { ssr: false });
+const ThinTopicsDialog = dynamic(() => import("./SessionDialogs").then((m) => m.ThinTopicsDialog), { ssr: false });
 
 export type Job = JobLite;
 export interface Project {
@@ -137,6 +138,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const { data: claims, mutate: mutateClaims } = useApi<ClaimLite[]>(ui.pinnedQuotes.length ? projectPath(projectId, "claims") : null);
   const [paperId, setPaperId] = useState<string | null>(null);
   const [guard, setGuard] = useState<{ stage: number; downstream: number[]; resolve: (b: boolean) => void } | null>(null);
+  const [thin, setThin] = useState<{ topics: { name: string; selected: number }[]; resolve: (b: boolean) => void } | null>(null);
   const confirmed = useRef(new Set<number>());
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<unknown>(null);
@@ -282,8 +284,12 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
         }
       };
       switch (cmd.type) {
-        case "approve":
+        case "approve": {
+          // Appraising with too few papers in a topic is allowed, but never silent.
+          const few = cmd.stage === 6 ? thinTopics(summary?.ranking ?? []) : [];
+          if (few.length && !(await new Promise<boolean>((resolve) => setThin({ topics: few, resolve })))) return;
           return step(() => approve(cmd.stage));
+        }
         case "run":
           return step(async () => {
             await api(projectPath(projectId, `stages/${cmd.stage}/run`), { body: { force: true } });
@@ -443,6 +449,19 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
         />
       )}
       {addTopic && <AddTopicDialog state={addTopic} onClose={() => setAddTopic(null)} />}
+      {thin && (
+        <ThinTopicsDialog
+          topics={thin.topics}
+          onCancel={() => {
+            thin.resolve(false);
+            setThin(null);
+          }}
+          onConfirm={() => {
+            thin.resolve(true);
+            setThin(null);
+          }}
+        />
+      )}
       </ActionsCtx.Provider>
       </RetrievalCtx.Provider>
     </SessionCtx.Provider>

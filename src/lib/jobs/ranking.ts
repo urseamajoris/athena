@@ -5,13 +5,13 @@ import type { RubricScores } from "../db/schema";
 import { structuredCall, unknownIds, isAiStop } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { RankingBatch, TopicImportance } from "../stages/ai-schemas";
+import { PER_TOPIC } from "../shared/stages";
 import { chunk, errMsg, newId, forEachSeq } from "../util";
 import { getProject, logDecision } from "../project";
 import type { JobContext } from "./runner";
-import { citationScore, recencyScore, weightedTotal } from "../scoring";
+import { citationScore, defaultSelection, recencyScore, weightedTotal } from "../scoring";
 
 const BATCH = 10;
-export const DEFAULT_SELECT = 4;
 /** Max papers scored per topic (highest database relevance first) to bound cost. */
 const MAX_PER_TOPIC = 60;
 
@@ -101,11 +101,12 @@ export async function rankingJob(ctx: JobContext) {
     }),
   );
 
-  // Select top N per topic.
+  // Select the top papers per topic that match it (possibly fewer than the default, or none).
   const all = (await db.select().from(schema.scores).where(inArray(schema.scores.topicId, topicIds.concat(["-"]))).all());
   for (const t of topics) {
-    const top = all.filter((s) => s.topicId === t.id).sort((a, b) => b.total - a.total).slice(0, DEFAULT_SELECT);
+    const top = defaultSelection(all.filter((s) => s.topicId === t.id));
     for (const s of top) (await db.update(schema.scores).set({ selected: true }).where(eq(schema.scores.id, s.id)).run());
+    if (top.length < PER_TOPIC.min) (await ctx.log(`Topic "${t.name}": ${top.length} paper${top.length === 1 ? "" : "s"} selected; papers that do not match the topic are not selected.`));
   }
 
   // Order topics by importance.
