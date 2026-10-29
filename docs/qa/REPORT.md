@@ -63,3 +63,23 @@ Counts are how many of the 8 personas hit each problem.
 | 15 | minor | 2+ | The report leaked internal claim IDs ("[Lotfi et al. 2026, c_fda84…]"). The "Project not found" page mixed the words session, project and review. Repeated 404 console errors appeared on the new-review page. |
 
 The full list, persona by persona with evidence, is in `docs/qa/iteration-1/results.json`.
+
+### Fixed after iteration 1
+
+Six fix agents worked in parallel, one area each, each in its own git worktree. Each branch was reviewed by an independent agent, then merged. The reviews raised 17 follow-ups; 15 were fixed before iteration 2 (the two left are under "Still open" below). After merging: `npm test` 101/101, `npm run build` clean, `node scripts/e2e.mjs` 30/30, `npm run test:security` 48/48.
+
+| Finding | What changed |
+|---|---|
+| 1. Stuck after "Appraise selected papers" | **Cause:** the table page only knew stages 5 and 6, so once step 7 started it had nothing to show. It now takes you to the step that is running, which shows live progress. A full page whose step is not the current one offers "Go to step N: …". **The `removeChild` error:** drei's `<Html>` labels moved their DOM while React was rendering. Reproduced in Chromium, then fixed with a fixed label layer in `Scene3D`. |
+| 2. Demo unrelated to the idea | **Demo topics, searches and questions:** for any idea other than the telemedicine test idea, they are now built from the user's own words. Topics are multi-word phrases, typos are corrected from the user's own answers, searches contain no telemedicine or Southeast Asia blocks, and candidate questions are grammatical. **Honesty:** the search builder has a point-of-use demo note. In demo mode the report, the spreadsheet and the BibTeX file all carry a "Demo: scripted AI and recorded sample papers; not a real review" line. The telemedicine test idea behaves exactly as before. |
+| 3. "Verified" misread | The badges now read **"found word for word"**, "not found, you decide", "not found · accepted by you" and "rejected by you", with one line: "Found means the words are in the paper, not that they prove the answer." |
+| 4. Appraisal counters | **Cause:** two different counting rules. There is now one rule (`isUndecided`) for every counter. A rejected quote stays visible, struck through, with Undo. |
+| 5. Summarising with undecided quotes | A dialog asks first ("N quotes not decided yet … will be left out of the synthesis"). It uses a fresh count. |
+| 6. Answers lost after "Skip the rest" | **Cause:** coverage was read only from the last assistant message, and skipping adds a message with no coverage. Coverage is now taken from the whole conversation, in both real and demo mode. In demo mode each answer is filed under the question it answered. |
+| 7. Off-topic pre-selection | A paper is pre-selected only if its topic fit is at least 2/5 (`defaultSelection()`, unit-tested). A topic with fewer than 3 papers is named on the ranking page, and "Appraise selected papers" asks first. |
+| 9. Keyboard and zoom | **Focus:** focus moves to the panel heading with a visible ring for keyboard users, or to the answer box when a question appears, and comes back after dialogs close. **Short screens:** below 640 px tall the whole panel scrolls, and the demo banner shrinks to one line. **Navigation:** a "Skip to the next action" link was added, and "Go to step 3" now opens step 3. |
+| 10. Search builder | **Counts after the run:** cards show what each search matched when it ran. **Unsaved edits:** criteria are never reset by a re-fetch, and Save sits next to the primary action. **Count changes:** each count remembers what it was counted with, except in demo mode, where counts come from recorded samples. **Syntax:** an empty `AND ()` group is never stored or sent. **Article type:** the retrieval page's article-type bars now filter the chart. |
+| 12. Step 9 | An "Edit this question" button sits on the chosen card. The question-type label that guessed from the framework name was removed. |
+| 13. Phones | A new "Open printable report" option is a self-contained HTML page that you can save as a PDF. |
+| 14. Admin | **AI calls:** one definition everywhere, "calls sent to the model". **Browser errors:** they are now reported to the server (rate-limited, no personal data) and count in the health verdict. **AI paused:** clicking an AI step while AI is off shows the calm paused card, not a red failure. |
+| 15. Minor | **Report:** no internal claim IDs; citations name only the papers. **Sign-up page:** the password hint no longer overlaps the field. **Labels:** canvas badges are explained in their tooltips. |
