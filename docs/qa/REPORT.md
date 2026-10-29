@@ -66,7 +66,7 @@ The full list, persona by persona with evidence, is in `docs/qa/iteration-1/resu
 
 ### Fixed after iteration 1
 
-Six fix agents worked in parallel, one area each, each in its own git worktree. Each branch was reviewed by an independent agent, then merged. The reviews raised 17 follow-ups; 15 were fixed before iteration 2 (the two left are under "Still open" below). After merging: `npm test` 101/101, `npm run build` clean, `node scripts/e2e.mjs` 30/30, `npm run test:security` 48/48.
+Six fix agents worked in parallel, one area each, each in its own git worktree. Each branch was reviewed by an independent agent, then merged. The reviews raised 18 follow-ups; 16 were fixed before iteration 2 (the two left are under "Still open" below). After merging: `npm test` 101/101, `npm run build` clean, `node scripts/e2e.mjs` 30/30, `npm run test:security` 48/48.
 
 | Finding | What changed |
 |---|---|
