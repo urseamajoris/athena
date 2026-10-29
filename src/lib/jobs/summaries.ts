@@ -32,7 +32,12 @@ export async function summariesJob(ctx: JobContext) {
   const batches = chunk(withAbs, BATCH);
   let finished = 0;
   let failed = 0;
-  (await ctx.progress(0, batches.length, `Summarising ${withAbs.length} abstracts (${noAbs.length} without abstract)`));
+  // Papers counted on their own (a batch holds up to BATCH papers): those summarised before this run, the ones with
+  // no abstract (no AI call), and each batch's papers once it is written.
+  let papersDone = done.size + noAbs.length;
+  const detail = () => ({ batches: { done: finished, total: batches.length }, papers: { done: papersDone, total: papers.length } });
+  const message = `Summarising the papers, ${BATCH} per batch`;
+  (await ctx.progress(0, batches.length, message, detail()));
   await Promise.all(
     batches.map(async (batch) => {
       if ((await ctx.cancelled())) return;
@@ -62,16 +67,19 @@ export async function summariesJob(ctx: JobContext) {
                         .onConflictDoNothing()
                         .run());
         }
+        papersDone += new Set(data.rows.map((r) => r.paperId)).size;
       } catch (e) {
         if (isAiStop(e)) throw e;
         failed += batch.length;
         (await ctx.log(`Batch failed (${e instanceof AiValidationError ? "validation" : "error"}): ${errMsg(e)}`));
       } finally {
         finished++;
-        (await ctx.progress(finished, batches.length, `Summarised ${finished}/${batches.length} batches`));
+        (await ctx.progress(finished, batches.length, message, detail()));
       }
     }),
   );
+  // The last report is what "Finished …" shows once the job is done.
+  (await ctx.progress(finished, batches.length, `Summarised ${papersDone} of ${papers.length} papers`, detail()));
   (await logDecision(projectId, 5, "summaries_generated", null, { papers: papers.length, failed }, "ai"));
   if (failed) (await ctx.log(`${failed} papers could not be summarised; their cells show as missing. Re-run this stage to retry them.`));
   if (failed && failed === withAbs.length && withAbs.length > 0) throw new Error("All summary batches failed.");

@@ -7,8 +7,16 @@ import { api, projectPath, useApi } from "../api";
 import { AbstractBadge, Badge, ErrorState, Loading, TextSourceBadge } from "../ui";
 import { Disclosure } from "../disclosure";
 import { useReturnFocus } from "../overlays";
-import { RUBRIC, STUDY_TYPES, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
+import { RUBRIC, STUDY_TYPES, STUDY_TYPE_LABEL } from "@/lib/shared/stages";
+import { STUDY_GROUPS, categoryVar, studyGroupOf, studyTypeText } from "@/lib/shared/categories";
+import { ShapeIcon } from "../categories";
 import { useSession } from "./SessionContext";
+
+/** The study type's group shape and colour, as in the table row and the maps. */
+function StudyShape({ studyType }: { studyType: string }) {
+  const g = STUDY_GROUPS.find((c) => c.key === studyGroupOf(studyType))!;
+  return <ShapeIcon shape={g.shape} color={categoryVar("study", g.key)} />;
+}
 
 interface Detail {
   paper: { id: string; title: string; authors: string[]; year: number | null; journal: string | null; abstract: string | null; doi: string | null; pmid: string | null; pmcid: string | null; openalexId: string | null; citationCount: number | null; oaUrl: string | null; oaStatus: string | null; license: string | null; sourceDatabases: string[]; publicationTypes: string[] };
@@ -79,7 +87,7 @@ export function PaperDialog({ paperId, onClose }: { paperId: string | null; onCl
                   <section>
                     <h3 className="label flex flex-wrap items-center gap-2">Summary <AbstractBadge />{data.summary.edited && <Badge>edited by you</Badge>}<button className="btn-ghost btn-sm ml-auto" onClick={() => setEditing(true)}>Correct the summary</button></h3>
                     <dl className="grid grid-cols-[112px_1fr] gap-x-3 gap-y-1">
-                      <dt className="text-fg-2">Study type</dt><dd>{STUDY_TYPE_LABEL[data.summary.studyType as StudyType] ?? data.summary.studyType}</dd>
+                      <dt className="text-fg-2">Study type</dt><dd className="flex items-center gap-2"><StudyShape studyType={data.summary.studyType} />{studyTypeText(data.summary.studyType)}</dd>
                       <dt className="text-fg-2">Setting</dt><dd>{data.summary.setting}</dd>
                       <dt className="text-fg-2">Key finding</dt><dd>{data.summary.keyFinding}</dd>
                     </dl>

@@ -12,7 +12,7 @@ import dynamic from "next/dynamic";
 import { WhatHappens } from "../guide/WhatHappens";
 import { ShapeIcon } from "../categories";
 import { useViewPrefs } from "../session/viewPrefs";
-import { ARTICLE_TYPES, STUDY_GROUPS, hasHues, articleTypeOf, categoryVar, sourceOf, studyGroupFromLabels, studyGroupOf, type Category, type Dimension } from "@/lib/shared/categories";
+import { ARTICLE_TYPES, STUDY_GROUPS, TYPE_HINT, hasHues, articleTypeOf, categoryVar, sourceOf, studyGroupFromLabels, studyGroupOf, type Category, type Dimension } from "@/lib/shared/categories";
 import type { MapPoint } from "../viz/paper-points";
 
 const PaperMap = dynamic(() => import("../viz/PaperMap").then((m) => m.PaperMap), { ssr: false });
@@ -146,10 +146,11 @@ export function CorpusPanel() {
             total={ps.length}
             note={summarised ? undefined : "Most papers have no design label yet; the AI reads every abstract in the next step."}
           />
+          <p className="text-12 text-fg-2">{TYPE_HINT}</p>
         </div>
       )}
       {ps.length > 0 && (
-        <PaperMap points={points} of={ps.length} colorBy={view.colorBy === "topic" || view.colorBy === "source" ? view.colorBy : "study"} onColorBy={view.setColorBy} topics={topicList} onOpen={openPaper} layers={topicList.length} title={running ? "Papers as they arrive" : "The papers found"} colorChoices={["study", "topic", "source"]} />
+        <PaperMap points={points} of={ps.length} colorBy={view.colorBy === "topic" || view.colorBy === "source" ? view.colorBy : "study"} onColorBy={view.setColorBy} topics={topicList} onOpen={openPaper} layers={topicList.length} title={running ? "Papers as they arrive" : "The papers found"} colorChoices={["study", "topic", "source"]} prelabel={!summarised} />
       )}
       <section aria-label="Per source">
         <ul className="space-y-3">

@@ -6,7 +6,7 @@
 // - The palette is validated (dataviz validate_palette.js): adjacent-pair CVD ΔE >= 8, normal-vision ΔE >= 15,
 //   >= 3:1 against the page and card surfaces in both themes. src/lib/design/categories.test.ts keeps the CSS
 //   tokens (--cat-1..8, --cat-none in globals.css) equal to the hex values below.
-import type { StudyType } from "./stages";
+import { STUDY_TYPE_LABEL, type StudyType } from "./stages";
 
 export type Theme = "light" | "dark";
 export type Shape = "circle" | "square" | "triangle" | "diamond" | "star" | "cross" | "ring" | "hexagon";
@@ -75,6 +75,29 @@ export function studyGroupOf(st: StudyType | string | null | undefined): string 
       return "other";
   }
 }
+
+/**
+ * The study type in the words shown everywhere a paper is listed: its group (the colour and shape) and, when the
+ * AI gave a finer type, that type after a colon ("Other design: narrative review", "Trial: non-randomised trial"),
+ * so a row and the paper's details never seem to disagree.
+ */
+export function studyTypeText(st: StudyType | string | null | undefined): string {
+  const group = STUDY_GROUPS.find((c) => c.key === studyGroupOf(st))!;
+  const fine = st ? STUDY_TYPE_LABEL[st as StudyType] : undefined;
+  if (!fine || st === "other" || st === "not_reported" || fine.toLowerCase() === group.label.toLowerCase()) return group.label;
+  return `${group.label}: ${fine.charAt(0).toLowerCase()}${fine.slice(1)}`;
+}
+
+/**
+ * One line under a study-type legend for the two groups nobody can guess. `prelabel`: before the AI has read the
+ * abstracts (retrieval), "not reported" means only that the database gave no design label.
+ */
+export function studyTypeNote(prelabel = false): string {
+  return `Other design = narrative reviews, economic evaluations, case reports, protocols, commentaries and anything else. Not reported = ${prelabel ? "the database gives no design label (the AI reads every abstract in step 5)" : "the abstract does not say how the study was done"}.`;
+}
+
+/** The plain-words difference between the two "type" filters, shown above them. */
+export const TYPE_HINT = "Article type = how it was published; study type = how the research was done.";
 
 /**
  * Before the AI reads the abstracts (retrieval), a study group only where the database itself labels the design

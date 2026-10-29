@@ -2,12 +2,12 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import { Box, Square } from "lucide-react";
-import { Legend } from "../categories";
-import { shapePath } from "../categories";
+import { Legend, ShapeIcon, shapePath } from "../categories";
+import { Disclosure } from "../disclosure";
 import { cx } from "../ui";
 import { useReducedMotion, useTheme, useVizMode } from "./support";
-import { AXIS_NOTE, countBy, place, type MapPoint } from "./paper-points";
-import { categoriesFor, categoryVar, COLOR_BY, type ColorBy } from "@/lib/shared/categories";
+import { axisNote, countBy, place, type MapPoint } from "./paper-points";
+import { categoriesFor, categoryVar, COLOR_BY, STUDY_GROUPS, studyTypeNote, type ColorBy } from "@/lib/shared/categories";
 
 /** Touch-only screens (no hover): the legend and chart hints say "tap" and "pinch", not "hover" and "scroll". */
 const NO_HOVER = "(hover: none)";
@@ -33,8 +33,9 @@ function PaperMap2D({ points, colorBy, topics, isolated, highlight, onOpen, labe
       <line x1={30} x2={W - 10} y1={H - 22} y2={H - 22} stroke="var(--line-strong)" />
       <line x1={30} x2={30} y1={10} y2={H - 22} stroke="var(--line-strong)" />
       <text x={30} y={H - 6} fontSize="11" fill="var(--fg-2)">{yearMin}</text>
+      <text x={W / 2} y={H - 6} fontSize="11" fill="var(--fg-2)" textAnchor="middle">Year →</text>
       <text x={W - 40} y={H - 6} fontSize="11" fill="var(--fg-2)">{yearMax}</text>
-      {scored && <text x={34} y={20} fontSize="11" fill="var(--fg-2)">score 100</text>}
+      <text x={34} y={20} fontSize="11" fill="var(--fg-2)">{scored ? "↑ Score 100" : "↑ Height: no meaning yet"}</text>
       {placed.map((p) => {
         const c = cats.find((x) => x.key === p.cat);
         const faded = (dimUnselected && !p.selected) || (!!isolated && isolated !== p.cat) || (!!highlight && highlight !== p.cat);
@@ -54,7 +55,7 @@ function PaperMap2D({ points, colorBy, topics, isolated, highlight, onOpen, labe
  * task: every number it shows is also in the legend counts and the caption. `of` is the number of papers in the
  * review when the caller already filtered `points` (e.g. by article type), so the caption says "Showing X of Y".
  */
-export function PaperMap({ points, colorBy, onColorBy, topics, onOpen, layers, title, dimUnselected = false, colorChoices, of }: { points: MapPoint[]; colorBy: ColorBy; onColorBy: (c: ColorBy) => void; topics: { id: string; name: string }[]; onOpen: (id: string) => void; layers: number; title: string; dimUnselected?: boolean; colorChoices?: ColorBy[]; of?: number }) {
+export function PaperMap({ points, colorBy, onColorBy, topics, onOpen, layers, title, dimUnselected = false, colorChoices, of, prelabel = false }: { points: MapPoint[]; colorBy: ColorBy; onColorBy: (c: ColorBy) => void; topics: { id: string; name: string }[]; onOpen: (id: string) => void; layers: number; title: string; dimUnselected?: boolean; colorChoices?: ColorBy[]; of?: number; /** Before the AI summaries: study types come only from database labels. */ prelabel?: boolean }) {
   const [pref, setPref] = useState<"auto" | "2d">("auto");
   const mode = useVizMode(pref);
   const reduced = useReducedMotion();
@@ -66,7 +67,7 @@ export function PaperMap({ points, colorBy, onColorBy, topics, onOpen, layers, t
   const touch = useTouchOnly();
   const shown = isolated ? points.filter((p) => p.cat === isolated) : points;
   const total = of ?? points.length;
-  const caption = `${shown.length < total ? `Showing ${shown.length} of ${total} papers` : `${total} papers`}. ${AXIS_NOTE(scored, colorBy)}${dimUnselected ? " Faded: not selected for appraisal." : ""}`;
+  const caption = `${shown.length < total ? `Showing ${shown.length} of ${total} papers` : `${total} papers`}. ${axisNote(scored, colorBy, mode === "3d", topics.slice(0, layers))}${dimUnselected ? " Faded: not selected for appraisal." : ""}`;
   const dimLabel = (COLOR_BY.find((c) => c.key === colorBy)?.label ?? colorBy).toLowerCase();
   return (
     <figure className="rounded-md border border-line bg-bg-1 p-3">
@@ -87,6 +88,22 @@ export function PaperMap({ points, colorBy, onColorBy, topics, onOpen, layers, t
         </span>
       </figcaption>
       <Legend dim={colorBy} topics={topics} counts={counts} highlight={highlight} isolated={isolated} onHighlight={setHighlight} onIsolate={setIsolated} className="mt-2" title={isolated ? `Showing only one category (${counts[isolated] ?? 0} papers). ${touch ? "Tap" : "Click"} it again to show all.` : touch ? `Key (${dimLabel}): tap a category to show only that one` : `Key (${dimLabel}): hover or focus to highlight, click to show only that category`} />
+      {colorBy === "study" && (
+        <div className="mt-1 space-y-2">
+          <p className="text-12 text-fg-2">{studyTypeNote(prelabel)}</p>
+          {/* Every meaning in words, for touch screens where the legend's hover text never shows. */}
+          <Disclosure title="What each study type means">
+            <ul className="space-y-1 text-12 text-fg-1">
+              {STUDY_GROUPS.map((c) => (
+                <li key={c.key} className="flex items-start gap-2">
+                  <ShapeIcon shape={c.shape} color={categoryVar("study", c.key)} className="mt-0.5" />
+                  <span><strong className="font-medium text-fg-0">{c.label}:</strong> {c.key === "not_reported" && prelabel ? "the database gives no design label yet (the AI reads every abstract in step 5)." : c.hint}</span>
+                </li>
+              ))}
+            </ul>
+          </Disclosure>
+        </div>
+      )}
       <div className={cx("mt-2", !mode && "h-[300px]")}>
         {mode === "3d" ? (
           <PaperMap3D points={shown} colorBy={colorBy} topics={topics} theme={theme} isolated={null} highlight={highlight} animate={!reduced} onOpen={onOpen} layers={layers} label={caption} dimUnselected={dimUnselected} />

@@ -46,7 +46,10 @@ export async function rankingJob(ctx: JobContext) {
     for (const b of chunk(ps.filter((x) => !scored.has(`${t.id}:${x.id}`)), BATCH)) jobs.push({ topic: t, batch: b });
   }
   let finished = 0;
-  (await ctx.progress(0, jobs.length + 1, `Scoring ${jobs.length} batches across ${topics.length} topics`));
+  // The bar has one more step than the batches: ordering the topics at the end.
+  const detail = () => ({ batches: { done: finished, total: jobs.length } });
+  const message = `Scoring papers against ${topics.length === 1 ? "the topic" : `${topics.length} topics`}, ${BATCH} per batch`;
+  (await ctx.progress(0, jobs.length + 1, message, detail()));
   await Promise.all(
     jobs.map(async ({ topic, batch }) => {
       if ((await ctx.cancelled())) return;
@@ -98,7 +101,7 @@ export async function rankingJob(ctx: JobContext) {
         (await ctx.log(`Scoring batch for "${topic.name}" failed: ${errMsg(e)}`));
       } finally {
         finished++;
-        (await ctx.progress(finished, jobs.length + 1, `Scored ${finished}/${jobs.length} batches`));
+        (await ctx.progress(finished, jobs.length + 1, message, detail()));
       }
     }),
   );
@@ -112,7 +115,7 @@ export async function rankingJob(ctx: JobContext) {
   }
 
   // Order topics by importance.
-  (await ctx.progress(jobs.length, jobs.length + 1, "Ordering topics by importance"));
+  (await ctx.progress(jobs.length, jobs.length + 1, "Ordering topics by importance", detail()));
   try {
     const stats = topics.map((t) => {
       const ss = all.filter((s) => s.topicId === t.id);
@@ -142,4 +145,6 @@ export async function rankingJob(ctx: JobContext) {
   }
   (await logDecision(projectId, 6, "ranking_generated", null, { scored: all.length }, "ai"));
   if (!all.length) throw new Error("No papers could be scored.");
+  // The last report is what "Finished …" shows once the job is done.
+  (await ctx.progress(jobs.length + 1, jobs.length + 1, `Scored ${new Set(all.map((s) => s.paperId)).size} papers against ${topics.length === 1 ? "the topic" : `${topics.length} topics`}`, detail()));
 }
