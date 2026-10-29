@@ -3,7 +3,7 @@
  "completed": true,
  "stage_reached": 9,
  "would_have_quit_at": "I would not have quit in the flow itself (it is navigable and I reached export in about 45 commands). I would have quit at the research-question step, and after that the exported report: the \"question\" is about telemedicine in rural Southeast Asia, nothing to do with ICU nurses, and the \"(mock)\" prefix is baked into it. Demo-mode caveat: a real run might not have this problem, but the flow would still let me skip quote checks and papers per topic without warning. The first moment I truly lost trust was the search-builder page, where my ICU nurse topic produced searches for telemedicine in Thailand and Vietnam. I would then have asked whether any of this was real.",
- "activity": "Created account daniel.masters.qa@example.com (first attempt rejected for an 8-character password, second succeeded). Created one project (prj_6dd16e1541804a53) with the idea \"Effect of mindfulness-based interventions on burnout in ICU nurses\". Answered 2 of up to 5 scoping questions, then skipped the rest. Kept 6 suggested topics and clicked \"Use these topics\". Ran the 12 searches (PubMed and OpenAlex), got 205 fetched, 78 duplicates, 127 papers. Summarised the papers, filtered the table by Trial, reset filters, ranked (16 selected, Burnout and Context and setting at 0), and ran appraisal (11 papers, 117 quotes found, 12 not found, none decided by me). Summarised the evidence, got 3 candidate questions, chose candidate 1, finished and clicked Download Markdown (no visible confirmation), and opened the larger preview. Errors seen: a 400 console error right after signup, and a page error \"removeChild ... not a child of this node\" on arriving at the step 5 summary table. No other failed requests. Screenshots 01 to 41 are in docs/qa/masters/. Browser stopped.",
+ "activity": "Created account daniel.masters.qa@example.com (first attempt rejected for an 8-character password, second succeeded). Created one project (prj_6dd16e1541804a53) with the idea \"Effect of mindfulness-based interventions on burnout in ICU nurses\". Answered 2 of up to 5 scoping questions, then skipped the rest. Kept 6 suggested topics and clicked \"Use these topics\". Ran the 12 searches (PubMed and OpenAlex), got 205 fetched, 78 duplicates, 127 papers. Summarised the papers, filtered the table by Trial, reset filters, ranked (16 selected, Burnout and Context and setting at 0), and ran appraisal (11 papers, 117 quotes found, 12 not found, none decided by me). Summarised the evidence, got 3 candidate questions, chose candidate 1, finished and clicked Download Markdown (no visible confirmation), and opened the larger preview. Errors seen: a 400 console error right after signup, and a page error \"removeChild ... not a child of this node\" on arriving at the step 5 summary table. No other failed requests. Screenshots 01 to 41 are in docs/qa/iteration-1/masters/. Browser stopped.",
  "categories_and_colours": "Study type: Trial (blue circle), Cohort/case-control (orange square), Cross-sectional (green triangle), Qualitative/mixed methods (amber diamond), Systematic/scoping review (pink star), Other design (green cross), Not reported (grey ring). Article type (Journal article, Review article, Preprint, Editorial/letter/comment) is a separate row of plain chips with no colour. I could find and filter papers by both study type and article type, in the step 4 retrieval summary (bars plus 3D chart) and in the step 5/6 table. Each chip has a colour, a shape and a count, and clicking one filters. The page says \"Showing 4 of 127: trial. 123 papers are hidden by your filters (still in the review)\" and Reset filters stays visible, which is honest. I understood the encoding without being told: colour and shape equal study type and the legend lists it. Problems: (1) the step 4 legend lists Cohort, Cross-sectional and Qualitative with no count (dimmed), while the bars show only 4 labelled types, which is ambiguous. (2) the 3D chart is small and mostly grey circles, \"Height has no meaning yet\", and the caption keeps saying \"127 papers\" when only 4 dots are filtered. (3) two different \"greens\" (cross-sectional triangle and other-design cross) are told apart only by shape. (4) \"Colour by Topic\" works but the topics are junk. (5) Protocols are classed as \"Trial / Randomised trial\", which is misleading as study evidence (see findings). (6) \"Other design\" mixes narrative reviews with other things, while \"Review article\" appears under the article type, so a user may wonder why the same paper is in both.",
  "validity_assessment": "Honesty is mostly good: a persistent demo banner, \"(mock)\" tags on AI text, a novelty-check caveat (\"Finding none does not prove a question is new\"), filters described as views and not deletions, a transparent 5-criterion score rubric under \"Why this score\", and quote chips that link statements to papers (e.g. \"Rumi et al. 2026 \u00b7 limitation\"). Weaknesses for a real review: (1) The review is not grounded in my topic, because demo data is telemedicine in Southeast Asia, and the searches, scoring and candidate questions all reflect that. The banner says so, but the exported report has only an intro line saying quotes \"were checked\", with no demo disclaimer, so a rushed student could paste a \"(mock)\" telemedicine question into a proposal. (2) \"Verified\" means only that a string occurs in the text, not that it supports the answer: the first \"verified\" quote for \"Random allocation method described: Unclear\" is just the paper title. (3) The user can proceed to synthesis, question and export with 12 undecided \"not found\" quotes and with 0 papers selected for two topics, no warning, and the report header still claims claims were checked. (4) The synthesis is placeholder text (\"7 key findings were extracted\", \"Placeholder contradiction...\") but carries green verified ticks; this is labelled mock, but in a real run the ticks on a placeholder would mislead. (5) Trial protocols are labelled \"Trial / Randomised trial\" and their \"key finding\" is a registration number, which is not evidence. (6) The novelty check reports 8,058 PubMed hits for a very narrow query whose top hits are unrelated; with real data this would be a strong signal against novelty, but the page does not interpret it. (7) Answers I gave in scoping were not used (topics ignore nurses, Maslach Burnout Inventory) and \"What we know so far\" reverts to \"not answered yet\". (8) The preview shows raw internal IDs in citations. Nothing looked fabricated beyond the clearly labelled mock text, and every paper has a DOI/PMID. For a real dissertation I could not yet trust the pipeline end to end, but the design intent (verbatim quotes, visible rubric, caveats) is sound.",
  "three_second_test": [
@@ -96,7 +96,7 @@
    "page": "Step 2 scoping, then topics",
    "what_happened": "I answered two scoping questions (nurses in adult ICUs; Maslach Burnout Inventory), then clicked Skip the rest. The 'What we know so far' panel then showed 'not answered yet' for Who, Where, What is studied and 'What you want to know', and later said '0 of 6 answered'. The suggested topics ignored my answers: Mindfulness-based, Interventions, Burnout, Icu, Measurement and outcomes, Context and setting. Nothing about nurses.",
    "expected": "My answers appear in the summary and shape the topics; skipping the rest should keep what I already said.",
-   "evidence": "docs/qa/masters/09-after-skip.jpg, docs/qa/masters/10-topics.jpg, docs/qa/masters/11-after-keep.jpg",
+   "evidence": "docs/qa/iteration-1/masters/09-after-skip.jpg, docs/qa/iteration-1/masters/10-topics.jpg, docs/qa/iteration-1/masters/11-after-keep.jpg",
    "suggested_fix": "Persist and show answered fields after skipping; feed answers into topic suggestions; if the scripted demo cannot do that, say so in the panel rather than showing 'not answered yet'."
   },
   {
@@ -105,7 +105,7 @@
    "page": "Step 6 to 7 (Appraise selected papers)",
    "what_happened": "After clicking Appraise selected papers the button vanished, the top bar changed to 'step 7/9 \u00b7 Appraisal', but the page content stayed on step 6 with the same checklist (0 of 3 done). No spinner, no progress, no 'safe to close'. I waited about 10 s and clicked 'Overview', which only expanded a table row. Only after I manually reopened the project URL did I find the appraisal had run.",
    "expected": "A visible running state, then an automatic move to step 7 (or a clear 'Go to step 7' button); 'Overview' should lead back to the overview.",
-   "evidence": "docs/qa/masters/24-appraise-start.jpg, docs/qa/masters/25-appraise-wait.jpg, docs/qa/masters/26-overview.jpg",
+   "evidence": "docs/qa/iteration-1/masters/24-appraise-start.jpg, docs/qa/iteration-1/masters/25-appraise-wait.jpg, docs/qa/iteration-1/masters/26-overview.jpg",
    "suggested_fix": "Show a running panel with live progress after the click and then switch to the step 7 panel or a 'Go to step 7: Appraisal' primary button; make the 'Overview' link work from the full table page."
   },
   {
@@ -114,7 +114,7 @@
    "page": "Step 7 appraisal and Export report",
    "what_happened": "The 'verified' tag only means the quote occurs word for word in the text, not that it supports the answer. The first appraisal item 'Random allocation method described: AI: Unclear' is backed by a 'verified' quote that is just the paper's title. I also left 12 'quote not found' items undecided and moved on to synthesis and export with no warning. The exported report intro still says AI-extracted claims carry verbatim quotes 'that were checked'.",
    "expected": "Quotes should support the answer; unresolved quotes should block or clearly warn before synthesis and be listed as unresolved in the report; the report should state how many were not decided.",
-   "evidence": "docs/qa/masters/28-step7.jpg, docs/qa/masters/29-after-summarise.jpg, docs/qa/masters/37-preview.jpg",
+   "evidence": "docs/qa/iteration-1/masters/28-step7.jpg, docs/qa/iteration-1/masters/29-after-summarise.jpg, docs/qa/iteration-1/masters/37-preview.jpg",
    "suggested_fix": "Warn 'N quotes are undecided and will be left out' on Summarise the evidence; show 'verified in text' separately from 'supports the answer'; add a count of unverified and rejected quotes to the report header."
   },
   {
@@ -123,7 +123,7 @@
    "page": "Search builder, Ranking, Research question, Export (demo data)",
    "what_happened": "My ICU nurse topic produced searches for 'telemedicine' AND 'Southeast Asia / Thailand / Vietnam', a ranking that rewards 'Mentions a Southeast Asian setting', and three candidate questions such as '(mock) What mindfulness-based factors shape telemedicine implementation in rural Southeast Asia?' (grammatically broken). The chosen question appears on the Export page and at the top of the report with the '(mock)' tag baked into the question text. The report contains no demo-mode notice, only the 'prototype' line.",
    "expected": "In demo mode, the question and exported report should be unmistakably marked as sample output (a banner or watermark inside the file), so nobody submits it as real work.",
-   "evidence": "docs/qa/masters/13-searches.jpg, docs/qa/masters/30-rq.jpg, docs/qa/masters/35-export.jpg, docs/qa/masters/37-preview.jpg",
+   "evidence": "docs/qa/iteration-1/masters/13-searches.jpg, docs/qa/iteration-1/masters/30-rq.jpg, docs/qa/iteration-1/masters/35-export.jpg, docs/qa/iteration-1/masters/37-preview.jpg",
    "suggested_fix": "Add a prominent 'DEMO SAMPLE: not about your topic' line to the top of the exported Markdown, CSV and BibTeX; consider scripting the demo to at least echo the user's own topic words in the question."
   },
   {
@@ -132,7 +132,7 @@
    "page": "Step 3 search builder to Step 4",
    "what_happened": "After 'Run all 12 searches' every query card still reads 'PubMed \u2013 \u00b7 OpenAlex \u2013' and the panel says 'Not counted yet', while the corpus card says '127 papers, 78 dupes removed'. I could not tell whether the searches had run, and the counts the page promised ('The counts show how many papers each search would find') never appeared. The 'Count matches' buttons also remained.",
    "expected": "Per-search counts appear after running, and 'Not counted yet' disappears.",
-   "evidence": "docs/qa/masters/14-run.jpg, docs/qa/masters/15-step4.jpg",
+   "evidence": "docs/qa/iteration-1/masters/14-run.jpg, docs/qa/iteration-1/masters/15-step4.jpg",
    "suggested_fix": "Fill in the per-database counts on the query cards and panel once retrieval completes, or hide the 'Not counted yet' state when retrieval has run."
   },
   {
@@ -141,7 +141,7 @@
    "page": "Step 6 ranking",
    "what_happened": "Two topics (Burnout, Context and setting) showed '0 selected' in orange. The instruction says to keep 3 to 5 papers per topic, but nothing stopped or warned me when I clicked Appraise. Only 11 of 16 selected papers appear to have been appraised, which was never explained. The top-scored paper (87) is a diabetes mHealth trial protocol.",
    "expected": "A warning or block when a topic has too few papers; an explanation of why 16 selected became 11 appraised; scores that mean something for the user's topic.",
-   "evidence": "docs/qa/masters/23-rank.jpg, docs/qa/masters/27-canvas-after-rank.jpg",
+   "evidence": "docs/qa/iteration-1/masters/23-rank.jpg, docs/qa/iteration-1/masters/27-canvas-after-rank.jpg",
    "suggested_fix": "Show an inline warning on Appraise when any topic has fewer than 3 papers, and explain the 16 to 11 drop; consider confirming before proceeding."
   },
   {
@@ -150,7 +150,7 @@
    "page": "Step 5 table, Step 6 ranking",
    "what_happened": "Trial protocols (e.g. 'The LvL UP trial: Protocol...') are labelled Study type 'Trial / Randomised trial' with a blue circle, and their 'key finding' is 'The trial was prospectively registered on ClinicalTrials.gov (NCT06360029)'. A protocol has no results, so it is not evidence of an effect. The UX intent file says protocols belong under 'Other design'.",
    "expected": "Protocols go under 'Other design' (cross), or are flagged 'protocol, no results'; key finding should not be a registry statement.",
-   "evidence": "docs/qa/masters/22-table-trial.jpg",
+   "evidence": "docs/qa/iteration-1/masters/22-table-trial.jpg",
    "suggested_fix": "Classify protocols as Other design or add a 'Protocol' badge; exclude them by default from 'Trial' counts and from appraisal."
   },
   {
@@ -159,7 +159,7 @@
    "page": "Sign up",
    "what_happened": "The password hint ('At least 10 characters, not containing the name part of your email.') is drawn on top of the password input box and overlaps the typed dots. I skipped the hint, entered an 8-character password, and only found the rule from an error after submitting.",
    "expected": "The hint sits below the field and is readable; the rule is shown before submission and live.",
-   "evidence": "docs/qa/masters/02-signup.jpg, docs/qa/masters/03-signup-err.jpg",
+   "evidence": "docs/qa/iteration-1/masters/02-signup.jpg, docs/qa/iteration-1/masters/03-signup-err.jpg",
    "suggested_fix": "Fix the hint's layout (it looks absolutely positioned), and enable live validation or aria-describedby on the password input."
   },
   {
@@ -168,7 +168,7 @@
    "page": "Canvas overview, Step 1 panel, Step 2",
    "what_happened": "I typed my idea on /s/new, then the canvas card said 'Draft idea / Sharpen my idea' and 'Your next step: Tell us what you want to research / Open step 1', then the panel asked again for the same idea (pre-filled) with a button 'Start scoping'. Three different names for one action: 'Start my review', 'Sharpen my idea', 'Start scoping'. Topics also need two confirmations: 'Keep 6 suggested topics', then 'Use these topics'.",
    "expected": "One consistent action name; no step that re-asks for something already entered.",
-   "evidence": "docs/qa/masters/05-questions.jpg, docs/qa/masters/06-step1.jpg, docs/qa/masters/11-after-keep.jpg",
+   "evidence": "docs/qa/iteration-1/masters/05-questions.jpg, docs/qa/iteration-1/masters/06-step1.jpg, docs/qa/iteration-1/masters/11-after-keep.jpg",
    "suggested_fix": "Skip the step-1 panel when the idea already exists (go straight to scoping questions); use one label across card, panel and footer; combine Keep and Use into one action or explain why two are needed."
   },
   {
@@ -177,7 +177,7 @@
    "page": "Step 3 header after approving topics",
    "what_happened": "After 'Use these topics' the panel jumped to 'Edit this search topic: Mindfulness-based' with 'Viewing step 2 of 9 \u00b7 Scoping \u00b7 Done' while the stepper said step 3. Synonyms for the topic were 'mindfulness-based, mindfulness-baseds' (a nonsense plural). Topic names like 'Icu' are mis-capitalised.",
    "expected": "Land on the search builder, not an edit form for one topic; sensible synonyms.",
-   "evidence": "docs/qa/masters/12-step3.jpg",
+   "evidence": "docs/qa/iteration-1/masters/12-step3.jpg",
    "suggested_fix": "After approving topics open the step 3 panel directly; sanitise generated synonyms and capitalise acronyms (ICU)."
   },
   {
@@ -186,7 +186,7 @@
    "page": "Signup, Step 5 summary table",
    "what_happened": "The console showed a 400 Bad Request resource error right after signup completed on /s/new, and a page error 'Failed to execute removeChild on Node: The node to be removed is not a child of this node' when the step 5 summary table panel appeared. Both seemed harmless at the time.",
    "expected": "No console errors or page errors in a normal flow.",
-   "evidence": "docs/qa/masters/04-after-signup.jpg, docs/qa/masters/20-summarising.jpg",
+   "evidence": "docs/qa/iteration-1/masters/04-after-signup.jpg, docs/qa/iteration-1/masters/20-summarising.jpg",
    "suggested_fix": "Find which request returns 400 after signup; guard the DOM node removal (likely a React portal or animation unmount race) on the step 5 panel."
   },
   {
@@ -195,7 +195,7 @@
    "page": "Step 3, step 7 cards and chips",
    "what_happened": "Unexplained jargon and numbers: 'MeSH', '0 MeSH', 'index term', 'title/abstract', 'group 1: any of ... AND group 2', '+1 more'; an '8 s' badge next to 'What happens in this step'; the Appraisal card's '\u2713 117 \u2717 12' with no label; 'Height has no meaning yet' in the 3D chart.",
    "expected": "Plain labels (e.g. '117 quotes found, 12 not found') and no unexplained badges.",
-   "evidence": "docs/qa/masters/13-searches.jpg, docs/qa/masters/27-canvas-after-rank.jpg, docs/qa/masters/17-step4-chart2.jpg",
+   "evidence": "docs/qa/iteration-1/masters/13-searches.jpg, docs/qa/iteration-1/masters/27-canvas-after-rank.jpg, docs/qa/iteration-1/masters/17-step4-chart2.jpg",
    "suggested_fix": "Add labels or tooltips to the counts; replace jargon with plain words and keep MeSH details under Details; explain what 8 s means (video length)."
   },
   {
@@ -204,7 +204,7 @@
    "page": "Step 9 research question",
    "what_happened": "All three candidates have a button with the identical text 'Choose this question'. My browser tool could only target the first, so I could not pick candidate 3 (the one that mentions burnout). Screen-reader and voice-control users would face the same ambiguity.",
    "expected": "Each button has a unique accessible name, e.g. 'Choose candidate 3: What burnout factors...'.",
-   "evidence": "docs/qa/masters/33-rq-bottom.jpg, docs/qa/masters/34-chosen.jpg",
+   "evidence": "docs/qa/iteration-1/masters/33-rq-bottom.jpg, docs/qa/iteration-1/masters/34-chosen.jpg",
    "suggested_fix": "Add aria-label with the candidate number or question text to each Choose button (and to each 'Full reasoning and quotes')."
   },
   {
@@ -213,7 +213,7 @@
    "page": "Step 4 retrieval chart",
    "what_happened": "The 3D scatter is small and mostly identical grey rings. When I filtered to Trial (4 dots), the caption still said '127 papers'. The legend lists Cohort, Cross-sectional and Qualitative with no counts while the bars above show only 4 labelled types, which is confusing. I could not tell which dot is which paper without hovering.",
    "expected": "Caption reflects the filter ('Showing 4 of 127'); legend shows counts or hides empty categories; an easy way to see the papers behind the dots.",
-   "evidence": "docs/qa/masters/16-step4-chart.jpg, docs/qa/masters/18-filter-trial.jpg",
+   "evidence": "docs/qa/iteration-1/masters/16-step4-chart.jpg, docs/qa/iteration-1/masters/18-filter-trial.jpg",
    "suggested_fix": "Update the caption on filter; show counts (including 0) on every legend entry; offer a larger chart or a link to the table filtered the same way."
   },
   {
@@ -222,7 +222,7 @@
    "page": "Export",
    "what_happened": "Clicking 'Download Markdown' gave no visible confirmation. The Report option says Markdown 'opens in Word, Google Docs or any text editor', but a nursing student will see raw # and ** symbols in Word. The preview's citations show internal hex IDs like '[Rumi et al. 2026, c93afe2a0661b4e4e]' and the italics break mid-token. The line count differs between pages (755 vs 756).",
    "expected": "A confirmation or 'saved as ...' message; a Word or PDF option for the main report; citations that show author-year or DOI.",
-   "evidence": "docs/qa/masters/36-downloaded.jpg, docs/qa/masters/38-preview-mid.jpg",
+   "evidence": "docs/qa/iteration-1/masters/36-downloaded.jpg, docs/qa/iteration-1/masters/38-preview-mid.jpg",
    "suggested_fix": "Show a toast after download; offer .docx or PDF; replace internal IDs with DOIs in citation brackets and fix the Markdown rendering."
   },
   {
@@ -231,7 +231,7 @@
    "page": "Step 9 and Export",
    "what_happened": "Step 9 says 'you can edit it after' but I found no edit control after choosing. The novelty check reported 8,058 PubMed and 412 OpenAlex hits for 'telemedicine AND mindfulness-based AND Southeast Asia', yet the top hits were unrelated (a health information exchange security framework). A user would not know how to read that number.",
    "expected": "A visible 'Edit this question' control; a one-line interpretation of the novelty counts.",
-   "evidence": "docs/qa/masters/32-rq-reasoning2.jpg, docs/qa/masters/34-chosen.jpg",
+   "evidence": "docs/qa/iteration-1/masters/32-rq-reasoning2.jpg, docs/qa/iteration-1/masters/34-chosen.jpg",
    "suggested_fix": "Add an editable field or button once a question is chosen; add a short interpretation ('many similar studies exist: consider narrowing') next to the counts."
   },
   {
@@ -240,7 +240,7 @@
    "page": "Canvas / all step pages",
    "what_happened": "The demo banner is long and the same on every page; it is dismissible but returns. The canvas card labels (Your turn / Done) plus the stepper plus the panel header sometimes disagree, e.g. the card said 'Idea \u00b7 Your turn' while the stepper had moved on, and the header said 'Viewing step 2 of 9' while on step 3.",
    "expected": "State labels agree across stepper, card and panel.",
-   "evidence": "docs/qa/masters/07-scoping.jpg, docs/qa/masters/12-step3.jpg",
+   "evidence": "docs/qa/iteration-1/masters/07-scoping.jpg, docs/qa/iteration-1/masters/12-step3.jpg",
    "suggested_fix": "Derive the labels from one source of truth; shorten the banner to one line with a 'Details' link."
   },
   {
@@ -249,7 +249,7 @@
    "page": "UX intent comparison (read last)",
    "what_happened": "Comparing to docs/ux-intent.md: the intended 'running (live progress, safe to close)' state was not visible when I clicked Appraise; Search builder 'count matches' counts were never shown after running; Appraisal intent says 'Next paper, then Summarise the evidence' but the app allows skipping straight to Summarise without a nudge; protocols should be 'Other design' by intent but were labelled Trial; 'Retrieval' and the table page matched the intent very well (clear mix of study and article types, filters as views with a hidden-count warning); the overview page 'My projects' link is only inside the account menu, not in the header, once in a project.",
    "expected": "Pages match the documented 3-second reading and the shared state rules.",
-   "evidence": "docs/qa/masters/24-appraise-start.jpg, docs/qa/masters/14-run.jpg, docs/qa/masters/22-table-trial.jpg, docs/qa/masters/41-account.jpg",
+   "evidence": "docs/qa/iteration-1/masters/24-appraise-start.jpg, docs/qa/iteration-1/masters/14-run.jpg, docs/qa/iteration-1/masters/22-table-trial.jpg, docs/qa/iteration-1/masters/41-account.jpg",
    "suggested_fix": "Implement the running state per the intent doc, fix protocol classification, and add a visible 'My projects' link in the project header."
   }
  ]

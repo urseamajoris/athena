@@ -9,7 +9,7 @@
    "page": "Step 3 Search builder (query for topic 'Sleep')",
    "what_happened": "The PubMed query for my 'Sleep' topic is 'telemedicine OR sleep' AND 'Southeast Asia'; the OpenAlex one is 'telemedicine/telehealth' AND 'sleep' AND 'Southeast Asia'. Nothing about university students, grades or the UK appears. The page is titled 'Check the searches before they run', so I am invited to approve searches that plainly do not match what I typed.",
    "expected": "Search blocks should reflect my answers (students, grades, UK). In demo mode, a note on this very step should say the searches are canned, not just a banner at the top.",
-   "evidence": "docs/qa/undergrad/10-searches.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/10-searches.jpg",
    "suggested_fix": "In demo mode, label the query box 'Example search (demo): not built from your idea'. In real mode, assert that every group maps to a kept topic or scoping answer and warn if one does not."
   },
   {
@@ -19,7 +19,7 @@
    "what_happens": "",
    "what_happened": "All three candidate questions are about telemedicine in rural Southeast Asia ('What sleep factors shape telemedicine implementation in rural Southeast Asia?'). Candidate 2 reads 'What grades factors shape...'. The question has a '(mock)' prefix baked in. It is carried unchanged into the export header and report, so the report I would hand my tutor has a nonsense question and 'Population: Patients and providers', which contradicts my 'university students'.",
    "expected": "The chosen question should be about my topic, or the exported file should be clearly stamped as a demo output that must not be handed in.",
-   "evidence": "docs/qa/undergrad/22-step9.jpg, docs/qa/undergrad/25-preview.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/22-step9.jpg, docs/qa/iteration-1/undergrad/25-preview.jpg",
    "suggested_fix": "In demo mode, stamp the exported report with a visible 'DEMO: sample data, not a real review' banner in the first lines. Ideally let demo mode echo the user's own words."
   },
   {
@@ -28,7 +28,7 @@
    "page": "Export report preview",
    "what_happened": "The report intro says 'Every paper below comes from a database API record... AI-extracted claims carry verbatim quotes that were checked against the retrieved text.' It never says the papers are recorded samples unrelated to my topic, and it does not say some quotes were rejected or are unverified. The page-level demo banner does not travel with the downloaded file. It also leaks an internal id: 'Gap: ... [Lotfi et al. 2026, c_fda84bbbedb940fe]'.",
    "expected": "A downloaded file is read on its own. It should carry the demo disclosure and human-readable citations only.",
-   "evidence": "docs/qa/undergrad/25b-preview.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/25b-preview.jpg",
    "suggested_fix": "Add a demo-mode line to the report header and replace internal claim ids with the paper reference."
   },
   {
@@ -37,7 +37,7 @@
    "page": "Step 6 Ranking",
    "what_happened": "A paper I opened under Sleep (rank 2, 66/100, 'Enablers and Barriers of Telemedicine in Indonesia') shows 'Topic fit 1/5: 0 topic terms appear in title/abstract', yet it is auto-selected for a closer read. Rank 1 is a type 2 diabetes app trial. High design/recency scores outweigh zero topical relevance, and nothing warns that none of the selected papers mention sleep.",
    "expected": "A paper with no topic match should not be pre-selected, or the page should warn 'none of the selected papers mention your topic'.",
-   "evidence": "docs/qa/undergrad/15d-sleep-rank.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/15d-sleep-rank.jpg",
    "suggested_fix": "Gate selection on a minimum topic-fit score, and show a warning banner when the selected set has near-zero topic overlap."
   },
   {
@@ -46,7 +46,7 @@
    "page": "Step 7 Appraisal",
    "what_happened": "Quotes labelled 'verified' do not answer the question they sit under. For example 'Clearly focused question: AI Unclear' is backed by the paper's title and first sentence, marked 'verified'. 'verified' only means the words exist in the text, not that they support the answer. A novice will read the green tick as 'the claim is true'.",
    "expected": "Make clear that the tick means 'quote found in the paper', not 'claim confirmed'. Show quotes relevant to each question.",
-   "evidence": "docs/qa/undergrad/18-step7.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/18-step7.jpg",
    "suggested_fix": "Rename the badge 'quote found in text' and add a line 'Found means the words are in the paper, not that they prove the answer.'"
   },
   {
@@ -55,7 +55,7 @@
    "page": "Step 7 Appraisal (counters and reject)",
    "what_happened": "After I rejected unverified quotes, the panel kept saying '11 unverified quotes to decide' and 'Decide every quote the check could not find (11 left)' and never ticked its checklist, while the canvas card dropped from 11 to 10 to 2 to 1. The rejected quote simply vanishes with no confirmation or undo. Paper 7 had two unverified quotes. 'Summarise the evidence' was allowed even though the card still said one unresolved. The paper list still labels papers '1 unverified' after rejecting, so I could not tell what was done.",
    "expected": "Counters update immediately and agree everywhere. A rejected quote stays visible as 'Rejected' with Undo. Moving on warns if quotes remain undecided.",
-   "evidence": "docs/qa/undergrad/18d-rejected.jpg, docs/qa/undergrad/20-paper10.jpg, docs/qa/undergrad/20d.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/18d-rejected.jpg, docs/qa/iteration-1/undergrad/20-paper10.jpg, docs/qa/iteration-1/undergrad/20d.jpg",
    "suggested_fix": "Drive all counters from one store, show rejected state in place with Undo, and block or confirm 'Summarise' when undecided quotes remain."
   },
   {
@@ -64,7 +64,7 @@
    "page": "Step 6 to 7 transition (Appraise selected papers)",
    "what_happened": "After clicking 'Appraise selected papers' the console reported a page error ('Failed to execute removeChild on Node'). The page kept showing the Step 6 content and the primary button vanished while the header said 'Now: step 7/9'. There was no progress or 'working' message. I waited ~10 s then had to reload and go back to the overview to find step 7. The same error appeared when moving from step 4 to 5, though that page recovered.",
    "expected": "The page moves to step 7 or shows 'appraising, safe to close' progress, with no console error.",
-   "evidence": "docs/qa/undergrad/16-appraise.jpg, docs/qa/undergrad/16b-appraise-wait.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/16-appraise.jpg, docs/qa/iteration-1/undergrad/16b-appraise-wait.jpg",
    "suggested_fix": "Fix the 3D chart teardown (removeChild on an already-removed canvas). On run, show the running state with a spinner and auto-navigate to step 7 when done."
   },
   {
@@ -73,7 +73,7 @@
    "page": "Step 9 Research question",
    "what_happened": "The page says 'Pick one; you can edit it' and 'then choose one; you can edit it after', but after 'Choose this question' I found no edit control. A student whose candidate is nonsense (all three were) has no visible way to fix it.",
    "expected": "An 'Edit this question' field after choosing, or a way to write my own.",
-   "evidence": "docs/qa/undergrad/23-chosen.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/23-chosen.jpg",
    "suggested_fix": "Add an inline 'Edit question' button on the chosen card, or remove the promise."
   },
   {
@@ -82,7 +82,7 @@
    "page": "Step 8 Synthesis",
    "what_happened": "The 'Known' statement is just '(mock) 6 key findings were extracted for this topic.' and the conflict is '(mock) Placeholder contradiction... generated to demo highlighting', while its quote chips (e.g. a quote about technologies optimizing workflows) do not contradict anything. It is labelled mock, but it looks like a real 'conflict' card with green verified chips. Context and setting silently disappears from the topic tabs.",
    "expected": "A synthesis statement says something specific, and a conflict shows two opposing quotes. Dropped topics should be explained.",
-   "evidence": "docs/qa/undergrad/21-step8.jpg, docs/qa/undergrad/21b-chip.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/21-step8.jpg, docs/qa/iteration-1/undergrad/21b-chip.jpg",
    "suggested_fix": "In demo mode make placeholder conflicts visibly distinct (e.g. 'sample'). In real mode require each conflict to quote one claim per side. Say why a topic has no statements."
   },
   {
@@ -91,7 +91,7 @@
    "page": "Step 6 Ranking",
    "what_happened": "The topic 'Context and setting' shows '0 selected' and, when clicked, 'Showing all 0 ... No papers match these filters. Reset filters' although I set no filters. The checklist still says 'Keep 3-5 papers per topic', which is impossible here. I did not know whether I had broken something.",
    "expected": "A message such as 'No papers were matched to this topic. Remove the topic or add a search' with a link back to step 2 or 3.",
-   "evidence": "docs/qa/undergrad/15b-topic-rank.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/15b-topic-rank.jpg",
    "suggested_fix": "Special-case an empty topic with an explanation and actions, and warn before appraisal if a topic has no papers."
   },
   {
@@ -100,7 +100,7 @@
    "page": "Step 7 Appraisal",
    "what_happened": "The canvas card shows '10 papers' though 12 papers were selected in step 6, with no explanation. The card badge '\u2713 94 \u2715 11' has no label (the list view labels it '94 verified'), and I did not know what the numbers counted.",
    "expected": "Explain why 2 papers dropped out, and label the badge ('94 quotes found, 11 not found').",
-   "evidence": "docs/qa/undergrad/17b-overview.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/17b-overview.jpg",
    "suggested_fix": "Add text labels to the badge and a 'why 10 of 12' note."
   },
   {
@@ -109,7 +109,7 @@
    "page": "Step 5 Summary table and Step 6 Ranking",
    "what_happened": "Choosing 'Trial' and 'Review article' filters together gives 'Showing 0 of 115: trial; review article', since groups combine with AND. The chip counts (5 and 14) suggest I would see 19.",
    "expected": "Say that different groups narrow each other (study type AND article type). Show live counts or disable chips that would give zero.",
-   "evidence": "docs/qa/undergrad/14c-trial-review.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/14c-trial-review.jpg",
    "suggested_fix": "Add a hint under the chips ('Choosing from both rows shows papers matching both') and update chip counts to match the other filter."
   },
   {
@@ -118,7 +118,7 @@
    "page": "Retrieval, Summary table, Ranking (categories and colours)",
    "what_happened": "The study-type colours, shapes and legend are clear, clicking a legend item isolates it, and the 'Showing X of Y' wording is honest. But on the retrieval page I could not filter article type at all (only a bar chart), and the 'Colour by' menu has no Article type, so the article-type view lives only in the table. In the first chart the legend label 'Systematic / scoping revi...' is cut off. The 3D chart is small, the year axis shows only '2026' and 'Height has no meaning yet', so it adds little for a first-time user.",
    "expected": "I can find papers by article type and study type at every list. Axis ticks and labels are readable.",
-   "evidence": "docs/qa/undergrad/12-corpus.jpg, docs/qa/undergrad/12b-corpus-chart.jpg, docs/qa/undergrad/14-table.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/12-corpus.jpg, docs/qa/iteration-1/undergrad/12b-corpus-chart.jpg, docs/qa/iteration-1/undergrad/14-table.jpg",
    "suggested_fix": "Show the article-type chips on the retrieval page as well, add year ticks, widen the legend label."
   },
   {
@@ -127,7 +127,7 @@
    "page": "Sign up",
    "what_happened": "The password hint ('At least 10 characters, not containing the name part of your email.') is drawn on top of the bottom of the password input box, so the box looks cut and the hint overlaps its border. The helper also reported the Create account button as 'looks disabled' while it was an enabled blue button.",
    "expected": "The hint sits below the field without overlap.",
-   "evidence": "docs/qa/undergrad/02-signup.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/02-signup.jpg",
    "suggested_fix": "Give the hint its own line below the input (margin or grid row)."
   },
   {
@@ -136,7 +136,7 @@
    "page": "Steps 1 and 2 (idea and scoping)",
    "what_happened": "After I typed my idea on /s/new, the canvas shows a card 'Tell us what you want to research' with 'Open step 1' and 'Sharpen my idea' (two buttons for the same thing), then step 1 asks for the same idea again. The scoping questions then double up: one answer fills both 'Who' and 'Where', and 'years' and 'kinds of studies' got the same text. The counter says '3 of 5 questions' after four answers, and the panel says '3 questions' while 'What we know so far' says '6 of 6 answered'.",
    "expected": "One obvious next action, and answers mapped to the right fields. Counters that agree.",
-   "evidence": "docs/qa/undergrad/04-questions.jpg, docs/qa/undergrad/05-step1.jpg, docs/qa/undergrad/06c-q4.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/04-questions.jpg, docs/qa/iteration-1/undergrad/05-step1.jpg, docs/qa/iteration-1/undergrad/06c-q4.jpg",
    "suggested_fix": "Skip step 1 if the idea was already entered, or prefill it with a single 'Continue'. Ask one thing per question."
   },
   {
@@ -145,7 +145,7 @@
    "page": "Steps 2 to 4 side panel",
    "what_happened": "After approving, the panel stays on the previous node (e.g. 'Viewing step 2 of 9 - Edit this search topic' while the strip says step 3) and shows a 'Go to step 2: Scoping' or 'Go to step 4: Retrieval' button; I had to click through before I saw the real next step. The word 'Query' and 'PubMed - OpenAlex -' show dashes for four of the queries after retrieval has finished.",
    "expected": "After I approve, the panel moves to the next step automatically. Dashes should say 'not counted'.",
-   "evidence": "docs/qa/undergrad/09-after-use-topics.jpg, docs/qa/undergrad/11-retrieval.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/09-after-use-topics.jpg, docs/qa/iteration-1/undergrad/11-retrieval.jpg",
    "suggested_fix": "Auto-open the next step panel on approval and replace dashes with 'not counted'."
   },
   {
@@ -154,7 +154,7 @@
    "page": "Export",
    "what_happened": "The report is a Markdown file described as 'opens in Word, Google Docs or any text editor'. A first-year will open it in Word and see raw # symbols. After clicking Download there was no visible confirmation. The preview shows only 200 of 664 lines in a small scroll box, and the appraisal and synthesis sections cannot be seen before downloading.",
    "expected": "A .docx or PDF option, or honest wording about what Word will show, and a 'Downloaded' confirmation.",
-   "evidence": "docs/qa/undergrad/25-preview.jpg, docs/qa/undergrad/26-download.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/25-preview.jpg, docs/qa/iteration-1/undergrad/26-download.jpg",
    "suggested_fix": "Offer Word or PDF, change the copy to 'plain text with simple formatting', and show a toast on download."
   },
   {
@@ -163,7 +163,7 @@
    "page": "All step panels",
    "what_happened": "The 'What happens in this step - 8 s' row is cryptic: I read '8 s' as 8 seconds of what. Jargon appears undefined at first sight: '0 MeSH' on topic cards, 'PICo' and 'PECO' on candidates, 'index term', 'Controlled vocabulary'. MeSH is explained only inside the topic editor.",
    "expected": "'8 s' becomes 'Watch a 8-second preview'. Jargon gets a one-line plain explanation or a tooltip where it first appears.",
-   "evidence": "docs/qa/undergrad/05-step1.jpg, docs/qa/undergrad/08-after-keep.jpg, docs/qa/undergrad/22-step9.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/05-step1.jpg, docs/qa/iteration-1/undergrad/08-after-keep.jpg, docs/qa/iteration-1/undergrad/22-step9.jpg",
    "suggested_fix": "Rename the row, and add tooltips for MeSH, PICo and PECO."
   },
   {
@@ -172,7 +172,7 @@
    "page": "Table page header",
    "what_happened": "On the table pages, the left link 'Overview' did not seem to take me anywhere (the URL stayed on /table after I clicked it); I got to the overview only by opening the project address directly. The checklist box sits to the right of a large empty gap under the title on desktop.",
    "expected": "Overview opens the canvas for the review.",
-   "evidence": "docs/qa/undergrad/17-overview.jpg, docs/qa/undergrad/14-table.jpg",
+   "evidence": "docs/qa/iteration-1/undergrad/17-overview.jpg, docs/qa/iteration-1/undergrad/14-table.jpg",
    "suggested_fix": "Check the Overview link target on the table route, and rebalance the header layout."
   }
  ],

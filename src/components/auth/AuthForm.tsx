@@ -58,11 +58,13 @@ export function AuthForm({ mode, next, signupOpen = true }: { mode: "login" | "s
             Email
             <input className="input mt-1 w-full" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus aria-invalid={!!error || undefined} />
           </label>
-          <label className="label block">
-            Password
-            <input className="input mt-1 w-full" type="password" autoComplete={signup ? "new-password" : "current-password"} required value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby={signup ? "pw-hint" : undefined} aria-invalid={!!error || undefined} />
-          </label>
-          {signup && <p id="pw-hint" className="-mt-5 text-12 text-fg-2">At least 10 characters, not containing the name part of your email.</p>}
+          <div>
+            <label className="label block">
+              Password
+              <input className="input mt-1 w-full" type="password" autoComplete={signup ? "new-password" : "current-password"} required value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby={signup ? "pw-hint" : undefined} aria-invalid={!!error || undefined} />
+            </label>
+            {signup && <p id="pw-hint" className="mt-1 text-12 text-fg-2">At least 10 characters, not containing the name part of your email.</p>}
+          </div>
           {error && <p role="alert" className="flex items-start gap-2 rounded-sm border border-err-line px-3 py-2 text-fg-0"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-err" strokeWidth={2} aria-hidden />{error}</p>}
           <button className="btn-primary min-h-11 w-full text-16" data-await-input aria-disabled={busy || !email || !password || undefined}>
             {busy && <Spinner label={signup ? "Creating your account" : "Logging in"} />}

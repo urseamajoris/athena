@@ -86,7 +86,7 @@
    "page": "Search builder (step 3)",
    "what_happened": "The generated PubMed and OpenAlex queries ignored my edited topic. My MeSH term 'Post-Acute COVID-19 Syndrome' was replaced by 'telemedicine[mh]', and a Southeast Asia block was added. Years default to 2015 to now, not the 2020 I asked for. The inclusion and exclusion criteria were pre-filled with Southeast Asian telemedicine text. Only a '(mock)' label in small text hints at this.",
    "expected": "Queries that reflect my topic's synonyms and MeSH terms, and criteria derived from my scoping answers, or an explicit statement at the point of use that demo mode does not use my input.",
-   "evidence": "docs/qa/phd/09-searches.jpg, docs/qa/phd/09c-edit-text.jpg, docs/qa/phd/09e-dates.jpg",
+   "evidence": "docs/qa/iteration-1/phd/09-searches.jpg, docs/qa/iteration-1/phd/09c-edit-text.jpg, docs/qa/iteration-1/phd/09e-dates.jpg",
    "suggested_fix": "When demo mode is on, put a visible banner on the query panel itself ('these queries are scripted and do not use your topics'). In real mode, build the query from the topic's synonyms and MeSH and never overwrite user-entered MeSH."
   },
   {
@@ -95,7 +95,7 @@
    "page": "Search builder (step 3)",
    "what_happened": "Match counts look arbitrary. The same PubMed query showed 183 matches and then 9,245 after I only moved the start year later. A different topic's query later showed the same 183. The app also said 9,245 records truncated to 40 'is fine'.",
    "expected": "Narrowing a query can never increase the count. A count must come from the query text, or be clearly marked as simulated. Truncating thousands of records to 40 should be a warning, not 'fine'.",
-   "evidence": "docs/qa/phd/09g-counts.jpg, docs/qa/phd/09l-count2.jpg, docs/qa/phd/10f-sbs-head.jpg",
+   "evidence": "docs/qa/iteration-1/phd/09g-counts.jpg, docs/qa/iteration-1/phd/09l-count2.jpg, docs/qa/iteration-1/phd/10f-sbs-head.jpg",
    "suggested_fix": "Mark simulated counts as sample numbers next to the count. Replace 'so that is fine' with a warning that a systematic review needs the full result set or a justified cap. Let the user raise the cap."
   },
   {
@@ -104,7 +104,7 @@
    "page": "Ranking (step 6)",
    "what_happened": "The top-ranked, pre-selected paper for my Long COVID topic scored 54/100 although its own breakdown says 'Topic fit 1/5: 0 topic terms appear in title/abstract'. Every selected paper was off-topic (telemedicine, stroke, diabetes). The app forces 3 to 5 papers per topic and gave no warning that nothing matched. Setting match rewarded 'Mentions a Southeast Asian setting', not my criteria.",
    "expected": "A warning when the best paper has near-zero topic fit, a minimum relevance threshold, and scoring that uses the criteria I entered.",
-   "evidence": "docs/qa/phd/13b-topic-rank.jpg, docs/qa/phd/13c-why.jpg",
+   "evidence": "docs/qa/iteration-1/phd/13b-topic-rank.jpg, docs/qa/iteration-1/phd/13c-why.jpg",
    "suggested_fix": "Show a banner when the top paper for a topic has topic fit of 1/5 or less ('none of these papers appear to match this topic'). Allow selecting fewer than 3 papers or none. Feed saved criteria into the Setting match criterion."
   },
   {
@@ -113,7 +113,7 @@
    "page": "Appraisal (step 7) and report header",
    "what_happened": "'Verified' means only that the quote text exists in the source, not that it supports the answer. 'Aim clearly stated: AI Unclear' is backed by a verified quote that is just the paper title. A synthesis 'contradiction' that is plainly a placeholder carries green verified chips. The report header says 'AI-extracted claims carry verbatim quotes that were checked', which reads as claim-level assurance.",
    "expected": "A distinction between 'quote found in text' and 'quote supports the claim', and wording that does not imply the claim itself was validated.",
-   "evidence": "docs/qa/phd/15-appraisal-panel.jpg, docs/qa/phd/15b-source.jpg, docs/qa/phd/16-synthesis.jpg, docs/qa/phd/16b-chip.jpg, docs/qa/phd/20-report.jpg",
+   "evidence": "docs/qa/iteration-1/phd/15-appraisal-panel.jpg, docs/qa/iteration-1/phd/15b-source.jpg, docs/qa/iteration-1/phd/16-synthesis.jpg, docs/qa/iteration-1/phd/16b-chip.jpg, docs/qa/iteration-1/phd/20-report.jpg",
    "suggested_fix": "Rename the badge to 'quote found in source'. Add a user control 'quote supports this answer: yes/no'. Reword the report header to say that only the existence of quotes was checked, not their interpretation."
   },
   {
@@ -122,7 +122,7 @@
    "page": "Step 9 and export",
    "what_happened": "The three candidate questions and the final report are about telemedicine in rural Southeast Asia. Candidate 2 is labelled 'effect of an exposure' with a PECO structure but is not an effect question. All three share the same one-line feasibility and weakness. The exported report has no demo-mode or off-topic caveat at the top. The page says 'you can edit it', but I could not find any way to edit the chosen question.",
    "expected": "A question related to my idea, or a clear caveat in the export that this review used sample data. A working edit control after choosing.",
-   "evidence": "docs/qa/phd/17-questions.jpg, docs/qa/phd/18-chosen.jpg, docs/qa/phd/20-report.jpg",
+   "evidence": "docs/qa/iteration-1/phd/17-questions.jpg, docs/qa/iteration-1/phd/18-chosen.jpg, docs/qa/iteration-1/phd/20-report.jpg",
    "suggested_fix": "Add an 'Edit question' field on the chosen card. Add a prominent demo-data line at the top of the report when demo mode is on."
   },
   {
@@ -131,7 +131,7 @@
    "page": "Search builder and Report",
    "what_happened": "The other topics' generated OpenAlex queries contain an empty group, for example `(\"telemedicine\" OR \"telehealth\") AND () AND (\"Southeast Asia\"...)`. This is invalid boolean syntax and would fail or return garbage in a real search. The 'Healthcare workers' and 'Work ability' topics, which have no synonyms, produced it. The Long COVID topic's rationale still reads '(mock) Key concept from your idea: association' after I renamed the topic.",
    "expected": "No empty groups. A topic with no synonyms should fall back to its own name. Rationale text should update, or be cleared, when I edit a topic.",
-   "evidence": "docs/qa/phd/21b-prev.jpg, docs/qa/phd/21c-prev.jpg, docs/qa/phd/06c-after-edit.jpg",
+   "evidence": "docs/qa/iteration-1/phd/21b-prev.jpg, docs/qa/iteration-1/phd/21c-prev.jpg, docs/qa/iteration-1/phd/06c-after-edit.jpg",
    "suggested_fix": "Validate generated queries before display and omit empty groups. Seed a topic with its own name as a synonym. Clear or regenerate the rationale on edit."
   },
   {
@@ -140,7 +140,7 @@
    "page": "Search builder and Ranking",
    "what_happened": "The year filter I set to 2020 and saved did not stop 2015 and 2019 papers appearing. 'Going global' (2019) was selected and 'Lee et al. 2015' and 'Clough et al. 2019' are cited in the synthesis. This is demo data, but nothing says dates were not applied.",
    "expected": "Date limits applied, or a visible statement that recorded sample papers ignore them.",
-   "evidence": "docs/qa/phd/09k-year.jpg, docs/qa/phd/13b-topic-rank.jpg, docs/qa/phd/16-synthesis.jpg",
+   "evidence": "docs/qa/iteration-1/phd/09k-year.jpg, docs/qa/iteration-1/phd/13b-topic-rank.jpg, docs/qa/iteration-1/phd/16-synthesis.jpg",
    "suggested_fix": "Filter by year after retrieval as a safety net, or show 'dates not applied in demo mode'."
   },
   {
@@ -149,7 +149,7 @@
    "page": "Retrieval, ranking and report",
    "what_happened": "There is no PRISMA-style flow and no title/abstract screening step. Selection is an AI score plus 'top 3 to 5 per topic'. No eligibility decision is recorded per paper and no second reviewer is possible. The only deduplication information is '24 duplicates merged'. The per-query cap of 40 is disclosed but the effect on completeness is not discussed.",
    "expected": "For a review I would defend: identified, screened, excluded-with-reason and included counts, per-paper inclusion or exclusion with a reason, and an explicit statement that this is a rapid scoping exercise and not a systematic review.",
-   "evidence": "docs/qa/phd/10c-papers.jpg, docs/qa/phd/10e-sbs.jpg, docs/qa/phd/13-rank.jpg",
+   "evidence": "docs/qa/iteration-1/phd/10c-papers.jpg, docs/qa/iteration-1/phd/10e-sbs.jpg, docs/qa/iteration-1/phd/13-rank.jpg",
    "suggested_fix": "Add a flow diagram to the report. Add an include/exclude with reason column. Label the output as a 'guided rapid review' unless full screening exists."
   },
   {
@@ -158,7 +158,7 @@
    "page": "Search builder, criteria panel",
    "what_happened": "I typed new inclusion and exclusion criteria, clicked 'Count matches', and my text silently reverted to the mock text. A separate Save criteria button had appeared lower down, below the fold. Another place on the same page says 'Changes save when you leave a field'. I lost my first edit.",
    "expected": "Edits saved on blur, or a clear unsaved-changes warning before anything discards them.",
-   "evidence": "docs/qa/phd/09h-bottom.jpg, docs/qa/phd/09i-criteria2.jpg",
+   "evidence": "docs/qa/iteration-1/phd/09h-bottom.jpg, docs/qa/iteration-1/phd/09i-criteria2.jpg",
    "suggested_fix": "Autosave on blur like the other fields, or disable other actions and show 'unsaved changes' until Save or Undo."
   },
   {
@@ -167,7 +167,7 @@
    "page": "Appraisal (step 7)",
    "what_happened": "After I rejected all 14 unverified quotes the canvas count went from 14 to 0, but the panel text still read '14 left' in the checklist and '14 unverified quotes to decide' under the paper header. The last paper (15 of 15) could not be marked reviewed: 'Next paper' was disabled, so the counter stayed at 14/15 reviewed.",
    "expected": "Counters that update, and a way to mark the final paper as reviewed.",
-   "evidence": "docs/qa/phd/15f-end.jpg",
+   "evidence": "docs/qa/iteration-1/phd/15f-end.jpg",
    "suggested_fix": "Derive the counters from current decisions. On the last paper, change the button to 'Mark reviewed'."
   },
   {
@@ -176,7 +176,7 @@
    "page": "Ranking to Appraisal transition",
    "what_happened": "After clicking 'Appraise selected papers' the header said 'Now: step 7/9 Appraisal' but the page still showed the step 6 table and checklist. The primary button disappeared and there was no progress or confirmation. I only found the result by going back to Overview.",
    "expected": "A progress state or automatic navigation to the appraisal step.",
-   "evidence": "docs/qa/phd/14-appraisal.jpg, docs/qa/phd/14b-overview.jpg",
+   "evidence": "docs/qa/iteration-1/phd/14-appraisal.jpg, docs/qa/iteration-1/phd/14b-overview.jpg",
    "suggested_fix": "Show 'Appraising 15 papers...' with progress and then navigate, or keep a visible 'Go to step 7' button."
   },
   {
@@ -185,7 +185,7 @@
    "page": "Summary table to step 6",
    "what_happened": "My search text 'Meta-Analysis' from step 5 carried over into the ranking step and showed '1 of 111'. A 'Keep 3 to 5 papers per topic' item was already ticked on arrival.",
    "expected": "Filters reset between steps, or a visible reminder. Checklist items that are ticked only when I do them.",
-   "evidence": "docs/qa/phd/13-rank.jpg",
+   "evidence": "docs/qa/iteration-1/phd/13-rank.jpg",
    "suggested_fix": "Reset the search and filters when the step changes. Mark the checklist item only after the user has seen the selection."
   },
   {
@@ -194,7 +194,7 @@
    "page": "Whole app (step 4 to 5 transition)",
    "what_happened": "The browser reported a page error: \"Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.\" It appeared when the app moved to step 5 and left the 3D papers view. The page kept working.",
    "expected": "No console errors.",
-   "evidence": "docs/qa/phd/11-summaries.jpg",
+   "evidence": "docs/qa/iteration-1/phd/11-summaries.jpg",
    "suggested_fix": "Guard the 3D viewer's unmount so the DOM node is removed only if it is still attached."
   },
   {
@@ -203,7 +203,7 @@
    "page": "Overview canvas (first arrival)",
    "what_happened": "The first canvas screen has a single Idea node marked 'Your turn' while the step strip already shows step 1 as 'Approved'. Two buttons compete: 'Open step 1' and 'Sharpen my idea'. The top card says 'Tell us what you want to research' although I had already typed it.",
    "expected": "One obvious next action, and wording that reflects what I already did.",
-   "evidence": "docs/qa/phd/04-clarify.jpg",
+   "evidence": "docs/qa/iteration-1/phd/04-clarify.jpg",
    "suggested_fix": "After the idea is entered, say 'Next: answer a few questions' and offer one button. Mark step 1 done."
   },
   {
@@ -212,7 +212,7 @@
    "page": "Scoping (step 2)",
    "what_happened": "The scoping answers shown under 'What we know so far' are truncated to roughly 80 characters ('allied health) wi', 'sustained employment at'). Two separate questions copied my single combined answer into both 'Which years' and 'Which kinds of studies'. 'Where' stayed 'not answered yet' although I had said 'any country'.",
    "expected": "Full answers, or a clear ellipsis. Answers mapped to the right fields.",
-   "evidence": "docs/qa/phd/05c-q4.jpg",
+   "evidence": "docs/qa/iteration-1/phd/05c-q4.jpg",
    "suggested_fix": "Show full text with an expand toggle, and add an ellipsis. Parse answers per question."
   },
   {
@@ -221,7 +221,7 @@
    "page": "Scoping topic suggestions",
    "what_happened": "The AI suggested 'Association', 'Long' and 'Covid' as separate search topics, splitting the phrase 'long COVID'. 'Long' alone as a search topic would return noise. The topic list also showed a 'Context and setting' topic, which disappeared when I clicked its name.",
    "expected": "Multi-word concepts kept together, and clicking a name should not delete it.",
-   "evidence": "docs/qa/phd/05c-q4.jpg, docs/qa/phd/06-topics.jpg, docs/qa/phd/06f-context.jpg",
+   "evidence": "docs/qa/iteration-1/phd/05c-q4.jpg, docs/qa/iteration-1/phd/06-topics.jpg, docs/qa/iteration-1/phd/06f-context.jpg",
    "suggested_fix": "Tokenise on concepts (noun phrases) instead of single words. Check why clicking the topic name removed it, and add Undo on Delete."
   },
   {
@@ -230,7 +230,7 @@
    "page": "Scoping topic edit panel",
    "what_happened": "After I edited a suggested topic, its state became 'Your turn' with no Keep or Delete. The only button was 'Go to step 2: Scoping' while I was already on step 2. It was unclear whether the topic was accepted. Deleting topics happened instantly with no confirmation or undo.",
    "expected": "A clear accepted state, a sensible button label, and a way to undo a delete.",
-   "evidence": "docs/qa/phd/06c-after-edit.jpg, docs/qa/phd/06d-list.jpg, docs/qa/phd/06e-delete.jpg",
+   "evidence": "docs/qa/iteration-1/phd/06c-after-edit.jpg, docs/qa/iteration-1/phd/06d-list.jpg, docs/qa/iteration-1/phd/06e-delete.jpg",
    "suggested_fix": "Keep 'Keep this topic' visible after editing. Show an 'Undo' toast on delete."
   },
   {
@@ -239,7 +239,7 @@
    "page": "Summary table (step 5)",
    "what_happened": "AI-drafted 'key finding' cells included clearly wrong extracts, such as a postal address and a background sentence. After I edited the key finding, an 'edited by you' badge also appeared under Study type, which I had not changed. Pressing Enter in the edit box did not commit (Tab did), and the hint did not say so.",
    "expected": "A badge only on the cell I edited, a hint about how to save, and extractions that give a result.",
-   "evidence": "docs/qa/phd/12c-detail.jpg, docs/qa/phd/12d-edit-cell.jpg, docs/qa/phd/12f-edited2.jpg",
+   "evidence": "docs/qa/iteration-1/phd/12c-detail.jpg, docs/qa/iteration-1/phd/12d-edit-cell.jpg, docs/qa/iteration-1/phd/12f-edited2.jpg",
    "suggested_fix": "Show the badge per cell. Add 'Press Tab or click away to save, Esc to cancel'. Flag key findings that look like addresses or boilerplate."
   },
   {
@@ -248,7 +248,7 @@
    "page": "Retrieval (step 4)",
    "what_happened": "After the run the per-topic query cards still read 'PubMed \u2013 OpenAlex \u2013' for four of the five queries, although the search table below shows hits for them. The 'Colour by' menu had no Article type, evidence status or score option, although I was asked to filter by article type.",
    "expected": "Counts on the query cards after a run, and article type available as a view.",
-   "evidence": "docs/qa/phd/10b-retrieved.jpg, docs/qa/phd/10c-papers.jpg",
+   "evidence": "docs/qa/iteration-1/phd/10b-retrieved.jpg, docs/qa/iteration-1/phd/10c-papers.jpg",
    "suggested_fix": "Refresh the query cards with run counts. Add Article type as a colour-by or group-by option in the 3D and 2D views."
   },
   {
@@ -257,7 +257,7 @@
    "page": "Search builder, edit-search-text",
    "what_happened": "The PubMed and OpenAlex query textareas have no accessible name. When focused, the focus helper reported an empty name, and the helper could not find them by their visible labels 'PubMed' and 'OpenAlex'. A screen-reader user would hear only 'edit text'.",
    "expected": "Each textarea labelled 'PubMed search text' and 'OpenAlex search text'.",
-   "evidence": "docs/qa/phd/09c-edit-text.jpg",
+   "evidence": "docs/qa/iteration-1/phd/09c-edit-text.jpg",
    "suggested_fix": "Add a label or aria-labelledby to each textarea, tied to the visible 'PubMed' and 'OpenAlex' headings."
   },
   {
@@ -266,7 +266,7 @@
    "page": "Export",
    "what_happened": "The report preview sits in a small inner scroll box (about 12 lines tall). It is hard to read a 914-line report and to find the search strategy or limitations. The panel metric 'Quotes verified / not: 139 / 14' does not say that I rejected the 14.",
    "expected": "A full-height preview or a table of contents, and a count of how many unverified quotes I rejected.",
-   "evidence": "docs/qa/phd/20b-report2.jpg, docs/qa/phd/21-files.jpg",
+   "evidence": "docs/qa/iteration-1/phd/20b-report2.jpg, docs/qa/iteration-1/phd/21-files.jpg",
    "suggested_fix": "Make the preview taller with a section index, and show 'unverified: 14 (rejected by you)'."
   },
   {
@@ -275,7 +275,7 @@
    "page": "Sign up",
    "what_happened": "The password hint ('At least 10 characters, not containing the name part of your email') overlaps the bottom edge of the password input and looks cramped.",
    "expected": "Hint text below the field with spacing.",
-   "evidence": "docs/qa/phd/02-signup.jpg",
+   "evidence": "docs/qa/iteration-1/phd/02-signup.jpg",
    "suggested_fix": "Move the hint below the input with margin."
   },
   {
@@ -284,7 +284,7 @@
    "page": "Appraisal (step 7)",
    "what_happened": "The checklist heading reads 'Quality questions for a other study' with the wrong article. The reasoning panel says 'Quality questions for a cross-sectional study' elsewhere.",
    "expected": "'an other study' or 'an unclassified study'.",
-   "evidence": "docs/qa/phd/15-appraisal-panel.jpg",
+   "evidence": "docs/qa/iteration-1/phd/15-appraisal-panel.jpg",
    "suggested_fix": "Use a/an agreement or rephrase to 'Quality questions (study type: other)'."
   },
   {
@@ -293,7 +293,7 @@
    "page": "Landing page",
    "what_happened": "The landing page does not mention demo mode, the one-paper-per-topic cap or the fact that this is a prototype. Those appear only after sign-in. The animated demo near the bottom autoplays (there is a pause button).",
    "expected": "A short note on the landing page that this is a demo build with recorded samples, so first-time users are not surprised.",
-   "evidence": "docs/qa/phd/01-landing.jpg, docs/qa/phd/01b-landing-bottom.jpg",
+   "evidence": "docs/qa/iteration-1/phd/01-landing.jpg, docs/qa/iteration-1/phd/01b-landing-bottom.jpg",
    "suggested_fix": "Add one line under the CTA: 'Demo build: uses recorded sample papers.' Keep the pause control."
   }
  ]

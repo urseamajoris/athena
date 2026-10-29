@@ -2,7 +2,7 @@
 
 Eight Sonnet agents played real users of Athena: seven user personas and one admin. They used the app **only through a browser**, driven from the shell with `scripts/qa-browser.mjs`. They had no source code, no README and no API access. Each user persona had its own production-build server and database in **demo mode** (scripted AI, recorded sample papers, $0). Each signed up through the UI. The admin persona ran afterwards. It logged into every server's dashboard and checked the telemetry against what each user said they did. On one server it also turned AI off and on.
 
-Screenshots are in `docs/qa/<persona>/`. Each persona's structured report is in `docs/qa/<persona>/report-<iteration>.json`. The raw results of each iteration are in `docs/qa/iteration-<n>/results.json`.
+Screenshots are in `docs/qa/iteration-<n>/<persona>/`. Each persona's structured report is in `docs/qa/iteration-<n>/<persona>/report-<n>.json`. The raw results of each iteration are in `docs/qa/iteration-<n>/results.json`.
 
 | Persona | Who | Viewport |
 |---|---|---|

@@ -91,7 +91,7 @@
    "page": "Step 6 Ranking to step 7 Appraisal (/s/prj_.../table)",
    "what_happened": "After clicking 'Appraise selected papers' the top bar changed to 'Now: step 7/9 \u00b7 Appraisal', but the page kept showing the step 6 content ('Check which papers go forward'). The 'Appraise selected papers' button vanished and no 'Go to step 7' button appeared. A reload kept the stale step 6 content and reset its checklist to 0 of 3. The console showed a page error: Failed to execute 'removeChild' on 'Node'. The same error appeared once after 'Summarise the papers' (step 4 to 5), where I could still continue. I only escaped by going to the overview and using 'Open step 7'.",
    "expected": "The page moves to step 7, or a clear 'Go to step 7' button appears, as the UX intent doc says no page should be a dead end. No page errors.",
-   "evidence": "docs/qa/nonnative/21b-appraise.jpg, docs/qa/nonnative/21c-reload.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/21b-appraise.jpg, docs/qa/iteration-1/nonnative/21c-reload.jpg",
    "suggested_fix": "Fix the unmount error (likely the 3D/canvas teardown or a portal) so the table page navigates to the new step. Add a 'Go to step N' button on any panel whose step is not current."
   },
   {
@@ -100,7 +100,7 @@
    "page": "Step 9 Research question, Export",
    "what_happened": "The chosen question, and the whole review, had nothing to do with my idea. My idea was diabetes patients, Thailand and blood sugar. The question was '(mock) What app factors shape telemedicine implementation in rural Southeast Asia?'. The generated searches contain 'telemedicine' and 'Southeast Asia' but not diabetes. Papers on teledentistry, glaucoma, yoga and HIV were 'selected for appraisal'. Demo mode explains this on the banner, but in the flow there is no 'low relevance to your idea' check.",
    "expected": "At least a visible check that the chosen question and the selected papers match the user's original idea, and a warning when they do not. Even in demo mode the final question should reflect the idea.",
-   "evidence": "docs/qa/nonnative/28-chosen.jpg, docs/qa/nonnative/13-searches.jpg, docs/qa/nonnative/20-rank-topic.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/28-chosen.jpg, docs/qa/iteration-1/nonnative/13-searches.jpg, docs/qa/iteration-1/nonnative/20-rank-topic.jpg",
    "suggested_fix": "Show an 'idea vs question' match check at step 9 and warn when key terms are missing. In demo mode, state this on the question card, not only in the banner. Make the scripted demo substitute the user's key terms."
   },
   {
@@ -109,7 +109,7 @@
    "page": "Step 7 Appraisal",
    "what_happened": "The counters 'Decide every quote the check could not find (25 left)' and '25 unverified quotes to decide' never went down after I clicked Reject on many unverified quotes. The per-paper chips still read '3 unverified' for paper 1 after I rejected one. I could not tell whether my decisions were recorded or whether the 'Decide' checklist item could ever be completed.",
    "expected": "The counter drops as each quote is accepted or rejected, and the checklist item completes when none is left.",
-   "evidence": "docs/qa/nonnative/25-after-loop.jpg, docs/qa/nonnative/25b.jpg, docs/qa/nonnative/23d.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/25-after-loop.jpg, docs/qa/iteration-1/nonnative/25b.jpg, docs/qa/iteration-1/nonnative/23d.jpg",
    "suggested_fix": "Count only undecided quotes. Show 'N decided, M left'. Show 'rejected by you' in the per-paper chips."
   },
   {
@@ -118,7 +118,7 @@
    "page": "Step 7 Appraisal",
    "what_happened": "'verified' only means the quote text exists in the paper, not that it answers the checklist question. For 'Confounders identified and adjusted for' (AI: Unclear), the verified quote is about Singapore saving $15 million by 2050. One unverified quote says 'Quote not found ... Closest passage (100% of words match)', which contradicts itself. The cohort checklist was also applied to an economic modelling study.",
    "expected": "A 'verified' badge should say what it proves. Contradictory messages should not appear. The checklist should fit the study design.",
-   "evidence": "docs/qa/nonnative/23b.jpg, docs/qa/nonnative/23c.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/23b.jpg, docs/qa/iteration-1/nonnative/23c.jpg",
    "suggested_fix": "Label the badge 'quote found in text' and add a separate 'does this support the answer?' prompt. Fix the 100%-match message. Choose the checklist by design, with a fallback for modelling studies."
   },
   {
@@ -127,7 +127,7 @@
    "page": "Step 6 Ranking",
    "what_happened": "Papers far from the topic (teledentistry, glaucoma, yoga, hematopathology, HIV) are pre-selected, including one with score 28 and 'no abstract available'. The list for a topic is alphabetical, not sorted by score, although the page is about ranking. 'Context and setting 0 selected' appears in orange with no explanation.",
    "expected": "Rank order by score, a warning for low-scoring or abstract-less papers that are selected, and a hint on what to do for a topic with 0 selected.",
-   "evidence": "docs/qa/nonnative/20-rank-topic.jpg, docs/qa/nonnative/20b-scored.jpg, docs/qa/nonnative/19-rank.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/20-rank-topic.jpg, docs/qa/iteration-1/nonnative/20b-scored.jpg, docs/qa/iteration-1/nonnative/19-rank.jpg",
    "suggested_fix": "Sort by score by default and show the rank. Flag selected papers with a score below a threshold or with no abstract. Explain '0 selected'."
   },
   {
@@ -136,7 +136,7 @@
    "page": "Step 2 Scoping topics",
    "what_happened": "The AI turned my sentence into the topics 'Mobile', 'App', 'Help', 'Diabtes', 'Measurement and outcomes', 'Context and setting'. My typo became a topic name and 'Help' became a topic. The answers I gave were echoed into the wrong boxes ('Who' and 'Where' show the same text, and 'Which years' and 'Which kinds of studies' show the same text). After 'Keep', the topic rows lost their Edit/Delete buttons, and the text said 'Open a topic to edit its name and synonyms', but my clicks on the topic names timed out. The editor then opened by itself on 'Use these topics', with the label 'Viewing step 2 of 9 \u00b7 Scoping' under a 'Now: step 3' header.",
    "expected": "Sensible topics, spelling cleaned, answers in the right boxes. A visible way to edit a topic. A consistent step label.",
-   "evidence": "docs/qa/nonnative/09-q4.jpg, docs/qa/nonnative/10-topics.jpg, docs/qa/nonnative/11b.jpg, docs/qa/nonnative/12-builder.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/09-q4.jpg, docs/qa/iteration-1/nonnative/10-topics.jpg, docs/qa/iteration-1/nonnative/11b.jpg, docs/qa/iteration-1/nonnative/12-builder.jpg",
    "suggested_fix": "Show an obvious 'Edit' on each topic in the approval screen, make topic rows look clickable, drop stop-words like 'help', and correct or flag obvious typos. Split the multi-part question."
   },
   {
@@ -145,7 +145,7 @@
    "page": "Step 2 Scoping topics",
    "what_happened": "Clicking 'Delete' removes a topic immediately with no confirmation, no undo and no toast. I removed the wrong one when two rows had the same button name.",
    "expected": "Undo or a confirmation, and an accessible name per row (e.g. 'Delete Help').",
-   "evidence": "docs/qa/nonnative/10b-after-delete.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/10b-after-delete.jpg",
    "suggested_fix": "Give each button a row-specific accessible name and show 'Deleted X. Undo' for a few seconds."
   },
   {
@@ -154,7 +154,7 @@
    "page": "Step 1 and the overview",
    "what_happened": "I typed my idea on /s/new. The next screen asked 'Tell us what you want to research' with my idea already in it as 'Draft idea', and 'Start scoping' to confirm. 'Scoping' is jargon, and '8 s' next to 'What happens in this step' looked like a time estimate for the step.",
    "expected": "After 'Start my review' go straight to the first question, or explain why the idea needs to be confirmed. Use plain words ('Ask me questions') and label the video length ('8 s video').",
-   "evidence": "docs/qa/nonnative/04-questions.jpg, docs/qa/nonnative/05-step1.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/04-questions.jpg, docs/qa/iteration-1/nonnative/05-step1.jpg",
    "suggested_fix": "Rename the button, skip the repeat step, and label the '8 s' as a video."
   },
   {
@@ -163,7 +163,7 @@
    "page": "Step 2 Scoping chat",
    "what_happened": "Question 3 is two questions at once with idioms: 'Which years and kinds of studies should count \u2014 for example 2015 onwards, any design including interviews and reviews?'. The header says 'up to 5 short questions' and then '5 more to cover' after question 1.",
    "expected": "One short plain question at a time with simple words.",
-   "evidence": "docs/qa/nonnative/08-q3.jpg, docs/qa/nonnative/06-scoping.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/08-q3.jpg, docs/qa/iteration-1/nonnative/06-scoping.jpg",
    "suggested_fix": "Split into 'Which years?' and 'What kinds of study (surveys, trials, reviews)?' and use 'from 2015 to now' instead of '2015 onwards'."
   },
   {
@@ -172,7 +172,7 @@
    "page": "Step 3 Search builder",
    "what_happened": "Heavy jargon for a non-native reader: 'index term', 'title/abstract', 'group 1: any of ... AND group 2', 'MeSH', 'controlled vocabulary'. The query for the topic 'App' includes 'telemedicine' and 'Southeast Asia' that I never wrote. PubMed shows 2 groups and OpenAlex shows 3 for the same topic. The count '2,207 papers match' has no (mock) tag. After running all searches the query rows still read 'PubMed \u2013 \u00b7 OpenAlex \u2013', and only the first topic's PubMed count appears.",
    "expected": "Plain explanation of the groups, queries that match my topic, and query rows that show the counts after the run.",
-   "evidence": "docs/qa/nonnative/13-searches.jpg, docs/qa/nonnative/13b-count.jpg, docs/qa/nonnative/22-overview.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/13-searches.jpg, docs/qa/iteration-1/nonnative/13b-count.jpg, docs/qa/iteration-1/nonnative/22-overview.jpg",
    "suggested_fix": "Add a one-line plain explanation above the groups ('a paper must match one word from each box'). Update the query rows after the run. Tag demo numbers as mock."
   },
   {
@@ -181,7 +181,7 @@
    "page": "Sign up",
    "what_happened": "The helper text 'At least 10 characters, not containing the name part of your email.' overlaps the bottom of the Password input, so it looks broken. The rule is also hard to understand ('name part of your email').",
    "expected": "Hint below the field and not on top of it, in simpler words.",
-   "evidence": "docs/qa/nonnative/02-signup.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/02-signup.jpg",
    "suggested_fix": "Fix the layout and write 'At least 10 characters. Do not use your email name.'"
   },
   {
@@ -190,7 +190,7 @@
    "page": "Table and ranking filters",
    "what_happened": "Choosing 'Trial' and 'Review article' gives 'Showing 0 of 118: trial; review article.' with no hint that the groups are combined with AND, so I thought something was wrong.",
    "expected": "A plain explanation such as 'papers that are Trial AND Review article'.",
-   "evidence": "docs/qa/nonnative/16b-filtered.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/16b-filtered.jpg",
    "suggested_fix": "Show 'Trial AND Review article: no paper matches both' and offer to switch the second group off."
   },
   {
@@ -199,7 +199,7 @@
    "page": "Step 4 Retrieval, colours",
    "what_happened": "The colours change meaning when 'Colour by' changes (blue circle = Trial under Study type, blue circle = App under Topic). Teal triangle and green cross are two similar greens. The article type, which is a main thing I wanted to filter by, cannot be used to colour the map. The study type counts change from step 4 (Not reported 98) to step 5 (Not reported 17) without a clear explanation.",
    "expected": "The legend always shows which dimension is being coloured. The AI relabelling is explained where the numbers change.",
-   "evidence": "docs/qa/nonnative/14d-key.jpg, docs/qa/nonnative/14f-topic.jpg, docs/qa/nonnative/16-table.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/14d-key.jpg, docs/qa/iteration-1/nonnative/14f-topic.jpg, docs/qa/iteration-1/nonnative/16-table.jpg",
    "suggested_fix": "Put the dimension name in the legend heading ('Colour: study type'). Say 'AI labels added from abstracts' next to the changed counts."
   },
   {
@@ -208,7 +208,7 @@
    "page": "Step 8 Synthesis",
    "what_happened": "Every topic shows '1 conflict', 'Placeholder contradiction between two papers' key findings', and the Known statement '(mock) 7 key findings were extracted for this topic.' The quote chips lead to a protocol sentence ('The results of this study will be published in peer-reviewed journals'). It is labelled mock, but it looks like a real finding and does not help a student.",
    "expected": "In demo mode, a clear 'sample output' tag on the whole card, or a sensible demo.",
-   "evidence": "docs/qa/nonnative/26-synthesis.jpg, docs/qa/nonnative/26b.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/26-synthesis.jpg, docs/qa/iteration-1/nonnative/26b.jpg",
    "suggested_fix": "Mark the whole synthesis block as a demo sample. Skip protocol-only papers when building 'findings'."
   },
   {
@@ -217,7 +217,7 @@
    "page": "Step 9 Research question",
    "what_happened": "The page says 'Pick one; you can edit it' and 'you can edit it after', but I found no edit control on the chosen question or on the export page. 'PICo (Population, phenomenon of Interest, Context)' is jargon.",
    "expected": "A visible 'Edit question' button next to 'Chosen'.",
-   "evidence": "docs/qa/nonnative/28-chosen.jpg, docs/qa/nonnative/29-export.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/28-chosen.jpg, docs/qa/iteration-1/nonnative/29-export.jpg",
    "suggested_fix": "Add an Edit button on the chosen card, or remove the promise. Explain PICo in plain words."
   },
   {
@@ -226,7 +226,7 @@
    "page": "Export",
    "what_happened": "The report is called 'Markdown, a text document: opens in Word, Google Docs or any text editor'. A student would not know what Markdown is, and .md files do not normally open in Word. Clicking 'Download the report (Markdown)' showed no confirmation, so I could not tell it worked. In the preview the Gap line shows broken italics ('c5b39fb8454e549de]' partly italic) and raw ids in square brackets.",
    "expected": "A Word-friendly format or an honest note, a visible 'downloaded' message, and a clean preview.",
-   "evidence": "docs/qa/nonnative/30b.jpg, docs/qa/nonnative/31-download.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/30b.jpg, docs/qa/iteration-1/nonnative/31-download.jpg",
    "suggested_fix": "Offer .docx or PDF, show a toast on download, escape the ids in the preview and show readable citations."
   },
   {
@@ -235,7 +235,7 @@
    "page": "Landing",
    "what_happened": "The landing page does not say it is a demo, so a new user could expect real results on their topic until they see the banner after signing in. Words like 'appraised' and 'synthesis' are hard for a second-language reader.",
    "expected": "One line near the first button such as 'Demo version: sample papers on a different topic'.",
-   "evidence": "docs/qa/nonnative/01-landing.jpg, docs/qa/nonnative/01b-landing-bottom.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/01-landing.jpg, docs/qa/iteration-1/nonnative/01b-landing-bottom.jpg",
    "suggested_fix": "Add the demo note on the landing page when the server is in demo mode, and simplify 'appraise' to 'check quality'."
   },
   {
@@ -244,7 +244,7 @@
    "page": "Step 4 Retrieval, Step 7 Appraisal",
    "what_happened": "The paper detail shows 'Trials' as the article type next to 'Randomised trial' as the study type. 'Key finding' for a trial protocol shows only a registry number ('NCT07198828.') or a truncated sentence ending in 'and'. The model name 'mock:grok-4.20-0309-reasoning' is shown under Details.",
    "expected": "Consistent labels and complete key findings, with technical details only for those who ask.",
-   "evidence": "docs/qa/nonnative/17-paper.jpg, docs/qa/nonnative/23c.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/17-paper.jpg, docs/qa/iteration-1/nonnative/23c.jpg",
    "suggested_fix": "Trim key findings at a sentence end, show 'Protocol, no results yet', and keep model names behind a Details control."
   },
   {
@@ -253,7 +253,7 @@
    "page": "UX intent comparison (docs/ux-intent.md)",
    "what_happened": "Compared to the intent doc: (a) 'A panel whose step is not the current one offers Go to step N' did not hold on the stale step 6 page. (b) 'Keep or delete each suggested topic, open one to edit' was not discoverable. (c) 'Detail sits behind Details or \u22ef' was mostly true, but jargon was visible on the search builder (MeSH, index term). (d) The categories and colours rules (shape plus label plus legend, click to isolate, article type without hue) matched what I understood, and I could say 'the colours and shapes show the kind of study'. (e) Retrieval, summary table, export and demo banner matched their intent.",
    "expected": "Pages match the intended 3-second reading.",
-   "evidence": "docs/qa/nonnative/21c-reload.jpg, docs/qa/nonnative/11b.jpg, docs/qa/nonnative/14d-key.jpg",
+   "evidence": "docs/qa/iteration-1/nonnative/21c-reload.jpg, docs/qa/iteration-1/nonnative/11b.jpg, docs/qa/iteration-1/nonnative/14d-key.jpg",
    "suggested_fix": "Fix the items above and keep the categories rules as they are."
   }
  ]
