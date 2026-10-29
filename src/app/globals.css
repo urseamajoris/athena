@@ -479,6 +479,29 @@ svg.lucide {
     min-width: 44px;
   }
 }
+/* Short viewports: the side panel's pinned footer stays compact (the note beside the buttons, less padding), so it
+   does not take a third of a zoomed screen. Focused controls are scrolled clear of it (revealInPanel in focus.ts). */
+@media (max-height: 640px) {
+  [data-panel-footer] > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+  [data-panel-footer] > div > p {
+    flex: 1 1 12rem;
+    margin-bottom: 0;
+  }
+  [data-panel-footer] > div > div {
+    margin-left: auto;
+  }
+  [data-panel-footer-fallback] {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+}
 /* Promote the viewport to its own layer only while panning/zooming (crisp text the rest of the time). */
 [data-moving] .react-flow__viewport {
   will-change: transform;

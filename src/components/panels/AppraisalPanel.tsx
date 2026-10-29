@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api, projectPath, useApi } from "../api";
 import { Badge, EmptyState, ErrorState, Loading, Spinner, TextSourceBadge, cx } from "../ui";
@@ -12,6 +12,7 @@ import { isUndecided } from "@/lib/shared/canvas";
 import { fmtInt } from "@/lib/shared/format";
 import { Checklist } from "../guide/Checklist";
 import { WhatHappens } from "../guide/WhatHappens";
+import { usingKeyboard } from "../canvas/focus";
 
 export interface AppraisalRow {
   id: string; paperId: string; status: string; error: string | null; textSource: string; textNote: string; templateType: string;
@@ -149,6 +150,29 @@ function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onCh
   // Quotes decided on this visit stay in place (as "Rejected", with Undo) even under "only quotes I need to decide".
   const [decidedHere, setDecidedHere] = useState<Set<string>>(() => new Set());
   const stale = states["7"] === "stale";
+  const rootRef = useRef<HTMLDivElement>(null);
+  // A decision removes the button that was pressed (Reject becomes Undo). For keyboard users focus then moves on
+  // to the next quote to decide (or, when none is left, to the footer's next action), not back to the panel
+  // heading at the top. Layout effect: it runs before the panel's own focus recovery (FocusPanel) looks.
+  const moveFrom = useRef<{ id: string; decision: "accept" | "reject" | "clear" } | null>(null);
+  useLayoutEffect(() => {
+    const m = moveFrom.current;
+    const root = rootRef.current;
+    const c = m && data?.claims.find((x) => x.id === m.id);
+    if (!m || !root || !c) return;
+    // Only once the decision shows on screen.
+    if (m.decision === "reject" ? !c.userRejected : m.decision === "accept" ? !c.userAccepted : c.userAccepted || c.userRejected) return;
+    moveFrom.current = null;
+    if (!usingKeyboard()) return;
+    const quotes = [...root.querySelectorAll<HTMLElement>("[data-quote]")];
+    const at = quotes.findIndex((q) => q.dataset.quote === m.id);
+    const next = m.decision === "clear" ? quotes[at] : [...quotes.slice(at + 1), ...quotes.slice(0, Math.max(0, at))].find((q) => q.hasAttribute("data-undecided"));
+    const target =
+      next?.querySelector<HTMLElement>("[data-decide]") ??
+      root.closest("[data-panel]")?.querySelector<HTMLElement>("[data-panel-footer] .btn-primary") ??
+      quotes[at]?.querySelector<HTMLElement>("button");
+    target?.focus();
+  }, [data]);
   if (isLoading) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (!data) return null;
@@ -156,12 +180,17 @@ function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onCh
   async function decide(c: Claim, decision: "accept" | "reject" | "clear") {
     if (!(await confirmEdit(7))) return;
     setBusy(c.id);
+    // Kept in place first, so that under "only quotes I need to decide" it is still there to move on from.
+    setDecidedHere((s) => new Set(s).add(c.id));
+    moveFrom.current = { id: c.id, decision };
     try {
       await mutate(await api<AppraisalDetailData>(projectPath(projectId, `claims/${c.id}`), { method: "PATCH", body: { decision } }), { revalidate: false });
-      setDecidedHere((s) => new Set(s).add(c.id));
       announce(decision === "reject" ? "Quote rejected: left out of the synthesis. Undo is next to it." : decision === "accept" ? "Quote accepted: it will be used in the synthesis." : "Decision undone: the quote is waiting for you again.");
       onChanged();
       await refresh();
+    } catch (e) {
+      moveFrom.current = null;
+      throw e;
     } finally {
       setBusy(null);
     }
@@ -171,7 +200,7 @@ function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onCh
   const fieldClaims = data.claims.filter((c) => c.field !== "checklist" && (!onlyOpen || open(c)));
   const checklist = a.checklist.filter((it) => !onlyOpen || open(it.claimId ? byId.get(it.claimId) : null));
   return (
-    <div className="space-y-4">
+    <div ref={rootRef} className="space-y-4">
       <div>
         <button className="link min-h-11 text-left font-semibold md:min-h-0" onClick={() => openPaper(data.paper.id)}>{data.paper.title}</button>
         <p className="mt-1 text-12 text-fg-2">{data.paper.year ?? "n.d."}{data.paper.doi ? ` · DOI ${data.paper.doi}` : data.paper.pmid ? ` · PMID ${data.paper.pmid}` : ""}</p>
@@ -244,7 +273,7 @@ export function QuoteLine({ c, text, stale, onDecide, busy }: { c: Claim; text?:
   const [open, setOpen] = useState(false);
   const canShow = c.verified && text && c.matchStart !== null && c.matchEnd !== null;
   return (
-    <div className="mt-2">
+    <div className="mt-2" data-quote={c.id} data-undecided={isUndecided(c) || undefined}>
       <blockquote className={cx("border-l-2 pl-2 text-12 italic", c.verified ? "border-ok-line text-fg-1" : c.userRejected ? "border-line text-fg-2 line-through" : "border-err-line text-fg-1")}>“{c.quote}”</blockquote>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-12 text-fg-2">
         <QuoteVerdict c={c} stale={stale} />
@@ -252,8 +281,8 @@ export function QuoteLine({ c, text, stale, onDecide, busy }: { c: Claim; text?:
         <span className="ml-auto flex flex-wrap gap-1">
           {busy && <Spinner className="h-3 w-3" />}
           {canShow && <button className="btn-ghost btn-sm" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{open ? "Hide source" : "Show source"}</button>}
-          {!c.verified && !c.userAccepted && <button className="btn-secondary btn-sm" onClick={() => onDecide("accept")} title="The paper does say this: keep it">Accept anyway</button>}
-          {!c.verified && !c.userRejected && <button className="btn-secondary btn-sm" onClick={() => onDecide("reject")} title="Leave this claim out of the synthesis">Reject</button>}
+          {!c.verified && !c.userAccepted && <button className="btn-secondary btn-sm" data-decide onClick={() => onDecide("accept")} title="The paper does say this: keep it">Accept anyway</button>}
+          {!c.verified && !c.userRejected && <button className="btn-secondary btn-sm" data-decide onClick={() => onDecide("reject")} title="Leave this claim out of the synthesis">Reject</button>}
           {!c.verified && (c.userAccepted || c.userRejected) && <button className="btn-ghost btn-sm" onClick={() => onDecide("clear")} aria-label={c.userRejected ? "Undo reject" : "Undo accept"}>Undo</button>}
           <PinButton claimId={c.id} />
         </span>
