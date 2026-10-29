@@ -82,6 +82,9 @@ export interface VerdictInput {
   keyProblem: string | null;
   modelProblems: string[];
   mockMode: boolean;
+  /** Errors reported by users' browsers (page errors and unhandled promise rejections). */
+  clientErrorsLastHour?: number;
+  topClientError?: { page: string; message: string } | null;
 }
 
 /** Green / amber / red, with the reasons in plain words (the "what needs my attention" list). */
@@ -92,6 +95,8 @@ export function verdict(i: VerdictInput): { level: Level; reasons: { level: Leve
   const rate = i.requestsLastHour ? i.errors5xxLastHour / i.requestsLastHour : 0;
   if (i.requestsLastHour >= 20 && rate > 0.05) add("red", `${(rate * 100).toFixed(1)}% of requests failed with a server error in the last hour.`);
   else if (i.errors5xxLastHour > 0) add("amber", `${i.errors5xxLastHour} server error${i.errors5xxLastHour === 1 ? "" : "s"} in the last hour.`);
+  const ce = i.clientErrorsLastHour ?? 0;
+  if (ce > 0) add("amber", `${ce} error${ce === 1 ? "" : "s"} in users' browsers in the last hour${i.topClientError ? `, most often on ${i.topClientError.page}: "${i.topClientError.message}"` : ""}.`);
   if (i.limit > 0 && i.spent >= i.limit) add("red", "The AI budget is used up: AI steps are stopped for everyone.");
   else if (i.limit > 0 && i.spent >= 0.8 * i.limit) add("amber", `AI spend is at ${Math.round((i.spent / i.limit) * 100)}% of the limit.`);
   if (!i.aiEnabled) add("amber", "AI is switched off: users see a paused message on AI steps.");
@@ -103,4 +108,28 @@ export function verdict(i: VerdictInput): { level: Level; reasons: { level: Leve
   const level: Level = reasons.some((r) => r.level === "red") ? "red" : reasons.length ? "amber" : "green";
   if (!reasons.length) reasons.push({ level: "green", text: i.mockMode ? "Everything is healthy. Mock mode: nothing is spent." : "Everything is healthy." });
   return { level, reasons };
+}
+
+/**
+ * A browser error message as it may be stored: no URLs, e-mail addresses, IDs or long quoted text (which could
+ * carry a user's words), trimmed to a short line.
+ */
+export function cleanClientMessage(msg: string): string {
+  return msg
+    .replace(/\b[a-z][a-z0-9+.-]*:\/\/\S+/gi, "<url>")
+    .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, "<email>")
+    .replace(/(["'`“‘])[^"'`”’]{40,}(["'`”’])/g, "$1…$2")
+    .replace(/\b[a-z]{1,4}_[a-z0-9]{6,}\b/gi, "<id>")
+    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "<id>")
+    .replace(/\b(?=[0-9a-f]*\d)[0-9a-f]{12,}\b/gi, "<id>")
+    .replace(/\b\d{6,}\b/g, "<id>")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160) || "Unknown error";
+}
+
+/** The page a browser error happened on, as a pattern ("/s/:id/export"): never the IDs, never the query string. */
+export function pagePattern(path: string): string {
+  const segs = path.split(/[?#]/)[0].split("/").filter(Boolean).slice(0, 5);
+  return "/" + segs.map((s) => (/^[a-z][a-z-]{0,23}$/.test(s) ? s : ":id")).join("/");
 }

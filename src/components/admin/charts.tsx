@@ -85,7 +85,7 @@ export function Stat({ label, value, sub, tone }: { label: string; value: string
     <div className="min-w-0 rounded-md border border-line bg-bg-1 px-3 py-2">
       <p className="truncate text-12 text-fg-2">{label}</p>
       <p className={cx("text-20 font-semibold", tone === "ok" ? "text-ok" : tone === "warn" ? "text-warn" : tone === "err" ? "text-err" : "text-fg-0")}>{value}</p>
-      {sub && <p className="truncate text-12 text-fg-2" title={sub}>{sub}</p>}
+      {sub && <p className="break-words text-12 text-fg-2">{sub}</p>}
     </div>
   );
 }

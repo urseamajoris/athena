@@ -276,7 +276,7 @@ try {
   if (!(await page.locator('[data-panel="questions"]').isVisible().catch(() => false))) await openNode("questions");
   await shot("9-questions");
   await panel().getByRole("button", { name: "Choose this question" }).first().click();
-  await panel().getByRole("button", { name: "Refine the chosen question" }).click();
+  await panel().getByRole("button", { name: "Edit this question" }).click();
   const qbox = page.getByLabel("Question", { exact: true });
   await qbox.fill((await qbox.inputValue()).replace(/\?$/, "") + " between 2015 and 2025?");
   await panel().getByRole("button", { name: "Save edits" }).click();

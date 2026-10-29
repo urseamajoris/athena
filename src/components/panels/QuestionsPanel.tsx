@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Check, Pencil } from "lucide-react";
 import { api, projectPath, useApi } from "../api";
 import { Badge, EmptyState, ErrorState, Loading, Spinner, cx } from "../ui";
 import { Disclosure } from "../disclosure";
@@ -12,15 +12,6 @@ import { fmtInt } from "@/lib/shared/format";
 import { WhatHappens } from "../guide/WhatHappens";
 
 /** What each question framework's letters stand for (shown next to its name, never as a bare acronym). */
-/** What kind of question each framework suits, in plain words. */
-const FRAMEWORK_KIND: Record<string, string> = {
-  PICO: "the effect of an intervention",
-  PICo: "experiences in a context",
-  PECO: "the effect of an exposure",
-  PEO: "the link between an exposure and an outcome",
-  SPIDER: "a qualitative or mixed-methods question",
-  SPICE: "how a service or policy works in a setting",
-};
 const FRAMEWORK: Record<string, string> = {
   PICO: "Population, Intervention, Comparison, Outcome",
   PICo: "Population, phenomenon of Interest, Context",
@@ -29,6 +20,21 @@ const FRAMEWORK: Record<string, string> = {
   SPIDER: "Sample, Phenomenon of Interest, Design, Evaluation, Research type",
   SPICE: "Setting, Perspective, Intervention, Comparison, Evaluation",
 };
+
+/**
+ * The framework a candidate actually uses, read from the parts of its structure: the declared name can disagree
+ * with the parts the model filled in, and the card describes what is there, not what was claimed.
+ */
+function frameworkOf(q: { framework: string; structure: Record<string, string> }): string {
+  const keys = Object.keys(q.structure).map((k) => k.toLowerCase());
+  const has = (re: RegExp) => keys.some((k) => re.test(k));
+  if (has(/^sample/) && has(/evaluation/)) return "SPIDER";
+  if (has(/^setting/) && has(/perspective/)) return "SPICE";
+  if (has(/intervention/)) return "PICO";
+  if (has(/exposure/)) return has(/compar/) ? "PECO" : "PEO";
+  if (has(/interest|phenomen/) && has(/context/)) return "PICo";
+  return q.framework;
+}
 
 interface Match { title: string; year: number | null; doi: string | null; pmid: string | null; openalexId: string | null; database: string; similarityNote: string }
 export interface RQ {
@@ -51,6 +57,7 @@ export function QuestionsPanel() {
   const { data, error, isLoading, mutate } = useQuestions();
   const [err, setErr] = useState<unknown>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const node = graph.nodes.find((n) => n.id === "questions");
   const action = node ? nextAction(node, graph, input) : null;
   if (isLoading) return <Loading />;
@@ -61,6 +68,7 @@ export function QuestionsPanel() {
   async function choose(id: string) {
     setErr(null);
     setBusy(id);
+    setEditing(false);
     try {
       await mutate(await api<QData>(projectPath(projectId, `questions/${id}/choose`), { body: {} }), { revalidate: false });
       await refresh();
@@ -70,7 +78,6 @@ export function QuestionsPanel() {
       setBusy(null);
     }
   }
-  const chosen = data.questions.find((q) => q.chosen);
 
   return (
     <div className="space-y-4">
@@ -82,30 +89,42 @@ export function QuestionsPanel() {
       ) : (
         <>
           <WhatHappens stage={9} />
-          <p className="text-fg-1">Compare the gap each one fills, how feasible it is and its main weakness, then choose one; you can edit it after.</p>
+          <p className="text-fg-1">Compare the gap each one fills, how feasible it is and its main weakness, then choose one. Once chosen, “Edit this question” lets you change its wording.</p>
           <p className="text-12 text-fg-2">The novelty check is a fresh database search for similar studies. Finding none does not prove a question is new.</p>
           <ul className="space-y-3" aria-label="Candidate research questions">
-            {data.questions.map((q, i) => (
+            {data.questions.map((q, i) => {
+              const fw = frameworkOf(q);
+              return (
               <li key={q.id} className={cx("rounded-md border p-3", q.chosen ? "border-fg-1" : "border-line")} aria-label={`Candidate ${i + 1}`}>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-12 text-fg-2">Candidate {i + 1}{FRAMEWORK_KIND[q.framework] ? ` · a question about ${FRAMEWORK_KIND[q.framework]}` : ""}</span>
+                  {/* No "a question about …" label: the framework says how the question is structured, not what it asks. */}
+                  <span className="text-12 text-fg-2">Candidate {i + 1}</span>
                   {q.edited && <Badge>edited</Badge>}
                 </div>
-                <p className="font-medium leading-snug">{q.text}</p>
+                {q.chosen && editing ? (
+                  <EditChosen key={q.id} q={q} finished={finished} onSaved={(d) => { mutate(d, { revalidate: false }); setEditing(false); }} onCancel={() => setEditing(false)} />
+                ) : (
+                  <p className="font-medium leading-snug">{q.text}</p>
+                )}
                 <dl className="mt-2 grid grid-cols-[88px_1fr] gap-x-2 gap-y-1 text-12">
                   <dt className="text-fg-2">Gap it fills</dt><dd className="line-clamp-2 text-fg-1">{q.gap}</dd>
                   <dt className="text-fg-2">Feasibility</dt><dd className="line-clamp-2 text-fg-1">{q.feasibility}</dd>
                   <dt className="text-fg-2">Weakness</dt><dd className="line-clamp-2 text-fg-1">{q.weakness}</dd>
-                  <dt className="text-fg-2">Structure</dt><dd className="text-fg-1">{q.framework}{FRAMEWORK[q.framework] ? ` (${FRAMEWORK[q.framework]})` : ""}</dd>
+                  <dt className="text-fg-2">Structure</dt><dd className="text-fg-1">{fw}{FRAMEWORK[fw] ? ` (${FRAMEWORK[fw]})` : ""}</dd>
                 </dl>
-                <div className="mt-3 flex items-center gap-2">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button className={cx("btn-secondary", q.chosen && "border-fg-0")} onClick={() => choose(q.id)} disabled={q.chosen || finished || !!busy} aria-pressed={q.chosen}>
                     {busy === q.id ? <Spinner /> : q.chosen ? <Check className="h-4 w-4" strokeWidth={1.5} aria-hidden /> : null}
-                    {q.chosen ? "Chosen" : "Choose this question"}
+                    {q.chosen ? "Chosen" : <>Choose this question<span className="sr-only"> (candidate {i + 1})</span></>}
                   </button>
+                  {q.chosen && !editing && (
+                    <button className="btn-secondary" onClick={() => setEditing(true)}>
+                      <Pencil className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Edit this question
+                    </button>
+                  )}
                 </div>
                 <div className="mt-3">
-                  <Disclosure title="Full reasoning and quotes" meta={`${q.claimIds.length} supporting quote${q.claimIds.length === 1 ? "" : "s"}`}>
+                  <Disclosure title={<>Full reasoning and quotes<span className="sr-only"> (candidate {i + 1})</span></>} meta={`${q.claimIds.length} supporting quote${q.claimIds.length === 1 ? "" : "s"}`}>
                     <dl className="space-y-1">
                       {Object.entries(q.structure).map(([k, v]) => (
                         <div key={k} className="grid grid-cols-[96px_1fr] gap-2"><dt className="text-fg-2">{k}</dt><dd>{v}</dd></div>
@@ -123,9 +142,9 @@ export function QuestionsPanel() {
                   </Disclosure>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
-          {chosen && !finished && <EditChosen key={chosen.id} q={chosen} onSaved={(d) => mutate(d, { revalidate: false })} />}
         </>
       )}
       <JobLog stage={9} />
@@ -168,7 +187,8 @@ function Novelty({ q, onRerun }: { q: RQ; onRerun: (d: QData) => void }) {
   );
 }
 
-function EditChosen({ q, onSaved }: { q: RQ; onSaved: (d: QData) => void }) {
+/** In place of the chosen question's text: its wording, structure and design, editable. */
+function EditChosen({ q, finished, onSaved, onCancel }: { q: RQ; finished: boolean; onSaved: (d: QData) => void; onCancel: () => void }) {
   const { projectId, refresh } = useSession();
   const [text, setText] = useState(q.text);
   const [structure, setStructure] = useState(q.structure);
@@ -177,9 +197,9 @@ function EditChosen({ q, onSaved }: { q: RQ; onSaved: (d: QData) => void }) {
   const [err, setErr] = useState<unknown>(null);
   const dirty = text !== q.text || JSON.stringify(structure) !== JSON.stringify(q.structure) || design !== q.design;
   return (
-    <Disclosure title="Refine the chosen question">
+    <div role="group" aria-label="Edit the chosen question" className="rounded-sm bg-bg-2 p-3">
       <label htmlFor="chosen-question" className="label">Question</label>
-      <textarea id="chosen-question" className="input min-h-16" value={text} onChange={(e) => setText(e.target.value)} />
+      <textarea id="chosen-question" className="input min-h-16" value={text} onChange={(e) => setText(e.target.value)} autoFocus />
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         {Object.entries(structure).map(([k, v]) => (
           <label key={k} className="text-12 text-fg-1">{k}
@@ -190,13 +210,14 @@ function EditChosen({ q, onSaved }: { q: RQ; onSaved: (d: QData) => void }) {
           <input className="input mt-1" value={design} onChange={(e) => setDesign(e.target.value)} />
         </label>
       </div>
+      {finished && <p className="mt-2 text-12 text-fg-2">Saving reopens step 9: press “Finish and export” again to update the report.</p>}
       {err ? <div className="mt-2"><ErrorState error={err} /></div> : null}
       <div className="mt-3 flex justify-end gap-2">
-        {dirty && <button className="btn-ghost" onClick={() => { setText(q.text); setStructure(q.structure); setDesign(q.design); }}>Undo</button>}
+        <button className="btn-ghost" onClick={onCancel}>Cancel</button>
         <button className="btn-secondary" disabled={!dirty || busy} onClick={async () => { setBusy(true); setErr(null); try { onSaved(await api(projectPath(projectId, `questions/${q.id}`), { method: "PATCH", body: { text, structure, design } })); await refresh(); } catch (e) { setErr(e); } finally { setBusy(false); } }}>
           {busy && <Spinner />} Save edits
         </button>
       </div>
-    </Disclosure>
+    </div>
   );
 }

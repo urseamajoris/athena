@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { Download, Maximize2 } from "lucide-react";
+import { Download, Maximize2, Pencil, Printer } from "lucide-react";
 import { RadioGroup } from "radix-ui";
 import { projectPath, useApi } from "../api";
 import { ErrorState, Spinner, cx } from "../ui";
@@ -12,7 +12,7 @@ import { useQuestions } from "./QuestionsPanel";
 import { fmtInt } from "@/lib/shared/format";
 
 export const FORMATS = [
-  { id: "markdown", label: "Report", ext: "Markdown", open: "a text document: opens in Word, Google Docs or any text editor", help: "Your question, the search strategy, the papers you chose, appraisals with checked quotes, the synthesis and every decision you made." },
+  { id: "markdown", label: "Report", ext: "Markdown", open: "plain text with formatting marks such as # for headings; for a formatted copy, open the printable report", help: "Your question, the search strategy, the papers you chose, appraisals with checked quotes, the synthesis and every decision you made." },
   { id: "csv", label: "Spreadsheet of all papers", ext: "CSV", open: "opens in Excel, Numbers or Google Sheets", help: "Every paper found, with its study type, setting and key finding (AI-drafted, plus your corrections)." },
   { id: "bibtex", label: "Reference list", ext: "BibTeX", open: "imports into Zotero, EndNote or Mendeley", help: "The papers you selected for appraisal, ready to cite." },
 ] as const;
@@ -40,7 +40,9 @@ export function ExportView({ full = false }: { full?: boolean }) {
   const { projectId, summary } = useSession();
   const { data } = useQuestions();
   const [format, setFormat] = useState<Format>("markdown");
+  const [downloaded, setDownloaded] = useState<Format | null>(null);
   const href = projectPath(projectId, `export/${format}`);
+  const fmt = FORMATS.find((f) => f.id === format)!;
   // The first lines of the real file (the server caps the preview; Download gets everything).
   const { data: preview, error: err } = useApi<{ text: string; lines: number }>(`${href}?preview=1`);
   const q = data?.questions.find((x) => x.chosen);
@@ -60,7 +62,10 @@ export function ExportView({ full = false }: { full?: boolean }) {
       )}
       {q && (
         <section aria-label="Your research question" className="rounded-md border border-line bg-bg-1 p-3">
-          <p className="text-12 text-fg-2">Your research question</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-12 text-fg-2">Your research question</p>
+            <Link href={`/s/${projectId}?node=questions`} className="btn-ghost btn-sm"><Pencil className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Edit the question</Link>
+          </div>
           <p className="text-16 font-semibold leading-snug">{q.text}</p>
         </section>
       )}
@@ -77,13 +82,21 @@ export function ExportView({ full = false }: { full?: boolean }) {
           </RadioGroup.Item>
         ))}
       </RadioGroup.Root>
+      {/* Phones cannot open Markdown: the same report as a web page, to read, print or save as PDF. */}
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <a className="btn-secondary min-h-11" href={projectPath(projectId, "export/html")} target="_blank" rel="noopener">
+          <Printer className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Open printable report
+        </a>
+        <span className="text-12 text-fg-2">The report as a web page: read it on any device, print it or save it as PDF.</span>
+      </p>
       {full && (
         <div className="sticky bottom-0 z-10 -mx-4 border-t border-line bg-bg-0 px-4 py-3 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
-          <a className="btn-primary min-h-11 w-full sm:w-auto" href={href} download>
-            <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Download the {FORMATS.find((f) => f.id === format)!.label.toLowerCase()} ({FORMATS.find((f) => f.id === format)!.ext})
+          <a className="btn-primary min-h-11 w-full sm:w-auto" href={href} download onClick={() => setDownloaded(format)}>
+            <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Download the {fmt.label.toLowerCase()} ({fmt.ext})
           </a>
         </div>
       )}
+      <p role="status" className="text-12 text-fg-1 empty:sr-only">{downloaded === format ? `Downloading the ${fmt.label.toLowerCase()} (${fmt.ext}). It will be in your browser’s downloads.` : ""}</p>
       <section aria-label="Preview">
         <div className="mb-2 flex items-center justify-between gap-2">
           {full ? <h2 className="text-12 font-medium text-fg-2">Preview{count}</h2> : <h3 className="text-12 font-medium text-fg-2">Preview{count}</h3>}
@@ -93,7 +106,7 @@ export function ExportView({ full = false }: { full?: boolean }) {
           format === "markdown" ? (
             <div tabIndex={0} aria-label="Report preview" className={cx("overflow-auto rounded-md border border-line bg-bg-0 p-4", full ? "max-h-[60vh]" : "max-h-72")}><MarkdownPreview lines={shown} /></div>
           ) : (
-          <pre tabIndex={0} aria-label={`${FORMATS.find((f) => f.id === format)!.label} preview`} className={cx("overflow-auto whitespace-pre-wrap break-words rounded-md border border-line bg-bg-0 p-3 font-mono text-12 text-fg-1", full ? "max-h-[60vh]" : "max-h-72")}>
+          <pre tabIndex={0} aria-label={`${fmt.label} preview`} className={cx("overflow-auto whitespace-pre-wrap break-words rounded-md border border-line bg-bg-0 p-3 font-mono text-12 text-fg-1", full ? "max-h-[60vh]" : "max-h-72")}>
             {/* Blocks of 20 lines: the browser lays out only the blocks scrolled into view. */}
             {Array.from({ length: Math.ceil(shown.length / 20) }, (_, i) => (
               <span key={i} className="block [content-visibility:auto] [contain-intrinsic-size:auto_20rem]">{shown.slice(i * 20, i * 20 + 20).join("\n")}</span>
@@ -113,8 +126,8 @@ export function ExportView({ full = false }: { full?: boolean }) {
       </Disclosure>
       {!full && (
         <PanelFooter>
-          <a className="btn-primary" href={href} download>
-            <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Download {FORMATS.find((f) => f.id === format)!.ext}
+          <a className="btn-primary" href={href} download onClick={() => setDownloaded(format)}>
+            <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Download {fmt.ext}
           </a>
         </PanelFooter>
       )}

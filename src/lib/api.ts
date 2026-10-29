@@ -10,7 +10,8 @@ import { startJob, cancelJob } from "./jobs";
 import { addTopic, answerScoping, approveTopics, deleteTopic, generateTopics, mergeTopics, nextScopingTurn, scopingState, skipScoping, updateTopic } from "./stages/scoping";
 import { buildQueries, dryRun, dryRunAll, searchState, updateCriteria, updateQuery } from "./stages/search";
 import { paperPointsView, appraisalDetail, appraisalsView, canvasView, claimsView, decisionLogView, paperDetail, papersTableView, projectView, questionsView, rankingTableView, retrievalView, synthesisView } from "./views";
-import { markdownReport, selectedBibtex, summaryCsv } from "./export";
+import { htmlReport, markdownReport, selectedBibtex, summaryCsv } from "./export";
+import { REPORT_CSP } from "./report-html";
 import { runNovelty } from "./jobs/questions";
 import { reverifyProject } from "./jobs/appraisal";
 import { nowIso, forEachSeq } from "./util";
@@ -375,8 +376,10 @@ on("GET", "claims", async ({ projectId }) => (await claimsView(projectId)));
 // ---------- misc ----------
 on("GET", "log", async ({ projectId }) => (await decisionLogView(projectId)));
 export const PREVIEW_LINES = 200;
-const EXPORTS: Record<string, { make: (projectId: string) => Promise<string>; type: string; ext: string }> = {
+const EXPORTS: Record<string, { make: (projectId: string) => Promise<string>; type: string; ext: string; inline?: boolean }> = {
   markdown: { make: markdownReport, type: "text/markdown", ext: "md" },
+  // The printable report opens in the browser tab (a download link still saves it as a file).
+  html: { make: htmlReport, type: "text/html", ext: "html", inline: true },
   csv: { make: summaryCsv, type: "text/csv", ext: "csv" },
   bibtex: { make: selectedBibtex, type: "application/x-bibtex", ext: "bib" },
 };
@@ -396,5 +399,7 @@ on("GET", "export/:kind", async ({ projectId, params, url }) => {
   const p = (await getProject(projectId));
   const slug = (p.title || "review").toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
   (await logDecision(projectId, 9, "exported", null, { kind: params.kind }, "user"));
-  return new Response(await e.make(projectId), { headers: { "Content-Type": `${e.type}; charset=utf-8`, "Content-Disposition": `attachment; filename="${slug}.${e.ext}"` } });
+  const headers: Record<string, string> = { "Content-Type": `${e.type}; charset=utf-8`, "Content-Disposition": `${e.inline ? "inline" : "attachment"}; filename="${slug}.${e.ext}"` };
+  if (e.inline) Object.assign(headers, { "Content-Security-Policy": `${REPORT_CSP}; frame-ancestors 'self'`, "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" });
+  return new Response(await e.make(projectId), { headers });
 });

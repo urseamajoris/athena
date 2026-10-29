@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { api, projectPath, useApi } from "../api";
-import { Badge, ErrorState, Loading, Spinner, cx } from "../ui";
+import { Badge, ErrorState, Loading, Spinner, aiStopKind, cx } from "../ui";
 import { Disclosure } from "../disclosure";
 import { canvasStore, cmdKey, useSession } from "../session/SessionContext";
 import { ActionButton, PanelFooter, SectionTitle } from "./common";
@@ -267,7 +267,7 @@ export function IdeaPanel() {
         </Disclosure>
       )}
 
-      {err ? <ErrorState error={err} title="That step failed" onRetry={() => (data.messages.length ? undefined : call("start", "scoping/start"))} /> : null}
+      {err ? <ErrorState error={err} title="That step failed" onRetry={data.messages.length ? undefined : () => call("start", "scoping/start")} /> : null}
 
       {action && (
         <PanelFooter note={hint ? <span role="alert" className="text-err">{hint}</span> : chatOpen && data.awaitingAnswer ? "Up to five short questions. “Skip the rest” goes straight to your search topics." : undefined}>
@@ -293,7 +293,7 @@ export function IdeaPanel() {
             </button>
             </>
           ) : action.cmd.type === "openScoping" ? (
-            <p className="flex items-center gap-2 text-fg-2"><Spinner /> Preparing the first question…</p>
+            aiStopKind(err) ? <p className="text-fg-2">The first question appears when AI is available again.</p> : <p className="flex items-center gap-2 text-fg-2"><Spinner /> Preparing the first question…</p>
           ) : (
             <ActionButton action={action} primary showReason />
           )}

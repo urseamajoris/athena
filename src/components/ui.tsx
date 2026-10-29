@@ -1,6 +1,7 @@
 "use client";
-import { type ReactNode } from "react";
-import { AlertTriangle, CheckCircle2, Circle, CircleDot, Loader2, Sparkles, X, XCircle } from "lucide-react";
+import { type ReactNode, useEffect, useRef } from "react";
+import { AlertTriangle, CheckCircle2, Circle, CircleDot, Loader2, PauseCircle, Sparkles, X, XCircle } from "lucide-react";
+import { ApiError, useApi } from "./api";
 import type { StageState } from "@/lib/shared/stages";
 import { STATE_LABEL } from "@/lib/shared/stages";
 
@@ -106,7 +107,38 @@ export function EmptyState({ title, children, action }: { title: string; childre
   );
 }
 
+/** "ai_paused" (switched off by the admin) or "budget" when an API call was refused because AI cannot run, else null. */
+export function aiStopKind(error: unknown): "ai_paused" | "budget" | null {
+  return error instanceof ApiError && (error.kind === "ai_paused" || error.kind === "budget") ? error.kind : null;
+}
+
+/**
+ * AI is off or out of budget: a paused state, not a failure. Nothing was lost, so no red and no pointless
+ * "Try again": the step retries by itself once the server says AI can run again.
+ */
+function AiStopped({ kind, onRetry }: { kind: "ai_paused" | "budget"; onRetry?: () => void }) {
+  const { data } = useApi<{ ai?: { enabled: boolean; budgetReached: boolean } }>(onRetry ? "/api/status" : null, { refreshInterval: 10_000 });
+  const available = !!data?.ai && data.ai.enabled && !data.ai.budgetReached;
+  const sawStopped = useRef(false);
+  useEffect(() => {
+    // Only on the change from stopped to available: a cached "available" from before the refusal is not news.
+    if (!available) sawStopped.current = true;
+    else if (sawStopped.current && onRetry) {
+      sawStopped.current = false;
+      onRetry();
+    }
+  }, [available, onRetry]);
+  return (
+    <div role="status" className="rounded-md border border-warn-line bg-warn-soft px-4 py-3">
+      <p className="flex items-center gap-2 font-semibold text-fg-0"><PauseCircle className="h-4 w-4 text-warn" strokeWidth={2} aria-hidden /> {kind === "budget" ? "AI budget reached" : "AI is paused by the administrator"}</p>
+      <p className="mt-1 text-fg-1">Your work is saved. {onRetry ? "This continues by itself when AI is available again." : "Try this again when AI is available again."}</p>
+    </div>
+  );
+}
+
 export function ErrorState({ error, onRetry, title = "Something went wrong" }: { error: unknown; onRetry?: () => void; title?: string }) {
+  const stop = aiStopKind(error);
+  if (stop) return <AiStopped kind={stop} onRetry={onRetry} />;
   const msg = error instanceof Error ? error.message : String(error);
   return (
     <div role="alert" className="rounded-md border border-err-line bg-bg-1 px-4 py-3">

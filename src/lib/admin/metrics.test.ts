@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { abandonment, dailySeries, frontierOf, funnel, percentile, projectExhaustion, projectsPerUser, verdict, type VerdictInput } from "./metrics";
+import { abandonment, cleanClientMessage, dailySeries, frontierOf, funnel, pagePattern, percentile, projectExhaustion, projectsPerUser, verdict, type VerdictInput } from "./metrics";
 import type { StageState } from "../shared/stages";
 
 const states = (approvedThrough: number, rest: StageState = "needs_review") =>
@@ -65,4 +65,28 @@ test("verdict: green, amber and red rules", () => {
   assert.equal(verdict({ ...ok, dbOk: false }).level, "red");
   assert.equal(verdict({ ...ok, sourceErrorRates: [{ source: "openalex", requests: 40, errorRate: 0.5 }] }).level, "amber");
   assert.match(verdict({ ...ok, spent: 12 }).reasons[0].text, /80%/);
+});
+
+test("browser error messages keep the error, not the user's data", () => {
+  assert.equal(cleanClientMessage("Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node."), "Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.");
+  assert.equal(cleanClientMessage("Failed to fetch https://x.test/api/projects/prj_acb566aca05548da/papers"), "Failed to fetch <url>");
+  assert.equal(cleanClientMessage("No paper prj_acb566aca05548da for mai@example.com"), "No paper <id> for <email>");
+  assert.equal(cleanClientMessage('Unexpected token in "my research idea about sleep and grades in UK students"'), 'Unexpected token in "…"');
+  assert.equal(cleanClientMessage("chunk 4f9a8c7d6e5b4a39 failed after 1234567 ms"), "chunk <id> failed after <id> ms");
+  assert.equal(cleanClientMessage("   "), "Unknown error");
+  assert.equal(cleanClientMessage("x".repeat(500)).length, 160);
+});
+
+test("browser error pages are patterns without IDs or query strings", () => {
+  assert.equal(pagePattern("/s/prj_acb566aca05548da/export?x=1"), "/s/:id/export");
+  assert.equal(pagePattern("/s/new"), "/s/new");
+  assert.equal(pagePattern("/admin"), "/admin");
+  assert.equal(pagePattern("/"), "/");
+  assert.equal(pagePattern("/a/b/c/d/e/f/g"), "/a/b/c/d/e");
+});
+
+test("verdict: errors in users' browsers are not 'healthy'", () => {
+  const v = verdict({ ...ok, clientErrorsLastHour: 3, topClientError: { page: "/s/:id", message: "Failed to execute 'removeChild'" } });
+  assert.equal(v.level, "amber");
+  assert.match(v.reasons[0].text, /3 errors in users' browsers in the last hour.*\/s\/:id.*removeChild/);
 });

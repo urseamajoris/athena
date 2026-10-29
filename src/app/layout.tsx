@@ -3,6 +3,7 @@ import "./globals.css";
 import { inter, jetbrains } from "./fonts";
 import { themeInitScript } from "@/lib/theme";
 import { RouteTransitions } from "@/components/route-transitions";
+import { ClientErrorReporter } from "@/components/ClientErrorReporter";
 
 export const metadata: Metadata = {
   title: "Athena — guided literature review",
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a href="#main" className="sr-only rounded-sm bg-bg-2 px-3 py-2 focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50">Skip to content</a>
         {children}
         <RouteTransitions />
+        <ClientErrorReporter />
       </body>
     </html>
   );
