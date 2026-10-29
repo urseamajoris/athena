@@ -197,3 +197,30 @@ The page understood least was the **first canvas view**. Several personas asked 
 | 6 | major (clarity) | 1 | A paper deselected in one topic still went to appraisal because it is selected in another topic, and the count did not change. |
 | 7 | major (admin) | 1 | The funnel and the "finished" tile disagreed after a user edited an approved step. |
 | 8 | major (bug) | 1 | A topic was deleted with no visible Undo (the Undo was only announced to screen readers). |
+
+### Fixed after iteration 3
+
+Three fix agents worked in parallel worktrees, and each branch got an independent review. The reviews raised 5 follow-ups, all fixed before merging. After merging: `npm test` 122/122, `npm run build` clean, `node scripts/e2e.mjs` 30/30, `npm run test:security` 48/48.
+
+| Finding | What changed |
+|---|---|
+| 1. Searches not shown after writing them | **Cause:** the live summary arrived after the request, so the panel opened the first topic's editor before the search nodes existed. The panel now waits for them and opens the first topic's searches, on the canvas and in List view. |
+| 2. Another paper's full text | A new title check (`src/lib/sources/match.ts`, unit-tested) compares a fetched full text's own title, or for a PDF its opening, with the paper's title. Word pairs made only of study-design words or place names do not count. When the titles do not match, the text is discarded and the abstract is used, with a plain note. This applies in real mode too. |
+| 4. Keyboard | **Typing while an answer is sent:** the text stays in the box, and is kept if the send fails. Text typed after the last question is shown as "not sent". **Quote decisions:** after Accept or Reject, focus moves to the next undecided quote. **Short screens:** the focused control scrolls into view above the footer, for keyboard focus only, so a mouse click is never moved away. The footer is compact below 640 px tall. |
+| 5. Demo questions | No word is cut mid-way, the population's phrase is not repeated, and synonyms are short terms, not clauses from answers. |
+| 6. Cross-topic selection | Deselecting a paper that is still selected in another topic now says so, and says that it will still be appraised. |
+| 7. Admin funnel | One progress rule for the tiles, the funnel and the accounts table, with labels that say what each counts. Unit-tested. |
+| 8. Topic Undo | A visible Undo restores a deleted topic in place and returns focus to it. |
+| First canvas view | The next-step bar on a new review offers the card's own action ("Sharpen my idea"), not a second "Open step 1". The canvas cards say Keep/Delete, like the panel. |
+
+## Visual audit (`npm run qa`), final rounds
+
+**Round 6** covered 24 views, at 1440 and 390 px, in dark and light, with motion on and reduced. That is 188 screenshots plus Lighthouse on 8 pages, and the full report is in `qa/report-6.md`. 8 of the 12 checklist items passed everywhere. The failures were:
+
+- tap targets under 44 px at 390 px: the example chips, the demo note's close button and the article-type bars;
+- the landing page's largest paint at 2.45 s, against a 2 s budget;
+- the canvas page's JavaScript at 252 kB before the first node, against a 250 kB budget;
+- the audit's own table-view selector, which waited for table rows that phones show as cards;
+- typography: views with more than 3 text sizes, and a few 6 px gaps.
+
+**After the fixes**, rounds 7 and 8 re-checked the affected views. **Tap targets:** all 44 px on phones. **Landing page:** on phones the first screen is now the mission alone (headline, one sentence, one button), so the largest paint dropped to 0.76 s with Lighthouse mobile performance 94 and accessibility 100. **Canvas JavaScript:** within budget, after the error page is loaded only when needed. **Table:** loads at both widths. **Typography:** panels use three sizes, and the chip gaps are on the 4 pt grid. The landing and export pages still use 4 sizes. That breaks only the audit's own 3-size rule and is left as a known minor.
