@@ -5,6 +5,7 @@ import { getProject, stageCosts } from "./project";
 import { STAGES, STUDY_TYPE_LABEL, RUBRIC, surname, shortCite, type StudyType } from "./shared/stages";
 import { appraisalsView, decisionLogView, papersView, questionsView, rankingView, retrievalView, synthesisView } from "./views";
 import { selectedPaperIds } from "./jobs/appraisal";
+import { describeView, type ViewPrefs } from "./shared/categories";
 
 const ids = (a: string[]) => a.concat(["-"]);
 
@@ -177,6 +178,8 @@ export async function markdownReport(projectId: string): Promise<string> {
     if (pp) L.push(`- ${pp.authors.slice(0, 3).join(", ")}${pp.authors.length > 3 ? " et al." : ""} (${pp.year ?? "n.d."}). ${pp.title}. _${pp.journal ?? ""}_. ${ref(pp)}`);
   }
   L.push(`\n## 9. Reproducibility\n`);
+  const view = describeView(p.viewPrefs as ViewPrefs | null, topics.map((t) => ({ id: t.id, name: t.name })));
+  L.push(`### View choices\n\n${view ? `Your saved view of the papers: ${view}. These choices only changed what was shown; no paper was removed from the review because of them.` : "No category filters or grouping were saved."}${p.criteria && (p.criteria as { hardFilter?: string[] }).hardFilter?.length ? `\n\n**Hard retrieval filter:** only ${(p.criteria as { hardFilter?: string[] }).hardFilter!.join(", ")} were fetched from the databases. Papers of other types were never retrieved.` : ""}\n`);
   L.push(`### AI usage\n\n| Stage | Calls | Input tokens | Output tokens | Cost (USD) |\n|---|---|---|---|---|`);
   for (const s of STAGES) {
     const c = costs[String(s.n)];

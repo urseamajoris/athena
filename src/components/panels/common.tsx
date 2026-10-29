@@ -119,7 +119,7 @@ export function useJobMenu(stage: number) {
 
 /** Stale results: say why, and offer to keep them (Re-run downstream is the node's next action). */
 export function StaleNotice({ stage, also = [] }: { stage: number; also?: number[] }) {
-  const { projectId, refresh, states, staleReasons } = useSession();
+  const { projectId, refresh, states, staleReasons, goTo } = useSession();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
   // A node holding several stages (the Table: 5 and 6) shows one notice, for its first stale stage.
@@ -131,10 +131,13 @@ export function StaleNotice({ stage, also = [] }: { stage: number; also?: number
     <div role="status" className="rounded-md border border-warn-line bg-warn-soft px-3 py-3">
       <p className="flex items-start gap-2 text-fg-0">
         <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden />
-        <span><strong className="font-semibold">Stale.</strong> {reason ? `${reason} after these results were produced.` : "An earlier step changed after these results were produced."} You can still read them.</span>
+        <span><strong className="font-semibold">Out of date.</strong> {reason ? `${reason} after these results were made.` : "An earlier step changed after these results were made."} You can still read them; nothing changes until you choose.</span>
       </p>
       {blocker ? (
-        <p className="mt-2 text-12 text-fg-1">Step {blocker.n} ({blocker.title}) needs approval first.</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <p className="text-12 text-fg-1">First approve step {blocker.n} ({blocker.title}) again.</p>
+          <button className="btn-secondary btn-sm" onClick={() => goTo(blocker.n)}>Go to step {blocker.n}</button>
+        </div>
       ) : (
         <div className="mt-2">
           <button

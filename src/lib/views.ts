@@ -87,14 +87,23 @@ export async function paperDetail(projectId: string, paperId: string) {
  *  HTML, so every unused field costs download and parse time on a phone. Exports use papersView. */
 export async function papersTableView(projectId: string) {
   const v = (await papersView(projectId));
+  // Evidence status per paper (for the category views): what the appraisal was based on, and quotes still undecided.
+  const apps = (await db.select({ id: schema.appraisals.id, paperId: schema.appraisals.paperId, textSource: schema.appraisals.textSource, status: schema.appraisals.status }).from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids(v.papers.map((p) => p.id)))).all()).filter((a) => a.status === "done");
+  const open = apps.length
+    ? (await db.select({ appraisalId: schema.claims.appraisalId, n: sql<number>`count(*)` }).from(schema.claims).where(and(inArray(schema.claims.appraisalId, ids(apps.map((a) => a.id))), eq(schema.claims.verified, false), eq(schema.claims.userAccepted, false), eq(schema.claims.userRejected, false), eq(schema.claims.notReported, false))).groupBy(schema.claims.appraisalId).all())
+    : [];
   return {
     topics: v.topics,
-    papers: v.papers.map((p) => ({
-      id: p.id, title: p.title, authors: p.authors, year: p.year, journal: p.journal, citationCount: p.citationCount, oaUrl: p.oaUrl,
-      sourceDatabases: p.sourceDatabases, doi: p.doi, pmid: p.pmid, openalexId: p.openalexId, hasAbstract: p.hasAbstract,
-      summary: p.summary && { studyType: p.summary.studyType, setting: p.summary.setting, keyFinding: p.summary.keyFinding, edited: p.summary.edited },
-      topicIds: p.topicIds,
-    })),
+    papers: v.papers.map((p) => {
+      const a = apps.find((x) => x.paperId === p.id);
+      return {
+        id: p.id, title: p.title, authors: p.authors, year: p.year, journal: p.journal, citationCount: p.citationCount, oaUrl: p.oaUrl, pmcid: p.pmcid,
+        sourceDatabases: p.sourceDatabases, publicationTypes: p.publicationTypes, doi: p.doi, pmid: p.pmid, openalexId: p.openalexId, hasAbstract: p.hasAbstract,
+        summary: p.summary && { studyType: p.summary.studyType, setting: p.summary.setting, keyFinding: p.summary.keyFinding, edited: p.summary.edited },
+        topicIds: p.topicIds,
+        appraisal: a ? { textSource: a.textSource, unverified: open.find((o) => o.appraisalId === a.id)?.n ?? 0 } : null,
+      };
+    }),
   };
 }
 
@@ -162,7 +171,10 @@ export async function synthesisView(projectId: string) {
   const links = (await db.select().from(schema.claimLinks).where(and(eq(schema.claimLinks.ownerType, "synthesis"), inArray(schema.claimLinks.ownerId, ids(items.map((i) => i.id))))).all());
   const claimIds = [...new Set([...links.map((l) => l.claimId), ...cells.flatMap((c) => c.claimIds), ...cx.flatMap((c) => c.claimIds)])];
   const claims = (await db.select().from(schema.claims).where(inArray(schema.claims.id, ids(claimIds))).all());
-  const papers = (await db.select({ id: schema.papers.id, title: schema.papers.title, year: schema.papers.year, authors: schema.papers.authors }).from(schema.papers).where(inArray(schema.papers.id, ids([...new Set([...cells.map((c) => c.paperId), ...claims.map((c) => c.paperId)])]))).all());
+  const papers0 = (await db.select({ id: schema.papers.id, title: schema.papers.title, year: schema.papers.year, authors: schema.papers.authors }).from(schema.papers).where(inArray(schema.papers.id, ids([...new Set([...cells.map((c) => c.paperId), ...claims.map((c) => c.paperId)])]))).all());
+  // Study type per paper, for colour coding the evidence network (AI-derived from the abstract).
+  const sts = (await db.select({ paperId: schema.paperSummaries.paperId, studyType: schema.paperSummaries.studyType }).from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, ids(papers0.map((p) => p.id)))).all());
+  const papers = papers0.map((p) => ({ ...p, studyType: sts.find((x) => x.paperId === p.id)?.studyType ?? null }));
   return {
     topics: topics.map((t) => ({
       id: t.id,
@@ -259,4 +271,18 @@ export async function claimsView(projectId: string): Promise<ClaimLite[]> {
   const rows = (await db.select().from(schema.claims).where(and(inArray(schema.claims.appraisalId, ids(apps.map((a) => a.id))), eq(schema.claims.notReported, false))).orderBy(sql`rowid`).all());
   const title = new Map(papers.map((p) => [p.id, p.title]));
   return rows.map((c) => ({ id: c.id, appraisalId: c.appraisalId, paperId: c.paperId, paperTitle: title.get(c.paperId) ?? "", field: c.field, statement: c.statement, quote: c.quote, verified: c.verified, userAccepted: c.userAccepted, userRejected: c.userRejected }));
+}
+
+/** Minimal per-paper data for the live map and category mix (small enough to poll while retrieval runs). */
+export async function paperPointsView(projectId: string) {
+  const papers = (await db.select({ id: schema.papers.id, title: schema.papers.title, year: schema.papers.year, publicationTypes: schema.papers.publicationTypes, sourceDatabases: schema.papers.sourceDatabases }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all());
+  const pids = ids(papers.map((p) => p.id));
+  const sums = (await db.select({ paperId: schema.paperSummaries.paperId, studyType: schema.paperSummaries.studyType }).from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, pids)).all());
+  const links = (await db.select().from(schema.paperTopics).where(inArray(schema.paperTopics.paperId, pids)).all());
+  const topics = (await db.select({ id: schema.topics.id, name: schema.topics.name }).from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
+  const st = new Map(sums.map((x) => [x.paperId, x.studyType]));
+  return {
+    topics,
+    papers: papers.map((p) => ({ ...p, studyType: st.get(p.id) ?? null, topicIds: links.filter((l) => l.paperId === p.id).map((l) => l.topicId) })),
+  };
 }

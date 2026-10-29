@@ -23,10 +23,10 @@ export const KIND_LABEL: Record<NodeKind, string> = {
 export const STATUS_LABEL: Record<NodeStatus, string> = {
   idle: "Not started",
   running: "Running",
-  review: "Needs review",
+  review: "Your turn",
   done: "Done",
-  stale: "Stale",
-  error: "Error",
+  stale: "Out of date",
+  error: "Failed",
 };
 
 /** Layout column per kind (left → right follows the review). */

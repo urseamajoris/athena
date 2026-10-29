@@ -9,7 +9,7 @@ import { ErrorState, Loading, StateIcon } from "./ui";
 import { Disclosure } from "./disclosure";
 import { MoreMenu, Modal } from "./overlays";
 import { AppMenu } from "./AppMenu";
-import { STAGES, STATE_LABEL, type StageState } from "@/lib/shared/stages";
+import { STAGES, type StageState } from "@/lib/shared/stages";
 import { relTime } from "@/lib/shared/format";
 
 interface ProjectRow {
@@ -19,7 +19,19 @@ interface ProjectRow {
   currentStage: number;
   status: string;
   stageStates: Record<string, StageState>;
+  createdAt: string;
   updatedAt: string;
+}
+
+/** What waits for the user on a project, in plain words. */
+function nextLine(p: ProjectRow): string {
+  const f = frontier(p);
+  if (!f) return "Finished: download your review";
+  const st = p.stageStates[String(f.n)] ?? "not_started";
+  if (st === "running") return `Working on step ${f.n}: ${f.title.toLowerCase()}…`;
+  if (st === "stale") return `Step ${f.n} is out of date: bring it up to date`;
+  if (st === "failed") return `Step ${f.n} did not finish: try again`;
+  return `Your turn: step ${f.n}, ${f.title.toLowerCase()}`;
 }
 
 /** Where to resume: the first stage not yet approved, opened in its node. */
@@ -59,9 +71,12 @@ export function SessionsList() {
       </header>
       <main id="main" className="mx-auto max-w-5xl px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-20 font-semibold">My projects</h1>
+          <div>
+            <h1 className="text-28 font-semibold">My projects</h1>
+            <p className="mt-1 text-fg-1">Each project is one literature review, from idea to research question in 9 steps. Open one to continue where you left off.</p>
+          </div>
           <TransitionLink href="/s/new" className="btn-primary min-h-11">
-            <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden /> New session
+            <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Start a new review
           </TransitionLink>
         </div>
         <div className="mt-4">
@@ -76,9 +91,9 @@ export function SessionsList() {
               </label>
               <label className="text-12 text-fg-1">Show
                 <select className="input mt-1 w-48" value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}>
-                  <option value="all">All sessions</option>
+                  <option value="all">All projects</option>
                   <option value="active">In progress</option>
-                  <option value="stale">With stale steps</option>
+                  <option value="stale">With out-of-date steps</option>
                   <option value="done">Finished</option>
                 </select>
               </label>
@@ -87,7 +102,13 @@ export function SessionsList() {
         </div>
         {!data && !error && <Loading />}
         {error && <div className="mt-4"><ErrorState error={error} onRetry={() => mutate()} /></div>}
-        {data && data.projects.length === 0 && <p className="mt-8 text-fg-2">No sessions yet. Your first one will appear here.</p>}
+        {data && data.projects.length === 0 && (
+          <div className="mt-8 rounded-md border border-dashed border-line-control p-8 text-center">
+            <p className="text-16 font-medium">No projects yet</p>
+            <p className="mt-1 text-fg-1">Start with a rough idea: Athena walks you through the 9 steps to a research question you can defend.</p>
+            <TransitionLink href="/s/new" className="btn-primary mt-4 min-h-11">Start your first review</TransitionLink>
+          </div>
+        )}
         <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((p) => {
             const f = frontier(p);
@@ -97,10 +118,15 @@ export function SessionsList() {
               <li key={p.id} className="flex items-start rounded-md border border-line bg-bg-1 hover:border-line-strong">
                 <TransitionLink href={resumeHref(p)} className="flex min-h-full flex-1 flex-col gap-2 self-stretch rounded-md p-4">
                   <span className="line-clamp-3 font-medium text-fg-0">{p.title || p.idea}</span>
-                  <span className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-12 text-fg-1">
-                    <span className="inline-flex items-center gap-1"><StateIcon state={state} className="h-3 w-3" />{f ? `${f.n}. ${f.title} · ${STATE_LABEL[state].toLowerCase()}` : "Finished"}</span>
-                    {stale > 0 && <span className="inline-flex items-center gap-1 text-warn"><AlertTriangle className="h-3 w-3" strokeWidth={2} aria-hidden />{stale} stale</span>}
-                    <span className="text-fg-2" suppressHydrationWarning>edited {relTime(p.updatedAt)}</span>
+                  <span className="text-12 text-fg-2" suppressHydrationWarning>Started {new Date(p.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })} · edited {relTime(p.updatedAt)}</span>
+                  <span className="mt-auto" aria-label={`${f ? `Step ${f.n} of 9` : "All 9 steps done"}`}>
+                    <span className="flex gap-0.5" aria-hidden>
+                      {STAGES.map((s) => <span key={s.n} className={`h-1.5 flex-1 rounded-full ${p.stageStates[String(s.n)] === "approved" ? "bg-ok" : s.n === f?.n ? "bg-fg-1" : p.stageStates[String(s.n)] === "stale" ? "bg-warn" : "bg-bg-3"}`} />)}
+                    </span>
+                    <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-12 text-fg-1">
+                      <span className="inline-flex items-center gap-1"><StateIcon state={state} className="h-3 w-3" />{nextLine(p)}</span>
+                      {stale > 0 && <span className="inline-flex items-center gap-1 text-warn"><AlertTriangle className="h-3 w-3" strokeWidth={2} aria-hidden />{stale} step{stale === 1 ? "" : "s"} out of date</span>}
+                    </span>
                   </span>
                 </TransitionLink>
                 <div className="p-1">

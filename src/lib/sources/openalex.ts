@@ -2,6 +2,7 @@ import "server-only";
 import { config } from "../config";
 import { httpJson } from "./http";
 import type { SearchAdapter, SourceRecord } from "./types";
+import { openalexTypes } from "./filters";
 import type { Criteria } from "../db/schema";
 import { normalizeDoi, chunk } from "../util";
 
@@ -18,7 +19,8 @@ function headers(): Record<string, string> {
 }
 
 export function openalexFilter(c: Criteria | null) {
-  const f = ["type:article|review|preprint"];
+  // The optional hard filter narrows the article types fetched (default: articles, reviews and preprints).
+  const f = [`type:${openalexTypes(c?.hardFilter)}`];
   if (c?.yearFrom) f.push(`from_publication_date:${c.yearFrom}-01-01`);
   if (c?.yearTo) f.push(`to_publication_date:${c.yearTo}-12-31`);
   const langs = (c?.languages ?? []).map((l) => l.toLowerCase().slice(0, 2)).filter(Boolean);

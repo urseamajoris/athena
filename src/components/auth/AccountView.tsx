@@ -46,6 +46,7 @@ export function AccountView() {
             <Profile data={data} onSaved={() => mutate()} />
             <PasswordForm />
             <Section id="usage-title" title="Your AI usage">
+              <p className="mb-2 text-12 text-fg-2">Each time Athena asks the AI to read, summarise or draft something for you, that is one call. In demo mode calls are scripted and cost nothing.</p>
               <p className="text-fg-1">
                 <span className="tabular-nums text-fg-0">{data.usage.calls}</span> AI call{data.usage.calls === 1 ? "" : "s"} across <span className="tabular-nums text-fg-0">{data.projects}</span> project{data.projects === 1 ? "" : "s"}, costing <span className="tabular-nums text-fg-0">${data.usage.costUsd.toFixed(2)}</span>.
               </p>

@@ -23,7 +23,7 @@ export function ConfirmEditDialog({ downstream, onCancel, onConfirm }: { downstr
     >
       <p>
         Later steps ({downstream.map((n) => STAGES[n - 1].title).join(", ")}) were built from the current version of this step. If you change it, they will be marked
-        <strong> stale</strong>. Nothing is re-run automatically: use “Re-run downstream” when you are ready.
+        <strong> out of date</strong>. Nothing is re-run automatically: use “Bring later steps up to date” when you are ready.
       </p>
     </Modal>
   );

@@ -49,3 +49,14 @@ test("repairId fixes only unambiguous formatting slips", () => {
   assert.equal(repairId("c_deadbeefdeadbeef", allowed), "c_deadbeefdeadbeef"); // unknown stays unknown → rejected later
   assert.equal(repairId("c_6fb22aab", allowed), "c_6fb22aab"); // truncated: not repaired
 });
+
+import { hardFilterPubmed, openalexTypes } from "./sources/filters";
+test("hard retrieval filter: off by default, explicit when set", () => {
+  assert.equal(hardFilterPubmed(undefined), null);
+  assert.equal(hardFilterPubmed(["journal_article", "review", "preprint"]), null);
+  assert.match(hardFilterPubmed(["review"])!, /review\[pt\]/);
+  assert.match(hardFilterPubmed(["journal_article"])!, /NOT/);
+  assert.equal(openalexTypes(undefined), "article|review|preprint");
+  assert.equal(openalexTypes(["review"]), "review");
+  assert.equal(openalexTypes(["journal_article", "preprint"]), "article|preprint");
+});

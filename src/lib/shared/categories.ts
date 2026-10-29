@@ -76,6 +76,18 @@ export function studyGroupOf(st: StudyType | string | null | undefined): string 
   }
 }
 
+/**
+ * Before the AI reads the abstracts (retrieval), a study group only where the database itself labels the design
+ * (e.g. PubMed "Randomized Controlled Trial"); everything else is "not labelled yet". Never guessed.
+ */
+export function studyGroupFromLabels(publicationTypes: string[] | null | undefined): string {
+  const t = (publicationTypes ?? []).map((x) => x.toLowerCase());
+  if (t.some((x) => /randomi[sz]ed controlled trial|clinical trial|controlled clinical trial/.test(x))) return "trial";
+  if (t.some((x) => /systematic review|meta-analysis|scoping review/.test(x))) return "review";
+  if (t.some((x) => /^(editorial|comment|letter|case reports)$/.test(x))) return "other";
+  return "not_reported";
+}
+
 // ---------- article type (what kind of publication) ----------
 export const ARTICLE_TYPES: Category[] = [
   { key: "journal_article", label: "Journal article", hint: "Original research published in a journal.", slot: 1, shape: "circle" },
@@ -231,4 +243,23 @@ export function describeFilters(shown: number, total: number, active: { dim: Dim
     });
   const head = shown === total ? `Showing all ${total}` : `Showing ${shown} of ${total}`;
   return parts.length ? `${head}: ${parts.join("; ")}` : head;
+}
+
+// ---------- saved view choices (per project) ----------
+export interface ViewPrefs {
+  colorBy?: ColorBy;
+  /** Non-destructive filters: the categories to show per dimension (empty/missing = all). */
+  filters?: Partial<Record<Dimension, string[]>>;
+  groupBy?: Dimension | null;
+}
+
+/** "Colour by study type; showing trial or cohort / case-control; grouped by year" (for the report). */
+export function describeView(v: ViewPrefs | null | undefined, topics: { id: string; name: string }[] = []): string | null {
+  if (!v) return null;
+  const parts: string[] = [];
+  const active = Object.entries(v.filters ?? {}).filter(([, keys]) => keys && keys.length) as [Dimension, string[]][];
+  if (active.length) parts.push(describeFilters(0, 0, active.map(([dim, keys]) => ({ dim, keys })), topics).replace(/^Showing all 0: /, "showing only "));
+  if (v.groupBy) parts.push(`grouped by ${DIMENSIONS.find((d) => d.key === v.groupBy)?.label.toLowerCase() ?? v.groupBy}`);
+  if (v.colorBy && v.colorBy !== "study") parts.push(`coloured by ${COLOR_BY.find((c) => c.key === v.colorBy)?.label.toLowerCase()}`);
+  return parts.length ? parts.join("; ") : null;
 }

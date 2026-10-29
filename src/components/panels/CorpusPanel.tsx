@@ -7,6 +7,35 @@ import { useJobRefresh, useLiveRetrieval, useSession } from "../session/SessionC
 import { ActionButton, JobLog, JobStatus, PanelFooter, Stat, StaleNotice } from "./common";
 import { nextAction } from "@/lib/canvas/actions";
 import { fmtInt } from "@/lib/shared/format";
+import dynamic from "next/dynamic";
+import { WhatHappens } from "../guide/WhatHappens";
+import { ShapeIcon } from "../categories";
+import { useViewPrefs } from "../session/viewPrefs";
+import { ARTICLE_TYPES, STUDY_GROUPS, articleTypeOf, categoryVar, sourceOf, studyGroupFromLabels, studyGroupOf, type Category, type Dimension } from "@/lib/shared/categories";
+import type { MapPoint } from "../viz/paper-points";
+
+const PaperMap = dynamic(() => import("../viz/PaperMap").then((m) => m.PaperMap), { ssr: false });
+
+interface PointsData { topics: { id: string; name: string }[]; papers: { id: string; title: string; year: number | null; publicationTypes: string[]; sourceDatabases: string[]; studyType: string | null; topicIds: string[] }[] }
+
+/** The mix of a category among the papers so far (bars with shape, colour and count: never colour alone). */
+function Mix({ title, cats, dim, counts, total, note }: { title: string; cats: Category[]; dim: Dimension; counts: Record<string, number>; total: number; note?: string }) {
+  return (
+    <section aria-label={title}>
+      <p className="text-12 font-medium text-fg-1">{title}</p>
+      <ul className="mt-1 space-y-1">
+        {cats.filter((c) => counts[c.key]).map((c) => (
+          <li key={c.key} className="grid grid-cols-[minmax(0,11rem)_1fr_auto] items-center gap-2 text-12">
+            <span className="flex min-w-0 items-center gap-1.5 text-fg-1"><ShapeIcon shape={c.shape} color={categoryVar(dim, c.key)} /><span className="truncate">{c.label}</span></span>
+            <span className="h-2.5 rounded-sm bg-bg-2" aria-hidden><span className="block h-2.5 rounded-r-[4px]" style={{ width: `${Math.max(3, (counts[c.key] / Math.max(1, total)) * 100)}%`, background: categoryVar(dim, c.key) }} /></span>
+            <span className="tabular-nums text-fg-0">{counts[c.key]}</span>
+          </li>
+        ))}
+      </ul>
+      {note && <p className="mt-1 text-12 text-fg-2">{note}</p>}
+    </section>
+  );
+}
 
 interface Run { id: string; database: string; topicName: string; queryString: string; status: string; resultCount: number | null; fetchedCount: number; newUniqueCount: number; cap: number; error: string | null }
 interface RetrievalData { uniquePapers: number; runs: Run[] }
@@ -14,8 +43,11 @@ const DB: Record<string, string> = { pubmed: "PubMed", openalex: "OpenAlex" };
 
 /** Corpus node: watch retrieval live (SSE), then review deduplication. */
 export function CorpusPanel() {
-  const { projectId, graph, input } = useSession();
+  const { projectId, graph, input, states, openPaper } = useSession();
   const live = useLiveRetrieval();
+  const running = states["4"] === "running";
+  const view = useViewPrefs();
+  const { data: pts } = useApi<PointsData>(projectPath(projectId, "papers-points"), { refreshInterval: running ? 2500 : 0 });
   const { data: fetched, error, mutate } = useApi<RetrievalData>(projectPath(projectId, "retrieval"));
   useJobRefresh(4, mutate);
   const data = (live as RetrievalData | null) ?? fetched;
@@ -27,14 +59,57 @@ export function CorpusPanel() {
   const node = graph.nodes.find((n) => n.id === "corpus");
   const action = node ? nextAction(node, graph, input) : null;
   let cumulative = 0;
+  const ps = pts?.papers ?? [];
+  const summarised = ps.some((p) => p.studyType);
+  const studyCounts: Record<string, number> = {};
+  const articleCounts: Record<string, number> = {};
+  for (const p of ps) {
+    const g = p.studyType ? studyGroupOf(p.studyType) : studyGroupFromLabels(p.publicationTypes);
+    studyCounts[g] = (studyCounts[g] ?? 0) + 1;
+    const a = articleTypeOf(p.publicationTypes);
+    articleCounts[a] = (articleCounts[a] ?? 0) + 1;
+  }
+  const dupes = Math.max(0, fetchedTotal - (data?.uniquePapers ?? 0));
+  const topicList = pts?.topics ?? [];
+  const points: MapPoint[] = ps.map((p) => ({
+    id: p.id,
+    title: p.title,
+    year: p.year,
+    score: null,
+    layer: Math.max(-1, topicList.findIndex((t) => p.topicIds.includes(t.id))),
+    cat: view.colorBy === "topic" ? p.topicIds[0] ?? "" : view.colorBy === "source" ? sourceOf(p.sourceDatabases) : p.studyType ? studyGroupOf(p.studyType) : studyGroupFromLabels(p.publicationTypes),
+  }));
   return (
     <div className="space-y-4">
       <StaleNotice stage={4} />
       <JobStatus stage={4} />
+      <WhatHappens stage={4} />
+      {runs.length > 0 && (
+        <p className="text-16 text-fg-0" aria-live="polite">
+          {running ? "So far: " : ""}<span className="font-semibold tabular-nums">{fmtInt(fetchedTotal)}</span> results fetched, <span className="font-semibold tabular-nums">{fmtInt(dupes)}</span> were the same paper found twice, so <span className="font-semibold tabular-nums">{fmtInt(data?.uniquePapers ?? 0)}</span> different papers {running ? "so far" : "remain"}.
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-2">
-        <Stat label="Unique papers" value={fmtInt(data?.uniquePapers ?? 0)} />
-        <Stat label="Duplicates removed" value={fmtInt(Math.max(0, fetchedTotal - (data?.uniquePapers ?? 0)))} />
+        <Stat label="Different papers" value={fmtInt(data?.uniquePapers ?? 0)} />
+        <Stat label="Duplicates merged" value={fmtInt(dupes)} />
       </div>
+      {ps.length > 0 && (
+        <div className="space-y-3 rounded-md border border-line bg-bg-1 p-3">
+          <p className="font-medium">What kinds of papers you are getting</p>
+          <Mix title="Article type (from the databases)" cats={ARTICLE_TYPES} dim="article" counts={articleCounts} total={ps.length} />
+          <Mix
+            title={summarised ? "Study type (AI-derived from the abstracts)" : "Study type (only where the database labels it)"}
+            cats={STUDY_GROUPS}
+            dim="study"
+            counts={studyCounts}
+            total={ps.length}
+            note={summarised ? undefined : "Most papers have no design label yet; the AI reads every abstract in the next step."}
+          />
+        </div>
+      )}
+      {ps.length > 0 && (
+        <PaperMap points={points} colorBy={view.colorBy === "topic" || view.colorBy === "source" ? view.colorBy : "study"} onColorBy={view.setColorBy} topics={topicList} onOpen={openPaper} layers={topicList.length} title={running ? "Papers as they arrive" : "The papers found"} colorChoices={["study", "topic", "source"]} />
+      )}
       <section aria-label="Per source">
         <ul className="space-y-3">
           {sources.map((db) => {
@@ -46,7 +121,7 @@ export function CorpusPanel() {
               <li key={db}>
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <span className="font-medium">{DB[db] ?? db}</span>
-                  <span className="text-12 tabular-nums text-fg-1">{fmtInt(f)} fetched · {fmtInt(nu)} new · {done}/{rs.length} queries</span>
+                  <span className="text-12 tabular-nums text-fg-1">{fmtInt(f)} fetched · {fmtInt(nu)} new · {done} of {rs.length} searches done</span>
                 </div>
                 <ProgressBar value={done} max={rs.length} label={`${DB[db] ?? db} queries finished`} />
               </li>
@@ -61,8 +136,8 @@ export function CorpusPanel() {
           <p><strong className="text-err">{failed.length} quer{failed.length === 1 ? "y" : "ies"} failed</strong> ({[...new Set(failed.map((r) => DB[r.database] ?? r.database))].join(", ")}). The other sources continued, so you can go on with the papers that were found, or re-run later from ⋯.</p>
         </div>
       )}
-      <Disclosure title="Deduplication details" meta={`${runs.length} queries`}>
-        <p className="mb-2 text-12 text-fg-2">“New” counts papers no earlier query had found. When it drops toward zero, extra queries return papers you already have.</p>
+      <Disclosure title="Search by search" meta={`${runs.length} searches`}>
+        <p className="mb-2 text-12 text-fg-2">“New” counts papers no earlier search had found. When it drops toward zero, more searches only return papers you already have.</p>
         <table className="w-full text-12">
           <thead>
             <tr className="border-b border-line text-left text-fg-2">

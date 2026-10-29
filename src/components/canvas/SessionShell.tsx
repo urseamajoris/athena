@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence } from "motion/react";
 import { Command, LayoutGrid, List as ListIcon, X } from "lucide-react";
 import { useApi } from "../api";
-import { Badge, ErrorState, Kbd, Loading, cx } from "../ui";
+import { ErrorState, Kbd, Loading, cx } from "../ui";
 import { MotionRoot } from "../motion";
 import { useHydrated } from "../hydrated";
 import { AppMenu } from "../AppMenu";
@@ -16,6 +16,7 @@ import { SessionProvider, canvasStore, useCanvas, useSession } from "../session/
 import { StageRail } from "./StageRail";
 import { canvasCommands, focusNode } from "./focus";
 import { AiPausedBanner } from "../session/AiPausedBanner";
+import { DemoBanner } from "../session/DemoBanner";
 import { STAGE_KEY_TO_NODE, nodeForStage } from "@/lib/canvas/graph";
 
 const CanvasView = dynamic(() => import("./CanvasView"), { ssr: false, loading: () => <Loading label="Drawing the canvas…" /> });
@@ -32,6 +33,15 @@ function subscribe(cb: () => void) {
 }
 export function useIsMobile() {
   return useSyncExternalStore(subscribe, () => window.matchMedia("(max-width: 767px)").matches, () => false);
+}
+function subscribeTablet(cb: () => void) {
+  const mq = window.matchMedia("(max-width: 1023px)");
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+}
+/** Below 1024 px the canvas is too small to read: the List view is the default there. */
+export function useIsNarrow() {
+  return useSyncExternalStore(subscribeTablet, () => window.matchMedia("(max-width: 1023px)").matches, () => false);
 }
 
 export function SessionShell({ projectId }: { projectId: string }) {
@@ -64,14 +74,24 @@ function Shell() {
     return () => clearTimeout(t);
   }, [loaded, router]);
   const mobile = useIsMobile();
+  const narrow = useIsNarrow();
   const hydrated = useHydrated();
-  const view = ui.view ?? (mobile ? "list" : "canvas");
+  const view = ui.view ?? (narrow ? "list" : "canvas");
   const panel = useCanvas((s) => s.panel);
   const palette = useCanvas((s) => s.palette);
   const shortcuts = useCanvas((s) => s.shortcuts);
   const [paletteLoaded, setPaletteLoaded] = useState(false);
+  // The side panel starts below the header and any banners (demo mode, AI paused), so it never covers them.
+  const topRef = useRef<HTMLDivElement>(null);
+  const [top, setTop] = useState(48);
+  useEffect(() => {
+    const el = topRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setTop(Math.round(el.getBoundingClientRect().height)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const panelNode = panel ? graph.nodes.find((n) => n.id === panel) ?? null : null;
-  const { data: status } = useApi<{ mockMode: boolean }>("/api/status");
 
   // ?node=<id or old stage key> opens that node once; afterwards the URL follows the open panel.
   const params = useSearchParams();
@@ -154,6 +174,7 @@ function Shell() {
 
   return (
     <div className="fixed inset-0 flex flex-col bg-bg-0">
+      <div ref={topRef} className="shrink-0">
       <header className="relative z-20 flex h-12 shrink-0 items-center gap-3 border-b border-line bg-bg-0 px-2 md:px-4">
         <TransitionLink href="/sessions" prefetch={false} className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-sm px-1 font-semibold" aria-label="Athena: all sessions">
           <LogoMark />
@@ -162,15 +183,14 @@ function Shell() {
         <h1 className="hidden min-w-0 max-w-64 truncate font-medium text-fg-1 xl:block" title={project.idea}>{project.title || project.idea}</h1>
         <div className="flex min-w-0 flex-1 justify-center">
           {hydrated ? (
-            <StageRail compact={mobile} />
+            <StageRail compact={narrow} />
           ) : (
             <>
-              <span className="contents md:hidden"><StageRail compact /></span>
-              <span className="hidden md:contents"><StageRail compact={false} /></span>
+              <span className="contents lg:hidden"><StageRail compact /></span>
+              <span className="hidden lg:contents"><StageRail compact={false} /></span>
             </>
           )}
         </div>
-        {status?.mockMode && <span className="hidden md:contents"><Badge title="MOCK_MODE: recorded API fixtures and canned model responses; nothing is spent">Mock data</Badge></span>}
         <div className="flex items-center rounded-md border border-line" role="group" aria-label="View">
           {viewBtn("canvas", "Canvas", LayoutGrid)}
           {viewBtn("list", "List", ListIcon)}
@@ -181,7 +201,9 @@ function Shell() {
         </button>
         <AppMenu onShortcuts={() => canvasStore.getState().setShortcuts(true)} />
       </header>
+      <DemoBanner />
       <AiPausedBanner />
+      </div>
       <main id="main" className="relative flex-1 overflow-hidden" aria-label={view === "list" ? "Review list" : "Review canvas"}>
         {!hydrated ? (
           <>
@@ -202,7 +224,7 @@ function Shell() {
           </div>
         ) : null}
       </main>
-      <AnimatePresence>{panelNode && <FocusPanel key={panelNode.id} node={panelNode} mobile={mobile} />}</AnimatePresence>
+      <AnimatePresence>{panelNode && <FocusPanel key={panelNode.id} node={panelNode} mobile={mobile} top={top} />}</AnimatePresence>
       {paletteLoaded && (
         <CommandPalette
           open={palette}

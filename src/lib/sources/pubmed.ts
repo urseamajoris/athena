@@ -2,6 +2,7 @@ import "server-only";
 import { config } from "../config";
 import { httpFetch, httpJson } from "./http";
 import type { SearchAdapter, SourceRecord } from "./types";
+import { hardFilterPubmed } from "./filters";
 import type { Criteria } from "../db/schema";
 import { decodeEntities, normalizeDoi, stripTags, chunk } from "../util";
 
@@ -25,8 +26,12 @@ export function pubmedTerm(query: string, c: Criteria | null) {
   if (c?.yearFrom || c?.yearTo) parts.push(`("${c?.yearFrom ?? 1900}"[dp] : "${c?.yearTo ?? 3000}"[dp])`);
   const langs = (c?.languages ?? []).map((l) => LANG[l.toLowerCase()] ?? l.toLowerCase()).filter(Boolean);
   if (langs.length) parts.push(`(${langs.map((l) => `${l}[la]`).join(" OR ")})`);
+  const hard = hardFilterPubmed(c?.hardFilter);
+  if (hard) parts.push(hard);
   return parts.join(" AND ");
 }
+
+
 
 async function esearch(term: string, retmax: number, retstart: number, log?: (l: string) => void) {
   const p = common();

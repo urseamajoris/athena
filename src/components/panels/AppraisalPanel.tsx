@@ -9,6 +9,8 @@ import { ActionButton, JobLog, JobStatus, PanelFooter, SectionTitle, StaleNotice
 import { PinButton, QuoteVerdict, SourcePassage } from "./evidence";
 import { nextAction } from "@/lib/canvas/actions";
 import { fmtInt } from "@/lib/shared/format";
+import { Checklist } from "../guide/Checklist";
+import { WhatHappens } from "../guide/WhatHappens";
 
 export interface AppraisalRow {
   id: string; paperId: string; status: string; error: string | null; textSource: string; textNote: string; templateType: string;
@@ -26,6 +28,7 @@ export interface AppraisalDetailData {
 const FIELD_LABEL: Record<string, string> = { aim: "Aim", setting: "Setting", sample: "Sample", methods: "Methods", key_findings: "Key findings", limitations: "Limitations" };
 export const TEMPLATE_LABEL: Record<string, string> = { trial: "Trial", cohort: "Cohort", cross_sectional: "Cross-sectional", qualitative: "Qualitative", systematic_review: "Systematic review", other: "Other" };
 const ANSWER_TONE: Record<string, "ok" | "err" | "neutral" | "warn"> = { yes: "ok", no: "err", not_reported: "neutral", unclear: "warn" };
+const ANSWER_LABEL: Record<string, string> = { yes: "Yes", no: "No", not_reported: "Not reported", unclear: "Unclear" };
 
 export function useAppraisals() {
   const { projectId } = useSession();
@@ -40,6 +43,7 @@ export function AppraisalPanel() {
   const { data, error, isLoading, mutate } = useAppraisals();
   const list = useMemo(() => data?.appraisals ?? [], [data]);
   const [active, setActive] = useState<string | null>(null);
+  const [onlyOpen, setOnlyOpen] = useState(false);
   const firstUnreviewed = list.find((a) => a.status === "done" && !ui.reviewed.includes(a.id)) ?? list.find((a) => a.status === "done");
   const current = list.find((a) => a.id === active) ?? firstUnreviewed ?? null;
   const idx = current ? list.findIndex((a) => a.id === current.id) : -1;
@@ -63,10 +67,23 @@ export function AppraisalPanel() {
     <div className="space-y-4">
       <StaleNotice stage={7} />
       {states["7"] === "running" && <JobStatus stage={7} />}
+      <WhatHappens stage={7} />
       {!list.length ? (
         <EmptyState title="No appraisals yet">They appear here as each selected paper is read.</EmptyState>
       ) : (
         <>
+          <Checklist
+            title="Do these things"
+            items={[
+              { label: `Look at each paper (${reviewed} of ${list.length} looked at)`, done: reviewed >= list.filter((a) => a.status === "done").length, hint: "“Next paper” moves on and marks this one as looked at." },
+              { label: `Decide every quote the check could not find (${totals.unv} left)`, done: totals.unv === 0, hint: "Accept it if the paper does say this, reject it if not. Rejected quotes are left out of the synthesis." },
+              { label: "Then summarise the evidence", done: states["7"] === "approved" },
+            ]}
+          />
+          <p className="text-12 text-fg-1">
+            For each quality question the AI gives an answer (<span className="text-fg-0">Yes, No, Unclear, Not reported</span>) and a quote from the paper. Athena then looks for the quote word for word: <span className="text-ok">✓ found</span> or <span className="text-err">✗ not found, you decide</span>.
+          </p>
+          <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} /> Show only quotes I need to decide</label>
           <div className="flex items-center gap-2">
             <button className="btn-ghost h-11 w-11 px-0" onClick={() => go(-1)} disabled={idx <= 0} aria-label="Previous paper"><ChevronLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden /></button>
             <p className="flex-1 text-center" aria-live="polite">
@@ -75,7 +92,7 @@ export function AppraisalPanel() {
             </p>
             <button className="btn-ghost h-11 w-11 px-0" onClick={() => go(1)} disabled={last} aria-label="Next paper (marks this one reviewed)"><ChevronRight className="h-4 w-4" strokeWidth={1.5} aria-hidden /></button>
           </div>
-          {current && <AppraisalDetail key={current.id} row={current} onChanged={() => mutate()} />}
+          {current && <AppraisalDetail key={current.id} row={current} onChanged={() => mutate()} onlyOpen={onlyOpen} />}
           <Disclosure title="All appraised papers" meta={`${list.length}`}>
             <ul className="space-y-1">
               {list.map((a, i) => (
@@ -111,7 +128,7 @@ export function AppraisalPanel() {
   );
 }
 
-function AppraisalDetail({ row, onChanged }: { row: AppraisalRow; onChanged: () => void }) {
+function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onChanged: () => void; onlyOpen: boolean }) {
   const { projectId, confirmEdit, refresh, openPaper, states } = useSession();
   const { data, error, isLoading, mutate } = useApi<AppraisalDetailData>(projectPath(projectId, `appraisals/${row.id}`));
   const [busy, setBusy] = useState<string | null>(null);
@@ -132,26 +149,36 @@ function AppraisalDetail({ row, onChanged }: { row: AppraisalRow; onChanged: () 
     }
   }
   const byId = new Map(data.claims.map((c) => [c.id, c]));
-  const fieldClaims = data.claims.filter((c) => c.field !== "checklist");
+  const open = (c: Claim | null | undefined) => !!c && !c.notReported && !c.verified && !c.userAccepted && !c.userRejected;
+  const fieldClaims = data.claims.filter((c) => c.field !== "checklist" && (!onlyOpen || open(c)));
+  const checklist = a.checklist.filter((it) => !onlyOpen || open(it.claimId ? byId.get(it.claimId) : null));
   return (
     <div className="space-y-4">
       <div>
         <button className="link min-h-11 text-left font-semibold md:min-h-0" onClick={() => openPaper(data.paper.id)}>{data.paper.title}</button>
-        <p className="mt-1 text-12 text-fg-2">{data.paper.year ?? "n.d."}{data.paper.doi ? ` · DOI ${data.paper.doi}` : data.paper.pmid ? ` · PMID ${data.paper.pmid}` : ""} · template {TEMPLATE_LABEL[a.templateType] ?? a.templateType}{a.model ? ` · ${a.model}` : ""}</p>
-        <p className="mt-2 flex flex-wrap items-center gap-2 text-fg-1"><TextSourceBadge source={a.textSource} /> {a.textNote}</p>
+        <p className="mt-1 text-12 text-fg-2">{data.paper.year ?? "n.d."}{data.paper.doi ? ` · DOI ${data.paper.doi}` : data.paper.pmid ? ` · PMID ${data.paper.pmid}` : ""}</p>
+        <p className="mt-2 flex flex-wrap items-center gap-2 text-fg-1">
+          <TextSourceBadge source={a.textSource} />
+          {a.textSource === "full_text" ? "Read on the open full text." : "Only the abstract could be read, so some questions are unclear or not reported. That is a limit of the text, not of the study."}
+        </p>
+        <Disclosure title="Details" meta="text source, model">
+          <p className="text-12 text-fg-1">{a.textNote}</p>
+          <p className="mt-1 text-12 text-fg-2">Questions used: {TEMPLATE_LABEL[a.templateType] ?? a.templateType} checklist (chosen from the study type).{a.model ? ` Model: ${a.model}.` : ""}</p>
+        </Disclosure>
         {a.status === "failed" && <div className="mt-2"><ErrorState error={a.error ?? "failed"} title="This appraisal failed" /></div>}
       </div>
 
       <section aria-label="Quality checklist">
-        <SectionTitle>Checklist · {TEMPLATE_LABEL[a.templateType] ?? a.templateType}</SectionTitle>
+        <SectionTitle>Quality questions for a {(TEMPLATE_LABEL[a.templateType] ?? a.templateType).toLowerCase()} study</SectionTitle>
+        {onlyOpen && !checklist.length && <p className="text-fg-2">Nothing to decide in this checklist.</p>}
         <ul className="space-y-2">
-          {a.checklist.map((it, i) => {
+          {checklist.map((it, i) => {
             const c = it.claimId ? byId.get(it.claimId) : null;
             return (
               <li key={i} className="rounded-md border border-line p-3">
                 <div className="flex items-start justify-between gap-2">
                   <span>{it.item}</span>
-                  <Badge tone={ANSWER_TONE[it.answer] ?? "warn"}>{it.answer.replace("_", " ")}</Badge>
+                  <Badge tone={ANSWER_TONE[it.answer] ?? "warn"} title="The AI's answer to this question">AI: {ANSWER_LABEL[it.answer] ?? it.answer.replace("_", " ")}</Badge>
                 </div>
                 {c && !c.notReported && <QuoteLine c={c} text={data.sourceText?.text} stale={stale} onDecide={(d) => decide(c, d)} busy={busy === c.id} />}
               </li>
@@ -163,6 +190,7 @@ function AppraisalDetail({ row, onChanged }: { row: AppraisalRow; onChanged: () 
       <section aria-label="Extracted findings" className="space-y-4">
         {Object.entries(FIELD_LABEL).map(([f, label]) => {
           const cs = fieldClaims.filter((c) => c.field === f);
+          if (onlyOpen && !cs.length) return null;
           return (
             <div key={f}>
               <SectionTitle>{label}</SectionTitle>
@@ -206,8 +234,8 @@ export function QuoteLine({ c, text, stale, onDecide, busy }: { c: Claim; text?:
         <span className="ml-auto flex flex-wrap gap-1">
           {busy && <Spinner className="h-3 w-3" />}
           {canShow && <button className="btn-ghost btn-sm" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{open ? "Hide source" : "Show source"}</button>}
-          {!c.verified && !c.userAccepted && <button className="btn-ghost btn-sm" onClick={() => onDecide("accept")}>Accept anyway</button>}
-          {!c.verified && !c.userRejected && <button className="btn-ghost btn-sm" onClick={() => onDecide("reject")}>Reject</button>}
+          {!c.verified && !c.userAccepted && <button className="btn-secondary btn-sm" onClick={() => onDecide("accept")} title="The paper does say this: keep it">Accept anyway</button>}
+          {!c.verified && !c.userRejected && <button className="btn-secondary btn-sm" onClick={() => onDecide("reject")} title="Leave this claim out of the synthesis">Reject</button>}
           {!c.verified && (c.userAccepted || c.userRejected) && <button className="btn-ghost btn-sm" onClick={() => onDecide("clear")}>Undo</button>}
           <PinButton claimId={c.id} />
         </span>

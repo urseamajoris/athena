@@ -26,9 +26,9 @@ export const STAGES: StageDef[] = [
 export const STATE_LABEL: Record<StageState, string> = {
   not_started: "Not started",
   running: "Running",
-  needs_review: "Needs review",
+  needs_review: "Your turn",
   approved: "Approved",
-  stale: "Stale",
+  stale: "Out of date",
   failed: "Failed",
 };
 

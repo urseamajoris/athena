@@ -3,18 +3,22 @@ import Link from "next/link";
 import { DemoVideo } from "@/components/landing/DemoVideo";
 import { Disclosure } from "@/components/disclosure";
 import { TransitionLink } from "@/components/vt";
-import { preload } from "react-dom";
-import { POSTER, POSTER_SET, POSTER_SIZES } from "@/components/landing/poster";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE } from "@/lib/auth/policy";
+import { HeroBackdrop } from "@/components/landing/HeroBackdrop";
+import { EXPLAINERS } from "@/lib/shared/explainers";
+
+const PHASES = [
+  { steps: [1, 2, 3], title: "Shape your question", text: "Write a rough idea. A few short questions turn it into search topics and real database searches you can read and edit.", poster: 2 },
+  { steps: [4, 5, 6], title: "Find and pick the papers", text: "Athena searches PubMed and OpenAlex, removes duplicates, drafts a summary of each paper and scores them on a visible rubric.", poster: 6 },
+  { steps: [7, 8, 9], title: "Read, weigh, decide", text: "Each chosen paper is appraised with quotes checked word for word, then summarised into what is known, contested and unknown.", poster: 7 },
+];
 
 /** Landing: one sentence, one call to action, one demo. */
 export default async function Landing() {
   // Signed-in visitors go straight to their projects (a cookie check only: no database call on the landing page).
   if ((await cookies()).get(SESSION_COOKIE)) redirect("/sessions");
-  // The poster is the largest thing on the page: request it from the head, before the scripts.
-  preload(POSTER, { as: "image", fetchPriority: "high", imageSrcSet: POSTER_SET, imageSizes: POSTER_SIZES });
   return (
     <div className="min-h-screen bg-bg-0">
       <header className="mx-auto flex h-12 max-w-6xl items-center justify-between px-4">
@@ -27,23 +31,45 @@ export default async function Landing() {
       <main id="main" className="mx-auto max-w-6xl px-4 pb-16">
         {/* On phones the first screen is the mission alone (headline, sentence, one button); the demo follows
             below the fold, so the headline, not a 960 px image, is what the first paint has to show. */}
-        <section className="mx-auto flex max-w-3xl flex-col justify-center pb-12 pt-12 text-center max-md:min-h-[calc(100svh-3rem)] md:pb-0 md:pt-20">
-          <h1 className="text-28 font-semibold md:text-44">Turn a rough idea into a research question you can defend.</h1>
-          <p className="mx-auto mt-4 max-w-2xl text-16 text-fg-1">Athena searches PubMed and OpenAlex, reads the papers with you, and checks every quote against its source, so each step is yours to confirm.</p>
-          <div className="mt-8">
+        <section className="relative isolate mx-auto flex max-w-3xl flex-col justify-center pb-10 pt-8 text-center md:pb-4 md:pt-20">
+          <HeroBackdrop />
+          <p className="relative text-12 font-medium uppercase tracking-[0.18em] text-fg-1">A guided literature review</p>
+          <h1 className="relative mt-3 text-28 font-semibold md:text-44">Turn a rough idea into a research question you can defend.</h1>
+          <p className="relative mx-auto mt-4 max-w-2xl text-16 text-fg-1">Tell Athena your idea. It finds real papers in PubMed and OpenAlex (two free research libraries), helps you read and judge them, and drafts research questions, with every quote checked against its source. You confirm each of the 9 steps.</p>
+          <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
             <TransitionLink href="/signup?next=/s/new" className="btn-primary min-h-11 px-6 text-16">Start a review</TransitionLink>
+            <Link href="/login" className="btn-secondary min-h-11 px-6 text-16">I have an account</Link>
           </div>
+          <p className="relative mt-3 text-12 text-fg-2">Free to try. You get a report, a spreadsheet of papers and a reference list.</p>
         </section>
-        <section aria-label="Demo" className="md:mt-16">
+        <section aria-labelledby="how" className="mx-auto mt-10 max-w-5xl">
+          <h2 id="how" className="text-center text-20 font-semibold">How it works: 9 steps, 3 stages</h2>
+          <ol className="mt-6 grid gap-4 md:grid-cols-3">
+            {PHASES.map((ph) => (
+              <li key={ph.title} className="overflow-hidden rounded-md border border-line bg-bg-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/explainers/stage-${ph.poster}.webp`} alt="" width={640} height={360} loading="lazy" decoding="async" className="aspect-video w-full border-b border-line object-cover" />
+                <div className="p-4">
+                  <p className="text-12 font-medium text-fg-2">Steps {ph.steps[0]}–{ph.steps[2]}</p>
+                  <h3 className="mt-1 text-16 font-semibold">{ph.title}</h3>
+                  <p className="mt-1 text-fg-1">{ph.text}</p>
+                  <p className="mt-2 text-12 text-fg-2">{ph.steps.map((n) => `${n}. ${EXPLAINERS[n - 1].title}`).join(" · ")}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+        <section aria-labelledby="demo" className="mt-12">
+          <h2 id="demo" className="mb-3 text-center text-20 font-semibold">See a review take shape</h2>
           <DemoVideo />
         </section>
         <section className="mx-auto mt-8 max-w-2xl">
-          <Disclosure title="How it works">
-            <ol className="list-decimal space-y-2 pl-6 text-fg-1">
-              <li><strong className="font-medium text-fg-0">Scope it.</strong> Type your idea; a few short questions turn it into 4–8 search topics you can edit.</li>
-              <li><strong className="font-medium text-fg-0">Find and rank the papers.</strong> Real database queries, deduplicated, summarised and scored with a visible rubric.</li>
-              <li><strong className="font-medium text-fg-0">Read, synthesise, decide.</strong> Appraisals with verified quotes become a synthesis and three research questions to choose from.</li>
-            </ol>
+          <Disclosure title="What Athena will not do">
+            <ul className="list-disc space-y-2 pl-6 text-fg-1">
+              <li>Invent references: every paper comes from a real PubMed, OpenAlex or Crossref record with its identifier.</li>
+              <li>Hide what it could not read: every appraisal says whether it used the full text or only the abstract.</li>
+              <li>Move on without you: every AI suggestion waits for you to check and approve it.</li>
+            </ul>
           </Disclosure>
         </section>
       </main>

@@ -40,8 +40,8 @@ export function AuthForm({ mode, next, signupOpen = true }: { mode: "login" | "s
       </header>
       <main id="main" className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 pb-24">
         <h1 className="text-28 font-semibold">{signup ? "Create your account" : "Log in to continue your review"}</h1>
-        <p className="mt-2 text-fg-1">{signup ? "Your reviews are private to your account. It takes a few seconds." : "Your projects are saved to your account."}</p>
-        <form onSubmit={submit} className="mt-8 space-y-4" noValidate>
+        <p className="mt-2 text-fg-1">{signup ? "Athena guides you from a rough idea to a research question grounded in real papers, in 9 steps. Your reviews are private to your account." : "Your literature reviews are saved to your account."}</p>
+        <form onSubmit={submit} className="mt-8 space-y-6" noValidate>
           {signup && (
             <label className="label block">
               Your name <span className="font-normal text-fg-2">(optional)</span>

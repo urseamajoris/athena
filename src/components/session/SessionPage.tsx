@@ -8,6 +8,9 @@ import { AppMenu } from "../AppMenu";
 import { ActionButton } from "../panels/common";
 import { SessionProvider, useSession } from "./SessionContext";
 import { nextAction } from "@/lib/canvas/actions";
+import { StageRail } from "../canvas/StageRail";
+import { DemoBanner } from "./DemoBanner";
+import { AiPausedBanner } from "./AiPausedBanner";
 
 /** A full-screen view that belongs to one session node (table, export): back to the canvas, one mission.
  *  Nothing here animates, so it does not load Motion. */
@@ -36,14 +39,18 @@ function Frame({ node, title, children, showAction }: { node: string; title: str
   return (
     <div className="fixed inset-0 flex flex-col bg-bg-0">
       <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-3 border-b border-line px-2 py-1 md:px-4">
-        <TransitionLink href={back} prefetch={false} className="btn-ghost h-11">
-          <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Canvas
+        <TransitionLink href={back} prefetch={false} className="btn-ghost h-11" aria-label="Back to your review overview">
+          <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden /> <span className="max-sm:sr-only">Overview</span>
         </TransitionLink>
-        <h1 className="min-w-0 flex-1 truncate text-16 font-semibold">{title}</h1>
-        {action && <ActionButton action={action} primary showReason />}
+        <h1 className="sr-only">{title}</h1>
+        <div className="min-w-0 flex-1"><StageRail compact /></div>
+        {action && <span className="max-md:hidden"><ActionButton action={action} primary showReason /></span>}
         <AppMenu />
       </header>
+      <DemoBanner />
+      <AiPausedBanner />
       <main id="main" className="min-h-0 flex-1 overflow-hidden">{children}</main>
+      {action && <div className="shrink-0 border-t border-line bg-bg-1 px-4 py-2 md:hidden [&_button]:w-full"><ActionButton action={action} primary showReason /></div>}
     </div>
   );
 }

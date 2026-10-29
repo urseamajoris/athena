@@ -76,21 +76,21 @@ try {
   await page.waitForURL(/\/s\/new/);
 
   // 1. Idea: the empty canvas.
-  await page.getByLabel("What do you want to understand?").fill(IDEA);
+  await page.getByLabel("Describe your research idea").fill(IDEA);
   await page.keyboard.press("Enter");
   await page.waitForURL(/\/s\/prj_/);
   pid = page.url().match(/\/s\/(prj_[a-z0-9]+)/)[1];
   log("project", pid);
   await node("idea").waitFor();
   await shot("1-idea");
-  await node("idea").getByRole("button", { name: "Start scoping" }).click();
+  await node("idea").getByRole("button", { name: "Sharpen my idea" }).click();
   await waitApproved(1);
 
   // 2. Scoping chat (in the Idea panel), then subtopics.
   await panel().waitFor();
   for (let i = 0; i < 6; i++) {
     const box = page.getByLabel("Your answer");
-    const branch = footer().getByRole("button", { name: "Branch subtopics" });
+    const branch = footer().getByRole("button", { name: "Suggest search topics" });
     await Promise.race([box.and(page.locator(":enabled")).waitFor({ timeout: 120_000 }), branch.waitFor({ timeout: 120_000 })]);
     if (await branch.isVisible()) break;
     const q = await panel().locator('[data-role="assistant"]').last().innerText();
@@ -101,7 +101,7 @@ try {
   }
   const sc = await api("/scoping");
   check("scoping asked at most 5 questions", sc.asked <= 5, `asked ${sc.asked}`);
-  await footer().getByRole("button", { name: "Branch subtopics" }).click();
+  await footer().getByRole("button", { name: "Suggest search topics" }).click();
   await page.locator('[data-kind="topic"][data-status="ghost"]').first().waitFor({ timeout: 180_000 });
   const topics = (await api("/scoping")).topics;
   check("4–8 topics generated", topics.length >= 4 && topics.length <= 8, topics.map((t) => t.name).join(" | "));
@@ -124,25 +124,25 @@ try {
   await ghost.focus();
   await page.keyboard.press("Enter");
   await openNode("idea");
-  await footer().getByRole("button", { name: /^Accept \d+ subtopics?$/ }).click();
-  await footer().getByRole("button", { name: "Approve topics" }).click();
+  await footer().getByRole("button", { name: /^Keep \d+ suggested topics?$/ }).click();
+  await footer().getByRole("button", { name: "Use these topics" }).click();
   await waitApproved(2);
 
   // 3. Search builder: build the queries from a topic, dry-run them, run the search.
   await page.keyboard.press("Escape");
   const firstTopic = page.locator('[data-kind="topic"]').first();
-  await firstTopic.getByRole("button", { name: "Build queries" }).click();
+  await firstTopic.getByRole("button", { name: "Write the searches" }).click();
   await page.locator('[data-kind="query"]').first().waitFor({ timeout: 180_000 });
   await openNode(await page.locator('[data-kind="query"]').first().getAttribute("data-node-id"));
-  await menu("Dry-run all queries");
-  await panel().getByText(/records$/).first().waitFor({ timeout: 180_000 });
+  await menu("Count matches for every search");
+  await panel().getByText(/papers? match\./).first().waitFor({ timeout: 180_000 });
   await page.waitForTimeout(800);
   const search = await api("/search");
   const qs = search.topics.flatMap((t) => t.queries);
   check("one query per database per topic", search.topics.every((t) => t.queries.length === 2), `${qs.length} queries`);
   check("dry-run counts shown", qs.every((q) => q.dryRunAt), qs.map((q) => q.dryRunCount ?? `ERR ${q.dryRunError}`).join(", "));
   await shot("3-search");
-  await footer().getByRole("button", { name: "Run search" }).click();
+  await footer().getByRole("button", { name: "Run the searches" }).click();
   await waitApproved(3);
 
   // 4. Retrieval (background job + SSE)
@@ -157,7 +157,7 @@ try {
   check("papers deduplicated", ret.uniquePapers > 0 && ret.uniquePapers <= ret.runs.reduce((a, r) => a + r.fetchedCount, 0), `${ret.uniquePapers} unique of ${ret.runs.reduce((a, r) => a + r.fetchedCount, 0)} fetched`);
   await openNode("corpus");
   await shot("4-retrieval");
-  await footer().getByRole("button", { name: "Build table" }).click();
+  await footer().getByRole("button", { name: "Summarise the papers" }).click();
   await waitApproved(4);
 
   // 5. Summary table
@@ -177,7 +177,7 @@ try {
   await page.getByRole("dialog", { name: "Paper details" }).getByText("Found by these queries").waitFor();
   await shot("5-drawer");
   await page.keyboard.press("Escape");
-  await page.getByRole("banner").getByRole("button", { name: "Rank papers" }).click();
+  await page.getByRole("banner").getByRole("button", { name: "Rank the papers" }).click();
   await waitApproved(5);
 
   // 6. Ranking (same table, per-topic tabs)
@@ -199,7 +199,7 @@ try {
   const rank2 = await api("/ranking");
   check("user can swap a selected paper", rank2.topics.some((t) => t.scores.some((s) => s.userChanged)));
   await shot("6-ranking");
-  await page.getByRole("banner").getByRole("button", { name: "Appraise selected" }).click();
+  await page.getByRole("banner").getByRole("button", { name: "Appraise selected papers" }).click();
   await waitApproved(6);
 
   // 7. Appraisal (back on the canvas)
@@ -237,7 +237,7 @@ try {
     await page.waitForTimeout(300);
   }
   await page.keyboard.press("Escape");
-  await node("appraisal").getByRole("button", { name: "Synthesize" }).click();
+  await node("appraisal").getByRole("button", { name: "Summarise the evidence" }).click();
   await waitApproved(7);
 
   // 8. Synthesis
@@ -250,7 +250,7 @@ try {
   check("synthesis only cites verified or user-accepted claims", cited.every((c) => c && (c.verified || c.userAccepted)));
   await openNode("synthesis");
   await shot("8-synthesis");
-  await footer().getByRole("button", { name: "Generate RQs" }).click();
+  await footer().getByRole("button", { name: "Suggest research questions" }).click();
   await waitApproved(8);
 
   // 9. Research questions
@@ -269,14 +269,14 @@ try {
   await qbox.fill((await qbox.inputValue()).replace(/\?$/, "") + " between 2015 and 2025?");
   await panel().getByRole("button", { name: "Save edits" }).click();
   await page.waitForTimeout(800);
-  await footer().getByRole("button", { name: "Export" }).click();
+  await footer().getByRole("button", { name: "Finish and export" }).click();
   await waitApproved(9);
   await page.locator('[data-panel="export"]').waitFor({ timeout: 30_000 });
   await shot("9-final");
   check("question chosen and edited", (await api("/questions")).questions.some((q) => q.chosen && q.edited));
 
   // Exports (from the Export node)
-  for (const [format, ext] of [["Report", "md"], ["Summary table", "csv"], ["Selected papers", "bib"]]) {
+  for (const [format, ext] of [["Report", "md"], ["Spreadsheet of all papers", "csv"], ["Reference list", "bib"]]) {
     await panel().getByRole("radio", { name: new RegExp(`^${format}`) }).click();
     const [dl] = await Promise.all([page.waitForEvent("download"), footer().getByRole("link", { name: /^Download/ }).click()]);
     const path = `${out}/export.${ext}`;
@@ -295,7 +295,7 @@ try {
   const st = await states();
   check("editing topics marks stages 3–9 stale", [3, 4, 5, 6, 7, 8, 9].every((n) => st[String(n)] === "stale"), JSON.stringify(st));
   await page.goto(`${base}/s/${pid}?node=summary`);
-  await panel().getByText("Stale.").first().waitFor();
+  await panel().getByText("Out of date.").first().waitFor();
   await shot("stale-banner");
 } catch (e) {
   check("run completed without error", false, String(e.message ?? e));

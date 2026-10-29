@@ -82,6 +82,9 @@ export async function updateCriteria(projectId: string, criteria: Criteria) {
   (await db.update(schema.projects).set({ criteria, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run());
   (await db.update(schema.queries).set({ dryRunCount: null, dryRunAt: null }).where(eq(schema.queries.projectId, projectId)).run());
   (await logDecision(projectId, 3, "criteria_edited", p.criteria, criteria));
+  const was = (p.criteria?.hardFilter ?? []).join(",");
+  const now = (criteria.hardFilter ?? []).join(",");
+  if (was !== now) (await logDecision(projectId, 3, now ? "hard_retrieval_filter_set" : "hard_retrieval_filter_removed", was || null, now || null));
   (await markDownstreamStale(projectId, 3, "Inclusion/exclusion criteria were edited"));
 }
 

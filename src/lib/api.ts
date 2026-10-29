@@ -9,7 +9,7 @@ import { requireUser, ownedProject } from "./auth/server";
 import { startJob, cancelJob } from "./jobs";
 import { addTopic, answerScoping, approveTopics, deleteTopic, generateTopics, mergeTopics, nextScopingTurn, scopingState, skipScoping, updateTopic } from "./stages/scoping";
 import { buildQueries, dryRun, dryRunAll, searchState, updateCriteria, updateQuery } from "./stages/search";
-import { appraisalDetail, appraisalsView, canvasView, claimsView, decisionLogView, paperDetail, papersTableView, projectView, questionsView, rankingTableView, retrievalView, synthesisView } from "./views";
+import { paperPointsView, appraisalDetail, appraisalsView, canvasView, claimsView, decisionLogView, paperDetail, papersTableView, projectView, questionsView, rankingTableView, retrievalView, synthesisView } from "./views";
 import { markdownReport, selectedBibtex, summaryCsv } from "./export";
 import { runNovelty } from "./jobs/questions";
 import { reverifyProject } from "./jobs/appraisal";
@@ -229,6 +229,7 @@ const CriteriaSchema = z.object({
   studyTypes: z.array(z.string().trim().min(1).max(80)).max(20),
   inclusion: z.array(z.string().trim().min(1).max(300)).max(20),
   exclusion: z.array(z.string().trim().min(1).max(300)).max(20),
+  hardFilter: z.array(z.enum(["journal_article", "review", "preprint"])).max(3).optional(),
 });
 on("PUT", "criteria", async ({ projectId, body }) => {
   (await updateCriteria(projectId, parse(CriteriaSchema, body)));
@@ -240,6 +241,7 @@ on("GET", "retrieval", async ({ projectId }) => (await retrievalView(projectId))
 
 // ---------- stage 5 ----------
 on("GET", "papers", async ({ projectId }) => (await papersTableView(projectId)));
+on("GET", "papers-points", async ({ projectId }) => (await paperPointsView(projectId)));
 on("GET", "papers/:pid", async ({ projectId, params }) => {
   const d = (await paperDetail(projectId, params.pid));
   if (!d) throw new HttpError(404, "Paper not found");
@@ -347,6 +349,23 @@ on("POST", "questions/:qid/novelty", async ({ projectId, params }) => {
   const reviewed = new Set((await db.select({ t: schema.papers.normTitle }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all()).map((r) => r.t));
   await runNovelty(params.qid, reviewed, () => {});
   return (await questionsView(projectId));
+});
+
+// ---------- view choices (category filters, grouping, colour) ----------
+const Keys = z.array(z.string().max(80)).max(40);
+const ViewPrefsSchema = z.object({
+  colorBy: z.enum(["study", "topic", "source", "evidence", "score"]).optional(),
+  filters: z.object({ study: Keys, article: Keys, topic: Keys, source: Keys, period: Keys, access: Keys, selected: Keys, evidence: Keys }).partial().optional(),
+  groupBy: z.enum(["study", "article", "topic", "source", "period", "access", "selected", "evidence"]).nullable().optional(),
+});
+/** Saved per project and listed in the report. A view choice: it never hides data from later steps or marks anything stale. */
+on("PUT", "view", async ({ projectId, body }) => {
+  const prefs = parse(ViewPrefsSchema, body);
+  const p = await getProject(projectId);
+  if (JSON.stringify(p.viewPrefs ?? null) === JSON.stringify(prefs)) return { viewPrefs: prefs };
+  await db.update(schema.projects).set({ viewPrefs: prefs }).where(eq(schema.projects.id, projectId)).run();
+  await logDecision(projectId, p.currentStage, "view_choices_changed", p.viewPrefs ?? null, prefs);
+  return { viewPrefs: prefs };
 });
 
 // ---------- canvas ----------

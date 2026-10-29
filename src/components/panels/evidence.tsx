@@ -6,7 +6,7 @@ import { canvasStore, useSession } from "../session/SessionContext";
 import { shortCite } from "@/lib/shared/stages";
 
 export interface ClaimRef { id: string; paperId: string; field: string; statement: string; quote: string; location: string; verified: boolean; userAccepted: boolean; userRejected?: boolean; ordinal?: number; ofField?: number }
-export interface PaperRef { id: string; title: string; year: number | null; authors: string[] }
+export interface PaperRef { id: string; title: string; year: number | null; authors: string[]; studyType?: string | null }
 
 const I = { className: "h-3 w-3", strokeWidth: 2, "aria-hidden": true } as const;
 

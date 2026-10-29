@@ -6,6 +6,10 @@ import { Disclosure } from "../disclosure";
 import { canvasStore, cmdKey, useSession } from "../session/SessionContext";
 import { ActionButton, PanelFooter, SectionTitle } from "./common";
 import { ConceptMap } from "./ConceptMap";
+import { WhatHappens } from "../guide/WhatHappens";
+import dynamic from "next/dynamic";
+
+const TopicConstellation = dynamic(() => import("../viz/TopicConstellation").then((m) => m.TopicConstellation), { ssr: false, loading: () => <Loading label="Drawing your topics…" /> });
 import { stageAction } from "@/lib/canvas/actions";
 import { frontierStage, isGhostTopic } from "@/lib/canvas/graph";
 
@@ -23,7 +27,15 @@ export interface ScopingData {
   summary: Record<string, string> | null;
 }
 
-const COVERAGE_LABEL: Record<string, string> = { population: "Population", setting: "Setting", phenomenon: "Intervention / phenomenon", outcome: "Outcome", timeframe: "Time frame", studyTypes: "Study types" };
+/** The scope, in plain words (the PICO-style fields: population, setting, phenomenon, outcome…). */
+const COVERAGE_LABEL: Record<string, [string, string]> = {
+  population: ["Who", "the people or group you want to study"],
+  setting: ["Where", "the place or setting"],
+  phenomenon: ["What is studied", "the exposure, intervention or topic"],
+  outcome: ["What you want to know", "the result or outcome that matters"],
+  timeframe: ["Which years", "how recent the papers should be"],
+  studyTypes: ["Which kinds of studies", "e.g. trials, surveys, interviews, reviews"],
+};
 
 /** Idea node: the idea itself, then the scoping chat whose answers fill the scope (PICO-style) fields. */
 export function IdeaPanel() {
@@ -107,18 +119,19 @@ export function IdeaPanel() {
           <textarea id="idea-edit" className="input min-h-36 leading-relaxed" value={idea} placeholder="e.g. What is the knowledge gap in implementing telemedicine in Southeast Asia?" onChange={(e) => setIdea(e.target.value)} />
           <p className="mt-2 text-12 text-fg-2">Explain it the way you would to a supervisor. It does not need to be a polished question yet.</p>
         </div>
-      ) : (
-        <p className="text-fg-1">{project.idea}</p>
-      )}
+      ) : null}
+
+      {!ideaApproved && <WhatHappens stage={1} />}
+      {ideaApproved && <WhatHappens stage={2} />}
 
       {ideaApproved && (
-        <section aria-label="Scope">
-          <SectionTitle right={<span className="text-12 tabular-nums text-fg-2">question {Math.min(data.asked, data.maxQuestions)} of at most {data.maxQuestions}</span>}>Scope</SectionTitle>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
-            {Object.entries(COVERAGE_LABEL).map(([k, label]) => (
+        <section aria-label="What we know so far">
+          <SectionTitle right={<span className="text-12 tabular-nums text-fg-2">{chatOpen ? `question ${Math.max(1, Math.min(data.asked, data.maxQuestions))} of up to ${data.maxQuestions}` : "questions done"}</span>}>What we know so far</SectionTitle>
+          <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+            {Object.entries(COVERAGE_LABEL).map(([k, [label, hint]]) => (
               <div key={k}>
-                <dt className="text-12 text-fg-2">{label}</dt>
-                <dd className={data.coverage?.[k] ? "text-fg-0" : "italic text-fg-2"}>{data.coverage?.[k] ?? "not yet covered"}</dd>
+                <dt className="text-12 text-fg-1"><span className="font-medium">{label}</span> <span className="text-fg-2">· {hint}</span></dt>
+                <dd className={data.coverage?.[k] ? "text-fg-0" : "text-fg-2"}>{data.coverage?.[k] ?? "not answered yet"}</dd>
               </div>
             ))}
           </dl>
@@ -142,7 +155,7 @@ export function IdeaPanel() {
               id="answer"
               ref={answerRef}
               className="input min-h-16"
-              placeholder={data.awaitingAnswer ? "Type your answer (Enter to send, Shift+Enter for a new line)" : "Waiting for a question…"}
+              placeholder={data.awaitingAnswer ? "Type your answer in your own words (Enter sends)" : "Waiting for the next question…"}
               value={answer}
               disabled={!data.awaitingAnswer || !!local}
               onChange={(e) => setAnswer(e.target.value)}
@@ -174,30 +187,42 @@ export function IdeaPanel() {
             {data.topics.map((t) => {
               const ghost = !!summary && isGhostTopic({ ...t, synonyms: 0, controlledTerms: 0 }, states, input.client.acceptedTopics);
               return (
-                <li key={t.id}>
-                  <button className="flex min-h-11 w-full items-center gap-2 rounded-sm px-2 py-2 text-left hover:bg-bg-3" onClick={() => canvasStore.getState().openPanel(`topic:${t.id}`)}>
-                    <span className="min-w-0 flex-1 truncate">{t.name}</span>
+                <li key={t.id} className="flex flex-wrap items-center gap-1 rounded-sm hover:bg-bg-2">
+                  <button className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2 py-2 text-left" onClick={() => canvasStore.getState().openPanel(`topic:${t.id}`)} title="Open to edit its name and keywords">
+                    <span className="min-w-0 flex-1">{t.name}</span>
                     {ghost ? <Badge tone="warn">suggested</Badge> : t.origin !== "ai" ? <Badge>{t.origin === "user" ? "added by you" : "merged"}</Badge> : null}
                   </button>
+                  {ghost && (
+                    <span className="flex gap-1 pr-1">
+                      <button className="btn-secondary btn-sm" onClick={() => run({ type: "acceptTopic", topicId: t.id })} aria-label={`Keep the topic ${t.name}`}>Keep</button>
+                      <button className="btn-ghost btn-sm" onClick={() => run({ type: "dismissTopic", topicId: t.id })} aria-label={`Delete the topic ${t.name}`}>Delete</button>
+                    </span>
+                  )}
                 </li>
               );
             })}
           </ul>
-          {ghosts.length > 0 && <p className="mt-2 text-12 text-fg-2">Suggested subtopics stay dashed on the canvas until you accept (Enter) or dismiss (Esc) them.</p>}
+          {ghosts.length > 0 && <p className="mt-2 text-12 text-fg-2">Suggested topics stay dashed until you keep or delete them. Keep the ones that are part of your question; you can edit any topic afterwards.</p>}
         </section>
       )}
 
       {data.topics.length === 0 && data.draftTopics.length > 0 && (
         <section aria-label="Draft topics">
-          <SectionTitle>Draft topics, building as you answer</SectionTitle>
+          <SectionTitle>Search topics taking shape</SectionTitle>
           <ul className="flex flex-wrap gap-2">{data.draftTopics.map((t) => <li key={t}><Badge>{t}</Badge></li>)}</ul>
         </section>
       )}
 
       {data.topics.length > 0 && <ManageTopics topics={data.topics} onChange={(d) => mutate(d, { revalidate: false })} />}
-      {data.conceptMap && (
-        <Disclosure title="Concept map">
-          <ConceptMap map={data.conceptMap} />
+      {data.topics.length > 0 && (
+        <Disclosure title="See how your topics connect" meta="map">
+          <TopicConstellation idea={project.idea} topics={data.topics} />
+          {data.conceptMap && (
+            <div className="mt-3">
+              <p className="mb-1 text-12 text-fg-2">How the AI linked the main ideas:</p>
+              <ConceptMap map={data.conceptMap} />
+            </div>
+          )}
         </Disclosure>
       )}
       {ideaApproved && (
@@ -223,7 +248,7 @@ export function IdeaPanel() {
       {err ? <ErrorState error={err} title="That step failed" onRetry={() => (data.messages.length ? undefined : call("start", "scoping/start"))} /> : null}
 
       {action && (
-        <PanelFooter note={chatOpen && data.awaitingAnswer ? "Up to five short questions; skip any time from ⋯." : undefined}>
+        <PanelFooter note={chatOpen && data.awaitingAnswer ? "Up to five short questions. To skip the rest, use ⋯ (More actions) at the top." : undefined}>
           {!ideaApproved ? (
             <button
               className="btn-primary"
@@ -352,7 +377,7 @@ export function TopicPanel({ topicId }: { topicId: string }) {
           {ghost ? (
             <>
               <button className="btn-ghost" onClick={() => run({ type: "dismissTopic", topicId })}>Dismiss</button>
-              <button className="btn-primary" onClick={() => run({ type: "acceptTopic", topicId })}>Accept subtopic</button>
+              <button className="btn-primary" onClick={() => run({ type: "acceptTopic", topicId })}>Keep this topic</button>
             </>
           ) : (
             frontier && <ActionButton action={frontier} primary showReason />

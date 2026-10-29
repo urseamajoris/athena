@@ -8,6 +8,7 @@ import { KindIcon } from "./icons";
 import { NodeStatusBadge, TrustBadges } from "./node-bits";
 import { KIND_LABEL, frontierNodeId, type GNode, type Graph, type GraphInput } from "@/lib/canvas/graph";
 import { nextAction } from "@/lib/canvas/actions";
+import { taskFor } from "@/lib/canvas/tasks";
 
 export interface TreeItem {
   node: GNode;
@@ -40,7 +41,7 @@ function ListItem({ it, depth, c }: { it: TreeItem; depth: number; c: ItemCtx })
       <div
         data-list-node={n.id}
         data-status={n.ghost ? "ghost" : n.status}
-        className={cx("flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line py-2 pr-4", c.selected === n.id && "bg-bg-2")}
+        className={cx("flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line py-2 pr-4", c.selected === n.id && "bg-bg-2", n.id === c.frontier && "border-l-2 border-l-fg-1")}
         style={{ paddingLeft: 16 + Math.min(depth, 4) * 16 }}
       >
         <button
@@ -51,7 +52,7 @@ function ListItem({ it, depth, c }: { it: TreeItem; depth: number; c: ItemCtx })
             <KindIcon kind={n.kind} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className={cx("block truncate font-medium", n.kind === "quote" && "italic")}>{n.title}</span>
+            <span className={cx("line-clamp-2 block font-medium", n.kind === "quote" && "italic")}>{n.title}</span>
             <span className="flex min-w-0 flex-wrap items-center gap-x-3 text-12 text-fg-1">
               <span className="text-fg-2">{KIND_LABEL[n.kind]}</span>
               <span className="truncate tabular-nums">{n.key}{n.kind === "corpus" && c.corpusFrom > 1 ? ` · from ${c.corpusFrom} queries` : ""}</span>
@@ -64,7 +65,7 @@ function ListItem({ it, depth, c }: { it: TreeItem; depth: number; c: ItemCtx })
           <TrustBadges node={n} />
         </span>
         {n.ghost ? (
-          <ActionButton action={{ cmd: { type: "acceptTopic", topicId: n.topicId! }, label: "Accept" }} />
+          <ActionButton action={{ cmd: { type: "acceptTopic", topicId: n.topicId! }, label: "Keep" }} />
         ) : action && n.id !== c.frontier ? (
           <ActionButton action={action} showReason />
         ) : null}
@@ -86,14 +87,15 @@ export function ListView() {
   const c: ItemCtx = { graph, input, frontier: frontierNodeId(graph, states), panel, selected, corpusFrom: graph.nodes.find((n) => n.id === "corpus")?.parents.length ?? 0 };
   const frontierNode = graph.nodes.find((n) => n.id === c.frontier);
   const next = frontierNode ? nextAction(frontierNode, graph, input) : null;
+  const task = frontierNode ? taskFor(frontierNode, input) : null;
   return (
     <div className="absolute inset-0 overflow-y-auto" data-list-view>
       {next && frontierNode && (
         <section aria-label="Next step" className="sticky top-0 z-10 border-b border-line bg-bg-0">
           <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-3 px-4 py-3">
             <p className="min-w-0 flex-1">
-              <span className="block text-12 text-fg-2">Next step · {KIND_LABEL[frontierNode.kind]}</span>
-              <span className="block truncate font-medium">{frontierNode.title}</span>
+              <span className="block text-12 text-fg-2">{task?.step ? `Your next step · step ${task.step} of 9` : "Your next step"}</span>
+              <span className="block font-medium">{task?.headline ?? frontierNode.title}</span>
             </p>
             <ActionButton action={next} primary={!panel} showReason />
           </div>

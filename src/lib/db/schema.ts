@@ -20,6 +20,12 @@ export interface Criteria {
   studyTypes: string[];
   inclusion: string[];
   exclusion: string[];
+  /**
+   * Optional HARD retrieval filter: only these article types are fetched from the databases
+   * ("journal_article" | "review" | "preprint"). Off by default, because it silently drops papers the databases
+   * mislabel; the UI warns about that and the choice is logged.
+   */
+  hardFilter?: string[];
 }
 
 export const projects = sqliteTable("projects", {

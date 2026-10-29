@@ -115,3 +115,13 @@ test("query chips: terms keep their field tag, parentheses drop, operators stay"
   ]);
   assert.deepEqual(queryChips("AND ( )"), []);
 });
+
+import { queryBlocks } from "./query-chips";
+test("query blocks: top-level AND splits concepts; OR terms stay together", () => {
+  const b = queryBlocks('(telemedicine[mh] OR "telehealth"[tiab]) AND ("Southeast Asia"[tiab] OR Thailand[tiab])');
+  assert.equal(b.length, 2);
+  assert.deepEqual(b[0].terms.map((t) => t.text), ["telemedicine", "telehealth"]);
+  assert.equal(b[0].terms[0].field, "mh");
+  assert.equal(b[1].join, "AND");
+  assert.equal(queryBlocks("sleep AND grades NOT children").map((x) => x.join).join(","), ",AND,NOT");
+});

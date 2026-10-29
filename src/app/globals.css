@@ -241,13 +241,22 @@ kbd,
     cursor: not-allowed;
   }
 }
-/* The one accent-filled button per view. */
+/* The one accent-filled button per view. Disabled, it becomes an outline (a dimmed fill reads as "enabled but
+   faint", and testers could not tell the two apart); the reason is said next to it. */
 @utility btn-primary {
   @apply btn;
   background: var(--accent);
   color: var(--accent-fg);
-  &:not(:disabled):hover {
+  font-weight: 600;
+  &:not(:disabled):not([aria-disabled="true"]):hover {
     background: var(--accent-hover);
+  }
+  &:disabled,
+  &[aria-disabled="true"] {
+    opacity: 1;
+    background: transparent;
+    color: var(--fg-2);
+    border: 1px dashed var(--line-control);
   }
 }
 @utility btn-secondary {

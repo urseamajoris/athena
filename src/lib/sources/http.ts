@@ -170,7 +170,7 @@ export async function httpFetch(source: SourceName, url: string, opts: FetchOpts
 
   if (config.mockMode) {
     const m = mockResponse(source, url, opts.body);
-    track(source, { status: m.status, ok: okStatuses.includes(m.status), cached: true });
+    track(source, { status: m.status, ok: okStatuses.includes(m.status) || m.status === 404, cached: true });
     opts.log?.(`[mock] ${opts.method ?? "GET"} ${safeUrl} → ${m.status}`);
     if (!okStatuses.includes(m.status)) throw new SourceError(source, `HTTP ${m.status} (mock fixture)`, m.status);
     return { status: m.status, text: m.text, contentType: m.contentType, cached: true };
@@ -178,7 +178,7 @@ export async function httpFetch(source: SourceName, url: string, opts: FetchOpts
 
   const hit = (await db.select().from(schema.httpCache).where(eq(schema.httpCache.key, key)).get());
   if (hit && hit.expiresAt > nowIso()) {
-    track(source, { status: hit.status, ok: okStatuses.includes(hit.status), cached: true });
+    track(source, { status: hit.status, ok: okStatuses.includes(hit.status) || hit.status === 404, cached: true });
     opts.log?.(`[cache] ${safeUrl}`);
     if (!okStatuses.includes(hit.status)) throw new SourceError(source, `HTTP ${hit.status} (cached)`, hit.status);
     return { status: hit.status, text: hit.body, contentType: hit.contentType, cached: true };
@@ -200,7 +200,8 @@ export async function httpFetch(source: SourceName, url: string, opts: FetchOpts
         },
         signal: AbortSignal.timeout(45000),
       });
-      track(source, { status: res.status, ok: okStatuses.includes(res.status), ms: Date.now() - t0 });
+      // A 404 is a definite "not found" (e.g. no open PDF for this DOI), not a failure of the source.
+      track(source, { status: res.status, ok: okStatuses.includes(res.status) || res.status === 404, ms: Date.now() - t0 });
       if (res.status === 429 || res.status >= 500) {
         const ra = Number(res.headers.get("retry-after"));
         const wait = Number.isFinite(ra) && ra > 0 ? Math.min(ra * 1000, 30000) : Math.min(1000 * 2 ** attempt, 16000);

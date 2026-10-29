@@ -9,6 +9,17 @@ import { ActionButton, JobLog, JobStatus, PanelFooter, StaleNotice } from "./com
 import { ClaimChip, type ClaimRef, type PaperRef } from "./evidence";
 import { nextAction } from "@/lib/canvas/actions";
 import { fmtInt } from "@/lib/shared/format";
+import { WhatHappens } from "../guide/WhatHappens";
+
+/** What each question framework's letters stand for (shown next to its name, never as a bare acronym). */
+const FRAMEWORK: Record<string, string> = {
+  PICO: "Population, Intervention, Comparison, Outcome",
+  PICo: "Population, phenomenon of Interest, Context",
+  PECO: "Population, Exposure, Comparison, Outcome",
+  PEO: "Population, Exposure, Outcome",
+  SPIDER: "Sample, Phenomenon of Interest, Design, Evaluation, Research type",
+  SPICE: "Setting, Perspective, Intervention, Comparison, Evaluation",
+};
 
 interface Match { title: string; year: number | null; doi: string | null; pmid: string | null; openalexId: string | null; database: string; similarityNote: string }
 export interface RQ {
@@ -61,13 +72,15 @@ export function QuestionsPanel() {
         <EmptyState title="No candidate questions yet">Three are proposed from the gaps in the synthesis.</EmptyState>
       ) : (
         <>
-          <p className="text-fg-1">Each candidate names the gap it addresses, with the evidence behind it. The novelty check shows the closest existing studies a fresh search found; it is not proof that a question is new.</p>
+          <WhatHappens stage={9} />
+          <p className="text-fg-1">Pick the one that fits you best; you can edit it after. Open “Why this question” to see the gap it fills, the quotes behind it, how feasible it is and its main weakness.</p>
+          <p className="text-12 text-fg-2">The novelty check is a fresh database search for similar studies. Finding none does not prove a question is new.</p>
           <ul className="space-y-3" aria-label="Candidate research questions">
             {data.questions.map((q, i) => (
               <li key={q.id} className={cx("rounded-md border p-3", q.chosen ? "border-fg-1" : "border-line")} aria-label={`Candidate ${i + 1}`}>
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <span className="text-12 text-fg-2">Candidate {i + 1}</span>
-                  <span className="flex gap-1"><Badge>{q.framework}</Badge>{q.edited && <Badge>edited</Badge>}</span>
+                  <span className="flex flex-wrap justify-end gap-1"><Badge title={FRAMEWORK[q.framework] ?? "How the question is structured"}>{q.framework}{FRAMEWORK[q.framework] ? `: ${FRAMEWORK[q.framework]}` : ""}</Badge>{q.edited && <Badge>edited</Badge>}</span>
                 </div>
                 <p className="font-medium leading-snug">{q.text}</p>
                 <div className="mt-3 flex items-center gap-2">
@@ -77,7 +90,7 @@ export function QuestionsPanel() {
                   </button>
                 </div>
                 <div className="mt-3">
-                  <Disclosure title="Why this question" meta={`${q.claimIds.length} evidence`}>
+                  <Disclosure title="Why this question" meta={`${q.claimIds.length} supporting quote${q.claimIds.length === 1 ? "" : "s"}`}>
                     <dl className="space-y-1">
                       {Object.entries(q.structure).map(([k, v]) => (
                         <div key={k} className="grid grid-cols-[96px_1fr] gap-2"><dt className="text-fg-2">{k}</dt><dd>{v}</dd></div>
