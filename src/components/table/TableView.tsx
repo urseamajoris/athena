@@ -109,7 +109,8 @@ export function TableView() {
   // Every paper with its categories (before any filter), then the filters as a non-destructive view.
   const allRows: Row[] = useMemo(() => {
     const ps = papers.data?.papers ?? [];
-    const rt = ranking.data?.topics ?? [];
+    // While step 6 scores, its half-written scores are not shown anywhere (cards, map, table), only its progress.
+    const rt = scoring ? [] : ranking.data?.topics ?? [];
     const scoresByPaper = new Map<string, Score[]>();
     for (const t of rt) for (const s of t.scores) scoresByPaper.set(s.paperId, [...(scoresByPaper.get(s.paperId) ?? []), s]);
     const rankOf = new Map<string, number>();
@@ -129,7 +130,7 @@ export function TableView() {
         const fit = setting ? fitOf(setting, p, all) : null;
         return { ...p, score, rank: score && topic !== "all" ? rankOf.get(score.id) ?? null : null, selectedIn, selectedElsewhere, kept, cats: categorize(p, kept), settingFit: fit };
       });
-  }, [papers.data, ranking.data, topic, setting]);
+  }, [papers.data, ranking.data, topic, setting, scoring]);
   const activeFilters = (Object.entries(view.filters) as [Dimension, string[]][]).filter(([, k]) => k?.length);
   // The text search first: the filter chips count the papers it matches, so their numbers agree with the rows.
   const searched: Row[] = useMemo(() => {
@@ -382,7 +383,7 @@ export function TableView() {
                 key={t.id}
                 aria-pressed={topic === t.id}
                 onClick={() => { setSorting([]); setTopic(t.id); setNotice(null); }}
-                className={cx("min-h-11 shrink-0 rounded-sm border px-3 text-left", topic === t.id ? "border-fg-1 bg-bg-2 text-fg-0" : "border-line text-fg-1 hover:text-fg-0")}
+                className={cx("min-h-11 min-w-0 max-w-full rounded-sm border px-3 text-left", topic === t.id ? "border-fg-1 bg-bg-2 text-fg-0" : "border-line text-fg-1 hover:text-fg-0")}
               >
                 {t.name}{t.n !== null && <span className={cx("ml-2 text-12 tabular-nums", t.n < 3 || t.n > 5 ? "text-warn" : "text-fg-2")}>{t.n} selected</span>}
               </button>
