@@ -7,7 +7,7 @@ import { Badge, EmptyState, ErrorState, Loading, cx } from "../ui";
 import { Disclosure } from "../disclosure";
 import { useJobRefresh, useSession } from "../session/SessionContext";
 import { ActionButton, JobLog, JobStatus, PanelFooter, SectionTitle, StaleNotice } from "./common";
-import { ClaimChip, short, type ClaimRef, type PaperRef } from "./evidence";
+import { ClaimChip, VerdictLegend, short, type ClaimRef, type PaperRef } from "./evidence";
 import { nextAction } from "@/lib/canvas/actions";
 import dynamic from "next/dynamic";
 import { AlertTriangle, CheckCircle2, HelpCircle } from "lucide-react";
@@ -34,6 +34,12 @@ const KIND_HELP = { known: "What the papers report. A finding from 1 paper is on
 // "Contested" and the contradictions box share one categorical hue and the balance icon; amber stays reserved for
 // "Your turn" and "Out of date", red for errors.
 const KIND_ICON = { known: CheckCircle2, contested: Scale, unknown: HelpCircle } as const;
+// The labels the synthesis puts at the start of a statement (src/lib/shared/synthesis-rules.ts), explained under a
+// section that has one.
+const LABEL_HELP: [RegExp, string][] = [
+  [/^indirect evidence/i, "“Indirect evidence”: its quotes are about something related (another intervention or group), not exactly your topic."],
+  [/^(?:indirect evidence, )?mixed results/i, "“Mixed results”: the studies point the same way, but not all of them found a clear (statistically significant) effect."],
+];
 const KIND_TONE = { known: "text-ok", contested: "text-[var(--cat-7)]", unknown: "text-fg-1" } as const;
 const STANCE_LABEL: Record<string, string> = { supports: "supports", contradicts: "contradicts", mixed: "mixed", neutral: "neutral", not_addressed: "not addressed" };
 const STANCE_CLASS: Record<string, string> = { supports: "border-ok-line", contradicts: "border-err-line", mixed: "border-warn-line", neutral: "border-line", not_addressed: "border-line border-dashed" };
@@ -109,7 +115,7 @@ export function SynthesisPanel() {
         <EmptyState title="No synthesis yet">It is built from the appraisal quotes found in the papers (or accepted by you).</EmptyState>
       ) : (
         <>
-        <p className="text-12 text-fg-1">Each small button under a statement is a quote from a paper (<span className="text-ok">✓ found word for word</span>, or accepted by you). Found means the words are in the paper, not that they prove the statement. Click one to read the quote.</p>
+        <div className="text-12 text-fg-1">Each small button under a statement is a quote from a paper. Click one to read the quote.<VerdictLegend of="statement" /></div>
         <Tabs.Root defaultValue={topics[0].id} onValueChange={() => canvasStore.getState().markSeen(projectId, "read-synthesis")}>
           <Tabs.List aria-label="Topics" className="-mx-1 flex gap-1 overflow-x-auto border-b border-line px-1">
             {topics.map((t) => (
@@ -139,6 +145,7 @@ export function SynthesisPanel() {
                 <section key={kind} aria-label={KIND_LABEL[kind]} className="rounded-md border border-line p-3">
                   <h3 className={cx("flex items-center gap-2 font-semibold", KIND_TONE[kind])}><Icon className="h-4 w-4" strokeWidth={2} aria-hidden />{KIND_LABEL[kind]}</h3>
                   <p className="mb-2 text-12 text-fg-2">{KIND_HELP[kind]}</p>
+                  {LABEL_HELP.filter(([re]) => t.items.some((i) => i.kind === kind && re.test(i.statement))).map(([, help]) => <p key={help} className="mb-2 text-12 text-fg-2">{help}</p>)}
                   <ul className="space-y-3">
                     {t.items.filter((i) => i.kind === kind).map((i) => (
                       <li key={i.id}>

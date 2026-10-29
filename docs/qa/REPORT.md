@@ -289,3 +289,43 @@ The persona finished all nine steps. Its verdict: "Nothing looked fabricated. Th
 | While papers were being scored, step 6 showed "0 selected" on every topic and "no papers match" warnings. | The counts and warnings wait until scoring has finished. |
 | An abstract was labelled "Full retrieved text". | It is now labelled "The abstract that was read". |
 | The report was titled with the raw idea ("I'm interested in sleep and grades"). | The report is titled with the chosen research question. |
+
+### Real run 3: the non-native English speaker, then the admin
+
+**Spend: $0.76** for 72 AI calls, all of which succeeded. Cumulative after three runs: **$2.46**, 217 calls (215 succeeded). The admin check added one call when it turned AI back on.
+
+**The run:**
+
+- **Idea:** typed with its typos, "how mobile app help diabtes pateint in thailand control there sugar level?", on a 768 px tablet window. Scoping asked 2 questions and kept 4 topics.
+- **Retrieval:** 8 searches, 297 records, 225 papers after 72 duplicates were removed.
+- **Appraisal:** 10 papers, 3 of them from full text.
+- **Quote check:** 114 of 116 quotes found word for word. The 2 others were accepted by the persona.
+- **Report:** `docs/qa/real-3/nonnative/report.json`. The persona finished all nine steps.
+
+The persona's verdict: "No invented papers or quotes seen." What fell short was the fit to the idea: the review lost Thailand after topic 1, and the appraisal and synthesis stretched their quotes. It found 19 issues (3 major, 13 minor, 3 polish).
+
+**The admin check** (`docs/qa/real-3/admin/report.json`):
+
+- **Dashboard against the users' accounts:** it matched them. That covers 4 accounts, 3 finished projects, a funnel of 3 at every step, per-account calls (72, 71, 72) and the spend.
+- **AI switch:** it worked end to end. A new user saw the pause, nothing was sent while AI was off, and the work continued once AI was back on.
+- **Findings:** 10, all minor or polish.
+- **Key ending:** the dashboard showed the key's last 4 characters, and they ended up in screenshots. They were blanked from every committed image and report (see PR 6), and the dashboard now shows only a key id.
+
+| Finding (real mode) | What changed |
+|---|---|
+| **The review lost its setting.** Only 14 of 225 papers mention Thailand. The searches for topics 2 to 4 dropped the country. Ranking picked a Singapore trial and a "mobile health clinic" (a van) review for an app question. | **Searches:** `search_builder.v3` keeps the idea's setting as an AND group in every search, unless the topic compares settings; code also adds it to a search that leaves it out. **Ranking:** `ranking.v2` defines a setting scale and flags papers that only share words ("mobile clinic" ≠ "mobile app"). In code, an off-setting paper's score is halved with the reason stated, and a word-only match is never pre-selected. **Ranking page:** "5 of 10 selected papers are clearly set in Thailand" (a warning when it is fewer than half), and a note on each selected paper whose setting may differ. **Report:** says which searches were limited to the setting. |
+| **Checklist answers said "No" when an abstract was simply silent**, and one quote backed several answers. On the stored data: 7 of 60 answers in run 3, 7 of 84 in run 1, 5 of 72 in run 2. | **Prompt:** `appraisal.v2`: "No" needs words saying it was not done; with abstract-only text an unmentioned item is "Not reported". **Code:** an answer whose quote is shared with another answer becomes "Not reported", with a plain note saying why. **Badge:** "words are in the paper" (it does not show the answer is right). |
+| **Synthesis stretched its quotes.** A mobile-clinic review was Known evidence for apps; a telemedicine quote backed a statement about apps; a non-significant result was shown as a contradiction. | **Prompt:** `synthesis.v6`. **Schema:** each statement is marked direct or indirect evidence. **Code:** indirect evidence is labelled "Indirect evidence: …"; "significant vs not significant" becomes "Mixed results: …" in Known instead of Contested; a contradiction that rests only on significance is dropped. |
+| **Novelty warnings were generic.** Two candidates showed the same 4 papers, including an office-worker "sit less" trial. | **Matcher:** stricter. Each element of the question must be mostly matched, generic words are ignored, spellings are aligned (HbA1c, COVID-19, GPA), and a study in another country does not count. Tested on the real titles of runs 2 and 3. **Card:** the warning lists at most the 3 closest papers, as "close to your question". |
+| Smaller findings. **Retrieval:** the map was cut off at 768 px. **Table:** facet counts ignored the text search, and the row and the detail panel named the study type differently. **Ranking:** the checklist showed while scoring. **Progress:** batches and papers were mixed up. **Step 9:** the question cards were cut off. **Appraisal:** quotes to decide were hard to find. **Scoping:** the first question asked for years. **Search builder:** "last 5 years" became 2019 (should be 2021), and a comma split the MeSH heading "Asia, Southeastern". **Sign-up:** focus landed on Email. **Admin:** breakdowns did not add up, the forecast ran on a 2-hour burst, "failed" was ambiguous, and the dashboard had no link from My projects. | **Retrieval:** the map fits its panel, every axis is labelled and every point is the same size. **Table:** "Other design: narrative review" in both places; facet counts follow the search. **Ranking:** only the progress shows while it scores. **Progress:** "2 of 27 batches · 27 of 225 papers · about 2 minutes left". **Step 9:** the cards show their full text. **Appraisal:** a "Next quote to decide" button, and plain-English notes with the detail under "Show detail". **Scoping:** `scoping_turn.v2` asks about population, intervention and outcome first; a reply still out of order is used rather than failing the turn. **Search builder:** the years are worked out from the answer and shown for confirmation; MeSH takes one heading per line. **Sign-up:** focus starts on the first field. **Admin:** there is an "Admin" link; breakdowns add up with an "other" row; no forecast before 3 days of data; "invalid reply, retried" is separate from errors; expected full-text failures are explained; only a key id is shown. |
+
+**After the fixes** (no xAI key, $0):
+
+| Check | Result |
+|---|---|
+| `npm test` | 166/166 |
+| `npm run build` | clean |
+| `node scripts/e2e.mjs` | 23/23 |
+| `npm run test:security` | 54/54, including the key-id check |
+
+The real run-3 review was also served, with no key, from a copy of its database, and screenshotted in the new UI at 768 and 1366 px. That covered retrieval and the map, the table, appraisal, questions and the admin page, with no console errors. The new prompts (`search_builder.v3`, `ranking.v2`, `appraisal.v2`, `synthesis.v6`, `scoping_turn.v2`) have **not** been run against the real model: that needs a key and spend, within the $5 cap.

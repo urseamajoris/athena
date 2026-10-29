@@ -1,7 +1,6 @@
 import "server-only";
 import { asc, eq, inArray } from "drizzle-orm";
 import { db, schema } from "../db";
-import type { RubricScores } from "../db/schema";
 import { structuredCall, unknownIds, isAiStop } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { RankingBatch, TopicImportance } from "../stages/ai-schemas";
@@ -9,7 +8,8 @@ import { PER_TOPIC } from "../shared/stages";
 import { chunk, errMsg, newId, forEachSeq } from "../util";
 import { getProject, logDecision } from "../project";
 import type { JobContext } from "./runner";
-import { citationScore, defaultSelection, recencyScore, weightedTotal } from "../scoring";
+import { applyRankingRules, citationScore, defaultSelection, recencyScore } from "../scoring";
+import { ideaSetting, rankedSetting } from "../shared/scope";
 
 const BATCH = 10;
 /** Max papers scored per topic (highest database relevance first) to bound cost. */
@@ -18,8 +18,10 @@ const MAX_PER_TOPIC = 60;
 export async function rankingJob(ctx: JobContext) {
   const { projectId } = ctx;
   const p = (await getProject(projectId));
+  const setting = ideaSetting(p.scopingSummary);
   const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
   const topicIds = topics.map((t) => t.id);
+  const queries = (await db.select({ topicId: schema.queries.topicId, scope: schema.queries.scope }).from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
   // A resumed job (after AI was paused) keeps the scores it already has and scores only the rest.
   const resumed = !!ctx.params.resumed;
   if (!resumed) (await db.delete(schema.scores).where(inArray(schema.scores.topicId, topicIds.concat(["-"]))).run());
@@ -45,7 +47,10 @@ export async function rankingJob(ctx: JobContext) {
     for (const b of chunk(ps.filter((x) => !scored.has(`${t.id}:${x.id}`)), BATCH)) jobs.push({ topic: t, batch: b });
   }
   let finished = 0;
-  (await ctx.progress(0, jobs.length + 1, `Scoring ${jobs.length} batches across ${topics.length} topics`));
+  // The bar has one more step than the batches: ordering the topics at the end.
+  const detail = () => ({ batches: { done: finished, total: jobs.length } });
+  const message = `Scoring papers against ${topics.length === 1 ? "the topic" : `${topics.length} topics`}, ${BATCH} per batch`;
+  (await ctx.progress(0, jobs.length + 1, message, detail()));
   await Promise.all(
     jobs.map(async ({ topic, batch }) => {
       if ((await ctx.cancelled())) return;
@@ -60,6 +65,7 @@ export async function rankingJob(ctx: JobContext) {
           vars: {
             idea: wrapData("research idea", p.idea),
             summary: wrapData("scoping summary", JSON.stringify(p.scopingSummary ?? {})),
+            setting: setting ? wrapData("setting", setting) : "none named (rate settingMatch for the population only)",
             topic: `${topic.name} — ${topic.rationale}`,
             papers: batch
               .map((x) => {
@@ -79,15 +85,16 @@ export async function rankingJob(ctx: JobContext) {
           const paper = batch.find((x) => x.id === r.paperId)!;
           const rec = recencyScore(paper.year);
           const cit = citationScore(paper.citationCount, paper.year);
-          const sub: RubricScores = { topicFit: r.topicFit, designStrength: r.designStrength, settingMatch: r.settingMatch, recency: rec.score, citationImpact: cit.score };
+          // Off-setting papers and papers that only share words with the idea score low, and say why.
+          const ruled = applyRankingRules(r, { recency: rec.score, citationImpact: cit.score }, rankedSetting(setting, queries.filter((q) => q.topicId === topic.id)));
           (await db.insert(schema.scores).values({
                         id: newId("sc"),
                         paperId: r.paperId,
                         topicId: topic.id,
-                        subScores: sub,
-                        rationales: { topicFit: r.topicFitWhy, designStrength: r.designStrengthWhy, settingMatch: r.settingMatchWhy, recency: rec.why, citationImpact: cit.why },
-                        total: weightedTotal(sub),
-                        rationale: r.overall,
+                        subScores: ruled.sub,
+                        rationales: { topicFit: ruled.topicFitWhy, designStrength: r.designStrengthWhy, settingMatch: ruled.settingMatchWhy, recency: rec.why, citationImpact: cit.why },
+                        total: ruled.total,
+                        rationale: ruled.overall,
                       }).onConflictDoNothing().run());
         }
       } catch (e) {
@@ -95,7 +102,7 @@ export async function rankingJob(ctx: JobContext) {
         (await ctx.log(`Scoring batch for "${topic.name}" failed: ${errMsg(e)}`));
       } finally {
         finished++;
-        (await ctx.progress(finished, jobs.length + 1, `Scored ${finished}/${jobs.length} batches`));
+        (await ctx.progress(finished, jobs.length + 1, message, detail()));
       }
     }),
   );
@@ -109,7 +116,7 @@ export async function rankingJob(ctx: JobContext) {
   }
 
   // Order topics by importance.
-  (await ctx.progress(jobs.length, jobs.length + 1, "Ordering topics by importance"));
+  (await ctx.progress(jobs.length, jobs.length + 1, "Ordering topics by importance", detail()));
   try {
     const stats = topics.map((t) => {
       const ss = all.filter((s) => s.topicId === t.id);
@@ -139,4 +146,6 @@ export async function rankingJob(ctx: JobContext) {
   }
   (await logDecision(projectId, 6, "ranking_generated", null, { scored: all.length }, "ai"));
   if (!all.length) throw new Error("No papers could be scored.");
+  // The last report is what "Finished …" shows once the job is done.
+  (await ctx.progress(jobs.length + 1, jobs.length + 1, `Scored ${new Set(all.map((s) => s.paperId)).size} papers against ${topics.length === 1 ? "the topic" : `${topics.length} topics`}`, detail()));
 }

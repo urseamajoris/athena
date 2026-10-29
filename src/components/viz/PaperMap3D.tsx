@@ -1,18 +1,40 @@
 "use client";
 import { useMemo, useState } from "react";
+import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import Scene3D, { Label } from "./Scene3D";
+import Scene3D, { Label, type Fit } from "./Scene3D";
 import { shapeTexture } from "./shapes3d";
-import { place, type MapPoint, type Placed } from "./paper-points";
+import { place, topicTag, type MapPoint, type Placed } from "./paper-points";
 import { categoriesFor, categoryHex, type ColorBy } from "@/lib/shared/categories";
 
-function Cloud({ pts, color, shape, faded, onHover, onOpen, size }: { pts: Placed[]; color: string; shape: Parameters<typeof shapeTexture>[0]; faded: boolean; onHover: (p: Placed | null) => void; onOpen: (id: string) => void; size: number }) {
+/** On-screen size of every point, in CSS pixels: the same near and far, so size carries no meaning. */
+const POINT_PX = 11;
+/** The axes, their labels and the points (see the axis lines below), so a narrow canvas never cuts them off. */
+// depth covers the front labels (z = 2.4), which perspective pushes outwards on a wide canvas.
+const FIT: Fit = { halfWidth: 6.6, halfHeight: 4.1, depth: 2.6, target: [-0.1, -0.3, 0] };
+/** Below this canvas width the T1…Tn depth tags would pile up: the caption names the topics instead. */
+const DEPTH_TAGS_MIN_PX = 460;
+
+/** The depth tags, only where there is room for them (they live inside the canvas, so they read its size). */
+function DepthTags({ ticks, style }: { ticks: { tag: string; z: number }[]; style: Record<string, string | number> }) {
+  const width = useThree((st) => st.size.width);
+  if (!ticks.length || width < DEPTH_TAGS_MIN_PX) return null;
+  return (
+    <>
+      {ticks.map((t) => <Label key={t.tag} position={[5.1, -3, t.z]} style={{ ...style, fontSize: 11 }}>{t.tag}</Label>)}
+      <Label position={[5.1, -3.45, 2.4]} style={style}>Topic</Label>
+    </>
+  );
+}
+
+function Cloud({ pts, color, shape, faded, onHover, onOpen }: { pts: Placed[]; color: string; shape: Parameters<typeof shapeTexture>[0]; faded: boolean; onHover: (p: Placed | null) => void; onOpen: (id: string) => void }) {
   const geo = useMemo(() => {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(pts.flatMap((p) => [p.x, p.y, p.z]), 3));
     return g;
   }, [pts]);
-  const mat = useMemo(() => new THREE.PointsMaterial({ map: shapeTexture(shape), color: new THREE.Color(color), size, sizeAttenuation: true, transparent: true, alphaTest: 0.4, opacity: faded ? 0.12 : 1, depthWrite: !faded }), [shape, color, faded, size]);
+  // sizeAttenuation off: perspective would draw near points bigger than far ones, which reads as a size code.
+  const mat = useMemo(() => new THREE.PointsMaterial({ map: shapeTexture(shape), color: new THREE.Color(color), size: POINT_PX, sizeAttenuation: false, transparent: true, alphaTest: 0.4, opacity: faded ? 0.12 : 1, depthWrite: !faded }), [shape, color, faded]);
   return (
     <points
       geometry={geo}
@@ -38,33 +60,43 @@ export default function PaperMap3D({ points, colorBy, topics, theme, isolated, h
   }, [placed, dimUnselected]);
   const axis = theme === "light" ? "#7a7a86" : "#70707a";
   const ink = theme === "light" ? "#3e3e47" : "#b4b4bd";
+  const text = { color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" } as const;
+  // Depth: one tick per topic on the floor's right edge (T1 at the front, as `place` puts it); the caption names them.
+  const depthTicks = layers > 1 ? Array.from({ length: Math.min(layers, 8) }, (_, i) => ({ tag: topicTag(i), z: 2 - (i / (layers - 1)) * 4 })) : [];
   return (
     <div className="relative">
-      <Scene3D label={label} animate={animate} camera={[0, 0.6, 8.2]} className="h-[380px] w-full" pointThreshold={0.18}>
+      <Scene3D label={label} animate={animate} camera={[0, 0.6, 8.2]} className="h-[380px] w-full" pointThreshold={0.18} fit={FIT}>
         <group rotation={[0, -0.22, 0]}>
           <lineSegments>
             <bufferGeometry attach="geometry">
-              <bufferAttribute attach="attributes-position" args={[new Float32Array([-4.9, -3, -2.4, 4.4, -3, -2.4, -4.9, -3, -2.4, -4.9, 2.8, -2.4]), 3]} />
+              <bufferAttribute attach="attributes-position" args={[new Float32Array([-4.9, -3, -2.4, 4.4, -3, -2.4, -4.9, -3, -2.4, -4.9, 2.8, -2.4, ...(depthTicks.length ? [4.4, -3, -2.4, 4.4, -3, 2.4] : [])]), 3]} />
             </bufferGeometry>
             <lineBasicMaterial color={axis} />
           </lineSegments>
-          <Label position={[-4.9, -3.35, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>{yearMin}</Label>
-          <Label position={[4.1, -3.35, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>{yearMax}</Label>
-          <Label position={[-0.6, -3.35, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Year →</Label>
-          {scored && <Label position={[-6.1, 2.8, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Score 100 ↑</Label>}
-          {scored && <Label position={[-5.7, -2.6, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>0</Label>}
+          <Label position={[-4.9, -3.35, -2.4]} style={text}>{yearMin}</Label>
+          <Label position={[3.4, -3.35, -2.4]} style={text}>{yearMax}</Label>
+          <Label position={[-0.6, -3.35, -2.4]} style={text}>Year →</Label>
+          {scored ? (
+            <>
+              <Label position={[-6.1, 2.8, -2.4]} style={text}>Score 100 ↑</Label>
+              <Label position={[-5.7, -2.6, -2.4]} style={text}>0</Label>
+            </>
+          ) : (
+            <Label position={[-4.9, 3.25, -2.4]} style={text}>↑ Height: no meaning yet</Label>
+          )}
+          <DepthTags ticks={depthTicks} style={text} />
           {groups.map(([key, pts]) => {
             const [cat, dim] = key.split("|");
             const c = cats.find((x) => x.key === cat);
             const faded = dim === "dim" || (!!isolated && isolated !== cat) || (!!highlight && highlight !== cat);
-            return <Cloud key={key} pts={pts} color={categoryHex(colorBy, cat, theme, topics)} shape={c?.shape ?? "circle"} faded={faded} size={0.5} onHover={setHover} onOpen={onOpen} />;
+            return <Cloud key={key} pts={pts} color={categoryHex(colorBy, cat, theme, topics)} shape={c?.shape ?? "circle"} faded={faded} onHover={setHover} onOpen={onOpen} />;
           })}
         </group>
       </Scene3D>
       {hover && (
         <div role="tooltip" className="pointer-events-none absolute left-3 top-3 max-w-[80%] rounded-sm border border-line-strong bg-bg-2 px-2 py-1 text-12">
           <span className="block font-medium text-fg-0">{hover.title}</span>
-          <span className="text-fg-2">{hover.year ?? "year unknown"}{hover.score !== null ? ` · score ${Math.round(hover.score)}` : ""} · click to open</span>
+          <span className="text-fg-2">{hover.year ?? "year unknown"}{hover.score !== null ? ` · score ${Math.round(hover.score)}` : ""}{hover.layer >= 0 && topics[hover.layer] ? ` · ${topicTag(hover.layer)} ${topics[hover.layer].name}` : ""} · click to open</span>
         </div>
       )}
     </div>

@@ -16,11 +16,12 @@ export const useReducedMotion = () => useSyncExternalStore(subscribe, () => wind
  * "What happens in this step": an 8-second explainer (pre-rendered with Remotion) plus the same three lines as
  * text, so the video is never the only way to learn it. Collapsed by default; nothing loads until it opens.
  */
-export function WhatHappens({ stage, defaultOpen = false }: { stage: number; defaultOpen?: boolean }) {
+export function WhatHappens({ stage, defaultOpen = false, showLength = true }: { stage: number; defaultOpen?: boolean; showLength?: boolean }) {
   const e = EXPLAINERS[stage - 1];
   if (!e) return null;
+  // The chip is the video's length, said as such so it never reads as how long the step takes.
   return (
-    <Disclosure title="What happens in this step" meta="8 s" defaultOpen={defaultOpen}>
+    <Disclosure title="What happens in this step" meta={showLength ? "8 s video" : undefined} defaultOpen={defaultOpen}>
       <ExplainerVideo stage={stage} />
       <ol className="mt-3 list-decimal space-y-1 pl-5 text-fg-1">
         {e.beats.map((b) => <li key={b}>{b}</li>)}

@@ -23,7 +23,7 @@ Shared on every step page:
 | Retrieval | Step 4: see what was found (and the mix of study and article types) | Read "N fetched, M duplicates, K papers" | **Summarise the papers** |
 | Summary table | Step 5: skim the papers and fix wrong AI cells | Do the 3-item checklist (see the mix, open a paper, correct a cell) | **Rank the papers** |
 | Ranking | Step 6: check which papers go forward (3–5 per topic) | Pick a topic, open a selected paper, keep 3–5 per topic | **Appraise selected papers** |
-| Appraisal | Step 7: check each paper's appraisal and decide unverified quotes | Go paper by paper; "Show only quotes I need to decide" | **Next paper**, then **Summarise the evidence** |
+| Appraisal | Step 7: check each paper's appraisal and decide unverified quotes | Go paper by paper; "Next quote to decide" jumps to each quote the check could not find; judge whether each quote supports its answer ("words are in the paper" only means the words were found) | **Next paper**, then **Summarise the evidence** |
 | Synthesis | Step 8: read what is known, contested and unknown | Read each topic and where its papers disagree; fix overstated statements | **Suggest research questions** |
 | Research question | Step 9: choose your research question | Compare the three candidates (gap, feasibility, weakness on each card) | **Choose this question**, then **Finish and export** |
 | Export (final) | Your literature review is ready to download | Check the question and pick a format | **Download** |

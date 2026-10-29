@@ -11,6 +11,7 @@ import { resolvedModel } from "./models";
 import { aiEnabled, budgetLimit, effectiveXaiKey } from "../settings";
 import { fingerprint, redactSecrets } from "../auth/secrets";
 import { AiUnavailableError, AiValidationError, BudgetError, aiRefusal } from "./errors";
+import { PreferenceFallback } from "./fallback";
 export { repairId } from "../grounding";
 export { AiPausedError, AiUnavailableError, AiValidationError, BudgetError, isAiStop } from "./errors";
 
@@ -57,6 +58,11 @@ export interface CallOpts<T> {
   stage?: number | null;
   /** Extra semantic validation (e.g. grounded-ID checks). Return an error message to trigger the retry. */
   check?: (out: T) => string | null;
+  /**
+   * A preference, not a rule: when it fails the model is asked once to fix it, and the second reply is kept anyway.
+   * When the second reply fails a rule (or never comes), the first reply, which failed only the preference, is kept.
+   */
+  prefer?: (out: T) => string | null;
   /** Deterministic clean-up applied after schema validation and before `check` (e.g. repairing ID formatting). */
   normalize?: (out: T) => T;
 }
@@ -91,7 +97,7 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
             ...row,
           }).run());
 
-  const validate = (raw: string): { ok: true; data: T } | { ok: false; error: string } => {
+  const validate = (raw: string, attempt: number): { ok: true; data: T } | { ok: false; error: string; data?: T } => {
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
@@ -103,6 +109,8 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
     const data = opts.normalize ? opts.normalize(r.data) : r.data;
     const extra = opts.check?.(data);
     if (extra) return { ok: false, error: extra };
+    const wish = attempt === 1 ? opts.prefer?.(data) : null;
+    if (wish) return { ok: false, error: wish, data };
     return { ok: true, data };
   };
 
@@ -115,16 +123,25 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
 
   let lastError = "";
   let lastRaw = "";
+  const fallback = new PreferenceFallback<T>(); // the first reply, if it failed only the preference
+  const kept = (error: unknown) => ({ data: fallback.or(error), model, promptVersion: prompt.version });
   for (let attempt = 1; attempt <= 2; attempt++) {
-    if (attempt > 1) await assertAiOn(log); // switched off (or the key removed) between the attempt and its retry
+    if (attempt > 1) {
+      // switched off (or the key removed) between the attempt and its retry
+      try {
+        await assertAiOn(log);
+      } catch (e) {
+        return kept(e);
+      }
+    }
     const spent = (await totalSpend());
     const limit = await budgetLimit();
     if (spent >= limit) {
       (await log({ status: "refused", error: `budget reached ($${spent.toFixed(2)} of $${limit})` }));
-      throw new BudgetError(`AI budget reached ($${spent.toFixed(2)} of $${limit.toFixed(2)}). Your work is saved; the administrator can raise the limit.`);
+      return kept(new BudgetError(`AI budget reached ($${spent.toFixed(2)} of $${limit.toFixed(2)}). Your work is saved; the administrator can raise the limit.`));
     }
     const { client: xai, key } = await client();
-    countPaid();
+    countPaid("ai");
     const started = Date.now();
     const useEffort = (opts.role === "fast" || opts.role === "summary") && config.fastReasoningEffort && !noEffort.has(model);
     try {
@@ -144,7 +161,7 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
       const apiCost = typeof u?.cost_in_usd_ticks === "number" ? u.cost_in_usd_ticks / 1e10 : null;
       const raw = res.choices[0]?.message?.content ?? "";
       lastRaw = raw;
-      const v = validate(raw);
+      const v = validate(raw, attempt);
       (await log({
                 status: v.ok ? "ok" : "invalid",
                 error: v.ok ? null : v.error,
@@ -158,6 +175,7 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
                 durationMs: Date.now() - started,
               }));
       if (v.ok) return { data: v.data, model, promptVersion: prompt.version };
+      fallback.note(attempt, v);
       lastError = v.error;
       messages.push({ role: "assistant", content: raw });
       messages.push({ role: "user", content: `Your previous response failed validation: ${v.error}\nReturn a corrected JSON response that fixes these problems. Use only the provided records and IDs.` });
@@ -169,10 +187,10 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
         continue;
       }
       (await log({ status: "error", error: msg.slice(0, 500), attempt, durationMs: Date.now() - started }));
-      throw new Error(msg); // never rethrow the SDK error itself: it can carry request headers
+      return kept(new Error(msg)); // never rethrow the SDK error itself: it can carry request headers
     }
   }
-  throw new AiValidationError(`The AI response did not pass validation after one retry: ${lastError}`, lastRaw);
+  return kept(new AiValidationError(`The AI response did not pass validation after one retry: ${lastError}`, lastRaw));
 }
 
 /** Helper for grounded-ID checks. */

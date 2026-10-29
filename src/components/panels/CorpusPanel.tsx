@@ -12,7 +12,7 @@ import dynamic from "next/dynamic";
 import { WhatHappens } from "../guide/WhatHappens";
 import { ShapeIcon } from "../categories";
 import { useViewPrefs } from "../session/viewPrefs";
-import { ARTICLE_TYPES, STUDY_GROUPS, hasHues, articleTypeOf, categoryVar, sourceOf, studyGroupFromLabels, studyGroupOf, type Category, type Dimension } from "@/lib/shared/categories";
+import { ARTICLE_TYPES, STUDY_GROUPS, TYPE_HINT, hasHues, articleTypeOf, categoryVar, sourceOf, studyGroupFromLabels, studyGroupOf, type Category, type Dimension } from "@/lib/shared/categories";
 import type { MapPoint } from "../viz/paper-points";
 
 const PaperMap = dynamic(() => import("../viz/PaperMap").then((m) => m.PaperMap), { ssr: false });
@@ -69,12 +69,16 @@ export function CorpusPanel() {
   const { data: pts } = useApi<PointsData>(projectPath(projectId, "papers-points"), { refreshInterval: running ? 2500 : 0 });
   const { data: fetched, error, mutate } = useApi<RetrievalData>(projectPath(projectId, "retrieval"));
   useJobRefresh(4, mutate);
+  const { data: status } = useApi<{ maxResultsPerQuery?: number }>("/api/status");
   const data = (live as RetrievalData | null) ?? fetched;
   if (error && !data) return <ErrorState error={error} onRetry={() => mutate()} />;
   const runs = data?.runs ?? [];
   const failed = runs.filter((r) => r.status === "failed");
   const fetchedTotal = runs.reduce((a, r) => a + r.fetchedCount, 0);
   const sources = [...new Set(runs.map((r) => r.database))];
+  // Results collected per search: what the searches ran with, else the server's current setting.
+  const cap = runs.find((r) => r.cap)?.cap ?? status?.maxResultsPerQuery ?? null;
+  const capLine = cap ? `Athena collects the ${cap} most relevant results of each search; the rest are not looked at.` : null;
   const node = graph.nodes.find((n) => n.id === "corpus");
   const action = node ? nextAction(node, graph, input) : null;
   let cumulative = 0;
@@ -108,6 +112,7 @@ export function CorpusPanel() {
       {runs.length > 0 && (
         <p className="text-fg-0" aria-live="polite">
           {running ? "So far: " : ""}<span className="font-semibold tabular-nums">{fmtInt(fetchedTotal)}</span> results fetched, <span className="font-semibold tabular-nums">{fmtInt(dupes)}</span> were the same paper found twice, so <span className="font-semibold tabular-nums">{fmtInt(data?.uniquePapers ?? 0)}</span> different papers {running ? "so far" : "remain"}.
+          {capLine && <span className="block text-12 text-fg-1">{capLine}</span>}
         </p>
       )}
       <div className="grid grid-cols-2 gap-2">
@@ -141,10 +146,11 @@ export function CorpusPanel() {
             total={ps.length}
             note={summarised ? undefined : "Most papers have no design label yet; the AI reads every abstract in the next step."}
           />
+          <p className="text-12 text-fg-2">{TYPE_HINT}</p>
         </div>
       )}
       {ps.length > 0 && (
-        <PaperMap points={points} of={ps.length} colorBy={view.colorBy === "topic" || view.colorBy === "source" ? view.colorBy : "study"} onColorBy={view.setColorBy} topics={topicList} onOpen={openPaper} layers={topicList.length} title={running ? "Papers as they arrive" : "The papers found"} colorChoices={["study", "topic", "source"]} />
+        <PaperMap points={points} of={ps.length} colorBy={view.colorBy === "topic" || view.colorBy === "source" ? view.colorBy : "study"} onColorBy={view.setColorBy} topics={topicList} onOpen={openPaper} layers={topicList.length} title={running ? "Papers as they arrive" : "The papers found"} colorChoices={["study", "topic", "source"]} prelabel={!summarised} />
       )}
       <section aria-label="Per source">
         <ul className="space-y-3">
@@ -173,7 +179,7 @@ export function CorpusPanel() {
         </div>
       )}
       <Disclosure title="Search by search" meta={`${runs.length} searches`}>
-        <p className="mb-2 text-12 text-fg-2">“New” counts papers no earlier search had found. When it drops toward zero, more searches only return papers you already have.</p>
+        <p className="mb-2 text-12 text-fg-2">“Hits” is how many papers match the search in the database; “Fetched” is how many Athena collected{cap ? ` (at most ${cap}, the most relevant first)` : ""}. “New” counts papers no earlier search had found. When it drops toward zero, more searches only return papers you already have.</p>
         <table className="w-full text-12">
           <thead>
             <tr className="border-b border-line text-left text-fg-2">

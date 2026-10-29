@@ -17,9 +17,10 @@ import { WhatHappens } from "../guide/WhatHappens";
 import { focusPageAction } from "../session/SessionPage";
 import { MIN_TOPIC_FIT, PER_TOPIC, RUBRIC, STAGES, STUDY_TYPES, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
 import { topicCoverage } from "@/lib/scoring";
+import { ideaSetting, settingFit, type SettingFit } from "@/lib/shared/scope";
 import { frontierStage, nodeForStage } from "@/lib/canvas/graph";
 import { TransitionLink } from "../vt";
-import { ARTICLE_TYPES, DIMENSIONS, hasHues, accessOf, articleTypeOf, categoriesFor, categoryVar, describeFilters, evidenceOf, periodOf, scoreBandOf, sourceOf, studyGroupOf, type ColorBy, type Dimension } from "@/lib/shared/categories";
+import { ARTICLE_TYPES, DIMENSIONS, TYPE_HINT, hasHues, studyTypeText, accessOf, articleTypeOf, categoriesFor, categoryVar, describeFilters, evidenceOf, periodOf, scoreBandOf, sourceOf, studyGroupOf, type ColorBy, type Dimension } from "@/lib/shared/categories";
 import { sessionOf } from "@/lib/canvas/store";
 import type { MapPoint } from "../viz/paper-points";
 import { COL_W, tableMinWidth } from "./columns";
@@ -33,7 +34,7 @@ interface Paper {
   topicIds: string[];
   appraisal?: { textSource: string; unverified: number } | null;
 }
-interface Score { id: string; paperId: string; topicId: string; total: number; topicFit: number; selected: boolean; userChanged: boolean; rationale: string }
+interface Score { id: string; paperId: string; topicId: string; total: number; topicFit: number; settingMatch?: number; selected: boolean; userChanged: boolean; rationale: string }
 type SwapChoice = Score & { title: string };
 interface RankingData { topics: { id: string; name: string; importanceRank: number | null; importanceJustification: string | null; scores: Score[] }[] }
 interface PapersData { topics: { id: string; name: string }[]; papers: Paper[] }
@@ -48,6 +49,15 @@ export interface Row extends Paper {
   kept: boolean;
   /** Category key per dimension (filters, grouping, colour). */
   cats: Record<Dimension, string[]>;
+  /** Whether the paper is set in the idea's setting, as far as its abstract shows (null: the idea names none). */
+  settingFit: SettingFit | null;
+}
+
+/** Whether a paper is set in the idea's setting: the AI rates the setting per topic and the best rating counts (a
+ *  paper is set where it is, whatever the topic); unrated, its summary's setting words decide. */
+function fitOf(setting: string, p: Paper | undefined, ss: Score[]): SettingFit {
+  const rated = ss.flatMap((s) => (typeof s.settingMatch === "number" ? [s.settingMatch] : []));
+  return settingFit(setting, p?.summary?.setting, rated.length ? Math.max(...rated) : undefined);
 }
 
 /** Every category a paper belongs to, per dimension (a paper can be in several topics). */
@@ -70,12 +80,18 @@ const DEFAULT_HIDDEN: VisibilityState = { authors: false, journal: false, settin
 
 /** Full-screen summary + ranking table: rank and pick papers for appraisal. */
 export function TableView() {
-  const { projectId, states, confirmEdit, refresh, openPaper, graph, announce } = useSession();
+  const { projectId, states, confirmEdit, refresh, openPaper, graph, announce, project } = useSession();
+  const setting = ideaSetting(project.scopingSummary);
   const papers = useApi<PapersData>(projectPath(projectId, "papers"));
   const ranking = useApi<RankingData>(projectPath(projectId, "ranking"));
   useJobRefresh(5, papers.mutate);
   useJobRefresh(6, ranking.mutate);
-  const [topic, setTopic] = useState<string>("all");
+  // While the papers are being scored (step 6 running) the page shows the papers unranked under "All topics", with
+  // no scores, selections, topic picker or warnings: half-scored topics look empty, which reads as a failure. The
+  // progress box is the one thing to read until the scoring ends.
+  const scoring = states["6"] === "running";
+  const [topicPick, setTopic] = useState<string>("all");
+  const topic = scoring ? "all" : topicPick;
   const [q, setQ] = useState("");
   const view = useViewPrefs();
   const [mode, setMode] = useState<"table" | "map">("table");
@@ -88,12 +104,13 @@ export function TableView() {
   const [err, setErr] = useState<unknown>(null);
   // Said after unticking a paper that stays selected in another topic (so it is still appraised).
   const [notice, setNotice] = useState<string | null>(null);
-  const ranked = (ranking.data?.topics ?? []).some((t) => t.scores.length);
+  const ranked = !scoring && (ranking.data?.topics ?? []).some((t) => t.scores.length);
 
   // Every paper with its categories (before any filter), then the filters as a non-destructive view.
   const allRows: Row[] = useMemo(() => {
     const ps = papers.data?.papers ?? [];
-    const rt = ranking.data?.topics ?? [];
+    // While step 6 scores, its half-written scores are not shown anywhere (cards, map, table), only its progress.
+    const rt = scoring ? [] : ranking.data?.topics ?? [];
     const scoresByPaper = new Map<string, Score[]>();
     for (const t of rt) for (const s of t.scores) scoresByPaper.set(s.paperId, [...(scoresByPaper.get(s.paperId) ?? []), s]);
     const rankOf = new Map<string, number>();
@@ -110,17 +127,21 @@ export function TableView() {
         const selectedIn = all.filter((s) => s.selected).length;
         const selectedElsewhere = all.filter((s) => s.selected && s.topicId !== topic).map((s) => topicName.get(s.topicId) ?? "another topic");
         const kept = topic === "all" ? selectedIn > 0 : !!score?.selected;
-        return { ...p, score, rank: score && topic !== "all" ? rankOf.get(score.id) ?? null : null, selectedIn, selectedElsewhere, kept, cats: categorize(p, kept) };
+        const fit = setting ? fitOf(setting, p, all) : null;
+        return { ...p, score, rank: score && topic !== "all" ? rankOf.get(score.id) ?? null : null, selectedIn, selectedElsewhere, kept, cats: categorize(p, kept), settingFit: fit };
       });
-  }, [papers.data, ranking.data, topic]);
+  }, [papers.data, ranking.data, topic, setting, scoring]);
   const activeFilters = (Object.entries(view.filters) as [Dimension, string[]][]).filter(([, k]) => k?.length);
-  const rows: Row[] = useMemo(() => {
+  // The text search first: the filter chips count the papers it matches, so their numbers agree with the rows.
+  const searched: Row[] = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return allRows
-      .filter((r) => activeFilters.every(([dim, keys]) => r.cats[dim].some((k) => keys.includes(k))))
-      .filter((p) => !needle || `${p.title} ${p.authors.join(" ")} ${p.journal ?? ""} ${p.summary?.setting ?? ""} ${p.summary?.keyFinding ?? ""}`.toLowerCase().includes(needle));
+    return needle ? allRows.filter((p) => `${p.title} ${p.authors.join(" ")} ${p.journal ?? ""} ${p.summary?.setting ?? ""} ${p.summary?.keyFinding ?? ""}`.toLowerCase().includes(needle)) : allRows;
+  }, [allRows, q]);
+  const rows: Row[] = useMemo(
+    () => searched.filter((r) => activeFilters.every(([dim, keys]) => r.cats[dim].some((k) => keys.includes(k)))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allRows, q, JSON.stringify(view.filters)]);
+    [searched, JSON.stringify(view.filters)],
+  );
 
   /** After a paper leaves one topic's selection: if another topic still selects it, it is still appraised; say so. */
   function stillSelected(out: Score, after: RankingData) {
@@ -234,7 +255,11 @@ export function TableView() {
   const rt = ranking.data?.topics ?? [];
   // Selections per topic add up to more than the papers appraised when a paper is selected in several topics.
   const selectedTotal = rt.reduce((a, t) => a + t.scores.filter((s) => s.selected).length, 0);
-  const selectedPapers = new Set(rt.flatMap((t) => t.scores.filter((s) => s.selected).map((s) => s.paperId))).size;
+  const selectedIds = [...new Set(rt.flatMap((t) => t.scores.filter((s) => s.selected).map((s) => s.paperId)))];
+  const selectedPapers = selectedIds.length;
+  // How many selected papers are set in the idea's setting, as far as the abstracts show (said before appraisal).
+  const inSetting = setting ? selectedIds.filter((id) => fitOf(setting, all.find((p) => p.id === id), rt.flatMap((t) => t.scores.filter((s) => s.paperId === id))) === "match").length : 0;
+  const halved = rt.some((t) => t.scores.some((s) => s.rationale.includes("Score halved")));
   const stage = states["5"] === "approved" ? 6 : 5;
   const topicList = (papers.data?.topics ?? []).map((t) => ({ id: t.id, name: t.name }));
   const hidden = allRows.length - rows.length;
@@ -248,14 +273,13 @@ export function TableView() {
   // The checklist item and the warning below both come from this, so they cannot disagree.
   const coverage = topicCoverage(perTopic);
   // Not before the ranking has finished: with no scores yet, no topic is short or over, which is not the rule met.
-  const rankingRunning = states["6"] === "running";
-  const perTopicOk = keepRuleDone({ ranked, running: rankingRunning, topics: rt.length, short: coverage.short.length, over: coverage.over.length });
+  const perTopicOk = keepRuleDone({ ranked, running: scoring, topics: rt.length, short: coverage.short.length, over: coverage.over.length });
   const openTopic = perTopic.find((t) => t.id === topic) ?? null;
   // The review has moved past this page (e.g. the appraisal was started here).
   const f = frontierStage(states);
   const movedOn = ranked && states["6"] === "approved" && (f === null || f > 6);
-  // Not while scoring runs: selections are made at the end, so mid-run counts of 0 are not a problem yet.
-  const warnNow = ranked && stage === 6 && !movedOn && !rankingRunning;
+  // Never while scoring runs (`ranked` is false then): selections are made at the end, so mid-run 0s are no problem.
+  const warnNow = ranked && stage === 6 && !movedOn;
   const short = warnNow ? coverage.short : [];
   const few = warnNow ? coverage.few : [];
   const step3For = (topicId: string) => graph.nodes.find((n) => n.id === `query:${topicId}`)?.id ?? nodeForStage(graph, 3);
@@ -269,7 +293,7 @@ export function TableView() {
       : [
           { label: "Pick a topic to see its ranked papers", done: topic !== "all", hint: "The buttons above the table: one per topic." },
           { label: "Open a selected paper to see why it scored high", done: seen.includes("opened-score"), hint: "Click the arrow at the start of its row." },
-          ranked && !rankingRunning && coverage.few.length
+          ranked && coverage.few.length
             ? { label: "Keep 3–5 papers per topic, or every matching paper where fewer match", done: perTopicOk, hint: perTopicOk ? "Fewer than 3 papers match some topics, and all of them are selected." : "Tick or untick papers in a topic's view, or swap one from its details." }
             : { label: "Keep 3–5 papers per topic", done: perTopicOk, hint: "Tick or untick papers in a topic's view, or swap one from its details." },
         ];
@@ -307,11 +331,14 @@ export function TableView() {
             <p className="mt-1 max-w-3xl text-fg-1">
               {stage === 5
                 ? <>One row per paper. The study type, setting and key finding were drafted by the AI from the abstract only <AbstractBadge />. Correct anything wrong, then rank the papers.</>
-                : <>Every paper was scored from 0 to 100 against each topic. The best-scoring papers that match the topic (up to 4 per topic) are <strong className="font-semibold">selected</strong> for a closer read. Change the selection if you disagree, then appraise them.</>}
+                : scoring
+                  ? <>The AI is scoring every paper from 0 to 100 against each topic. When it has finished, the best-scoring papers that match each topic (up to 4 per topic) are <strong className="font-semibold">selected</strong> for a closer read, and you can change the selection.</>
+                  : <>Every paper was scored from 0 to 100 against each topic. The best-scoring papers that match the topic (up to 4 per topic) are <strong className="font-semibold">selected</strong> for a closer read. Change the selection if you disagree, then appraise them.</>}
             </p>
             <div className="mt-2 max-w-xl"><WhatHappens stage={stage} /></div>
           </div>
-          <Checklist title={stage === 5 ? "Do these 3 things" : "Before you continue"} items={checklist} />
+          {/* While scoring runs there is nothing to check yet: the progress above is the only thing to read. */}
+          {!(stage === 6 && scoring) && <Checklist title={stage === 5 ? "Do these 3 things" : "Before you continue"} items={checklist} />}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -356,9 +383,9 @@ export function TableView() {
                 key={t.id}
                 aria-pressed={topic === t.id}
                 onClick={() => { setSorting([]); setTopic(t.id); setNotice(null); }}
-                className={cx("min-h-11 shrink-0 rounded-sm border px-3 text-left", topic === t.id ? "border-fg-1 bg-bg-2 text-fg-0" : "border-line text-fg-1 hover:text-fg-0")}
+                className={cx("min-h-11 min-w-0 max-w-full rounded-sm border px-3 text-left", topic === t.id ? "border-fg-1 bg-bg-2 text-fg-0" : "border-line text-fg-1 hover:text-fg-0")}
               >
-                {t.name}{t.n !== null && !rankingRunning && <span className={cx("ml-2 text-12 tabular-nums", t.n < 3 || t.n > 5 ? "text-warn" : "text-fg-2")}>{t.n} selected</span>}
+                {t.name}{t.n !== null && <span className={cx("ml-2 text-12 tabular-nums", t.n < 3 || t.n > 5 ? "text-warn" : "text-fg-2")}>{t.n} selected</span>}
               </button>
             ))}
           </div>
@@ -401,10 +428,10 @@ export function TableView() {
 
         {mode === "map" ? (
           <Disclosure title="Filters" meta={activeFilters.length ? `${activeFilters.length} active` : "study type, article type, year…"}>
-            <Facets rows={allRows} filters={view.filters} toggle={(d, k) => { view.toggle(d, k); mark("explored"); }} topics={topicList} ranked={ranked} />
+            <Facets rows={searched} query={q.trim()} filters={view.filters} toggle={(d, k) => { view.toggle(d, k); mark("explored"); }} topics={topicList} ranked={ranked} />
           </Disclosure>
         ) : (
-          <Facets rows={allRows} filters={view.filters} toggle={(d, k) => { view.toggle(d, k); mark("explored"); }} topics={topicList} ranked={ranked} />
+          <Facets rows={searched} query={q.trim()} filters={view.filters} toggle={(d, k) => { view.toggle(d, k); mark("explored"); }} topics={topicList} ranked={ranked} />
         )}
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-live="polite">
@@ -413,13 +440,20 @@ export function TableView() {
           <button className="btn-ghost btn-sm" disabled={!activeFilters.length && !q.trim()} onClick={() => { view.reset(); setQ(""); }}><RotateCcw className="h-3 w-3" aria-hidden /> Reset filters</button>
           <span className="text-12 text-fg-2">{all.length} papers in total{missing ? ` · ${missing} not yet summarised` : ""}{ranked ? ` · ${selectedPapers} ${selectedPapers === 1 ? "paper" : "different papers"} selected for appraisal${selectedTotal > selectedPapers ? ` (the topic counts add up to ${selectedTotal}: some papers are selected in more than one topic)` : ""}` : ""}</span>
         </div>
+        {setting && ranked && !scoring && selectedPapers > 0 && (
+          inSetting * 2 < selectedPapers ? (
+            <p className="flex items-start gap-2 text-fg-0"><AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden /><span><strong className="font-semibold">Only {inSetting} of {selectedPapers} selected papers are clearly set in {setting}</strong>, the setting of your idea (as far as their abstracts show). Check the papers marked “Setting may differ” or “Setting not reported” before you appraise them, or add {setting} to the searches in step 3.</span></p>
+          ) : (
+            <p className="text-12 text-fg-2">{inSetting} of {selectedPapers} selected papers are clearly set in {setting}, the setting of your idea (as far as their abstracts show).</p>
+          )
+        )}
         {notice && <p role="status" className="flex items-start gap-2 text-fg-0"><Info className="mt-1 h-4 w-4 shrink-0 text-fg-1" strokeWidth={1.5} aria-hidden /><span>{notice}</span></p>}
         {ranked && mode !== "map" && (
           <Disclosure title="How papers are scored" meta="5 criteria, 0–100">
             <ul className="grid gap-1 sm:grid-cols-2">
               {RUBRIC.map((r) => <li key={r.key}><strong className="font-medium">{r.label}</strong> <span className="tabular-nums text-fg-2">{Math.round(r.weight * 100)}%</span> · {r.by === "AI" ? "rated by the AI from the title and abstract" : "a fixed formula"}</li>)}
             </ul>
-            <p className="mt-2 text-12 text-fg-2">Score = weighted sum, out of 100. The 4 best-scoring papers per topic are pre-selected, but only papers that match the topic (topic fit {MIN_TOPIC_FIT}/5 or more); aim for 3–5.</p>
+            <p className="mt-2 text-12 text-fg-2">Score = weighted sum, out of 100. The 4 best-scoring papers per topic are pre-selected, but only papers that match the topic (topic fit {MIN_TOPIC_FIT}/5 or more); aim for 3–5.{setting && halved ? ` Your idea is about ${setting}, so a paper set somewhere else, or whose setting is not reported, has its score halved.` : ""}</p>
           </Disclosure>
         )}
       </div>
@@ -445,8 +479,9 @@ export function TableView() {
   );
 }
 
-/** Filter chips with counts. Study type and article type first (the questions people ask); the rest folded. */
-function Facets({ rows, filters, toggle, topics, ranked }: { rows: Row[]; filters: Partial<Record<Dimension, string[]>>; toggle: (d: Dimension, k: string) => void; topics: { id: string; name: string }[]; ranked: boolean }) {
+/** Filter chips with counts. Study type and article type first (the questions people ask); the rest folded.
+ *  `rows` are the papers the text search matches (all of them with no search), so the counts follow it. */
+function Facets({ rows, query, filters, toggle, topics, ranked }: { rows: Row[]; query: string; filters: Partial<Record<Dimension, string[]>>; toggle: (d: Dimension, k: string) => void; topics: { id: string; name: string }[]; ranked: boolean }) {
   const counts = (dim: Dimension) => {
     const out: Record<string, number> = {};
     for (const r of rows) for (const k of r.cats[dim]) out[k] = (out[k] ?? 0) + 1;
@@ -477,6 +512,7 @@ function Facets({ rows, filters, toggle, topics, ranked }: { rows: Row[]; filter
   const moreActive = more.reduce((a, d) => a + (filters[d]?.length ?? 0), 0);
   return (
     <div className="space-y-2">
+      <p className="text-12 text-fg-2">{TYPE_HINT}{query ? ` The numbers count the ${rows.length} paper${rows.length === 1 ? "" : "s"} matching “${query}”.` : ""}</p>
       {group("study", "Study type")}
       {group("article", "Article type")}
       <Disclosure title="More filters" meta={moreActive ? `${moreActive} on` : "year, source, full text…"}>
@@ -525,12 +561,13 @@ function PaperCards({ rows, sorting, groupBy, topics, onOpen, onToggle }: { rows
               <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-12 text-fg-1">
                 {r.rank !== null && <span className="tabular-nums font-medium text-fg-0">#{r.rank}</span>}
                 <span className="tabular-nums">{r.year ?? "year unknown"}</span>
-                <CategoryChip dim="study" value={r.cats.study[0]} />
+                <StudyTypeChip studyType={r.summary?.studyType} />
                 {r.score && <span className="tabular-nums">score {r.score.total}</span>}
                 {/* Same topic-match words as the desktop table, including under "All topics" (no rank there). */}
                 {r.score && (r.rank !== null ? <TopicFit score={r.score} /> : r.score.topicFit < MIN_TOPIC_FIT && (r.score.selected ? <TopicFit score={r.score} /> : <span className="text-fg-2">matches no topic</span>))}
                 {r.kept && <span className="inline-flex items-center gap-1 text-ok"><CheckCircle2 className="h-3 w-3" aria-hidden />selected{r.rank === null && r.selectedIn > 1 ? ` in ${r.selectedIn} topics` : ""}</span>}
                 {r.rank !== null && <SelectedElsewhere row={r} />}
+                {r.kept && <SettingNote row={r} />}
               </span>
               {r.summary && <span className="mt-1 line-clamp-2 block text-12 text-fg-2">{r.summary.keyFinding}</span>}
             </button>
@@ -543,6 +580,17 @@ function PaperCards({ rows, sorting, groupBy, topics, onOpen, onToggle }: { rows
         );
       })}
     </ul>
+  );
+}
+
+/** A paper's study type in the same words as its details ("Other design: narrative review"), with the group's shape. */
+function StudyTypeChip({ studyType }: { studyType: string | null | undefined }) {
+  const group = categoriesFor("study").find((c) => c.key === studyGroupOf(studyType))!;
+  return (
+    <span className="inline-flex items-center gap-2 text-12 text-fg-1" title={group.hint}>
+      <ShapeIcon shape={group.shape} color={categoryVar("study", group.key)} />
+      {studyTypeText(studyType)}
+    </span>
   );
 }
 
@@ -681,6 +729,21 @@ function ScoreCell({ row, all }: { row: Row; all: boolean }) {
       {all ? s.topicFit < MIN_TOPIC_FIT && (s.selected ? <TopicFit score={s} className="text-12" /> : <span className="text-12 text-fg-2">matches no topic</span>) : <TopicFit score={s} className="text-12" />}
       {s.userChanged && !(s.selected && s.topicFit < MIN_TOPIC_FIT) && <span className="text-12 text-fg-2">changed by you</span>}
       {!all && <SelectedElsewhere row={row} className="text-12" />}
+      {row.kept && <SettingNote row={row} className="text-12" />}
+    </span>
+  );
+}
+
+/** On a selected paper: a prompt to check its setting when it may not be the idea's (the AI read only the
+ *  abstract, so this asks for a check rather than ruling the paper out). */
+function SettingNote({ row, className }: { row: Row; className?: string }) {
+  const { project } = useSession();
+  const setting = ideaSetting(project.scopingSummary);
+  if (!setting || !row.settingFit || row.settingFit === "match") return null;
+  return (
+    <span className={cx("inline-flex items-start gap-1 text-fg-1", className)} title={row.summary?.setting ? `Setting from the abstract: ${row.summary.setting}` : undefined}>
+      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-warn" strokeWidth={2} aria-hidden />
+      {row.settingFit === "differs" ? `Setting may differ from your idea (${setting}): check` : `Setting not reported: check it is ${setting}`}
     </span>
   );
 }
@@ -721,7 +784,7 @@ function AiCell({ row, field, editing, setEditing, onSave }: { row: Row; field: 
     );
   }
   return (
-    <td tabIndex={0} className="h-11 cursor-text px-2 py-2 text-12 text-fg-1" onDoubleClick={() => setEditing({ id: row.id, field })} onKeyDown={(e) => e.key === "Enter" && setEditing({ id: row.id, field })} aria-label={`${field === "studyType" ? "Study type" : field === "setting" ? "Setting" : "Key finding"}: ${value}. ${s.edited ? "Edited by you." : "AI, from the abstract."} Press Enter to edit.`}>
+    <td tabIndex={0} className="h-11 cursor-text px-2 py-2 text-12 text-fg-1" onDoubleClick={() => setEditing({ id: row.id, field })} onKeyDown={(e) => e.key === "Enter" && setEditing({ id: row.id, field })} aria-label={`${field === "studyType" ? "Study type" : field === "setting" ? "Setting" : "Key finding"}: ${field === "studyType" ? studyTypeText(s.studyType) : value}. ${s.edited ? "Edited by you." : "AI, from the abstract."} Press Enter to edit.`}>
       <span className={cx("inline-flex items-start gap-2", field === "keyFinding" && "line-clamp-3", value.startsWith("not reported") && "italic text-fg-2")}>
         {group && <ShapeIcon shape={group.shape} color={categoryVar("study", group.key)} className="mt-0.5" />}
         {group && group.label.toLowerCase() !== value.toLowerCase() && !value.startsWith("not reported") ? (

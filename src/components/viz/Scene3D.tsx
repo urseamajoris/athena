@@ -4,6 +4,7 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode, type RefObject } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Html, OrbitControls } from "@react-three/drei";
+import { PerspectiveCamera, Vector3 } from "three";
 
 /**
  * Where the scene's text labels (drei <Html>) mount: an element of our own over the canvas. Without it, Html
@@ -42,6 +43,43 @@ function FrameCap({ fps, animate }: { fps: number; animate: boolean }) {
   return null;
 }
 
+/** The box the camera must keep in view: half its width and height (world units) around `target`, plus `depth`
+ *  in front of it (points nearer the camera look bigger and need room). */
+export interface Fit { halfWidth: number; halfHeight: number; depth?: number; target?: [number, number, number] }
+
+/**
+ * Moves the camera along its current direction so the whole `fit` box is visible at the canvas's aspect ratio,
+ * and again whenever the canvas is resized (a narrower Focus panel, a rotated tablet). Without it a fixed camera
+ * distance cuts off the sides of a narrow canvas. The user's turn is kept; only the distance changes.
+ */
+function FitCamera({ fit }: { fit: Fit }) {
+  const camera = useThree((s) => s.camera);
+  const width = useThree((s) => s.size.width);
+  const height = useThree((s) => s.size.height);
+  const controls = useThree((s) => s.controls) as unknown as { target: Vector3; maxDistance: number; update: () => void } | null;
+  const invalidate = useThree((s) => s.invalidate);
+  const { halfWidth, halfHeight, depth = 0 } = fit;
+  const [tx, ty, tz] = fit.target ?? [0, 0, 0];
+  useLayoutEffect(() => {
+    if (!width || !height || !(camera instanceof PerspectiveCamera)) return;
+    const tan = Math.tan((camera.fov * Math.PI) / 360);
+    const distance = Math.max(halfHeight / tan, halfWidth / (tan * (width / height))) + depth;
+    const target = new Vector3(tx, ty, tz);
+    const dir = camera.position.clone().sub(controls?.target ?? target);
+    if (dir.lengthSq() < 1e-6) dir.set(0, 0, 1);
+    camera.position.copy(target).addScaledVector(dir.normalize(), distance);
+    camera.lookAt(target);
+    camera.updateProjectionMatrix();
+    if (controls) {
+      controls.target.copy(target);
+      controls.maxDistance = Math.max(controls.maxDistance, distance * 1.6);
+      controls.update();
+    }
+    invalidate();
+  }, [camera, controls, width, height, halfWidth, halfHeight, depth, tx, ty, tz, invalidate]);
+  return null;
+}
+
 export interface Scene3DProps {
   children: ReactNode;
   /** Animate (auto-rotate etc.). False under reduced motion: one static frame, re-rendered on interaction. */
@@ -56,9 +94,11 @@ export interface Scene3DProps {
   label: string;
   /** Hit radius for hovering point clouds (world units). */
   pointThreshold?: number;
+  /** Keep this box in view at any canvas size (see FitCamera); without it the camera stays where `camera` puts it. */
+  fit?: Fit;
 }
 
-export default function Scene3D({ children, animate, controls = true, autoRotate = false, camera = [0, 0, 9], fps = 30, className = "", label, pointThreshold = 0.1 }: Scene3DProps) {
+export default function Scene3D({ children, animate, controls = true, autoRotate = false, camera = [0, 0, 9], fps = 30, className = "", label, pointThreshold = 0.1, fit }: Scene3DProps) {
   const wrap = useRef<HTMLDivElement>(null);
   // Only ever rendered on the client (next/dynamic, ssr: false), so the element can exist from the first render.
   const [host] = useState(() => {
@@ -80,6 +120,7 @@ export default function Scene3D({ children, animate, controls = true, autoRotate
           <directionalLight position={[4, 6, 8]} intensity={0.6} />
           {children}
           {controls && <OrbitControls enablePan={false} autoRotate={animate && autoRotate} autoRotateSpeed={0.4} minDistance={4} maxDistance={18} makeDefault />}
+          {fit && <FitCamera fit={fit} />}
         </Canvas>
       </LabelHost.Provider>
     </div>

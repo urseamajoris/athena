@@ -2,7 +2,7 @@ import "server-only";
 import { eq, inArray } from "drizzle-orm";
 import { db, schema } from "./db";
 import { config } from "./config";
-import { decryptSecret, encryptSecret, fingerprint, maskKey, settingsKey } from "./auth/secrets";
+import { decryptSecret, encryptSecret, fingerprint, keyId, settingsKey } from "./auth/secrets";
 import { nowIso } from "./util";
 
 /**
@@ -11,7 +11,8 @@ import { nowIso } from "./util";
  */
 type SettingKey = "ai_enabled" | "xai_key" | "budget_usd" | "key_test";
 
-interface StoredKey { cipher: string; last4: string; fingerprint: string; setAt: string; setBy: string | null }
+/** `last4` is only in rows saved before keys were named by fingerprint: it is never read or shown. */
+interface StoredKey { cipher: string; last4?: string; fingerprint: string; setAt: string; setBy: string | null }
 export interface KeyTest { ok: boolean; at: string; message: string; source: KeySource }
 export type KeySource = "admin" | "environment" | "none";
 
@@ -68,7 +69,7 @@ export async function saveXaiKey(plain: string, by: string) {
   const problem = encryptionProblem();
   if (problem) throw new SettingsError(problem);
   const k = settingsKey(process.env.SETTINGS_ENCRYPTION_KEY)!;
-  const stored: StoredKey = { cipher: encryptSecret(plain, k), last4: plain.slice(-4), fingerprint: fingerprint(plain), setAt: nowIso(), setBy: by };
+  const stored: StoredKey = { cipher: encryptSecret(plain, k), fingerprint: fingerprint(plain), setAt: nowIso(), setBy: by };
   await write("xai_key", stored, by);
   await remove("key_test");
   return { fingerprint: stored.fingerprint };
@@ -96,7 +97,10 @@ export async function effectiveXaiKey(): Promise<{ key: string; source: KeySourc
 
 export const recordKeyTest = (t: KeyTest, by: string) => write("key_test", t, by);
 
-/** Everything the dashboard may know about the key. Never the key, never the ciphertext. */
+/**
+ * Everything the dashboard may know about the key. Never the key, never the ciphertext, never any of its
+ * characters: a key is named by its key id (the start of its SHA-256 fingerprint).
+ */
 export async function keyStatus() {
   const [stored, test, eff] = await Promise.all([read<StoredKey>("xai_key"), read<KeyTest>("key_test"), effectiveXaiKey()]);
   let setBy: string | null = null;
@@ -106,10 +110,10 @@ export async function keyStatus() {
   }
   return {
     inUse: eff.source,
-    masked: eff.key ? maskKey(eff.key) : null,
+    keyId: eff.key ? keyId({ key: eff.key }) : null,
     problem: eff.error ?? null,
-    admin: stored?.value ? { masked: `••••${stored.value.last4}`, setAt: stored.value.setAt, setBy } : null,
-    environment: { present: !!config.xaiApiKey, masked: config.xaiApiKey ? maskKey(config.xaiApiKey) : null },
+    admin: stored?.value ? { keyId: keyId({ fingerprint: stored.value.fingerprint }), setAt: stored.value.setAt, setBy } : null,
+    environment: { present: !!config.xaiApiKey, keyId: config.xaiApiKey ? keyId({ key: config.xaiApiKey }) : null },
     lastTest: test?.value ?? null,
     encryption: { ready: !encryptionProblem(), problem: encryptionProblem() },
   };

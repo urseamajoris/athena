@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, real, index, primaryKey, uniqueIndex } from "drizzle-orm/sqlite-core";
+import type { JobProgress } from "../shared/progress";
 
 /*
  * Schema notes
@@ -72,6 +73,11 @@ export const topics = sqliteTable("topics", {
   createdAt: createdAt(),
 }, (t) => [index("topics_project_idx").on(t.projectId)]);
 
+export interface QueryScope {
+  /** The query's topic compares the idea's setting with other settings, so it is not limited to the setting. */
+  comparesSettings: boolean;
+}
+
 export const queries = sqliteTable("queries", {
   id: id(),
   projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
@@ -80,7 +86,8 @@ export const queries = sqliteTable("queries", {
   queryString: text("query_string").notNull(),
   aiQueryString: text("ai_query_string").notNull(),
   rationale: text("rationale").notNull().default(""),
-  criteria: text("criteria", { mode: "json" }).$type<Criteria | null>(),
+  /** How the query relates to the idea's setting (kept in the unused "criteria" column, so no migration). */
+  scope: text("criteria", { mode: "json" }).$type<QueryScope | null>(),
   dryRunCount: integer("dry_run_count"),
   dryRunAt: text("dry_run_at"),
   dryRunError: text("dry_run_error"),
@@ -202,6 +209,8 @@ export interface ChecklistItem {
   item: string;
   answer: "yes" | "no" | "unclear" | "not_reported";
   claimId: string | null;
+  /** Set when Athena changed the AI's answer to "not_reported" (the AI used one quote for several questions). */
+  downgraded?: { aiAnswer: "yes" | "no" | "unclear" | "not_reported"; sharedWith: number };
 }
 
 export const appraisals = sqliteTable("appraisals", {
@@ -323,7 +332,7 @@ export const jobs = sqliteTable("jobs", {
   stage: integer("stage").notNull(),
   status: text("status").notNull().default("queued"), // queued | running | done | failed | cancelled
   params: text("params", { mode: "json" }).$type<Record<string, unknown>>().notNull().default({}),
-  progress: text("progress", { mode: "json" }).$type<{ done: number; total: number; message: string }>().notNull().default({ done: 0, total: 0, message: "" }),
+  progress: text("progress", { mode: "json" }).$type<JobProgress>().notNull().default({ done: 0, total: 0, message: "" }),
   log: text("log", { mode: "json" }).$type<string[]>().notNull().default([]),
   error: text("error"),
   createdAt: createdAt(),

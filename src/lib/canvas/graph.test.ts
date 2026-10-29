@@ -103,7 +103,7 @@ test("pinned quotes become Quote nodes under the Appraisal, with their verdict",
   const g = buildGraph(finished({ claims, client: { acceptedTopics: [], pinnedQuotes: ["c1", "c2", "gone"] } }));
   const quotes = g.nodes.filter((n) => n.kind === "quote");
   assert.deepEqual(quotes.map((q) => q.id), ["quote:c1", "quote:c2"], "unknown claim ids are ignored");
-  assert.equal(quotes[0].key, "Found word for word · Paper one");
+  assert.equal(quotes[0].key, "Words are in the paper · Paper one");
   assert.equal(quotes[1].status, "review");
   assert.deepEqual(quotes[1].parents, ["appraisal"]);
 });
@@ -142,4 +142,18 @@ test("query blocks: top-level AND splits concepts; OR terms stay together", () =
   assert.equal(b[0].terms[0].field, "mh");
   assert.equal(b[1].join, "AND");
   assert.equal(queryBlocks("sleep AND grades NOT children").map((x) => x.join).join(","), ",AND,NOT");
+});
+
+test("the Idea card says when the questions are over, and topic cards use plain words", () => {
+  const scoping = (done: boolean) => ({ messages: 4, asked: 2, maxQuestions: 5, done, awaitingAnswer: !done });
+  const idea = (done: boolean) => buildGraph(input({ states: states(1), summary: summary({ topics: [], scoping: scoping(done) }) })).nodes.find((n) => n.id === "idea")!;
+  // QA run 3: two questions answered and the rest finished, yet the card still read "2 of 5 questions".
+  assert.equal(idea(true).key, "Questions done");
+  assert.equal(idea(false).key, "2 of 5 questions");
+  const g = buildGraph(input({ states: states(1), client: { acceptedTopics: ["t2"], pinnedQuotes: [] } }));
+  const ghost = g.nodes.find((n) => n.id === "topic:t1")!;
+  const kept = g.nodes.find((n) => n.id === "topic:t2")!;
+  assert.equal(ghost.key, "Suggested by Athena");
+  assert.match(kept.key, /MeSH/);
+  assert.match(kept.keyHint ?? "", /Medical Subject Headings/);
 });

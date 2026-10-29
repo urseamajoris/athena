@@ -45,7 +45,7 @@ export interface QueryBlock {
  * alternatives; nested structure inside a block is flattened (the exact string is always shown in the editor).
  */
 export function queryBlocks(q: string): QueryBlock[] {
-  const tokens = q.match(TOKEN) ?? [];
+  const tokens = unwrapAndGroups(q.match(TOKEN) ?? []);
   const blocks: QueryBlock[] = [];
   let depth = 0;
   let cur: QueryBlock = { join: null, terms: [] };
@@ -65,6 +65,43 @@ export function queryBlocks(q: string): QueryBlock[] {
   }
   if (cur.terms.length) blocks.push(cur);
   return blocks;
+}
+
+/**
+ * Remove the brackets around a top-level group that only ANDs other groups, so "((A) AND (B)) AND (C)" reads as
+ * three groups, the same as "(A) AND (B) AND (C)", instead of one group whose terms look like alternatives. Only
+ * groups with AND (or nothing) before them and AND, NOT or nothing after them, and no OR or NOT inside at their
+ * own level, lose their brackets (for any other,
+ * removing them could change what the search means).
+ */
+function unwrapAndGroups(tokens: string[]): string[] {
+  let out = tokens;
+  for (let changed = true; changed; ) {
+    changed = false;
+    let depth = 0;
+    for (let i = 0; i < out.length && !changed; i++) {
+      if (out[i] === ")") depth--;
+      if (out[i] !== "(") continue;
+      if (depth++ > 0 || (i > 0 && out[i - 1].toUpperCase() !== "AND")) continue;
+      // Find the matching ")" and the operators at the group's own level.
+      let d = 0, end = -1, and = false, other = false;
+      for (let j = i; j < out.length; j++) {
+        if (out[j] === "(") d++;
+        else if (out[j] === ")" && --d === 0) { end = j; break; }
+        else if (d === 1) {
+          const up = out[j].toUpperCase();
+          if (up === "AND") and = true;
+          else if (up === "OR" || up === "NOT") other = true;
+        }
+      }
+      const next = out[end + 1]?.toUpperCase();
+      if (end > 0 && and && !other && (next === undefined || next === "AND" || next === "NOT")) {
+        out = [...out.slice(0, i), ...out.slice(i + 1, end), ...out.slice(end + 1)];
+        changed = true;
+      }
+    }
+  }
+  return out;
 }
 
 /** Remove empty groups ("AND ()"), which a topic with no synonyms can produce and which no database accepts. */

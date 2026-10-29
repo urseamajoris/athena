@@ -5,6 +5,7 @@ import { newId, nowIso, errMsg } from "../util";
 import { setStageState, logDecision } from "../project";
 import { AiPausedError, AiUnavailableError, BudgetError } from "../ai/client";
 import { NO_KEY_MESSAGE } from "../ai/errors";
+import type { ProgressDetail } from "../shared/progress";
 
 /**
  * In-process job runner. Job state lives in SQLite (jobs table), so a page refresh or a client
@@ -21,7 +22,8 @@ export interface JobContext {
   jobId: string;
   projectId: string;
   params: Record<string, unknown>;
-  progress(done: number, total: number, message: string): Promise<void>;
+  /** `detail`: the batches and papers behind the bar, each in its own unit, so the page never mixes them up. */
+  progress(done: number, total: number, message: string, detail?: ProgressDetail): Promise<void>;
   log(line: string): Promise<void>;
   cancelled(): Promise<boolean>;
 }
@@ -70,6 +72,7 @@ async function execute(id: string) {
   (await update(id, { status: "running", startedAt: job.startedAt ?? nowIso(), error: null }));
   const logLines: string[] = [...(job.log ?? [])];
   let lastFlush = 0;
+  let clock: { start: number; base: number } | null = null;
   const flush = async (force = false) => {
     if (!force && Date.now() - lastFlush < 400) return;
     lastFlush = Date.now();
@@ -79,8 +82,11 @@ async function execute(id: string) {
     jobId: id,
     projectId: job.projectId,
     params: job.params,
-    async progress(done, total, message) {
-      (await update(id, { progress: { done, total, message } }));
+    async progress(done, total, message, detail) {
+      // This run's clock starts at its first report, so the page can estimate the time left from the pace so far.
+      const step = detail?.batches?.done ?? done;
+      if (!clock) clock = { start: Date.now(), base: step };
+      (await update(id, { progress: { done, total, message, ...detail, elapsedMs: Date.now() - clock.start, base: clock.base } }));
     },
     async log(line) {
       logLines.push(`${new Date().toISOString().slice(11, 19)} ${line}`);

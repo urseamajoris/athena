@@ -34,7 +34,7 @@ export function NodeStatusBadge({ node }: { node: GNode }) {
   );
 }
 
-/** Quote-check counts (found word for word; not found and undecided), always visible on Appraisal and Synthesis cards. */
+/** Quote-check counts (words are in the paper; not found and undecided), always visible on Appraisal and Synthesis cards. */
 export function TrustBadges({ node, verbose = false }: { node: GNode; verbose?: boolean }) {
   const t = node.trust;
   if (!t) return null;
@@ -43,10 +43,10 @@ export function TrustBadges({ node, verbose = false }: { node: GNode; verbose?: 
   return (
     <span
       className="inline-flex items-center gap-2 text-12 tabular-nums"
-      title={`Quotes: ${t.verified} found word for word in the paper, ${t.unverified} not found and still for you to decide. Found means the words are in the paper, not that they prove the answer.`}
-      aria-label={`${t.verified} quotes found word for word, ${t.unverified} not found and still to decide, ${t.accepted} accepted by you${t.stale ? ", stale" : ""}`}
+      title={`Quotes: ${t.verified} with their words in the paper, ${t.unverified} not found and still for you to decide. “Words are in the paper” does not show that the answer is right.`}
+      aria-label={`${t.verified} quotes with their words in the paper, ${t.unverified} not found and still to decide, ${t.accepted} accepted by you${t.stale ? ", stale" : ""}`}
     >
-      <span className="inline-flex items-center gap-1 text-ok"><Check {...I} />{t.verified}{verbose && " found"}</span>
+      <span className="inline-flex items-center gap-1 text-ok"><Check {...I} />{t.verified}{verbose && " in the paper"}</span>
       {t.unverified > 0 && <span className="inline-flex items-center gap-1 text-err"><X {...I} />{t.unverified}{verbose && " to decide"}</span>}
       {t.stale && <span className="inline-flex items-center gap-1 text-warn"><AlertTriangle {...I} />stale</span>}
     </span>

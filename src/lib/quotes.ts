@@ -84,7 +84,7 @@ const ELLIPSIS = /\[?(?:\.\s?){2}\.\.*\]?|\[?…\]?/;
 
 /**
  * The parts of a quote joined with "..." or "…" (one part for an ordinary quote). Shared with the UI, so the badge
- * ("found word for word, in two parts") counts parts exactly as the check does.
+ * ("words are in the paper, in two parts") counts parts exactly as the check does.
  */
 export function quoteParts(quote: string): string[] {
   // A part with no letter or digit (the full stop after a trailing "…") is punctuation, not a part.
@@ -208,4 +208,27 @@ export function sectionAt(sections: { title: string; start: number }[], offset: 
     else break;
   }
   return cur;
+}
+
+/**
+ * The stored check note of an unverified quote, split for second-language readers: one plain sentence first (what
+ * is wrong), and the technical note (which part, the closest passage) as detail behind "Show detail". Reads notes
+ * written by every version of the check, so quotes appraised earlier get the plain sentence too. Wording only: it
+ * never changes whether a quote counts as found.
+ */
+export function plainNote(note: string | null | undefined): { lead: string; detail: string | null } {
+  const n = (note ?? "").replace(/^UNVERIFIED:\s*/, "").trim();
+  const many = n.match(/Each of its (\w+) sentences/)?.[1];
+  const lead =
+    /but not next to each other/.test(n) ? `${many === "two" ? "Both parts are" : `All ${many ?? "the"} parts are`} in the paper, but not together.`
+    : /only the punctuation between them differs/.test(n) ? "The words are in the paper; only the punctuation between the sentences is different."
+    : /comes earlier in the paper than the part before it/.test(n) ? "All parts are in the paper, but in a different order."
+    : /the same words, but not in this order or form/.test(n) ? "The same words are in the paper, but in a different order or form."
+    : /^(Part \d+ of \d+|Fragment) not found/.test(n) ? "One part of the quote is not in the paper."
+    : /must be at least \d+ words long/.test(n) ? "The parts of this quote are too short to check."
+    : /too short to verify/.test(n) ? "This quote is too short to check."
+    : /^No quote was provided/.test(n) ? "There is no quote to check."
+    : "These words are not in the paper.";
+  const detail = n.replace(/^Quote not found in the retrieved source text\.\s*/, "").trim();
+  return { lead, detail: detail || null };
 }

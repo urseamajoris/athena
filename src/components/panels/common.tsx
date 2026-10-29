@@ -7,6 +7,7 @@ import { ErrorState, ProgressBar, Spinner, cx } from "../ui";
 import { Disclosure } from "../disclosure";
 import { useSession } from "../session/SessionContext";
 import { STAGES } from "@/lib/shared/stages";
+import { countLine, progressLine } from "@/lib/shared/progress";
 
 export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
@@ -44,7 +45,7 @@ export function JobStatus({ stage }: { stage: number }) {
       <div className="rounded-md border border-run-line bg-bg-1 p-3" role="status">
         <p className="flex items-center gap-2 font-medium text-fg-0"><Spinner className="text-run" label="Running" /> {j!.progress.message || "Working…"}</p>
         <div className="mt-2"><ProgressBar value={j!.progress.done} max={j!.progress.total} label={`${STAGES[stage - 1].title} progress`} /></div>
-        <p className="mt-1 text-12 text-fg-2"><span className="tabular-nums">{j!.progress.done} / {j!.progress.total}</span> · runs on the server, so it is safe to close this page.</p>
+        <p className="mt-1 text-12 text-fg-2"><span className="tabular-nums text-fg-1">{progressLine(j!.progress)}</span>. It runs on the server, so it is safe to close this page.</p>
       </div>
     );
   }
@@ -65,7 +66,7 @@ function PausedJob({ stage }: { stage: number }) {
     <div className="rounded-md border border-warn-line bg-warn-soft p-3" role="status">
       <p className="flex items-center gap-2 font-medium text-fg-0"><PauseCircle className="h-4 w-4 text-warn" strokeWidth={2} aria-hidden /> {ai.keyMissing ? "AI is not set up yet" : ai.budgetReached ? "AI budget reached" : !ai.enabled ? "AI is paused by the administrator" : "Paused"}</p>
       <p className="mt-1 text-fg-1">
-        Your work is saved: {j.progress.done} of {j.progress.total} done.{" "}
+        Your work is saved: {countLine(j.progress)} done.{" "}
         {canResume ? "AI is available again, so you can continue." : ai.keyMissing ? "This step continues automatically once an administrator adds an xAI API key." : "This step continues automatically when the administrator turns AI back on or raises the budget."}
       </p>
       {canResume && (

@@ -195,8 +195,10 @@ function Shell() {
           {viewBtn("canvas", "Canvas", LayoutGrid)}
           {viewBtn("list", "List", ListIcon)}
         </div>
-        <button className="btn-ghost h-11 min-w-11 px-2" onClick={() => { setPaletteLoaded(true); canvasStore.getState().setPalette(true); }} aria-label="Command palette (⌘K or /)">
+        {/* Named in words (a bare "⌘ K" said nothing to a first-time user): a tooltip everywhere, the word where it fits. */}
+        <button className="btn-ghost h-11 min-w-11 px-2" onClick={() => { setPaletteLoaded(true); canvasStore.getState().setPalette(true); }} aria-label="Search and commands (⌘K or /)" title="Search and commands (⌘K or /)">
           <Command className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+          <span className="hidden lg:inline">Search</span>
           <span className="hidden md:contents"><Kbd>K</Kbd></span>
         </button>
         <AppMenu onShortcuts={() => canvasStore.getState().setShortcuts(true)} />

@@ -1,5 +1,5 @@
 // Layout and grouping for the papers-as-points views (shared by the 3D and 2D versions).
-import type { ColorBy } from "@/lib/shared/categories";
+import { COLOR_BY, type ColorBy } from "@/lib/shared/categories";
 
 export interface MapPoint {
   id: string;
@@ -23,7 +23,8 @@ export function hash01(id: string): number {
 
 export interface Placed extends MapPoint { x: number; y: number; z: number }
 
-/** x = publication year (older left), y = ranking score (higher up) or a stable spread before ranking, z = topic. */
+/** x = publication year (older left), y = ranking score (higher up) or a stable spread before ranking, z = topic
+ *  (the first topic at the front, where its axis label is). */
 export function place(points: MapPoint[], layers: number): { placed: Placed[]; yearMin: number; yearMax: number; scored: boolean } {
   const years = points.map((p) => p.year).filter((y): y is number => !!y);
   const yearMin = years.length ? Math.min(...years) : 2015;
@@ -34,7 +35,7 @@ export function place(points: MapPoint[], layers: number): { placed: Placed[]; y
     const j = hash01(p.id);
     const x = p.year ? ((p.year - yearMin) / span) * 8 - 4 + (j - 0.5) * 0.35 : -4.8;
     const y = scored ? (p.score === null ? -2.8 : (p.score / 100) * 5 - 2.5) : (j - 0.5) * 4.6;
-    const z = layers > 1 && p.layer >= 0 ? (p.layer / (layers - 1)) * 4 - 2 : (hash01(`${p.id}z`) - 0.5) * 2;
+    const z = layers > 1 && p.layer >= 0 ? 2 - (p.layer / (layers - 1)) * 4 : (hash01(`${p.id}z`) - 0.5) * 2;
     return { ...p, x, y, z };
   });
   return { placed, yearMin, yearMax, scored };
@@ -46,5 +47,15 @@ export function countBy(points: MapPoint[]): Record<string, number> {
   return out;
 }
 
-export const AXIS_NOTE = (scored: boolean, colorBy: ColorBy) =>
-  `Left to right: publication year. ${scored ? "Bottom to top: ranking score." : "Height has no meaning yet (papers are spread out to be visible)."} Depth: topic. Colour and shape: ${colorBy === "study" ? "study type" : colorBy}.`;
+/** Short topic tag on the depth axis (T1, T2, …), in the topics' order. */
+export const topicTag = (i: number) => `T${i + 1}`;
+
+/**
+ * What each direction, the colour and the size mean, in words (the chart's caption and text alternative). Depth
+ * exists only in 3D; there it names each topic's tag on the depth axis.
+ */
+export function axisNote(scored: boolean, colorBy: ColorBy, three: boolean, topics: { name: string }[] = []): string {
+  const colour = (COLOR_BY.find((c) => c.key === colorBy)?.label ?? colorBy).toLowerCase();
+  const depth = three && topics.length > 1 ? ` Front to back: topic (${topics.map((t, i) => `${topicTag(i)} ${t.name}`).join("; ")}).` : "";
+  return `Left to right: publication year. ${scored ? "Bottom to top: ranking score." : "Up and down has no meaning yet: papers are spread out so each one can be seen."}${depth} Colour and shape: ${colour}. Every point is the same size.`;
+}

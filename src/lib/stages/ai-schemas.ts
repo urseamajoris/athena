@@ -27,6 +27,23 @@ export const ScopingTurn = z.object({
 });
 export type ScopingTurn = z.infer<typeof ScopingTurn>;
 
+/** What the person is studying: asked before years and study designs (scoping_turn v2). */
+const CORE_FIELDS = ["population", "phenomenon", "outcome"] as const;
+
+/**
+ * The scoping order, enforced on every turn (a failed check is sent back once with this reason): the first
+ * question, and every question while population, phenomenon or outcome is still unknown, is about one of those
+ * three or the setting, never about publication years or study designs. Run 3 opened with "Which publication
+ * years?" because the idea named the rest; v2 of the prompt then sharpens one of them instead.
+ */
+export function scopingOrderProblem(o: Pick<ScopingTurn, "done" | "questionTarget" | "coverage">, asked: number): string | null {
+  if (o.done || !o.questionTarget || (o.questionTarget !== "timeframe" && o.questionTarget !== "studyTypes")) return null;
+  const missing = CORE_FIELDS.filter((k) => !o.coverage[k]?.trim());
+  if (asked === 0) return `The first question must be about what the person is studying (population, phenomenon or outcome), not ${o.questionTarget}. If the idea names all three, ask to make the vaguest one more specific.`;
+  if (missing.length) return `Ask about ${missing.join(", ")} before ${o.questionTarget}.`;
+  return null;
+}
+
 export const ScopingTopics = z.object({
   summary: z.object({
     population: str(300),
@@ -70,9 +87,13 @@ export const SearchBuild = z.object({
         database: z.enum(["pubmed", "openalex"]),
         query: z.string().trim().min(3).max(1500),
         rationale: str(240),
+        /** True only for a topic that compares the idea's setting with others, so its query must not be limited to it. */
+        comparesSettings: z.boolean(),
       }),
     )
     .min(2),
+  /** One block per database limiting a query to the idea's setting (empty when the idea names no setting). */
+  settingBlocks: z.array(z.object({ database: z.enum(["pubmed", "openalex"]), block: z.string().trim().min(3).max(600) })).max(2),
 });
 export type SearchBuild = z.infer<typeof SearchBuild>;
 
@@ -98,6 +119,8 @@ export const RankingBatch = z.object({
         paperId: str(40),
         topicFit: score,
         topicFitWhy: str(200),
+        /** True when the paper only shares words with the idea but is about something else (a mobile clinic, not a mobile app). */
+        onlySharesWords: z.boolean(),
         designStrength: score,
         designStrengthWhy: str(200),
         settingMatch: score,
@@ -143,6 +166,11 @@ export const Appraisal = z.object({
 });
 export type Appraisal = z.infer<typeof Appraisal>;
 
+/** Is a statement's evidence about the review's own intervention and population, or a related but different one? */
+const EVIDENCE = z.enum(["direct", "indirect"]);
+/** Do the papers report opposite effects, or the same direction differing only in size or statistical significance? */
+const DISAGREEMENT = z.enum(["opposite_effects", "size_or_significance_only"]);
+
 export const Synthesis = z.object({
   themes: z.array(str(80)).min(2).max(6),
   matrix: z
@@ -156,10 +184,12 @@ export const Synthesis = z.object({
       }),
     )
     .min(1),
-  contradictions: z.array(z.object({ theme: str(80), description: str(400), claimIds: z.array(str(40)).min(2).max(8) })).max(6),
-  known: z.array(z.object({ statement: str(600), claimIds: z.array(str(40)).min(1).max(10) })).max(6),
-  contested: z.array(z.object({ statement: str(600), claimIds: z.array(str(40)).min(1).max(10) })).max(6),
-  unknown: z.array(z.object({ statement: str(600), claimIds: z.array(str(40)).min(1).max(10) })).max(6),
+  // "disagreement" and "evidence" are the model's own labels; src/lib/shared/synthesis-rules.ts acts on them (a
+  // difference in size or significance only is not contested; indirect evidence says so in its wording).
+  contradictions: z.array(z.object({ theme: str(80), description: str(400), claimIds: z.array(str(40)).min(2).max(8), disagreement: DISAGREEMENT })).max(6),
+  known: z.array(z.object({ statement: str(600), claimIds: z.array(str(40)).min(1).max(10), evidence: EVIDENCE })).max(6),
+  contested: z.array(z.object({ statement: str(600), claimIds: z.array(str(40)).min(1).max(10), evidence: EVIDENCE, disagreement: DISAGREEMENT })).max(6),
+  unknown: z.array(z.object({ statement: str(600), claimIds: z.array(str(40)).min(1).max(10), evidence: EVIDENCE })).max(6),
 });
 export type Synthesis = z.infer<typeof Synthesis>;
 

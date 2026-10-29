@@ -57,7 +57,7 @@ function ListItem({ it, depth, c }: { it: TreeItem; depth: number; c: ItemCtx })
             <span className={cx("line-clamp-2 block font-medium", n.kind === "quote" && "italic")}>{n.title}</span>
             <span className="flex min-w-0 flex-wrap items-center gap-x-3 text-12 text-fg-1">
               <span className="text-fg-2">{KIND_LABEL[n.kind]}</span>
-              <span className="truncate tabular-nums">{n.key}{n.kind === "corpus" && c.corpusFrom > 1 ? ` · from ${c.corpusFrom} queries` : ""}</span>
+              <span className="truncate tabular-nums" title={n.keyHint}>{n.key}{n.kind === "corpus" && c.corpusFrom > 1 ? ` · from ${c.corpusFrom} queries` : ""}</span>
             </span>
           </span>
           <ChevronRight className="h-4 w-4 shrink-0 text-fg-2" strokeWidth={1.5} aria-hidden />

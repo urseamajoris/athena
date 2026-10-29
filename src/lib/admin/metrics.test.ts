@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { abandonment, cleanClientMessage, dailySeries, frontierOf, funnel, furthestOf, pagePattern, percentile, progressCounts, projectExhaustion, projectsPerUser, verdict, type VerdictInput } from "./metrics";
+import { abandonment, cleanClientMessage, dailySeries, frontierOf, funnel, furthestOf, pagePattern, percentile, progressCounts, projectExhaustion, projectsPerUser, topRows, verdict, type VerdictInput } from "./metrics";
 import type { StageState } from "../shared/stages";
 
 const states = (approvedThrough: number, rest: StageState = "needs_review") =>
@@ -74,6 +74,33 @@ test("budget exhaustion projection", () => {
   assert.equal(projectExhaustion(calls, 15, 15, now).daysLeft, 0);
 });
 
+test("budget forecast: a burst of a few hours is not a daily rate", () => {
+  // Run 3: $2.46 spent within two hours on one day, limit $10. No forecast until there are 3 days of history.
+  const now = Date.parse("2026-10-29T14:30:00Z");
+  const burst = [{ createdAt: "2026-10-29T12:12:00Z", costUsd: 1.2 }, { createdAt: "2026-10-29T14:01:00Z", costUsd: 1.26 }];
+  const p = projectExhaustion(burst, 2.46, 10, now);
+  assert.equal(p.enoughHistory, false);
+  assert.equal(p.daysLeft, null);
+  assert.equal(p.exhaustedAt, null);
+  assert.equal(projectExhaustion(burst, 10, 10, now).daysLeft, 0, "a reached limit is always reported");
+  // Four days of history: the rate is averaged over those days, not over the hours with calls.
+  const later = Date.parse("2026-11-02T14:30:00Z");
+  const q = projectExhaustion(burst, 2.46, 10, later);
+  assert.equal(q.enoughHistory, true);
+  assert.equal(q.windowDays.toFixed(2), "4.10");
+  assert.equal(q.perDay.toFixed(2), (2.46 / 4.1).toFixed(2));
+});
+
+test("breakdowns keep their total when rows are grouped", () => {
+  const rows = Array.from({ length: 15 }, (_, i) => ({ key: `p${i}`, calls: i + 1, cost: (i + 1) / 100, failed: i === 3 ? 1 : 0 }));
+  const top = topRows(rows, 9);
+  assert.equal(top.length, 9);
+  assert.equal(top.at(-1)!.key, "other (7 more)");
+  assert.equal(top.reduce((a, r) => a + r.calls, 0), rows.reduce((a, r) => a + r.calls, 0));
+  assert.equal(top.reduce((a, r) => a + r.cost, 0).toFixed(6), rows.reduce((a, r) => a + r.cost, 0).toFixed(6));
+  assert.deepEqual(topRows(rows.slice(0, 5), 9), rows.slice(0, 5));
+});
+
 const ok: VerdictInput = { dbOk: true, requestsLastHour: 100, errors5xxLastHour: 0, stuckJobs: 0, pausedJobs: 0, aiEnabled: true, spent: 1, limit: 15, sourceErrorRates: [], keyProblem: null, modelProblems: [] };
 test("verdict: green, amber and red rules", () => {
   assert.equal(verdict(ok).level, "green");
@@ -85,6 +112,22 @@ test("verdict: green, amber and red rules", () => {
   assert.equal(verdict({ ...ok, dbOk: false }).level, "red");
   assert.equal(verdict({ ...ok, sourceErrorRates: [{ source: "openalex", requests: 40, errorRate: 0.5 }] }).level, "amber");
   assert.match(verdict({ ...ok, spent: 12 }).reasons[0].text, /80%/);
+});
+
+test("verdict: source failures that are expected are worth a look, not 'no problems'", () => {
+  // Run 3: Europe PMC 10 of 61 failed, PDF downloads 2 of 5 (papers that are not open access).
+  const v = verdict({ ...ok, sourceErrorRates: [{ source: "europepmc", requests: 61, errors: 10, errorRate: 10 / 61 }, { source: "pdf", requests: 5, errors: 2, errorRate: 0.4 }, { source: "pubmed", requests: 46, errors: 0, errorRate: 0 }] });
+  assert.equal(v.level, "green");
+  assert.equal(v.worthALook, true);
+  assert.equal(v.reasons.length, 2);
+  assert.match(v.reasons[0].text, /Europe PMC.*10 of 61 requests, 16%.*not open access.*abstract/);
+  assert.ok(!v.reasons.some((r) => r.text === "No problems found."));
+  // Most full-text lookups failing means something broke.
+  assert.equal(verdict({ ...ok, sourceErrorRates: [{ source: "europepmc", requests: 40, errorRate: 0.8 }] }).level, "amber");
+  // A search source failing 16% is worth a look; over 25% needs attention.
+  assert.equal(verdict({ ...ok, sourceErrorRates: [{ source: "pubmed", requests: 40, errorRate: 0.16 }] }).worthALook, true);
+  assert.equal(verdict({ ...ok, sourceErrorRates: [{ source: "pubmed", requests: 40, errorRate: 0.3 }] }).level, "amber");
+  assert.equal(verdict(ok).worthALook, false);
 });
 
 test("browser error messages keep the error, not the user's data", () => {

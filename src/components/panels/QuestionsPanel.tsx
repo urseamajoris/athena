@@ -106,9 +106,9 @@ export function QuestionsPanel() {
             {data.questions.map((q, i) => {
               const fw = frameworkOf(q);
               const v = noveltyVerdict(q, { ownTitles: data.ownTitles });
-              // Top records whose titles look like this very question: warned about on the card itself, not only in
-              // the reasoning.
-              const same = q.noveltyMatches.filter((_, j) => v.close[j]);
+              // The titles closest to this very question (the review's papers and the top records): warned about on
+              // the card itself, not only in the reasoning, and only the few closest, closest first.
+              const near = v.nearest.length;
               return (
               <li key={q.id} className={cx("rounded-md border p-3", q.chosen ? "border-fg-1" : "border-line")} aria-label={`Candidate ${i + 1}`}>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -121,23 +121,26 @@ export function QuestionsPanel() {
                 ) : (
                   <p className="font-medium leading-snug">{q.text}</p>
                 )}
-                <dl className="mt-2 grid grid-cols-[88px_1fr] gap-x-2 gap-y-1 text-12">
-                  <dt className="text-fg-2">Gap it fills</dt><dd className="line-clamp-2 text-fg-1">{q.gap}</dd>
-                  <dt className="text-fg-2">Feasibility</dt><dd className="line-clamp-2 text-fg-1">{q.feasibility}</dd>
-                  <dt className="text-fg-2">Weakness</dt><dd className="line-clamp-2 text-fg-1">{q.weakness}</dd>
+                {/* The three rows to compare are shown in full: cutting them off hid the weakness behind the reasoning. */}
+                <dl className="mt-2 grid grid-cols-[88px_1fr] gap-x-2 gap-y-1 text-12 leading-relaxed">
+                  <dt className="text-fg-2">Gap it fills</dt><dd className="text-fg-1">{q.gap}</dd>
+                  <dt className="text-fg-2">Feasibility</dt><dd className="text-fg-1">{q.feasibility}</dd>
+                  <dt className="text-fg-2">Weakness</dt><dd className="text-fg-1">{q.weakness}</dd>
                   <dt className="text-fg-2">Structure</dt><dd className="text-fg-1">{fw}{FRAMEWORK[fw] ? ` (${FRAMEWORK[fw]})` : ""}</dd>
                   <dt className="text-fg-2">Novelty check</dt><dd className="text-fg-1">{v.headline}</dd>
                 </dl>
-                {same.length + v.own.length > 0 && (
+                {near > 0 && (
                   <div role="note" className="mt-2 rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-12">
                     <p className="flex items-start gap-2 text-fg-0">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden />
-                      <span><strong className="font-semibold">May already be studied:</strong> {same.length + v.own.length === 1 ? "this paper looks" : `these ${same.length + v.own.length} papers look`} like the same question. Read {same.length + v.own.length === 1 ? "it" : "them"} before you choose this one.</span>
+                      <span><strong className="font-semibold">May already be studied:</strong> {near === 1 ? "this paper is" : `these ${near} papers are`} close to your question{v.nearCount > near ? ` (the ${near} closest of ${v.nearCount})` : ""}. Read {near === 1 ? "it" : "them"} before you choose this one.</span>
                     </p>
-                    <ul className="mt-1 space-y-1 pl-6">
-                      {v.own.map((t) => <li key={t} className="text-fg-1">{t} <span className="text-fg-2">(already in this review)</span></li>)}
-                      {same.map((m, j) => <li key={j} className="text-fg-1">{m.title} <span className="text-fg-2">({m.year ?? "n.d."})</span> <MatchLink m={m} /></li>)}
-                    </ul>
+                    <ol className="mt-1 space-y-1 pl-6">
+                      {v.nearest.map((x) => {
+                        const m = x.match != null ? q.noveltyMatches[x.match] : null;
+                        return <li key={x.title} className="text-fg-1">{x.title} {x.own ? <span className="text-fg-2">(already in this review)</span> : <span className="text-fg-2">({m?.year ?? "n.d."})</span>} {m && <MatchLink m={m} />}</li>;
+                      })}
+                    </ol>
                   </div>
                 )}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -159,13 +162,9 @@ export function QuestionsPanel() {
                       ))}
                       {!Object.keys(q.structure).some((k) => /design/i.test(k)) && <div className="grid grid-cols-[96px_1fr] gap-2"><dt className="text-fg-2">Design</dt><dd>{q.design}</dd></div>}
                     </dl>
-                    <h4 className="label mt-3">Gap it addresses</h4>
-                    <p>{q.gap}</p>
+                    {/* The gap, feasibility and weakness are in full on the card; here are the quotes behind the gap. */}
+                    <h4 className="label mt-3">Quotes behind the gap</h4>
                     <div className="mt-1 flex flex-wrap gap-1">{q.claimIds.map((id) => <ClaimChip key={id} id={id} claims={data.claims} papers={data.papers} />)}</div>
-                    <h4 className="label mt-3">Feasibility</h4>
-                    <p>{q.feasibility}</p>
-                    <h4 className="label mt-3">Main weakness</h4>
-                    <p>{q.weakness}</p>
                     <Novelty q={q} ownTitles={data.ownTitles} onRerun={(d) => mutate(d, { revalidate: false })} />
                   </Disclosure>
                 </div>
@@ -202,7 +201,7 @@ function Novelty({ q, ownTitles, onRerun }: { q: RQ; ownTitles?: string[]; onRer
         <p className="font-medium text-fg-1">Novelty check: what was found</p>
         <button className="btn-ghost btn-sm" disabled={busy} onClick={async () => { setBusy(true); try { onRerun(await api(projectPath(projectId, `questions/${q.id}/novelty`), { body: {} })); } finally { setBusy(false); } }}>{busy ? <Spinner className="h-3 w-3" /> : "Re-run"}</button>
       </div>
-      {/* The verdict first: whether a top record looks like the same question, then what the counts mean. */}
+      {/* The verdict first: whether a top record is close to the question, then what the counts mean. */}
       <p className="mt-1 text-fg-0">{v.headline}</p>
       {v.notes.map((n) => <p key={n} className="mt-1 text-fg-1">{n}</p>)}
       <ul className="mt-2 space-y-1 text-fg-2">
@@ -218,7 +217,7 @@ function Novelty({ q, ownTitles, onRerun }: { q: RQ; ownTitles?: string[]; onRer
             <span className="block text-fg-2">
 <MatchLink m={m} /> · {m.similarityNote}
             </span>
-            {v.close[i] && <span className="mt-0.5 flex items-center gap-1 font-medium text-fg-0"><AlertTriangle className="h-3 w-3 shrink-0 text-warn" strokeWidth={2} aria-hidden /> Looks like the same question</span>}
+            {v.close[i] && <span className="mt-0.5 flex items-center gap-1 font-medium text-fg-0"><AlertTriangle className="h-3 w-3 shrink-0 text-warn" strokeWidth={2} aria-hidden /> Close to your question</span>}
           </li>
         ))}
       </ol>

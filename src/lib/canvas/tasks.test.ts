@@ -27,8 +27,8 @@ test("an idea typed on the New review page is confirmed at step 1, not asked for
   const input: GraphInput = emptyInput({ summary: null });
   const idea = buildGraph(input).nodes.find((n) => n.id === "idea")!;
   const t = taskFor(idea, input);
-  assert.equal(t.headline, "Check your idea, then start");
-  assert.match(t.help, /saved/);
+  assert.equal(t.headline, "Your idea is saved: now sharpen it");
+  assert.match(t.help, /Sharpen my idea/);
   assert.equal(t.step, 1);
 });
 
