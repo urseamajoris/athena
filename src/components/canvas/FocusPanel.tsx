@@ -8,7 +8,7 @@ import { MoreMenu, type MenuItem } from "../overlays";
 import { canvasStore, useSession } from "../session/SessionContext";
 import { PanelFooterSlot, useJobMenu } from "../panels/common";
 import { KindIcon } from "./icons";
-import { focusWithRing, usingKeyboard } from "./focus";
+import { focusWithRing, revealInPanel, usingKeyboard } from "./focus";
 import { useUnsavedCriteria } from "../panels/criteria-draft";
 import { NodeStatusBadge } from "./node-bits";
 import { KIND_LABEL, frontierNodeId, frontierStage, st, toStatus, type GNode } from "@/lib/canvas/graph";
@@ -154,7 +154,13 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
     const aside = asideRef.current;
     if (!aside) return;
     let owned = aside.contains(document.activeElement);
-    const onFocusIn = (e: FocusEvent) => { owned = aside.contains(e.target as Node); };
+    let reveal = 0;
+    const onFocusIn = (e: FocusEvent) => {
+      owned = aside.contains(e.target as Node);
+      // A control that gets focus is never left behind the pinned footer (after the browser's own scrolling).
+      cancelAnimationFrame(reveal);
+      if (owned) reveal = requestAnimationFrame(() => { if (document.activeElement === e.target) revealInPanel(e.target as HTMLElement); });
+    };
     // A click anywhere hands focus back to the user's own choice; only a later focusin inside the panel re-owns it.
     const onPointerDown = () => { owned = false; };
     let frame = 0;
@@ -172,6 +178,7 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
       document.removeEventListener("pointerdown", onPointerDown, true);
       mo.disconnect();
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(reveal);
       document.removeEventListener("focusin", onFocusIn);
     };
   }, []);

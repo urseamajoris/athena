@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, projectPath, useApi } from "../api";
 import { Badge, ErrorState, Loading, Spinner, aiStopKind, cx } from "../ui";
 import { Disclosure } from "../disclosure";
@@ -8,7 +8,8 @@ import { ActionButton, PanelFooter, SectionTitle } from "./common";
 import { ConceptMap } from "./ConceptMap";
 import { WhatHappens } from "../guide/WhatHappens";
 import dynamic from "next/dynamic";
-import { AlertTriangle, Info, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, Trash2 } from "lucide-react";
+import { focusWithRing, revealInPanel } from "../canvas/focus";
 
 const TopicConstellation = dynamic(() => import("../viz/TopicConstellation").then((m) => m.TopicConstellation), { ssr: false, loading: () => <Loading label="Drawing your topics…" /> });
 import { stageAction } from "@/lib/canvas/actions";
@@ -50,7 +51,7 @@ export function IdeaPanel() {
   const [local, setLocal] = useState<string | null>(null);
   const [err, setErr] = useState<unknown>(null);
   const started = useRef(false);
-  const chatEnd = useRef<HTMLDivElement>(null);
+  const chatList = useRef<HTMLDivElement>(null);
   const answerRef = useRef<HTMLTextAreaElement>(null);
   // The last topic deleted from the list, until it is brought back (Undo) or another one is deleted.
   const [deleted, setDeleted] = useState<Topic | null>(null);
@@ -87,12 +88,38 @@ export function IdeaPanel() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, ideaApproved]);
-  // A new question puts the cursor in the answer box. The box is disabled until the request that brought the
-  // question has finished (`local`), so focus it only once it is enabled again.
+  // A new question puts the cursor in the answer box, once the request that brought it has finished (`local`).
+  // The conversation scrolls inside its own box; the panel scrolls to the answer box (not to the last message,
+  // which left the box behind the pinned footer on short screens).
   useEffect(() => {
-    chatEnd.current?.scrollIntoView({ block: "nearest" });
-    if (data?.awaitingAnswer && !local) answerRef.current?.focus({ preventScroll: true });
+    const list = chatList.current;
+    if (list) list.scrollTop = list.scrollHeight;
+    if (data?.awaitingAnswer && !local) {
+      answerRef.current?.focus({ preventScroll: true });
+      revealInPanel(answerRef.current);
+    }
   }, [data?.messages.length, data?.awaitingAnswer, local]);
+
+  // When the questions end (the last answer, or "Skip the rest") the answer box goes away. Say so where the
+  // cursor was, and keep anything typed after the last answer was sent: it is shown, never silently dropped.
+  const chatOpenNow = !!data && ideaApproved && !data.done && !data.topics.length;
+  const wasOpen = useRef(chatOpenNow);
+  const [ended, setEnded] = useState<{ unsent: string; focus: boolean } | null>(null);
+  const endedRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (chatOpenNow) setEnded(null);
+    else if (wasOpen.current) {
+      const a = document.activeElement;
+      // Focus was in the box or on a button that went away (or already sent to the panel heading by FocusPanel).
+      setEnded({ unsent: answer.trim(), focus: !a || a === document.body || !a.isConnected || a.matches("[data-panel] h2") });
+    }
+    wasOpen.current = chatOpenNow;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatOpenNow]);
+  // Before the panel's own focus recovery, which would put the cursor on the heading, where typing goes nowhere.
+  useLayoutEffect(() => {
+    if (ended?.focus) focusWithRing(endedRef.current);
+  }, [ended]);
 
   // Before step 1 is approved the idea saves itself shortly after typing stops, so every "Sharpen my idea" button
   // (the panel's and the canvas card's) uses what is on screen.
@@ -143,6 +170,8 @@ export function IdeaPanel() {
   async function send(e: React.FormEvent) {
     e.preventDefault();
     if (!answer.trim()) return;
+    // Typing while the next question is on its way is kept in the box; it is sent once that question is there.
+    if (local) return setHint("Wait for the next question to appear. What you typed stays in the box.");
     const text = answer;
     setAnswer("");
     const d = await call("answer", "scoping/answer", { text });
@@ -180,14 +209,13 @@ export function IdeaPanel() {
 
       {ideaApproved && (chatOpen ? (
         <section aria-label="Scoping conversation" className="rounded-md border border-line">
-          <div className="max-h-80 space-y-3 overflow-y-auto px-3 py-3" aria-live="polite">
+          <div ref={chatList} className="max-h-80 space-y-3 overflow-y-auto px-3 py-3" aria-live="polite">
             {data.messages.map((m) => (
               <div key={m.id} data-role={m.role} className={cx("max-w-[90%] rounded-md px-3 py-2 leading-relaxed", m.role === "assistant" ? "bg-bg-2 text-fg-0" : "ml-auto bg-bg-3 text-fg-0")}>
                 {m.text}
               </div>
             ))}
             {local === "start" || local === "answer" ? <p className="flex items-center gap-2 text-fg-2"><Spinner /> Thinking about the next question…</p> : null}
-            <div ref={chatEnd} />
           </div>
           <form id="scoping-answer-form" onSubmit={send} className="border-t border-line p-3">
             <label htmlFor="answer" className="sr-only">Your answer</label>
@@ -197,7 +225,9 @@ export function IdeaPanel() {
               className="input min-h-16"
               placeholder={data.awaitingAnswer ? "Type your answer in your own words (Enter sends)" : "Waiting for the next question…"}
               value={answer}
-              disabled={!data.awaitingAnswer || !!local}
+              // Not disabled while an answer is being sent: a disabled box would drop what is typed meanwhile.
+              disabled={!data.awaitingAnswer || (!!local && local !== "answer")}
+              aria-busy={local === "answer" || undefined}
               onChange={(e) => setAnswer(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
@@ -219,6 +249,21 @@ export function IdeaPanel() {
           </Disclosure>
         )
       ))}
+
+      {ended && !chatOpen && (!data.topics.length || ended.unsent || ended.focus) && (
+        <div ref={endedRef} tabIndex={-1} role="status" className="flex items-start gap-2 rounded-md border border-line px-3 py-2 text-fg-0">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-ok" strokeWidth={1.5} aria-hidden />
+          <div className="min-w-0 flex-1 space-y-1">
+            <p><strong className="font-semibold">The questions are done.</strong>{action && !data.topics.length ? ` Next: “${action.label}”, below.` : ""}</p>
+            {ended.unsent && (
+              <>
+                <p className="text-fg-1">You typed this after the last question, so it was not sent. Add it to a topic or to the idea if you need it:</p>
+                <blockquote className="whitespace-pre-wrap border-l-2 border-line-control pl-2 text-fg-1">{ended.unsent}</blockquote>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {data.topics.length > 0 && (
         <section aria-label="Topics">

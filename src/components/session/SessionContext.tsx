@@ -9,7 +9,7 @@ import { criteriaDrafts } from "../panels/criteria-draft";
 import dynamic from "next/dynamic";
 import { STAGES, STATE_LABEL, thinTopics, type StageState } from "@/lib/shared/stages";
 import type { CanvasSummary, ClaimLite, JobLite } from "@/lib/shared/canvas";
-import { buildGraph, nodeForStage, type Graph, type GraphInput } from "@/lib/canvas/graph";
+import { buildGraph, nodeForStage, type Graph, type GraphInput, type NodeKind } from "@/lib/canvas/graph";
 import { cascadeStep, type Cmd } from "@/lib/canvas/actions";
 import { createCanvasStore, sessionOf, type SessionUi } from "@/lib/canvas/store";
 import type { Pos } from "@/lib/canvas/layout";
@@ -150,7 +150,8 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const [addTopic, setAddTopic] = useState<{ flowAt?: Pos } | null>(null);
   // State, not a ref: the next stage's node is often in the graph already when the approval returns (a fast job
   // finished while refresh() was in flight), and the effect below must still run for it.
-  const [pendingStage, setPendingStage] = useState<{ stage: number; panel: boolean } | null>(null);
+  // `wait`: open only once a node of that kind exists (new searches reach the graph a moment after the request).
+  const [pendingStage, setPendingStage] = useState<{ stage: number; panel: boolean; wait?: NodeKind } | null>(null);
   const router = useRouter();
 
   const announce = useCallback((msg: string) => {
@@ -224,13 +225,14 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const { mutate: mutateAll } = useSWRConfig();
   const refresh = useCallback(() => mutateAll((key) => typeof key === "string" && key.startsWith(projectPath(projectId))), [mutateAll, projectId]);
 
-  const focusStage = useCallback((stage: number, panel: boolean) => {
-    setPendingStage({ stage, panel });
+  const focusStage = useCallback((stage: number, panel: boolean, wait?: NodeKind) => {
+    setPendingStage({ stage, panel, wait });
   }, []);
   // After an approval the next stage's node may only appear once the server state arrives.
   useEffect(() => {
     const p = pendingStage;
     if (!p) return;
+    if (p.wait && !graph.nodes.some((n) => n.kind === p.wait)) return;
     // Stage 10 = the finished review: wait for the Export node itself.
     const id = p.stage > 9 ? (graph.nodes.some((n) => n.id === "export") ? "export" : null) : nodeForStage(graph, p.stage);
     if (!id) return;
@@ -373,8 +375,10 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
             if (summary?.queries.length && !(await confirmEdit(3))) return;
             await api(projectPath(projectId, "search/build"), { body: {} });
             await refresh();
-            announce("Queries built: one per database for each topic.");
-            focusStage(3, store.panel !== null);
+            announce("Searches written: one per database for each topic. The first topic's searches are open to check.");
+            // Open the searches to check, not the topic: before the query nodes arrive (the live summary lags the
+            // request), step 3 would resolve to the first topic's editor.
+            focusStage(3, true, "query");
           });
         case "rerunDownstream":
           store.setCascade(projectId, true);

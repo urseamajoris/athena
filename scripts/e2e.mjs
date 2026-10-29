@@ -91,7 +91,7 @@ try {
   for (let i = 0; i < 6; i++) {
     const box = page.getByLabel("Your answer");
     const branch = footer().getByRole("button", { name: "Suggest search topics" });
-    await Promise.race([box.and(page.locator(":enabled")).waitFor({ timeout: 120_000 }), branch.waitFor({ timeout: 120_000 })]);
+    await Promise.race([box.and(page.locator(":enabled:not([aria-busy=true])")).waitFor({ timeout: 120_000 }), branch.waitFor({ timeout: 120_000 })]);
     if (await branch.isVisible()) break;
     const q = await panel().locator('[data-role="assistant"]').last().innerText();
     log(`Q${i + 1}:`, q.replace(/\s+/g, " ").slice(0, 140));
