@@ -212,9 +212,9 @@ Model roles are read from the environment and checked against `GET /v1/models` w
 |---|---|---|---|
 | fast | scoping, search building, ranking, topic importance | `grok-4.3` | listed by xAI, used as is |
 | summary | per-paper summary rows | `grok-4.3` | listed by xAI, used as is |
-| reasoning | appraisal, synthesis, research questions | `grok-4.20-0309-reasoning` | listed by xAI, used as is |
+| reasoning | appraisal, synthesis, research questions | `grok-4.3` (effort `XAI_REASONING_EFFORT`, default `low`) | listed by xAI, used as is |
 
-Both default models were present, so no substitution was needed. xAI lists both at $1.25 per million input tokens and $2.50 per million output tokens, below 200k prompt tokens. `grok-4.20-0309-reasoning` rejects the `reasoning_effort` parameter, so it is only sent to the fast and summary roles.
+Both default models were present, so no substitution was needed. xAI lists both at $1.25 per million input tokens and $2.50 per million output tokens, below 200k prompt tokens. Until 2026-10-29 the reasoning role used `grok-4.20-0309-reasoning`, same per-token price but uncapped thinking tokens (billed as output); it rejects `reasoning_effort`, which the client detects and then omits.
 
 ### Data model
 

@@ -126,14 +126,15 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
     const { client: xai, key } = await client();
     countPaid();
     const started = Date.now();
-    const useEffort = (opts.role === "fast" || opts.role === "summary") && config.fastReasoningEffort && !noEffort.has(model);
+    const effort = opts.role === "reasoning" ? config.reasoningEffort : config.fastReasoningEffort;
+    const useEffort = !!effort && !noEffort.has(model);
     try {
       const res = await aiLimit(() =>
         xai.chat.completions.create({
           model,
           messages,
           response_format: { type: "json_schema", json_schema: { name: prompt.name.replace(/[^a-zA-Z0-9_-]/g, "_"), strict: true, schema: jsonSchema } },
-          ...(useEffort ? { reasoning_effort: config.fastReasoningEffort as "low" | "medium" | "high" } : {}),
+          ...(useEffort ? { reasoning_effort: effort as "low" | "medium" | "high" } : {}),
         }),
       );
       const u = res.usage as (OpenAI.CompletionUsage & { cost_in_usd_ticks?: number }) | undefined;
