@@ -16,6 +16,7 @@ import { loadElk } from "./elk";
 const nodeTypes = { athena: NodeCard };
 const AddMenu = dynamic(() => import("./AddMenu").then((m) => m.AddMenu), { ssr: false });
 import { NextStepBar } from "./NextStepBar";
+import { TopicUndo } from "../panels/topic-undo";
 export const PANEL_W = { md: 480, xl: 560 };
 /** Below this zoom the canvas switches to the simplified overview (see globals.css `[data-zoom="far"]`). */
 const FAR_ZOOM = 0.5;
@@ -314,6 +315,9 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
       </ReactFlow>
       <CanvasControls />
       <div className="pointer-events-none absolute inset-x-0 top-3 z-10 mx-auto w-fit max-w-[calc(100%-24px)]"><NextStepBar floating /></div>
+      {/* Undo after deleting a topic, above the zoom controls (the side panel never covers the left edge). The
+          topic list shows its own Undo, so not while it is open. */}
+      {panel !== "idea" && <div className="pointer-events-none absolute bottom-20 left-4 z-10 max-w-[min(480px,calc(100%-32px))]"><TopicUndo className="pointer-events-auto shadow-lg" /></div>}
       {addMenuOpen && <AddMenu />}
     </div>
   );

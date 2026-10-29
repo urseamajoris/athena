@@ -93,10 +93,10 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-7">
         <Stat label="Users" value={num(d.users.total)} sub={`incl. ${d.users.admins} admin${d.users.admins === 1 ? "" : "s"} · ${d.users.active24h} active today · ${d.users.active7d} this week`} />
-        <Stat label="Projects" value={num(d.users.projects)} sub={`${d.users.finished} finished`} />
+        <Stat label="Projects" value={num(d.users.projects)} sub={`${d.users.finished} finished all nine steps${d.users.reopened ? ` · ${d.users.reopened} went back to an earlier step` : ""}`} />
         <Stat label="AI calls" value={num(d.ai.totals.sent)} sub={`sent to the model · ${pct(d.ai.totals.failureRate)} failed · ${pct(d.ai.totals.retryRate)} retried${d.ai.totals.blocked ? ` · ${num(d.ai.totals.blocked)} blocked, not sent` : ""}`} />
         <Stat label="AI spend" value={usd(b.spentUsd)} sub={`of ${usd(b.limitUsd)} limit`} tone={b.pct >= 1 ? "err" : b.pct >= 0.8 ? "warn" : undefined} />
-        <Stat label="Server errors (1 h)" value={pct(d.health.requests.errorRate)} sub={`${d.health.requests.errors5xx} of ${d.health.requests.lastHour} requests`} tone={d.health.requests.errors5xx ? "warn" : undefined} />
+        <Stat label="Server errors (1 h)" value={pct(d.health.requests.errorRate)} sub={`${d.health.requests.errors5xx} of ${d.health.requests.lastHour} API requests${d.health.requests.lastHour < 20 ? " · too few to judge" : ""}`} tone={d.health.requests.errors5xx ? "warn" : undefined} />
         <Stat label="Browser errors (1 h)" value={num(d.health.clientErrors.lastHour)} sub="page errors in users' browsers" tone={d.health.clientErrors.lastHour ? "warn" : undefined} />
         <Stat label="Jobs now" value={`${d.health.jobs.running} running`} sub={`${d.health.jobs.queued} queued · ${d.health.jobs.paused} paused · ${d.health.jobs.stuck} stuck`} tone={d.health.jobs.stuck ? "warn" : undefined} />
       </div>
@@ -105,12 +105,20 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
         <div className="grid gap-6 md:grid-cols-2">
           <DailyBars title="Sign-ups per day (14 days)" data={d.users.signupsByDay.map((x) => ({ day: x.day, value: x.value }))} />
           <HBars title="Projects per user" rows={d.users.projectsPerUser.map((x) => ({ key: x.bucket, label: `${x.bucket} project${x.bucket === "1" ? "" : "s"}`, value: x.users }))} format={(v) => `${v} user${v === 1 ? "" : "s"}`} />
+          {/* One colour: the bars are counts of one thing. "Reached" never drops when a user goes back to edit. */}
           <HBars
-            title="Funnel: projects that reached each step"
-            rows={d.users.funnel.map((f) => ({ key: String(f.stage), label: `${f.stage}. ${f.title}`, value: f.reached, color: `var(--seq-${Math.max(1, 5 - Math.floor((f.stage - 1) / 2))})`, sub: `· ${f.approved} approved` }))}
-            note={`${d.users.finished} of ${d.users.projects} projects finished all nine steps.`}
+            title="Funnel: projects that reached each step at least once"
+            rows={d.users.funnel.map((f) => ({ key: String(f.stage), label: `${f.stage}. ${f.title}`, value: f.reached, sub: `· ${f.approved} approved now${f.outOfDate ? ` · ${f.outOfDate} out of date` : ""}` }))}
+            note={`${d.users.finished} of ${d.users.projects} project${d.users.projects === 1 ? "" : "s"} finished all nine steps at least once${d.users.finished > d.users.finishedNow ? `; ${d.users.finished - d.users.finishedNow} of them went back to an earlier step since` : ""}. A step stays reached when an edit puts it out of date. Report downloads are not tracked.`}
           />
-          <HBars title="Where people stop (no activity for 7 days, unfinished)" rows={d.users.abandonment.map((a) => ({ key: String(a.stage), label: `${a.stage}. ${a.title}`, value: a.projects, color: "var(--cat-none)" }))} format={(v) => `${v} project${v === 1 ? "" : "s"}`} />
+          {d.users.abandonment.some((a) => a.projects > 0) ? (
+            <HBars title="Where people stop: the step unfinished projects are at now (no activity for 7 days)" rows={d.users.abandonment.map((a) => ({ key: String(a.stage), label: `${a.stage}. ${a.title}`, value: a.projects, color: "var(--cat-none)" }))} format={(v) => `${v} project${v === 1 ? "" : "s"}`} />
+          ) : (
+            <figure className="min-w-0">
+              <figcaption className="text-12 font-medium text-fg-1">Where people stop</figcaption>
+              <p className="mt-2 text-fg-2">No unfinished project has been idle for 7 days.</p>
+            </figure>
+          )}
         </div>
       </Section>
 
@@ -122,7 +130,11 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
         <div className="mt-6 grid grid-cols-2 gap-2 md:grid-cols-4">
           <Stat label="Input tokens" value={num(d.ai.totals.tokens.input)} sub={`${num(d.ai.totals.tokens.cached)} cached`} />
           <Stat label="Output tokens" value={num(d.ai.totals.tokens.output)} sub={`${num(d.ai.totals.tokens.reasoning)} reasoning`} />
-          <Stat label="Latency p50 / p90" value={`${ms(d.ai.latency.p50)}`} sub={`p90 ${ms(d.ai.latency.p90)} · p99 ${ms(d.ai.latency.p99)}`} />
+          {d.ai.latency.p50 === null ? (
+            <Stat label="AI latency p50" value="None yet" sub={d.mode.mockAi ? "Demo mode makes no live calls, so there is no latency." : "No live AI calls in the last 30 days."} />
+          ) : (
+            <Stat label="AI latency p50" value={ms(d.ai.latency.p50)} sub={`p90 ${ms(d.ai.latency.p90)} · p99 ${ms(d.ai.latency.p99)}`} />
+          )}
           <Stat label="Validation retries" value={pct(d.ai.totals.retryRate)} sub={`${d.ai.totals.invalid} invalid · ${d.ai.totals.errors} errors${d.ai.totals.blocked ? ` · ${num(d.ai.totals.blocked)} blocked, not sent` : ""}`} />
         </div>
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
@@ -301,7 +313,7 @@ function AiKeyPanel({ d, refresh }: { d: AdminOverview; refresh: () => void }) {
         </p>
       )}
       {err && <p role="alert" className="mt-3 rounded-sm border border-err-line px-3 py-2 text-err">{err}</p>}
-      <div className="mt-4 grid gap-6 lg:grid-cols-3">
+      <div className="mb-4 mt-4 grid gap-6 lg:grid-cols-3">
         {/* 1. On/off */}
         <div>
           <h3 className="text-12 font-medium text-fg-2">AI for everyone</h3>

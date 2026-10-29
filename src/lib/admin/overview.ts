@@ -10,7 +10,8 @@ import { aiSwitch, budgetSetting, keyStatus } from "../settings";
 import { STAGES } from "../shared/stages";
 import { studyGroupOf, STUDY_GROUPS } from "../shared/categories";
 import { BROWSER } from "./client-errors";
-import { abandonment, dailySeries, funnel, percentile, projectExhaustion, projectsPerUser, verdict } from "./metrics";
+import { abandonment, dailySeries, frontierOf, funnel, furthestOf, percentile, progressCounts, projectExhaustion, projectsPerUser, verdict } from "./metrics";
+import { maskEmail } from "../auth/policy";
 
 const H = 3600_000;
 const D = 86_400_000;
@@ -264,7 +265,8 @@ export async function adminOverview() {
       signupsByDay: dailySeries(users, 14, now, (u) => u.createdAt),
       projectsPerUser: projectsPerUser(users.map((u) => perUser.get(u.id) ?? 0)),
       projects: projects.length,
-      finished: projects.filter((p) => p.status === "complete").length,
+      // One rule for every progress count: "reached" and "finished" are high-water marks (see furthestOf).
+      ...progressCounts(projects),
       funnel: funnel(projects),
       abandonment: abandonment(projects, now),
       failedLogins24h: failedLogins24,
@@ -278,7 +280,15 @@ export async function adminOverview() {
       staleByStage,
     },
     errors: { requests: recentErrors, jobs: failedJobs, client: recentClientErrors },
-    audit: audit.map((a) => ({ id: a.id, at: a.createdAt, category: a.category, action: a.action, actor: a.actorId ? emails.get(a.actorId) ?? "deleted account" : null, target: a.targetId ? emails.get(a.targetId) ?? null : null, detail: a.detail })),
+    audit: audit.map((a) => {
+      const actor = a.actorId ? emails.get(a.actorId) ?? "deleted account" : null;
+      const target = a.targetId ? emails.get(a.targetId) ?? null : null;
+      // Admins see full addresses here, so a masked copy of one already shown beside it is dropped; it stays when
+      // it is the only clue (a failed login for an unknown address, a deleted account).
+      const shown = [actor, target].filter((e): e is string => !!e && e.includes("@")).map(maskEmail);
+      const detail = a.detail && Object.fromEntries(Object.entries(a.detail).filter(([k, v]) => !(k === "email" && typeof v === "string" && shown.includes(v.toLowerCase()))));
+      return { id: a.id, at: a.createdAt, category: a.category, action: a.action, actor, target, detail };
+    }),
   };
 }
 export type AdminOverview = Awaited<ReturnType<typeof adminOverview>>;
@@ -286,7 +296,7 @@ export type AdminOverview = Awaited<ReturnType<typeof adminOverview>>;
 /** Users for the admin table: account metadata and counts, never project content. */
 export async function adminUsers() {
   const users = await db.select().from(schema.users).orderBy(desc(schema.users.createdAt)).all();
-  const projects = await db.select({ ownerId: schema.projects.ownerId, stageStates: schema.projects.stageStates }).from(schema.projects).all();
+  const projects = await db.select({ ownerId: schema.projects.ownerId, stageStates: schema.projects.stageStates, status: schema.projects.status }).from(schema.projects).all();
   const cost = await db
     .select({ ownerId: schema.projects.ownerId, calls: sql<number>`count(*)`, cost: sql<number>`coalesce(sum(${schema.aiCalls.costUsd}),0)` })
     .from(schema.aiCalls)
@@ -295,10 +305,11 @@ export async function adminUsers() {
     .where(notInArray(schema.aiCalls.status, ["refused", "paused"]))
     .groupBy(schema.projects.ownerId)
     .all();
-  const { frontierOf } = await import("./metrics");
   return users.map((u) => {
     const mine = projects.filter((p) => p.ownerId === u.id);
     const c = cost.find((x) => x.ownerId === u.id);
+    // The furthest step any of their projects reached (the dashboard's high-water rule), and where that project is now.
+    const top = mine.map((p) => ({ furthest: furthestOf(p), now: frontierOf(p.stageStates) })).sort((a, b) => b.furthest - a.furthest || b.now - a.now)[0];
     return {
       id: u.id,
       email: u.email,
@@ -309,7 +320,8 @@ export async function adminUsers() {
       createdAt: u.createdAt,
       lastActiveAt: u.lastActiveAt,
       projects: mine.length,
-      furthestStage: mine.length ? Math.max(...mine.map((p) => frontierOf(p.stageStates))) : null,
+      furthestStage: top?.furthest ?? null,
+      currentStage: top?.now ?? null,
       aiCalls: c?.calls ?? 0,
       costUsd: c?.cost ?? 0,
     };

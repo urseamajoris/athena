@@ -7,7 +7,7 @@ import { getProject, HttpError, logDecision, markDownstreamStale, setStageState 
 import { STAGES } from "./shared/stages";
 import { requireUser, ownedProject } from "./auth/server";
 import { startJob, cancelJob } from "./jobs";
-import { addTopic, answerScoping, approveTopics, deleteTopic, generateTopics, mergeTopics, nextScopingTurn, scopingState, skipScoping, updateTopic } from "./stages/scoping";
+import { addTopic, answerScoping, approveTopics, deleteTopic, generateTopics, mergeTopics, nextScopingTurn, restoreTopic, scopingState, skipScoping, updateTopic } from "./stages/scoping";
 import { buildQueries, dryRun, dryRunAll, searchState, updateCriteria, updateQuery } from "./stages/search";
 import { paperPointsView, appraisalDetail, appraisalsView, canvasView, claimsView, decisionLogView, paperDetail, papersTableView, projectView, questionsView, rankingTableView, retrievalView, synthesisView } from "./views";
 import { htmlReport, markdownReport, selectedBibtex, summaryCsv } from "./export";
@@ -205,6 +205,10 @@ on("PATCH", "topics/:tid", async ({ projectId, params, body }) => {
 });
 on("DELETE", "topics/:tid", async ({ projectId, params }) => {
   (await deleteTopic(projectId, params.tid));
+  return (await scopingState(projectId));
+});
+on("POST", "topics/:tid/restore", async ({ projectId, params }) => {
+  (await restoreTopic(projectId, params.tid));
   return (await scopingState(projectId));
 });
 on("POST", "topics/merge", async ({ projectId, body }) => {

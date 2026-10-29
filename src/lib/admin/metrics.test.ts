@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { abandonment, cleanClientMessage, dailySeries, frontierOf, funnel, pagePattern, percentile, projectExhaustion, projectsPerUser, verdict, type VerdictInput } from "./metrics";
+import { abandonment, cleanClientMessage, dailySeries, frontierOf, funnel, furthestOf, pagePattern, percentile, progressCounts, projectExhaustion, projectsPerUser, verdict, type VerdictInput } from "./metrics";
 import type { StageState } from "../shared/stages";
 
 const states = (approvedThrough: number, rest: StageState = "needs_review") =>
@@ -26,6 +26,26 @@ test("funnel: reached and approved per stage; finished projects reach every stag
   const f = funnel(ps);
   assert.deepEqual(f.map((x) => x.reached), [3, 2, 2, 2, 1, 1, 1, 1, 1]);
   assert.deepEqual(f.map((x) => x.approved), [2, 2, 2, 1, 1, 1, 1, 1, 1]);
+});
+
+test("going back after finishing: reached, finished and the furthest step keep the high-water mark", () => {
+  // Finished all nine, then deselected a paper at step 6: step 6 is open again and 7-9 are out of date.
+  const back = { stageStates: { ...states(5), "6": "needs_review", "7": "stale", "8": "stale", "9": "stale" } as Record<string, StageState>, status: "complete" };
+  const atFour = { stageStates: states(3), status: "active" };
+  assert.equal(frontierOf(back.stageStates), 6, "now at step 6");
+  assert.equal(furthestOf(back), 10, "finished once");
+  assert.equal(furthestOf(atFour), 4);
+  const f = funnel([back, atFour]);
+  assert.deepEqual(f.map((x) => x.reached), [2, 2, 2, 2, 1, 1, 1, 1, 1], "a step stays reached when it goes out of date");
+  assert.deepEqual(f.map((x) => x.approved), [2, 2, 2, 1, 1, 0, 0, 0, 0]);
+  assert.deepEqual(f.map((x) => x.outOfDate), [0, 0, 0, 0, 0, 0, 1, 1, 1]);
+  assert.deepEqual(progressCounts([back, atFour]), { finished: 1, finishedNow: 0, reopened: 1 });
+  // Edited step 2 before ever finishing: the stale later steps were reached; the project is not finished.
+  const edited = { stageStates: { ...states(1), "2": "needs_review", "3": "stale", "4": "stale" } as Record<string, StageState>, status: "active" };
+  assert.equal(furthestOf(edited), 4);
+  assert.deepEqual(progressCounts([edited]), { finished: 0, finishedNow: 0, reopened: 1 });
+  // Step 1 approved but step 2 not started yet: step 2 is open, so it counts as reached.
+  assert.equal(furthestOf({ stageStates: { ...states(1), "2": "not_started" } }), 2);
 });
 
 test("abandonment counts only idle unfinished projects, by the stage they stopped at", () => {
