@@ -1,5 +1,5 @@
 import type { RubricScores } from "./db/schema";
-import { MIN_TOPIC_FIT, RUBRIC } from "./shared/stages";
+import { MIN_TOPIC_FIT, PER_TOPIC, RUBRIC } from "./shared/stages";
 
 /** Papers pre-selected per topic after ranking. */
 export const DEFAULT_SELECT = 4;
@@ -11,6 +11,20 @@ export const DEFAULT_SELECT = 4;
  */
 export function defaultSelection<T extends { total: number; subScores: Pick<RubricScores, "topicFit"> }>(scores: T[], n = DEFAULT_SELECT): T[] {
   return scores.filter((s) => s.subScores.topicFit >= MIN_TOPIC_FIT).sort((a, b) => b.total - a.total).slice(0, n);
+}
+
+/**
+ * Each topic's selection against the 3–5 rule, given how many papers are selected and how many papers that match
+ * the topic are not (`spare`). `short`: fewer than 3 selected while matching papers are left, so the user can tick
+ * more. `few`: fewer than 3 selected and every matching paper is already in, so only new searches can add more.
+ * `over`: more than 5 selected. The 3–5 rule is met when `short` and `over` are empty.
+ */
+export function topicCoverage<T extends { selected: number; spare: number }>(topics: T[]): { short: T[]; few: T[]; over: T[] } {
+  return {
+    short: topics.filter((t) => t.selected < PER_TOPIC.min && t.spare > 0),
+    few: topics.filter((t) => t.selected < PER_TOPIC.min && t.spare === 0),
+    over: topics.filter((t) => t.selected > PER_TOPIC.max),
+  };
 }
 
 /** Recency: deterministic formula (0–5). */

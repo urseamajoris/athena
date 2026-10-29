@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { z } from "zod";
 import { toXaiSchema } from "./ai/schema";
 import { normalizeDoi, normalizeTitle } from "./util";
-import { citationScore, defaultSelection, recencyScore, weightedTotal } from "./scoring";
+import { citationScore, defaultSelection, recencyScore, topicCoverage, weightedTotal } from "./scoring";
 import { surname, scrubIds, thinTopics } from "./shared/stages";
 
 test("xAI schema strips unsupported keywords but keeps structure", () => {
@@ -41,6 +41,12 @@ test("ranking pre-selects the best papers that match the topic, never one with n
   assert.deepEqual(defaultSelection([sc("x", 80, 1), sc("y", 20, 2), sc("z", 30, 3)]).map((s) => s.id), ["z", "y"]);
   // Those topics are then flagged as having fewer than 3 papers.
   assert.deepEqual(thinTopics([{ name: "A", selected: 4 }, { name: "B", selected: 0 }, { name: "C", selected: 2 }, { name: "D", selected: 3 }]).map((t) => t.name), ["B", "C"]);
+  // The 3–5 rule: a thin topic with matching papers left is "short" (tick more); one whose every matching paper is
+  // already selected is "few" (only new searches help), which meets the rule; more than 5 breaks it.
+  const cov = topicCoverage([{ name: "A", selected: 4, spare: 3 }, { name: "B", selected: 0, spare: 0 }, { name: "C", selected: 1, spare: 2 }, { name: "D", selected: 2, spare: 0 }, { name: "E", selected: 6, spare: 0 }]);
+  assert.deepEqual(cov.short.map((t) => t.name), ["C"]);
+  assert.deepEqual(cov.few.map((t) => t.name), ["B", "D"]);
+  assert.deepEqual(cov.over.map((t) => t.name), ["E"]);
 });
 test("surname handles PubMed and OpenAlex name styles", () => {
   assert.equal(surname("Lee SWH"), "Lee");

@@ -48,8 +48,8 @@ export function finished(over: Partial<GraphInput> = {}): GraphInput {
       retrieval: { runs: 4, done: 4, failed: 0, running: 0, fetched: 400, unique: 195, perSource: { pubmed: { fetched: 200, newUnique: 120, failed: 0 }, openalex: { fetched: 200, newUnique: 75, failed: 0 } } },
       table: { papers: 195, summarised: 195, edited: 0 },
       ranking: [
-        { topicId: "t1", name: "Adoption", importanceRank: 1, selected: 4, scored: 40 },
-        { topicId: "t2", name: "Barriers", importanceRank: 2, selected: 4, scored: 38 },
+        { topicId: "t1", name: "Adoption", importanceRank: 1, selected: 4, scored: 40, matching: 12, spare: 8 },
+        { topicId: "t2", name: "Barriers", importanceRank: 2, selected: 4, scored: 38, matching: 9, spare: 5 },
       ],
       appraisal: { papers: 8, done: 8, failed: 0, running: 0, fullText: 5, claims: 80, verified: 72, pending: 6, accepted: 2, rejected: 0, notReported: 4, appraisalIds: ["a1"] },
       synthesis: { statements: 15, contradictions: 2, known: 6, contested: 4, unknown: 5 },

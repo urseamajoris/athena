@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import { getProject, latestJob, stageCosts } from "./project";
-import { STAGES, scrubIds } from "./shared/stages";
+import { MIN_TOPIC_FIT, STAGES, scrubIds } from "./shared/stages";
 import { isUndecided, type CanvasSummary, type ClaimLite } from "./shared/canvas";
 import type { Criteria } from "./db/schema";
 import { scopingState } from "./stages/scoping";
@@ -227,7 +227,7 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
   const criteria = (await db.select({ criteria: schema.projects.criteria }).from(schema.projects).where(eq(schema.projects.id, projectId)).get())?.criteria ?? null;
   const paperIds = (await db.select({ id: schema.papers.id }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all()).map((p) => p.id);
   const sums = (await db.select({ edited: schema.paperSummaries.edited }).from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, ids(paperIds))).all());
-  const scores = (await db.select({ topicId: schema.scores.topicId, selected: schema.scores.selected }).from(schema.scores).where(inArray(schema.scores.topicId, ids(topics.map((t) => t.id)))).all());
+  const scores = (await db.select({ topicId: schema.scores.topicId, selected: schema.scores.selected, subScores: schema.scores.subScores }).from(schema.scores).where(inArray(schema.scores.topicId, ids(topics.map((t) => t.id)))).all());
   const apps = (await db.select({ id: schema.appraisals.id, status: schema.appraisals.status, textSource: schema.appraisals.textSource }).from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids(paperIds))).all());
   const cl = (await db.select({ verified: schema.claims.verified, notReported: schema.claims.notReported, userAccepted: schema.claims.userAccepted, userRejected: schema.claims.userRejected }).from(schema.claims).where(inArray(schema.claims.appraisalId, ids(apps.map((a) => a.id)))).all());
   const items = (await db.select({ kind: schema.synthesisItems.kind }).from(schema.synthesisItems).where(eq(schema.synthesisItems.projectId, projectId)).all());
@@ -263,7 +263,11 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
     table: { papers: paperIds.length, summarised: sums.length, edited: sums.filter((s) => s.edited).length },
     ranking: [...topics]
       .sort((a, b) => (a.importanceRank ?? 99) - (b.importanceRank ?? 99) || a.sortOrder - b.sortOrder)
-      .map((t) => ({ topicId: t.id, name: t.name, importanceRank: t.importanceRank, selected: scores.filter((s) => s.topicId === t.id && s.selected).length, scored: scores.filter((s) => s.topicId === t.id).length })),
+      .map((t) => {
+        const ts = scores.filter((s) => s.topicId === t.id);
+        const matching = ts.filter((s) => s.subScores.topicFit >= MIN_TOPIC_FIT);
+        return { topicId: t.id, name: t.name, importanceRank: t.importanceRank, selected: ts.filter((s) => s.selected).length, scored: ts.length, matching: matching.length, spare: matching.filter((s) => !s.selected).length };
+      }),
     appraisal: {
       papers: apps.length,
       done: apps.filter((a) => a.status === "done").length,

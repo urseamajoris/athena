@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { useSWRConfig } from "swr";
+import { useRouter } from "next/navigation";
 import { api, projectPath, useApi } from "../api";
 import { criteriaDrafts } from "../panels/criteria-draft";
 import dynamic from "next/dynamic";
@@ -140,14 +141,17 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const { data: claims, mutate: mutateClaims } = useApi<ClaimLite[]>(ui.pinnedQuotes.length ? projectPath(projectId, "claims") : null);
   const [paperId, setPaperId] = useState<string | null>(null);
   const [guard, setGuard] = useState<{ stage: number; downstream: number[]; resolve: (b: boolean) => void } | null>(null);
-  const [thin, setThin] = useState<{ topics: { name: string; selected: number }[]; resolve: (b: boolean) => void } | null>(null);
+  const [thin, setThin] = useState<{ topics: CanvasSummary["ranking"]; resolve: (choice: "appraise" | "back" | "edit") => void } | null>(null);
   const confirmed = useRef(new Set<number>());
   const [leaveOut, setLeaveOut] = useState<{ count: number; resolve: (b: boolean) => void } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<unknown>(null);
   const [message, setMessage] = useState("");
   const [addTopic, setAddTopic] = useState<{ flowAt?: Pos } | null>(null);
-  const pendingStage = useRef<{ stage: number; panel: boolean } | null>(null);
+  // State, not a ref: the next stage's node is often in the graph already when the approval returns (a fast job
+  // finished while refresh() was in flight), and the effect below must still run for it.
+  const [pendingStage, setPendingStage] = useState<{ stage: number; panel: boolean } | null>(null);
+  const router = useRouter();
 
   const announce = useCallback((msg: string) => {
     setMessage("");
@@ -221,22 +225,22 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const refresh = useCallback(() => mutateAll((key) => typeof key === "string" && key.startsWith(projectPath(projectId))), [mutateAll, projectId]);
 
   const focusStage = useCallback((stage: number, panel: boolean) => {
-    pendingStage.current = { stage, panel };
+    setPendingStage({ stage, panel });
   }, []);
   // After an approval the next stage's node may only appear once the server state arrives.
   useEffect(() => {
-    const p = pendingStage.current;
+    const p = pendingStage;
     if (!p) return;
     // Stage 10 = the finished review: wait for the Export node itself.
     const id = p.stage > 9 ? (graph.nodes.some((n) => n.id === "export") ? "export" : null) : nodeForStage(graph, p.stage);
     if (!id) return;
     const kindReady = p.stage < 4 || p.stage > 9 || graph.nodes.some((n) => n.stages.includes(p.stage));
     if (!kindReady) return;
-    pendingStage.current = null;
+    setPendingStage(null);
     const st = canvasStore.getState();
     if (p.panel) st.openPanel(id);
     else st.select(id);
-  }, [graph]);
+  }, [graph, pendingStage]);
 
   const goTo = useCallback(
     (n: number) => {
@@ -297,7 +301,16 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
           }
           // Appraising with too few papers in a topic is allowed, but never silent.
           const few = cmd.stage === 6 ? thinTopics(summary?.ranking ?? []) : [];
-          if (few.length && !(await new Promise<boolean>((resolve) => setThin({ topics: few, resolve })))) return;
+          if (few.length) {
+            const choice = await new Promise<"appraise" | "back" | "edit">((resolve) => setThin({ topics: few, resolve }));
+            if (choice === "edit") {
+              // Step 3 lives on the canvas: open its panel there (from the table page, go to the canvas first).
+              const id = nodeForStage(graph, 3);
+              if (id && window.location.pathname === `/s/${projectId}`) store.openPanel(id);
+              else if (id) router.push(`/s/${projectId}?node=${encodeURIComponent(id)}`);
+            }
+            if (choice !== "appraise") return;
+          }
           // Summarising the evidence leaves undecided quotes out: say so and ask first.
           // Read the count fresh: the live summary lags a decision made a moment ago.
           const left = cmd.stage === 7 ? ((await api<CanvasSummary>(projectPath(projectId, "canvas")).catch(() => summary))?.appraisal.pending ?? 0) : 0;
@@ -372,7 +385,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
           return;
       }
     },
-    [approve, projectId, refresh, announce, confirmEdit, summary, focusStage, graph],
+    [approve, projectId, refresh, announce, confirmEdit, summary, focusStage, graph, router],
   );
 
   const runRef = useRef(run);
@@ -483,11 +496,15 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
         <ThinTopicsDialog
           topics={thin.topics}
           onCancel={() => {
-            thin.resolve(false);
+            thin.resolve("back");
+            setThin(null);
+          }}
+          onEditSearches={() => {
+            thin.resolve("edit");
             setThin(null);
           }}
           onConfirm={() => {
-            thin.resolve(true);
+            thin.resolve("appraise");
             setThin(null);
           }}
         />
