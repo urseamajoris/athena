@@ -46,6 +46,8 @@ export function IdeaPanel() {
   const { data, error, isLoading, mutate } = useApi<ScopingData>(projectPath(projectId, "scoping"));
   const [idea, setIdea] = useState(project.idea);
   const [answer, setAnswer] = useState("");
+  // The answer just sent, shown as the user's message until the server returns the conversation with it.
+  const [sent, setSent] = useState<string | null>(null);
   // What a filled-but-waiting button says when clicked (cleared as soon as the user types).
   const [hint, setHint] = useState<string | null>(null);
   useEffect(() => setHint(null), [answer, idea]);
@@ -147,7 +149,9 @@ export function IdeaPanel() {
     if (local) return setHint("Wait for the next question to appear. What you typed stays in the box.");
     const text = answer;
     setAnswer("");
+    setSent(text);
     const d = await call("answer", "scoping/answer", { text });
+    setSent(null);
     if (!d) setAnswer((typed) => (typed.trim() ? `${text} ${typed.trim()}` : text)); // keep what was typed while sending
   }
 
@@ -188,6 +192,7 @@ export function IdeaPanel() {
                 {m.text}
               </div>
             ))}
+            {sent && local === "answer" && <div data-role="user" className="ml-auto max-w-[90%] rounded-md bg-bg-3 px-3 py-2 leading-relaxed text-fg-0">{sent}</div>}
             {local === "start" || local === "answer" ? <p className="flex items-center gap-2 text-fg-2"><Spinner /> Thinking about the next question…</p> : null}
           </div>
           <form id="scoping-answer-form" onSubmit={send} className="border-t border-line p-3">

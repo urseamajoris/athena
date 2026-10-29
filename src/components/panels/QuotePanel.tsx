@@ -64,7 +64,7 @@ export function QuotePanel({ claimId }: { claimId: string }) {
         <button className="btn-ghost" onClick={() => openPaper(c.paperId)}>Open paper</button>
         <button className="btn-ghost" onClick={() => { canvasStore.getState().unpinQuote(projectId, claimId); canvasStore.getState().closePanel(); }}>Unpin</button>
       </div>
-      <Disclosure title="Full retrieved text" meta={data.sourceText?.source}>
+      <Disclosure title={data.sourceText?.kind === "abstract" ? "The abstract that was read" : "Full retrieved text"} meta={data.sourceText?.source}>
         <p className="max-h-80 overflow-y-auto whitespace-pre-wrap font-serif text-14 leading-relaxed text-fg-1">{text ?? "No source text stored."}</p>
       </Disclosure>
     </div>

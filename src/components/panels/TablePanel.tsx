@@ -29,7 +29,7 @@ export function TablePanel() {
       <Link href={`/s/${projectId}/table`} className="btn-secondary w-full">
         <Table2 className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Open the full table
       </Link>
-      {states["6"] !== "not_started" && ranking.some((r) => r.scored) && (
+      {states["6"] !== "not_started" && states["6"] !== "running" && ranking.some((r) => r.scored) && (
         <section aria-label="Selected papers per topic">
           <SectionTitle>Selected for appraisal, by topic importance</SectionTitle>
           <ul className="divide-y divide-line rounded-md border border-line">

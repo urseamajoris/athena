@@ -25,7 +25,7 @@ export interface Claim { id: string; field: string; statement: string; quote: st
 export interface AppraisalDetailData {
   appraisal: { id: string; textSource: string; textNote: string; templateType: string; checklist: { item: string; answer: string; claimId: string | null }[]; status: string; error: string | null; model: string | null; charsSentToModel: number | null };
   paper: { id: string; title: string; year: number | null; doi: string | null; pmid: string | null; pmcid: string | null };
-  sourceText: { text: string; source: string; license: string | null; url: string | null; sections: { title: string; start: number }[] } | null;
+  sourceText: { kind?: string; text: string; source: string; license: string | null; url: string | null; sections: { title: string; start: number }[] } | null;
   claims: Claim[];
 }
 
@@ -264,7 +264,7 @@ function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onCh
         })}
       </section>
 
-      <Disclosure title="Full retrieved text" meta={data.sourceText ? `${data.sourceText.source}${data.sourceText.license ? ` · ${data.sourceText.license}` : ""}` : "none"}>
+      <Disclosure title={data.sourceText?.kind === "abstract" ? "The abstract that was read" : "Full retrieved text"} meta={data.sourceText ? `${data.sourceText.source}${data.sourceText.license ? ` · ${data.sourceText.license}` : ""}` : "none"}>
         <FullText data={data} />
       </Disclosure>
     </div>

@@ -254,7 +254,8 @@ export function TableView() {
   // The review has moved past this page (e.g. the appraisal was started here).
   const f = frontierStage(states);
   const movedOn = ranked && states["6"] === "approved" && (f === null || f > 6);
-  const warnNow = ranked && stage === 6 && !movedOn;
+  // Not while scoring runs: selections are made at the end, so mid-run counts of 0 are not a problem yet.
+  const warnNow = ranked && stage === 6 && !movedOn && !rankingRunning;
   const short = warnNow ? coverage.short : [];
   const few = warnNow ? coverage.few : [];
   const step3For = (topicId: string) => graph.nodes.find((n) => n.id === `query:${topicId}`)?.id ?? nodeForStage(graph, 3);
@@ -357,7 +358,7 @@ export function TableView() {
                 onClick={() => { setSorting([]); setTopic(t.id); setNotice(null); }}
                 className={cx("min-h-11 shrink-0 rounded-sm border px-3 text-left", topic === t.id ? "border-fg-1 bg-bg-2 text-fg-0" : "border-line text-fg-1 hover:text-fg-0")}
               >
-                {t.name}{t.n !== null && <span className={cx("ml-2 text-12 tabular-nums", t.n < 3 || t.n > 5 ? "text-warn" : "text-fg-2")}>{t.n} selected</span>}
+                {t.name}{t.n !== null && !rankingRunning && <span className={cx("ml-2 text-12 tabular-nums", t.n < 3 || t.n > 5 ? "text-warn" : "text-fg-2")}>{t.n} selected</span>}
               </button>
             ))}
           </div>

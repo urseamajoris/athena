@@ -263,3 +263,27 @@ The persona finished all nine steps. Its summary of the run was lost with the fa
 After the fixes: `npm test` 145/145, `npm run build` clean, `node scripts/e2e.mjs` 30/30, `npm run test:security` 48/48.
 
 The persona's report failed the report schema on its first attempt (findings only), and its retry was a placeholder. It was recovered from the transcript. For the later runs the schema asks for the summary fields first and the findings last.
+
+### Real run 2: the first-year undergraduate
+
+**Spend: $0.85** for 71 AI calls (cumulative after two runs: **$1.70**, 143 calls, 142 succeeded).
+
+**The run:**
+
+- **Idea:** "I'm interested in sleep and grades", sharpened through the scoping chat into 5 topics.
+- **Appraisal:** 14 papers.
+- **Quote check:** 184 of 190 quotes found word for word. The 6 others were real text joined without "…", and the note said so; the persona accepted 5 and rejected 1.
+- **Report:** the persona's report is complete this time (the schema change worked): `docs/qa/real-2/undergrad/report.json`.
+
+The persona finished all nine steps. Its verdict: "Nothing looked fabricated. The risk is overstated gaps and false-comfort novelty, not invented papers." It found 19 issues (4 major, 13 minor, 2 polish). What changed:
+
+| Finding (real mode) | What changed |
+|---|---|
+| **Gap contradicted by the review's own papers.** The chosen question claimed "all existing studies examined only specific exam performance rather than cumulative GPA", while three appraised papers studied GPA. The novelty check did not notice. | **Prompt:** `research_questions.v4` forbids absolute gap claims ("no study", "all studies") and asks for the closest existing study by name. **Novelty check:** every question is now also compared with the papers this review collected. A match puts "One of the papers in this review looks like the same question" at the top of the check, lists it on the card's "May already be studied" warning ("already in this review") and in the export. Unit-tested on this exact case. |
+| **False novelty warning.** A paper on sleep and *periodontal disease* in students was flagged as "the same question" as a GPA question. | A title that shares the exposure and population but names another outcome no longer counts as the same question. A title that names the outcome in full ("… GPA and college graduation") needs only one word of the exposure. Unit-tested with both titles. |
+| **Synthesis overgeneralised.** "All studies used cross-sectional designs" cited 2 papers while cohort studies were in the set; a "Known" statement rested on R² = 0.0008 with no caveat; two papers from one cohort were shown as a disagreement. | **Prompt:** `synthesis.v5`: quantities ("all", "few", "most") must match the papers actually counted, effect sizes are kept with the statement, and papers from the same cohort count as one study. |
+| Dense step 7 and 8 panels. | Not changed in this PR (see Remaining issues). |
+| The typed answer did not show in the scoping chat for about 20 seconds. | The answer appears as your message at once, with "Thinking about the next question…" under it. |
+| While papers were being scored, step 6 showed "0 selected" on every topic and "no papers match" warnings. | The counts and warnings wait until scoring has finished. |
+| An abstract was labelled "Full retrieved text". | It is now labelled "The abstract that was read". |
+| The report was titled with the raw idea ("I'm interested in sleep and grades"). | The report is titled with the chosen research question. |
