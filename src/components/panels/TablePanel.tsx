@@ -24,7 +24,8 @@ export function TablePanel() {
       <JobStatus stage={activeStage} />
       <div className="grid grid-cols-2 gap-2">
         <Stat label="Rows" value={fmtInt(t?.papers ?? 0)} />
-        <Stat label="Summarised by AI" value={`${fmtInt(t?.summarised ?? 0)}${t?.edited ? ` · ${t.edited} edited` : ""}`} />
+        {/* Papers, not batches (the progress above counts both, each with its unit); includes papers with no abstract. */}
+        <Stat label="Papers summarised" value={`${fmtInt(t?.summarised ?? 0)}${t?.edited ? ` · ${t.edited} edited` : ""}`} />
       </div>
       <Link href={`/s/${projectId}/table`} className="btn-secondary w-full">
         <Table2 className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Open the full table

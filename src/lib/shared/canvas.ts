@@ -1,5 +1,6 @@
 // Shared between server and client: the compact project summary the canvas draws its nodes from.
 import type { StageState } from "./stages";
+import type { JobProgress } from "./progress";
 
 export interface CanvasSummary {
   topics: { id: string; name: string; origin: string; approved: boolean; synonyms: number; controlledTerms: number }[];
@@ -44,7 +45,7 @@ export interface JobLite {
   kind: string;
   stage: number;
   status: string;
-  progress: { done: number; total: number; message: string };
+  progress: JobProgress;
   log: string[];
   error: string | null;
   createdAt: string;

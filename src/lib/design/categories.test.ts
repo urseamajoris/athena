@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { contrast, parseHex, tokensFrom } from "./contrast";
-import { ARTICLE_TYPES, EVIDENCE, NONE, PALETTE, SEQUENTIAL, STUDY_GROUPS, articleTypeOf, describeFilters, evidenceOf, periodOf, studyGroupOf } from "../shared/categories";
+import { ARTICLE_TYPES, EVIDENCE, NONE, PALETTE, SEQUENTIAL, STUDY_GROUPS, articleTypeOf, describeFilters, evidenceOf, periodOf, studyGroupOf, studyTypeText } from "../shared/categories";
 import { STUDY_TYPES } from "../shared/stages";
 import { templateFor, TEMPLATE_LABEL } from "../stages/templates";
 
@@ -42,6 +42,17 @@ test("study groups mirror the appraisal templates, plus not reported", () => {
       assert.equal(g, map[tpl], `${st} → ${g} vs template ${TEMPLATE_LABEL[tpl]}`);
     }
   }
+});
+
+test("a row's study type uses the same words as the paper's details", () => {
+  assert.equal(studyTypeText("narrative_review"), "Other design: narrative review");
+  assert.equal(studyTypeText("non_randomized_trial"), "Trial: non-randomised trial");
+  assert.equal(studyTypeText("cross_sectional"), "Cross-sectional");
+  assert.equal(studyTypeText("other"), "Other design");
+  assert.equal(studyTypeText("not_reported"), "Not reported");
+  assert.equal(studyTypeText(null), "Not reported");
+  // Every fine type names its group first, so the shape and colour beside it always match the words.
+  for (const st of STUDY_TYPES) assert.ok(studyTypeText(st).startsWith(STUDY_GROUPS.find((c) => c.key === studyGroupOf(st))!.label), st);
 });
 
 test("every category has a shape and a label, and shapes are unique within a dimension", () => {

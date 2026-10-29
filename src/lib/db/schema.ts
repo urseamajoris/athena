@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, real, index, primaryKey, uniqueIndex } from "drizzle-orm/sqlite-core";
+import type { JobProgress } from "../shared/progress";
 
 /*
  * Schema notes
@@ -323,7 +324,7 @@ export const jobs = sqliteTable("jobs", {
   stage: integer("stage").notNull(),
   status: text("status").notNull().default("queued"), // queued | running | done | failed | cancelled
   params: text("params", { mode: "json" }).$type<Record<string, unknown>>().notNull().default({}),
-  progress: text("progress", { mode: "json" }).$type<{ done: number; total: number; message: string }>().notNull().default({ done: 0, total: 0, message: "" }),
+  progress: text("progress", { mode: "json" }).$type<JobProgress>().notNull().default({ done: 0, total: 0, message: "" }),
   log: text("log", { mode: "json" }).$type<string[]>().notNull().default([]),
   error: text("error"),
   createdAt: createdAt(),
