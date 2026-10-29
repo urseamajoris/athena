@@ -63,7 +63,7 @@ export function HBars({ title, rows, format = (v) => String(v), note }: { title:
       <figcaption className="text-12 font-medium text-fg-1">{title}</figcaption>
       <ul className="mt-2 space-y-1.5">
         {rows.map((r) => (
-          <li key={r.key} className="grid grid-cols-[minmax(0,12rem)_1fr_auto] items-center gap-2 text-12">
+          <li key={r.key} className="grid grid-cols-[minmax(0,7rem)_minmax(3rem,1fr)_auto] items-center gap-2 text-12 sm:grid-cols-[minmax(0,12rem)_minmax(3rem,1fr)_auto]">
             {/* Long labels wrap: a cut-off category name ("Systematic / scoping r…") cannot be read. */}
             <span className="flex min-w-0 items-center gap-1.5 text-fg-1">
               {r.shape && <ShapeIcon shape={r.shape} color={r.color ?? "var(--cat-1)"} />}
@@ -72,7 +72,8 @@ export function HBars({ title, rows, format = (v) => String(v), note }: { title:
             <span className="h-3 rounded-sm bg-bg-2" aria-hidden>
               {r.value > 0 && <span className="block h-3 rounded-r-[4px]" style={{ width: `${Math.max(2, (r.value / (max || 1)) * 100)}%`, background: r.color ?? "var(--cat-1)" }} />}
             </span>
-            <span className="tabular-nums text-fg-0">{format(r.value)}{r.sub && <span className="ml-1 text-fg-2">{r.sub}</span>}</span>
+            {/* On phones the extra text goes under the number, so the bar keeps its width. */}
+            <span className="text-right tabular-nums text-fg-0 sm:text-left">{format(r.value)}{r.sub && <span className="block text-fg-2 sm:ml-1 sm:inline">{r.sub}</span>}</span>
           </li>
         ))}
       </ul>

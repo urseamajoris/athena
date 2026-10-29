@@ -83,7 +83,7 @@ export function ClaimChip({ id, claims, papers, stale }: { id: string; claims: R
   const label = `${short(papers[c.paperId])} · ${FIELD_SHORT[c.field] ?? c.field.replace("_", " ")}${c.ofField && c.ofField > 1 ? ` ${c.ordinal}` : ""}`;
   // Accepted quotes count like found ones, so they get the legend's "accepted by you" icon, not the ✗.
   const icon = stale ? <AlertTriangle {...I} /> : c.verified ? <Check {...I} /> : c.userAccepted ? <UserCheck {...I} /> : <X {...I} />;
-  const said = stale ? "Stale" : c.verified ? `The words are in the paper${partsSuffix(c)}` : c.userAccepted ? "Not found word for word, accepted by you" : c.userRejected ? "Rejected by you" : "Not found, you decide";
+  const said = stale ? "Stale" : c.verified ? `The words are in the paper${partsSuffix(c)}` : c.userAccepted ? "Not found in the paper, accepted by you" : c.userRejected ? "Rejected by you" : "Not found, you decide";
   return (
     <Popover.Root>
       <Popover.Trigger

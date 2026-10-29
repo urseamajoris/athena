@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import Scene3D, { Label, type Fit } from "./Scene3D";
 import { shapeTexture } from "./shapes3d";
@@ -9,7 +10,22 @@ import { categoriesFor, categoryHex, type ColorBy } from "@/lib/shared/categorie
 /** On-screen size of every point, in CSS pixels: the same near and far, so size carries no meaning. */
 const POINT_PX = 11;
 /** The axes, their labels and the points (see the axis lines below), so a narrow canvas never cuts them off. */
-const FIT: Fit = { halfWidth: 6.3, halfHeight: 3.5, depth: 1.5, target: [-0.2, -0.2, 0] };
+// depth covers the front labels (z = 2.4), which perspective pushes outwards on a wide canvas.
+const FIT: Fit = { halfWidth: 6.6, halfHeight: 4.1, depth: 2.6, target: [-0.1, -0.3, 0] };
+/** Below this canvas width the T1…Tn depth tags would pile up: the caption names the topics instead. */
+const DEPTH_TAGS_MIN_PX = 460;
+
+/** The depth tags, only where there is room for them (they live inside the canvas, so they read its size). */
+function DepthTags({ ticks, style }: { ticks: { tag: string; z: number }[]; style: Record<string, string | number> }) {
+  const width = useThree((st) => st.size.width);
+  if (!ticks.length || width < DEPTH_TAGS_MIN_PX) return null;
+  return (
+    <>
+      {ticks.map((t) => <Label key={t.tag} position={[5.1, -3, t.z]} style={{ ...style, fontSize: 11 }}>{t.tag}</Label>)}
+      <Label position={[5.1, -3.45, 2.4]} style={style}>Topic</Label>
+    </>
+  );
+}
 
 function Cloud({ pts, color, shape, faded, onHover, onOpen }: { pts: Placed[]; color: string; shape: Parameters<typeof shapeTexture>[0]; faded: boolean; onHover: (p: Placed | null) => void; onOpen: (id: string) => void }) {
   const geo = useMemo(() => {
@@ -58,7 +74,7 @@ export default function PaperMap3D({ points, colorBy, topics, theme, isolated, h
             <lineBasicMaterial color={axis} />
           </lineSegments>
           <Label position={[-4.9, -3.35, -2.4]} style={text}>{yearMin}</Label>
-          <Label position={[3.6, -3.35, -2.4]} style={text}>{yearMax}</Label>
+          <Label position={[3.4, -3.35, -2.4]} style={text}>{yearMax}</Label>
           <Label position={[-0.6, -3.35, -2.4]} style={text}>Year →</Label>
           {scored ? (
             <>
@@ -68,8 +84,7 @@ export default function PaperMap3D({ points, colorBy, topics, theme, isolated, h
           ) : (
             <Label position={[-4.9, 3.25, -2.4]} style={text}>↑ Height: no meaning yet</Label>
           )}
-          {depthTicks.map((t) => <Label key={t.tag} position={[4.6, -3, t.z]} style={{ ...text, fontSize: 11 }}>{t.tag}</Label>)}
-          {depthTicks.length > 0 && <Label position={[4.6, -3.45, 2.4]} style={text}>Topic</Label>}
+          <DepthTags ticks={depthTicks} style={text} />
           {groups.map(([key, pts]) => {
             const [cat, dim] = key.split("|");
             const c = cats.find((x) => x.key === cat);

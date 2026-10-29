@@ -79,7 +79,7 @@ export function ConfirmLeaveOutDialog({ count, onCancel, onConfirm }: { count: n
       }
     >
       <p>
-        {n} you have not decided will be left out of the synthesis. The check could not find {count === 1 ? "it" : "them"} word for word in the paper. Accept a quote if the
+        {n} you have not decided will be left out of the synthesis. Their words were not found in the paper. Accept a quote if the
         paper does say it, and it will be used.
       </p>
     </Modal>
