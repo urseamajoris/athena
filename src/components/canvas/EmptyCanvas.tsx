@@ -76,7 +76,7 @@ export function EmptyCanvas() {
           />
           <div className="mt-2 flex flex-wrap items-center justify-center gap-1" aria-label="Examples">
             <span className="text-12 text-fg-2">Try:</span>
-            {EXAMPLES.map((x) => <button key={x} type="button" className="rounded-full border border-line px-2 py-1 text-12 text-fg-1 hover:border-line-strong hover:text-fg-0" onClick={() => { setIdea(x); setErr(null); }}>{x}</button>)}
+            {EXAMPLES.map((x) => <button key={x} type="button" className="min-h-11 rounded-full border border-line px-3 py-1 text-12 text-fg-1 hover:border-line-strong hover:text-fg-0 md:min-h-8" onClick={() => { setIdea(x); setErr(null); }}>{x}</button>)}
           </div>
           <p id="idea-error" role="alert" className="mt-2 min-h-4 text-center text-12 text-err">{err}</p>
           <div className="mt-4 flex flex-col items-center gap-2">

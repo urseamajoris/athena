@@ -26,7 +26,7 @@ interface PointsData { topics: { id: string; name: string }[]; papers: { id: str
 function Mix({ title, cats, dim, counts, total, note, picked, onPick }: { title: string; cats: Category[]; dim: Dimension; counts: Record<string, number>; total: number; note?: string; picked?: string | null; onPick?: (key: string | null) => void }) {
   const row = (c: Category) => (
     <>
-      <span className="flex min-w-0 items-center gap-1.5 text-fg-1">
+      <span className="flex min-w-0 items-center gap-2 text-fg-1">
         {onPick && (picked === c.key ? <Check className="h-3 w-3 shrink-0 text-fg-0" strokeWidth={2} aria-hidden /> : <span className="w-3 shrink-0" aria-hidden />)}
         {hasHues(dim) && <ShapeIcon shape={c.shape} color={categoryVar(dim, c.key)} />}
         <span className={cx("min-w-0 break-words leading-tight", picked === c.key && "font-semibold text-fg-0")}>{c.label}</span>
@@ -43,7 +43,7 @@ function Mix({ title, cats, dim, counts, total, note, picked, onPick }: { title:
         {cats.filter((c) => counts[c.key]).map((c) => (
           <li key={c.key} className={onPick ? undefined : grid}>
             {onPick ? (
-              <button type="button" className={cx(grid, "min-h-8 rounded-sm px-1 text-left hover:bg-bg-2")} aria-pressed={picked === c.key} onClick={() => onPick(picked === c.key ? null : c.key)}>
+              <button type="button" className={cx(grid, "min-h-11 rounded-sm px-1 text-left hover:bg-bg-2 md:min-h-8")} aria-pressed={picked === c.key} onClick={() => onPick(picked === c.key ? null : c.key)}>
                 {row(c)}
               </button>
             ) : row(c)}
@@ -106,7 +106,7 @@ export function CorpusPanel() {
       <JobStatus stage={4} />
       <WhatHappens stage={4} />
       {runs.length > 0 && (
-        <p className="text-16 text-fg-0" aria-live="polite">
+        <p className="text-fg-0" aria-live="polite">
           {running ? "So far: " : ""}<span className="font-semibold tabular-nums">{fmtInt(fetchedTotal)}</span> results fetched, <span className="font-semibold tabular-nums">{fmtInt(dupes)}</span> were the same paper found twice, so <span className="font-semibold tabular-nums">{fmtInt(data?.uniquePapers ?? 0)}</span> different papers {running ? "so far" : "remain"}.
         </p>
       )}

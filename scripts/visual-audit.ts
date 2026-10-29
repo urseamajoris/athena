@@ -244,7 +244,7 @@ function views(F: Fixtures, ids: Record<string, string>): View[] {
     { name: "canvas-stale", path: s("stale"), ready: "[data-node-id],[data-list-node]" },
     { name: "canvas-300", path: s("big"), ready: "[data-node-id],[data-list-node]", pins: F.big },
     { name: "list-view", path: s("full"), ready: "[data-list-node]", list: F.full, pins: F.full },
-    { name: "table", path: s("rank", "/table"), ready: "table tbody tr" },
+    { name: "table", path: s("rank", "/table"), ready: "table tbody tr:visible, main li > button:visible" }, // cards below 1024 px
     { name: "export-page", path: s("full", "/export"), ready: "main [aria-label=\"Report preview\"]" },
   ].filter((v) => !ONLY || ONLY.includes(v.name));
 }

@@ -33,7 +33,7 @@ export function DemoBanner() {
         <span className="short:hidden">The AI is scripted and the databases return recorded sample papers (on telemedicine in Southeast Asia), so results will not match your topic. AI text is marked “(mock)”. Nothing is charged.</span>
         <span className="hidden short:inline">Scripted AI and sample papers (not your topic). Nothing is charged.</span>
       </p>
-      <button className="btn-ghost h-8 w-8 shrink-0 px-0" aria-label="Hide this note" onClick={(e) => { try { localStorage.setItem(KEY, "1"); } catch {} focusAfter(e.currentTarget); setHidden(true); }}>
+      <button className="btn-ghost h-11 w-11 shrink-0 px-0" aria-label="Hide this note" onClick={(e) => { try { localStorage.setItem(KEY, "1"); } catch {} focusAfter(e.currentTarget); setHidden(true); }}>
         <X className="h-4 w-4" strokeWidth={1.5} aria-hidden />
       </button>
     </div>

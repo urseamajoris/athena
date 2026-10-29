@@ -703,7 +703,7 @@ function AiCell({ row, field, editing, setEditing, onSave }: { row: Row; field: 
   }
   return (
     <td tabIndex={0} className="h-11 cursor-text px-2 py-2 text-12 text-fg-1" onDoubleClick={() => setEditing({ id: row.id, field })} onKeyDown={(e) => e.key === "Enter" && setEditing({ id: row.id, field })} aria-label={`${field === "studyType" ? "Study type" : field === "setting" ? "Setting" : "Key finding"}: ${value}. ${s.edited ? "Edited by you." : "AI, from the abstract."} Press Enter to edit.`}>
-      <span className={cx("inline-flex items-start gap-1.5", field === "keyFinding" && "line-clamp-3", value.startsWith("not reported") && "italic text-fg-2")}>
+      <span className={cx("inline-flex items-start gap-2", field === "keyFinding" && "line-clamp-3", value.startsWith("not reported") && "italic text-fg-2")}>
         {group && <ShapeIcon shape={group.shape} color={categoryVar("study", group.key)} className="mt-0.5" />}
         {group && group.label.toLowerCase() !== value.toLowerCase() && !value.startsWith("not reported") ? (
           <span><span className="text-fg-0">{group.label}</span><span className="block text-fg-2">{value}</span></span>

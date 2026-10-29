@@ -24,7 +24,7 @@ function MarkdownPreview({ lines }: { lines: string[] }) {
     <div className="space-y-2 text-14 leading-relaxed text-fg-1">
       {lines.map((l, i) =>
         l.startsWith("### ") ? <h4 key={i} className="pt-2 font-semibold text-fg-0">{inline(l.slice(4))}</h4>
-        : l.startsWith("## ") ? <h3 key={i} className="pt-3 text-16 font-semibold text-fg-0">{inline(l.slice(3))}</h3>
+        : l.startsWith("## ") ? <h3 key={i} className="pt-3 font-semibold text-fg-0">{inline(l.slice(3))}</h3>
         : l.startsWith("# ") ? <h2 key={i} className="text-20 font-semibold text-fg-0">{inline(l.slice(2))}</h2>
         : l.startsWith("- ") ? <p key={i} className="pl-4 -indent-3">• {inline(l.slice(2))}</p>
         : l.startsWith("|") ? <p key={i} className="whitespace-pre font-mono text-12">{l}</p>
@@ -76,7 +76,7 @@ export function ExportView({ full = false }: { full?: boolean }) {
               <button className="btn-ghost btn-sm" onClick={() => canvasStore.getState().openPanel("questions")}><Pencil className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Edit the question</button>
             )}
           </div>
-          <p className="text-16 font-semibold leading-snug">{q.text}</p>
+          <p className={cx("font-semibold leading-snug", full && "text-16")}>{q.text}</p>
         </section>
       )}
       {/* First, before the file formats: phones cannot open Markdown, and most people want to read the report.

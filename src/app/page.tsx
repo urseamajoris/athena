@@ -31,7 +31,7 @@ export default async function Landing() {
       <main id="main" className="mx-auto max-w-6xl px-4 pb-16">
         {/* On phones the first screen is the mission alone (headline, sentence, one button); the demo follows
             below the fold, so the headline, not a 960 px image, is what the first paint has to show. */}
-        <section className="relative isolate mx-auto flex max-w-3xl flex-col justify-center pb-10 pt-8 text-center md:pb-4 md:pt-20">
+        <section className="relative isolate mx-auto flex max-w-3xl flex-col justify-center pb-10 pt-8 text-center max-md:min-h-[calc(100svh-3rem)] md:pb-4 md:pt-20">
           <HeroBackdrop />
           <p className="relative text-12 font-medium uppercase tracking-[0.18em] text-fg-1">A guided literature review</p>
           <h1 className="relative mt-3 text-28 font-semibold md:text-44">Turn a rough idea into a research question you can back up with real papers.</h1>
@@ -43,7 +43,7 @@ export default async function Landing() {
           <p className="relative mt-3 text-12 text-fg-2">Free to try. You get a report, a spreadsheet of papers and a reference list.</p>
         </section>
         <section aria-labelledby="how" className="mx-auto mt-10 max-w-5xl">
-          <h2 id="how" className="text-center text-20 font-semibold">How it works: 9 steps, 3 stages</h2>
+          <h2 id="how" className="text-center text-16 font-semibold">How it works: 9 steps, 3 stages</h2>
           <ol className="mt-6 grid gap-4 md:grid-cols-3">
             {PHASES.map((ph, i) => (
               <li key={ph.title} className="overflow-hidden rounded-md border border-line bg-bg-1">
@@ -63,7 +63,7 @@ export default async function Landing() {
           </ol>
         </section>
         <section aria-labelledby="demo" className="mt-12">
-          <h2 id="demo" className="mb-3 text-center text-20 font-semibold">See a review take shape</h2>
+          <h2 id="demo" className="mb-3 text-center text-16 font-semibold">See a review take shape</h2>
           <DemoVideo />
         </section>
         <section className="mx-auto mt-8 max-w-2xl">

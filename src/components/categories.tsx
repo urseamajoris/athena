@@ -31,7 +31,7 @@ export function CategoryChip({ dim, value, topics = [], className, style }: { di
   const cat = categoriesFor(dim, topics).find((c) => c.key === value);
   if (!cat) return null;
   return (
-    <span className={cx("inline-flex items-center gap-1.5 text-12 text-fg-1", className)} style={style} title={cat.hint}>
+    <span className={cx("inline-flex items-center gap-2 text-12 text-fg-1", className)} style={style} title={cat.hint}>
       {hasHues(dim) && <ShapeIcon shape={cat.shape} color={categoryVar(dim, value, topics)} />}
       {cat.label}
     </span>
@@ -86,7 +86,7 @@ export function Legend({
                 onBlur={() => onHighlight?.(null)}
                 onClick={() => onIsolate?.(active ? null : c.key)}
                 className={cx(
-                  "inline-flex min-h-8 items-center gap-1.5 rounded-sm border px-2 text-12 disabled:cursor-default",
+                  "inline-flex min-h-8 items-center gap-2 rounded-sm border px-2 text-12 disabled:cursor-default",
                   active ? "border-fg-1 bg-bg-3 text-fg-0" : "border-transparent text-fg-1 enabled:hover:bg-bg-2",
                   (dim0 || (isolated && !active) || (highlight && highlight !== c.key)) && "opacity-55",
                 )}

@@ -169,7 +169,7 @@ export function Stat({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-md border border-line bg-bg-1 px-3 py-2">
       <p className="text-12 text-fg-2">{label}</p>
-      <p className="text-16 font-semibold tabular-nums text-fg-0">{value}</p>
+      <p className="text-20 font-semibold tabular-nums text-fg-0">{value}</p>
     </div>
   );
 }

@@ -11,13 +11,14 @@ import { ErrorState, Kbd, Loading, cx } from "../ui";
 import { MotionRoot } from "../motion";
 import { useHydrated } from "../hydrated";
 import { AppMenu } from "../AppMenu";
-import { SessionUnavailable } from "../session/SessionUnavailable";
 import { SessionProvider, canvasStore, useCanvas, useSession } from "../session/SessionContext";
 import { StageRail } from "./StageRail";
 import { canvasCommands, focusNode } from "./focus";
 import { AiPausedBanner } from "../session/AiPausedBanner";
 import { DemoBanner } from "../session/DemoBanner";
 import { STAGE_KEY_TO_NODE, nodeForStage } from "@/lib/canvas/graph";
+// Only shown when a review cannot be opened: loaded then, not with every canvas.
+const SessionUnavailable = dynamic(() => import("../session/SessionUnavailable").then((m) => m.SessionUnavailable), { ssr: false });
 
 const CanvasView = dynamic(() => import("./CanvasView"), { ssr: false, loading: () => <Loading label="Drawing the canvas…" /> });
 const CommandPalette = dynamic(() => import("./CommandPalette"), { ssr: false });
