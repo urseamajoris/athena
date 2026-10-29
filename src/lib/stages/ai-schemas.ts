@@ -149,6 +149,11 @@ export const Appraisal = z.object({
 });
 export type Appraisal = z.infer<typeof Appraisal>;
 
+/** Is a statement's evidence about the review's own intervention and population, or a related but different one? */
+const EVIDENCE = z.enum(["direct", "indirect"]);
+/** Do the papers report opposite effects, or the same direction differing only in size or statistical significance? */
+const DISAGREEMENT = z.enum(["opposite_effects", "size_or_significance_only"]);
+
 export const Synthesis = z.object({
   themes: z.array(str(80)).min(2).max(6),
   matrix: z
@@ -162,10 +167,12 @@ export const Synthesis = z.object({
       }),
     )
     .min(1),
-  contradictions: z.array(z.object({ theme: str(80), description: str(400), claimIds: z.array(str(40)).min(2).max(8) })).max(6),
-  known: z.array(z.object({ statement: str(600), claimIds: z.array(str(40)).min(1).max(10) })).max(6),
-  contested: z.array(z.object({ statement: str(600), claimIds: z.array(str(40)).min(1).max(10) })).max(6),
-  unknown: z.array(z.object({ statement: str(600), claimIds: z.array(str(40)).min(1).max(10) })).max(6),
+  // "disagreement" and "evidence" are the model's own labels; src/lib/shared/synthesis-rules.ts acts on them (a
+  // difference in size or significance only is not contested; indirect evidence says so in its wording).
+  contradictions: z.array(z.object({ theme: str(80), description: str(400), claimIds: z.array(str(40)).min(2).max(8), disagreement: DISAGREEMENT })).max(6),
+  known: z.array(z.object({ statement: str(600), claimIds: z.array(str(40)).min(1).max(10), evidence: EVIDENCE })).max(6),
+  contested: z.array(z.object({ statement: str(600), claimIds: z.array(str(40)).min(1).max(10), evidence: EVIDENCE, disagreement: DISAGREEMENT })).max(6),
+  unknown: z.array(z.object({ statement: str(600), claimIds: z.array(str(40)).min(1).max(10), evidence: EVIDENCE })).max(6),
 });
 export type Synthesis = z.infer<typeof Synthesis>;
 
