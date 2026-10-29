@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, KeyRound, Power, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, KeyRound, Power, XCircle } from "lucide-react";
 import { api, useApi } from "../api";
 import { ErrorState, Loading, Spinner, cx } from "../ui";
 import { Modal } from "../overlays";
@@ -12,6 +12,7 @@ import { BudgetBar, DailyBars, HBars, Stat } from "./charts";
 import { UsersTable } from "./UsersTable";
 import { STUDY_GROUPS, slotVar } from "@/lib/shared/categories";
 import { relTime } from "@/lib/shared/format";
+import { FORECAST_MIN_DAYS, FULL_TEXT_SOURCES, SOURCE_LABEL, topRows } from "@/lib/admin/metrics";
 import type { AdminOverview } from "@/lib/admin/overview";
 
 const usd = (v: number, d = 2) => `$${v.toFixed(d)}`;
@@ -19,6 +20,8 @@ const pct = (v: number) => `${(v * 100).toFixed(v > 0 && v < 0.01 ? 1 : 0)}%`;
 const ms = (v: number | null) => (v === null ? "–" : v >= 1000 ? `${(v / 1000).toFixed(1)} s` : `${Math.round(v)} ms`);
 const mb = (b: number | null) => (b === null ? "unknown" : b > 1e9 ? `${(b / 1e9).toFixed(2)} GB` : `${(b / 1e6).toFixed(1)} MB`);
 const num = (v: number) => v.toLocaleString();
+const plural = (n: number, one: string, many = `${one}s`) => `${num(n)} ${n === 1 ? one : many}`;
+const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 const dur = (s: number) => (s >= 86400 ? `${Math.floor(s / 86400)} d ${Math.floor((s % 86400) / 3600)} h` : s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min` : `${Math.floor(s / 60)} min`);
 
 const LEVEL = {
@@ -66,6 +69,9 @@ export function AdminDashboard() {
 function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () => void; validating: boolean }) {
   const L = LEVEL[d.verdict.level];
   const b = d.ai.budget;
+  const t = d.ai.totals;
+  // The three breakdowns cover the last 30 days; they add up to this (rows past the 9th are summed as "other").
+  const recent = d.ai.byStage.reduce((a, r) => ({ calls: a.calls + r.calls, cost: a.cost + r.cost }), { calls: 0, cost: 0 });
   return (
     <>
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -79,12 +85,14 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
       {/* The answer, first: verdict and what needs attention. */}
       <section aria-labelledby="verdict" className={cx("rounded-md border px-4 py-3", L.border, L.bg)}>
         <h2 id="verdict" className={cx("flex items-center gap-2 text-16 font-semibold", L.text)}>
-          <L.Icon className="h-5 w-5" strokeWidth={2} aria-hidden /> {L.head}
+          <L.Icon className="h-5 w-5" strokeWidth={2} aria-hidden /> {d.verdict.level === "green" && d.verdict.worthALook ? "Healthy, with something worth a look" : L.head}
         </h2>
         <ul className="mt-2 space-y-1">
           {d.verdict.reasons.map((r) => {
             const R = LEVEL[r.level];
-            return <li key={r.text} className="flex items-start gap-2 text-fg-0"><R.Icon className={cx("mt-0.5 h-4 w-4 shrink-0", R.text)} strokeWidth={2} aria-label={r.level} />{r.text}</li>;
+            // A green reason is a note (worth a look, not a fault): an info mark, not a tick.
+            const Icon = r.level === "green" && d.verdict.worthALook ? Info : R.Icon;
+            return <li key={r.text} className="flex items-start gap-2 text-fg-0"><Icon className={cx("mt-0.5 h-4 w-4 shrink-0", r.level === "green" && d.verdict.worthALook ? "text-fg-1" : R.text)} strokeWidth={2} aria-label={r.level === "green" ? "note" : r.level} />{r.text}</li>;
           })}
         </ul>
       </section>
@@ -94,14 +102,16 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-7">
         <Stat label="Users" value={num(d.users.total)} sub={`incl. ${d.users.admins} admin${d.users.admins === 1 ? "" : "s"} · ${d.users.active24h} active today · ${d.users.active7d} this week`} />
         <Stat label="Projects" value={num(d.users.projects)} sub={`${d.users.finished} finished all nine steps${d.users.reopened ? ` · ${d.users.reopened} went back to an earlier step` : ""}`} />
-        <Stat label="AI calls" value={num(d.ai.totals.sent)} sub={`sent to the model · ${pct(d.ai.totals.failureRate)} failed · ${pct(d.ai.totals.retryRate)} retried${d.ai.totals.blocked ? ` · ${num(d.ai.totals.blocked)} blocked, not sent` : ""}`} />
+        {/* One vocabulary on every tile: "errors" (no reply), "invalid reply, retried" (sent back once and fixed or
+            not), "still invalid after the retry" (the step failed). A retried invalid reply is not an error. */}
+        <Stat label="AI calls" value={num(t.sent)} sub={`sent to the model · errors: ${num(t.errors)} · invalid reply, retried: ${num(t.invalidRetried)} (${pct(t.invalidRetriedRate)})${t.invalidFinal ? ` · still invalid after the retry: ${num(t.invalidFinal)}` : ""}${t.blocked ? ` · ${num(t.blocked)} blocked, not sent` : ""}`} tone={t.errors + t.invalidFinal ? "warn" : undefined} />
         <Stat label="AI spend" value={usd(b.spentUsd)} sub={`of ${usd(b.limitUsd)} limit`} tone={b.pct >= 1 ? "err" : b.pct >= 0.8 ? "warn" : undefined} />
         <Stat label="Server errors (1 h)" value={pct(d.health.requests.errorRate)} sub={`${d.health.requests.errors5xx} of ${d.health.requests.lastHour} API requests${d.health.requests.lastHour < 20 ? " · too few to judge" : ""}`} tone={d.health.requests.errors5xx ? "warn" : undefined} />
         <Stat label="Browser errors (1 h)" value={num(d.health.clientErrors.lastHour)} sub="page errors in users' browsers" tone={d.health.clientErrors.lastHour ? "warn" : undefined} />
         <Stat label="Jobs now" value={`${d.health.jobs.running} running`} sub={`${d.health.jobs.queued} queued · ${d.health.jobs.paused} paused · ${d.health.jobs.stuck} stuck`} tone={d.health.jobs.stuck ? "warn" : undefined} />
       </div>
 
-      <Section id="users-title" title="Users and progress" intro="Counts only. Research ideas, papers and notes are never shown here.">
+      <Section id="users-title" title="Users and progress" intro="Counts only. Research ideas, papers and notes are never shown on this dashboard. Account emails appear only in Accounts and the Audit log below.">
         <div className="grid gap-6 md:grid-cols-2">
           <DailyBars title="Sign-ups per day (14 days)" data={d.users.signupsByDay.map((x) => ({ day: x.day, value: x.value }))} />
           <HBars title="Projects per user" rows={d.users.projectsPerUser.map((x) => ({ key: x.bucket, label: `${x.bucket} project${x.bucket === "1" ? "" : "s"}`, value: x.users }))} format={(v) => `${v} user${v === 1 ? "" : "s"}`} />
@@ -135,27 +145,31 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
           ) : (
             <Stat label="AI latency p50" value={ms(d.ai.latency.p50)} sub={`p90 ${ms(d.ai.latency.p90)} · p99 ${ms(d.ai.latency.p99)}`} />
           )}
-          <Stat label="Validation retries" value={pct(d.ai.totals.retryRate)} sub={`${d.ai.totals.invalid} invalid · ${d.ai.totals.errors} errors${d.ai.totals.blocked ? ` · ${num(d.ai.totals.blocked)} blocked, not sent` : ""}`} />
+          <Stat label="Invalid reply, retried" value={num(t.invalidRetried)} sub={`${pct(t.invalidRetriedRate)} of calls · still invalid after the retry: ${num(t.invalidFinal)} · errors: ${num(t.errors)}`} />
         </div>
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          {([["Cost by step (30 days)", d.ai.byStage], ["Cost by model", d.ai.byModel], ["Cost by prompt version", d.ai.byPrompt]] as const).map(([t, rows]) => (
-            <HBars key={t} title={t} rows={rows.slice(0, 9).map((r) => ({ key: r.key, label: r.key, value: r.cost, sub: `· ${r.calls} call${r.calls === 1 ? "" : "s"}` }))} format={(v) => usd(v, 3)} />
+          {([["Cost by step", d.ai.byStage], ["Cost by model", d.ai.byModel], ["Cost by prompt version", d.ai.byPrompt]] as const).map(([title, rows]) => (
+            <HBars key={title} title={title} rows={topRows(rows, 9).map((r) => ({ key: r.key, label: r.key, value: r.cost, sub: `· ${plural(r.calls, "call")}` }))} format={(v) => usd(v, 3)} />
           ))}
         </div>
+        <p className="mt-2 text-12 text-fg-2">
+          Each breakdown covers the last 30 days and adds up to {plural(recent.calls, "call")} and {usd(recent.cost, 3)}; rows past the ninth are summed as “other”.
+          {recent.calls !== t.sent && ` The ${num(t.sent)} calls in the tiles above are all time.`}
+        </p>
       </Section>
 
-      <Section id="sources-title" title="Data sources (last 24 h)" intro="Every request to the literature databases, including cache hits.">
+      <Section id="sources-title" title="Data sources (last 24 h)" intro="Every request to the literature databases, including cache hits. Retries count as requests.">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-left text-12">
             <thead className="text-fg-2"><tr>{["Source", "Requests", "Live", "Cache hits", "Errors", "429s", "p50", "p95", ""].map((h) => <th key={h} className="py-1 pr-3 font-medium">{h}</th>)}</tr></thead>
             <tbody>
               {d.sources.map((s) => (
                 <tr key={s.source} className="border-t border-line">
-                  <th scope="row" className="py-2 pr-3 font-medium text-fg-0">{s.source}</th>
+                  <th scope="row" className="py-2 pr-3 font-medium text-fg-0">{SOURCE_LABEL[s.source] ?? s.source}{FULL_TEXT_SOURCES.has(s.source) && <span className="font-normal text-fg-2"> · full text</span>}</th>
                   <td className="tabular-nums">{s.requests}</td>
                   <td className="tabular-nums">{s.live}</td>
                   <td className="tabular-nums">{pct(s.cacheHitRate)}</td>
-                  <td className={cx("tabular-nums", s.errorRate > 0.25 && s.requests >= 10 && "text-warn")}>{s.errors} ({pct(s.errorRate)})</td>
+                  <td className={cx("tabular-nums", s.errorRate > (FULL_TEXT_SOURCES.has(s.source) ? 0.5 : 0.25) && s.requests >= 10 && "text-warn")}>{s.errors} ({pct(s.errorRate)})</td>
                   <td className="tabular-nums">{s.rateLimited}</td>
                   <td className="tabular-nums">{ms(s.p50)}</td>
                   <td className="tabular-nums">{ms(s.p95)}</td>
@@ -165,6 +179,9 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
             </tbody>
           </table>
         </div>
+        <p className="mt-2 text-12 text-fg-2">
+          Full-text sources (Unpaywall, Europe PMC, PDF downloads) are asked for every selected paper. Some failures are expected there: a paper that is not open access has no full text, and its appraisal then uses the abstract. The verdict flags them only when most requests fail.
+        </p>
       </Section>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -192,17 +209,18 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
             <HBars
               title="Quotes checked against the source text"
               rows={[
-                { key: "v", label: "Verified", value: d.quality.quotes.verified, color: "var(--cat-1)", shape: "circle" },
-                { key: "u", label: "Unverified", value: d.quality.quotes.unverified, color: "var(--cat-8)", shape: "triangle", sub: `· ${d.quality.quotes.acceptedUnverified} accepted by users` },
+                { key: "v", label: "Verified", value: d.quality.quotes.verified, color: NEUTRAL },
+                { key: "u", label: "Unverified", value: d.quality.quotes.unverified, color: NEUTRAL, sub: `· ${d.quality.quotes.acceptedUnverified} accepted by users` },
               ]}
             />
             <HBars
               title="What appraisals were based on"
               rows={[
-                { key: "f", label: "Full text", value: d.quality.appraisals.fullText, color: "var(--cat-1)", shape: "circle" },
-                { key: "a", label: "Abstract only", value: d.quality.appraisals.abstractOnly, color: "var(--cat-4)", shape: "square" },
+                { key: "f", label: "Full text", value: d.quality.appraisals.fullText, color: NEUTRAL },
+                { key: "a", label: "Abstract only", value: d.quality.appraisals.abstractOnly, color: NEUTRAL },
               ]}
             />
+            {/* Only this chart has category colours (study type), so a hue in this panel means one thing. */}
             <HBars title="Study types found (AI-derived from abstracts)" rows={d.quality.studyTypes.map((s) => { const c = STUDY_GROUPS.find((x) => x.key === s.key)!; return { key: s.key, label: s.label, value: s.n, color: slotVar(c.slot), shape: c.shape }; })} />
             <HBars title="Steps marked stale by an upstream edit (30 days)" rows={d.quality.staleByStage.filter((s) => s.stage > 1).map((s) => ({ key: String(s.stage), label: `${s.stage}. ${s.title}`, value: s.times, color: "var(--cat-none)" }))} format={(v) => `${v}×`} />
           </div>
@@ -259,6 +277,9 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
     </>
   );
 }
+
+/** Bars for counts that are not a "Colour by" dimension: plain ink, so no category hue is reused here. */
+const NEUTRAL = "var(--fg-2)";
 
 function AiKeyPanel({ d, refresh }: { d: AdminOverview; refresh: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
@@ -330,7 +351,8 @@ function AiKeyPanel({ d, refresh }: { d: AdminOverview; refresh: () => void }) {
         {/* 2. Key */}
         <div>
           <h3 className="text-12 font-medium text-fg-2">xAI API key</h3>
-          <p className="mt-1 text-16 font-semibold">{k.inUse === "none" ? "No key" : <span className="font-mono">{k.masked}</span>}</p>
+          <p className="mt-1 text-16 font-semibold">{k.inUse === "none" ? "No key" : <>Key id <span className="font-mono">{k.keyId}</span></>}</p>
+          {k.inUse !== "none" && <p className="mt-1 text-12 text-fg-2">The full key is never shown, and no part of it is: the key id is a fingerprint of the key, used to tell keys apart.</p>}
           <p className="mt-1 text-fg-1">
             {k.inUse === "admin" ? <>Set here{k.admin && <span suppressHydrationWarning> {relTime(k.admin.setAt)} by {k.admin.setBy ?? "an admin"}</span>}. It overrides the environment key.</> : k.inUse === "environment" ? "From the server environment (XAI_API_KEY)." : "Neither the environment nor this dashboard provides a key."}
           </p>
@@ -363,7 +385,7 @@ function AiKeyPanel({ d, refresh }: { d: AdminOverview; refresh: () => void }) {
                 New xAI key
                 <input className="input mt-1 w-full font-mono" type="password" autoComplete="off" spellCheck={false} value={keyInput} onChange={(e) => setKeyInput(e.target.value)} disabled={!k.encryption.ready} />
               </label>
-              <p className="text-12 text-fg-2">{k.encryption.ready ? "Stored encrypted (AES-256-GCM). It is never shown again; only the last 4 characters." : k.encryption.problem}</p>
+              <p className="text-12 text-fg-2">{k.encryption.ready ? "Stored encrypted (AES-256-GCM). It is never shown again; the dashboard shows only its key id." : k.encryption.problem}</p>
               <button className="btn-primary min-h-11" disabled={!k.encryption.ready || keyInput.trim().length < 20 || busy === "key"}>{busy === "key" && <Spinner />}Save key</button>
             </form>
           )}
@@ -375,8 +397,17 @@ function AiKeyPanel({ d, refresh }: { d: AdminOverview; refresh: () => void }) {
           <p className="mt-1 text-16 font-semibold tabular-nums">{usd(b.spentUsd)} <span className="font-normal text-fg-2">of {usd(b.limitUsd)}</span></p>
           <div className="mt-2"><BudgetBar spent={b.spentUsd} limit={b.limitUsd} /></div>
           <p className="mt-2 text-12 text-fg-1">
-            {b.daysLeft === null ? "No recent spend, so no projection." : b.daysLeft === 0 ? "The limit is reached." : <>At {usd(b.perDay)} a day, the limit is reached in about {b.daysLeft < 1 ? "less than a day" : `${Math.round(b.daysLeft)} days`}.</>}
-            {" "}{b.override ? `Set here (the server's limit is ${usd(b.envUsd)}).` : "The server's limit (XAI_BUDGET_USD)."}
+            The limit is a total for all AI spend {b.since ? <>since the first AI call on {day(b.since)}</> : "on this database"}, not per day or month.{" "}
+            {b.override ? `Set here (the server's limit is ${usd(b.envUsd)}).` : "The server's limit (XAI_BUDGET_USD)."}
+          </p>
+          <p className="mt-1 text-12 text-fg-1">
+            {b.daysLeft === 0
+              ? "The limit is reached."
+              : !b.enoughHistory
+                ? b.since ? `No forecast yet: spending started ${relTime(b.since)}, and a forecast needs ${FORECAST_MIN_DAYS} days of history.` : "No spend yet, so no forecast."
+                : b.daysLeft === null
+                  ? "No spend in the last 7 days, so no forecast."
+                  : <>At about {usd(b.perDay)} a day (the average over the last {Math.round(b.windowDays)} days), the limit is reached in about {b.daysLeft < 1 ? "less than a day" : plural(Math.round(b.daysLeft), "day")}.</>}
           </p>
           <form className="mt-3 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); void saveLimit(); }}>
             <label className="label">New limit ($)<input className="input mt-1 w-28 tabular-nums" inputMode="decimal" value={limit} onChange={(e) => setLimit(e.target.value)} placeholder={b.limitUsd.toFixed(2)} /></label>
@@ -387,7 +418,9 @@ function AiKeyPanel({ d, refresh }: { d: AdminOverview; refresh: () => void }) {
       </div>
       <Disclosure title="Models" meta={d.ai.models.map((m) => m.status).join(" · ")}>
         <ul className="space-y-1 text-12">{d.ai.models.map((m) => <li key={m.role}><span className="font-medium">{m.role}</span>: <span className="font-mono">{m.resolved}</span> <span className="text-fg-2">({m.note})</span></li>)}</ul>
-        <p className="mt-2 text-12 text-fg-2">Paid API calls attempted since this instance started: {d.ai.paidCalls.attempted}.</p>
+        <p className="mt-2 text-12 text-fg-2">
+          Paid API requests since this server instance started: {num(d.ai.paidCalls.attempted)} ({plural(d.ai.paidCalls.byKind?.ai ?? 0, "AI model call")}, retries included, the same calls as the AI usage log for this period; {plural(d.ai.paidCalls.byKind?.openalex ?? 0, "OpenAlex request")} made with its API key; {plural(d.ai.paidCalls.byKind?.keyTest ?? 0, "key test")}, which use xAI&apos;s free model list). The count restarts with the server.
+        </p>
       </Disclosure>
 
       <Modal

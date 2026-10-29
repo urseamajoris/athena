@@ -63,10 +63,11 @@ export function HBars({ title, rows, format = (v) => String(v), note }: { title:
       <figcaption className="text-12 font-medium text-fg-1">{title}</figcaption>
       <ul className="mt-2 space-y-1.5">
         {rows.map((r) => (
-          <li key={r.key} className="grid grid-cols-[minmax(0,10rem)_1fr_auto] items-center gap-2 text-12">
+          <li key={r.key} className="grid grid-cols-[minmax(0,12rem)_1fr_auto] items-center gap-2 text-12">
+            {/* Long labels wrap: a cut-off category name ("Systematic / scoping r…") cannot be read. */}
             <span className="flex min-w-0 items-center gap-1.5 text-fg-1">
               {r.shape && <ShapeIcon shape={r.shape} color={r.color ?? "var(--cat-1)"} />}
-              <span className="truncate" title={r.label}>{r.label}</span>
+              <span className="min-w-0 break-words">{r.label}</span>
             </span>
             <span className="h-3 rounded-sm bg-bg-2" aria-hidden>
               {r.value > 0 && <span className="block h-3 rounded-r-[4px]" style={{ width: `${Math.max(2, (r.value / (max || 1)) * 100)}%`, background: r.color ?? "var(--cat-1)" }} />}

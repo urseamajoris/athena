@@ -18,7 +18,7 @@ interface Status {
   // Admins only:
   spendUsd?: number;
   budgetUsd?: number;
-  paidCalls?: { attempted: number };
+  paidCalls?: { attempted: number; byKind?: { ai: number; keyTest: number; openalex: number } };
   keys?: { xai: boolean; openalex: boolean; contactEmail: boolean };
   simulatedFailures?: string[];
 }
@@ -88,7 +88,7 @@ export function SettingsView() {
               <Disclosure title="Server details (admins)">
                 <ul className="space-y-1 text-fg-1">
                   <li>Spend: <span className="tabular-nums">${data.spendUsd?.toFixed(2)}</span> of <span className="tabular-nums">${data.budgetUsd?.toFixed(2)}</span></li>
-                  <li>Paid API calls since this instance started: {data.paidCalls?.attempted ?? 0}</li>
+                  <li>Paid API requests since this instance started: {data.paidCalls?.attempted ?? 0}{data.paidCalls?.byKind && ` (${data.paidCalls.byKind.ai} AI model calls, ${data.paidCalls.byKind.openalex} OpenAlex, ${data.paidCalls.byKind.keyTest} key tests)`}</li>
                   <li>Keys in the environment: xAI {data.keys.xai ? "set" : "not set"}, OpenAlex {data.keys.openalex ? "set" : "not set"}, contact email {data.keys.contactEmail ? "set" : "not set"}</li>
                   <li>Models: {Object.entries(data.models).map(([r, m]) => `${r} ${m.resolved}`).join(", ")}</li>
                   {data.simulatedFailures?.length ? <li>Simulated source failures: {data.simulatedFailures.join(", ")}</li> : null}

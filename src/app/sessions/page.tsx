@@ -11,7 +11,7 @@ export default async function SessionsPage() {
   const user = await pageUser("/sessions");
   return (
     <SWRConfig value={{ fallback: { "/api/projects": plain(await projectsList(user.id)) } }}>
-      <SessionsList />
+      <SessionsList admin={user.role === "admin"} />
     </SWRConfig>
   );
 }

@@ -1,5 +1,5 @@
 import "server-only";
-import { countPaidCall, resolveMode, type PaidCalls } from "./paid-guard";
+import { countPaidCall, emptyPaidCalls, resolveMode, type PaidCalls, type PaidKind } from "./paid-guard";
 
 const mode = resolveMode(process.env);
 
@@ -39,9 +39,9 @@ export type ModelRole = keyof typeof config.models;
 
 const g = globalThis as unknown as { __paidCalls?: PaidCalls };
 /** Every call to a paid API (xAI, OpenAlex) since the server started; tests run with no keys and expect zero. */
-export const paidCalls = (g.__paidCalls ??= { attempted: 0, blocked: 0 });
+export const paidCalls = (g.__paidCalls ??= emptyPaidCalls());
 
 /** Call immediately before any network request to a paid API. Counts it for the admin telemetry; never throws. */
-export function countPaid() {
-  countPaidCall(paidCalls);
+export function countPaid(kind: PaidKind) {
+  countPaidCall(paidCalls, kind);
 }

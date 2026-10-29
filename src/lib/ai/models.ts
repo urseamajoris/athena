@@ -61,7 +61,7 @@ export async function testKey(): Promise<{ ok: boolean; message: string; source:
   const { key, source, error } = await effectiveXaiKey();
   if (!key) return { ok: false, message: "No key is configured.", source };
   try {
-    countPaid();
+    countPaid("keyTest");
     const ids = await listModels(key);
     const missing = Object.values(config.models).filter((m) => !ids.includes(m));
     g.__modelsChecked = undefined; // re-resolve models with this key on the next status read

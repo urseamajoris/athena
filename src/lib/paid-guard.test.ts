@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { countPaidCall, resolveMode, type PaidCalls } from "./paid-guard";
+import { countPaidCall, emptyPaidCalls, resolveMode } from "./paid-guard";
 
 test("production is ATHENA_ENV=production only", () => {
   assert.deepEqual(resolveMode({}), { production: false });
@@ -11,8 +11,11 @@ test("production is ATHENA_ENV=production only", () => {
 });
 
 test("paid calls are counted, never blocked", () => {
-  const calls: PaidCalls = { attempted: 0, blocked: 0 };
-  assert.doesNotThrow(() => countPaidCall(calls));
-  countPaidCall(calls);
-  assert.deepEqual(calls, { attempted: 2, blocked: 0 });
+  const calls = emptyPaidCalls();
+  assert.doesNotThrow(() => countPaidCall(calls, "ai"));
+  countPaidCall(calls, "ai");
+  countPaidCall(calls, "openalex");
+  countPaidCall(calls, "keyTest");
+  // The breakdown always adds up to the total, so the dashboard can say what the total includes.
+  assert.deepEqual(calls, { attempted: 4, blocked: 0, byKind: { ai: 2, keyTest: 1, openalex: 1 } });
 });
