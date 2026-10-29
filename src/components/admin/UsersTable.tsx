@@ -5,7 +5,7 @@ import { ErrorState, Loading } from "../ui";
 import { Modal, MoreMenu } from "../overlays";
 import { relTime } from "@/lib/shared/format";
 
-interface Row { id: string; email: string; name: string; role: "user" | "admin"; disabled: boolean; mustChangePassword: boolean; createdAt: string; lastActiveAt: string | null; projects: number; furthestStage: number | null; aiCalls: number; costUsd: number }
+interface Row { id: string; email: string; name: string; role: "user" | "admin"; disabled: boolean; mustChangePassword: boolean; createdAt: string; lastActiveAt: string | null; projects: number; furthestStage: number | null; currentStage: number | null; aiCalls: number; costUsd: number }
 type Pending = { row: Row; action: "disable" | "enable" | "delete" | "reset_password" | "make_admin" | "make_user" };
 
 const COPY: Record<Pending["action"], { title: (r: Row) => string; body: (r: Row) => string; button: string; danger?: boolean }> = {
@@ -41,7 +41,7 @@ export function UsersTable({ onChanged }: { onChanged: () => void }) {
     <>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-12">
-          <thead className="text-fg-2"><tr>{["Account", "Role", "Projects", "Furthest step", "AI calls", "AI cost", "Last active", "Joined", ""].map((h) => <th key={h} className="py-1 pr-3 font-medium">{h}</th>)}</tr></thead>
+          <thead className="text-fg-2"><tr>{["Account", "Role", "Projects", "Furthest step reached", "AI calls", "AI cost", "Last active", "Joined", ""].map((h) => <th key={h} className="py-1 pr-3 font-medium">{h}</th>)}</tr></thead>
           <tbody>
             {data.users.map((u) => (
               <tr key={u.id} className="border-t border-line">
@@ -51,7 +51,7 @@ export function UsersTable({ onChanged }: { onChanged: () => void }) {
                 </th>
                 <td className="pr-3">{u.role === "admin" ? "Admin" : "User"}</td>
                 <td className="pr-3 tabular-nums">{u.projects}</td>
-                <td className="pr-3 tabular-nums">{u.furthestStage === null ? "–" : u.furthestStage === 10 ? "Finished" : `${u.furthestStage} of 9`}</td>
+                <td className="pr-3 tabular-nums">{u.furthestStage === null ? "–" : u.furthestStage === 10 ? "Finished" : `${u.furthestStage} of 9`}{u.currentStage !== null && u.currentStage < u.furthestStage! && <span className="block text-fg-2">now back at step {u.currentStage}</span>}</td>
                 <td className="pr-3 tabular-nums">{u.aiCalls}</td>
                 <td className="pr-3 tabular-nums">${u.costUsd.toFixed(3)}</td>
                 <td className="pr-3" suppressHydrationWarning>{u.lastActiveAt ? relTime(u.lastActiveAt) : "never"}</td>

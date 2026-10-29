@@ -1,5 +1,5 @@
 import "server-only";
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db, schema, batchWrite, type BatchItem } from "../db";
 import { structuredCall } from "../ai/client";
 import { wrapData } from "../ai/prompts";
@@ -170,6 +170,22 @@ export async function deleteTopic(projectId: string, topicId: string) {
   (await db.delete(schema.topics).where(eq(schema.topics.id, topicId)).run());
   (await logDecision(projectId, 2, "topic_deleted", before, null));
   (await touchTopics(projectId, `Topic "${before.name}" was deleted`));
+}
+
+/**
+ * Undo a delete: the topic comes back exactly as it was (same id, so a suggestion is still a suggestion and a kept
+ * one still kept; same origin, keywords and place in the list), from the record its deletion logged.
+ */
+export async function restoreTopic(projectId: string, topicId: string) {
+  const logs = (await db.select({ before: schema.decisionLog.before }).from(schema.decisionLog).where(and(eq(schema.decisionLog.projectId, projectId), eq(schema.decisionLog.action, "topic_deleted"))).orderBy(desc(schema.decisionLog.createdAt)).all());
+  const row = logs.map((l) => l.before as typeof schema.topics.$inferSelect | null).find((b) => b?.id === topicId && b.projectId === projectId);
+  if (!row) throw new HttpError(404, "Topic not found");
+  const current = (await db.select({ id: schema.topics.id }).from(schema.topics).where(eq(schema.topics.projectId, projectId)).all());
+  if (current.some((t) => t.id === topicId)) throw new HttpError(409, "This topic is already back.");
+  if (current.length >= 8) throw new HttpError(400, "A review can have at most 8 topics. Merge or delete one first.");
+  (await db.insert(schema.topics).values({ ...row }).run());
+  (await logDecision(projectId, 2, "topic_restored", null, row));
+  (await touchTopics(projectId, `Topic "${row.name}" was brought back`));
 }
 
 export async function mergeTopics(projectId: string, ids: string[], name: string) {

@@ -6,6 +6,7 @@ import { useSWRConfig } from "swr";
 import { useRouter } from "next/navigation";
 import { api, projectPath, useApi } from "../api";
 import { criteriaDrafts } from "../panels/criteria-draft";
+import { topicUndo } from "../panels/topic-undo";
 import dynamic from "next/dynamic";
 import { STAGES, STATE_LABEL, thinTopics, type StageState } from "@/lib/shared/stages";
 import type { CanvasSummary, ClaimLite, JobLite } from "@/lib/shared/canvas";
@@ -359,11 +360,14 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
             if (!(await confirmEdit(2))) return;
             // Any topic change reopens an approved step 2 on the server: say so, it is not visible from here.
             const reopens = states["2"] === "approved";
+            const name = summary?.topics.find((t) => t.id === cmd.topicId)?.name ?? "";
             await api(projectPath(projectId, `topics/${cmd.topicId}`), { method: "DELETE" });
             if (store.selected === `topic:${cmd.topicId}`) store.select("idea");
-            if (store.panel === `topic:${cmd.topicId}`) store.closePanel();
+            // Deleted from its own editor: show the topic list instead, where Undo appears.
+            if (store.panel === `topic:${cmd.topicId}`) store.openPanel("idea");
             await refresh();
-            announce(reopens ? "Topic deleted. Step 2 is open again: approve the topics again with “Use these topics” to continue." : "Topic deleted.");
+            topicUndo.getState().show({ projectId, id: cmd.topicId, name });
+            announce(`${reopens ? "Topic deleted. Step 2 is open again: approve the topics again with “Use these topics” to continue." : "Topic deleted."} Undo is on screen for a few seconds.`);
           });
         case "addTopic":
           setAddTopic({ flowAt: opts.flowAt });

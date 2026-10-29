@@ -26,25 +26,51 @@ export function dailySeries<T>(rows: T[], days: number, now: number, at: (r: T) 
   return out;
 }
 
-/** The first stage not yet approved (10 = finished). */
+/** Where a project is now: the first stage not yet approved (10 = all nine steps approved). */
 export function frontierOf(states: Record<string, StageState>): number {
   return STAGES.find((s) => states[String(s.n)] !== "approved")?.n ?? 10;
 }
 
-/** How many projects reached each stage (started it or got past it) and how many approved it. */
-export function funnel(projects: { stageStates: Record<string, StageState> }[]) {
+type ProjectProgress = { stageStates: Record<string, StageState>; status?: string };
+
+/**
+ * The furthest stage a project has ever reached (10 = finished all nine steps at least once). Going back to
+ * edit an earlier step does not lower it: the later steps turn "out of date", which still counts as reached.
+ * Every count on the admin dashboard that says "reached" or "finished" uses this.
+ */
+export function furthestOf(p: ProjectProgress): number {
+  if (p.status === "complete") return 10;
+  const started = STAGES.filter((s) => (p.stageStates[String(s.n)] ?? "not_started") !== "not_started").map((s) => s.n);
+  return Math.max(frontierOf(p.stageStates), ...started);
+}
+
+/** How many projects reached each stage at least once, how many have it approved now, and how many have it out of date. */
+export function funnel(projects: ProjectProgress[]) {
   return STAGES.map((s) => ({
     stage: s.n,
     title: s.title,
-    reached: projects.filter((p) => frontierOf(p.stageStates) >= s.n).length,
+    reached: projects.filter((p) => furthestOf(p) >= s.n).length,
     approved: projects.filter((p) => p.stageStates[String(s.n)] === "approved").length,
+    outOfDate: projects.filter((p) => p.stageStates[String(s.n)] === "stale").length,
   }));
 }
 
-/** Projects idle for `idleDays` and not finished, by the stage they stopped at: where people give up. */
+/**
+ * Finished = finished all nine steps at least once (the funnel's last "reached"). Some of those may have gone
+ * back since: `reopened` counts every project now at an earlier step than the furthest it reached.
+ */
+export function progressCounts(projects: ProjectProgress[]) {
+  return {
+    finished: projects.filter((p) => furthestOf(p) === 10).length,
+    finishedNow: projects.filter((p) => frontierOf(p.stageStates) === 10).length,
+    reopened: projects.filter((p) => frontierOf(p.stageStates) < furthestOf(p)).length,
+  };
+}
+
+/** Unfinished projects idle for `idleDays`, by the stage they are at now: where people give up. */
 export function abandonment(projects: { stageStates: Record<string, StageState>; status: string; updatedAt: string }[], now: number, idleDays = 7) {
   const cutoff = now - idleDays * 86_400_000;
-  const idle = projects.filter((p) => p.status !== "complete" && Date.parse(p.updatedAt) < cutoff);
+  const idle = projects.filter((p) => furthestOf(p) < 10 && Date.parse(p.updatedAt) < cutoff);
   return STAGES.map((s) => ({ stage: s.n, title: s.title, projects: idle.filter((p) => frontierOf(p.stageStates) === s.n).length }));
 }
 

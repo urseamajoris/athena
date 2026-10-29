@@ -5,6 +5,7 @@ import { canvasStore, useCanvas, useSession } from "../session/SessionContext";
 import { cx } from "../ui";
 import { ActionButton } from "../panels/action-button";
 import { NextStepBar } from "./NextStepBar";
+import { TopicUndo } from "../panels/topic-undo";
 import { KindIcon } from "./icons";
 import { NodeStatusBadge, TrustBadges } from "./node-bits";
 import { KIND_LABEL, frontierNodeId, type GNode, type Graph, type GraphInput } from "@/lib/canvas/graph";
@@ -95,6 +96,8 @@ export function ListView() {
       <ul aria-label="Review as a list" className="mx-auto max-w-4xl pb-24">
         {tree.map((t) => <ListItem key={t.node.id} it={t} depth={0} c={c} />)}
       </ul>
+      {/* Undo after deleting a topic, kept in view at the bottom; the topic list shows its own while it is open. */}
+      {panel !== "idea" && <div className="pointer-events-none sticky bottom-4 z-10 mx-auto w-fit max-w-[calc(100%-32px)]"><TopicUndo className="pointer-events-auto shadow-lg" /></div>}
     </div>
   );
 }

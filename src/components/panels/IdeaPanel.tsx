@@ -8,7 +8,8 @@ import { ActionButton, PanelFooter, SectionTitle } from "./common";
 import { ConceptMap } from "./ConceptMap";
 import { WhatHappens } from "../guide/WhatHappens";
 import dynamic from "next/dynamic";
-import { AlertTriangle, Info, Trash2 } from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
+import { TopicUndo } from "./topic-undo";
 
 const TopicConstellation = dynamic(() => import("../viz/TopicConstellation").then((m) => m.TopicConstellation), { ssr: false, loading: () => <Loading label="Drawing your topics…" /> });
 import { stageAction } from "@/lib/canvas/actions";
@@ -40,7 +41,7 @@ const COVERAGE_LABEL: Record<string, [string, string]> = {
 
 /** Idea node: the idea itself, then the scoping chat whose answers fill the scope (PICO-style) fields. */
 export function IdeaPanel() {
-  const { projectId, project, states, refresh, confirmEdit, run, busy, input, summary, announce } = useSession();
+  const { projectId, project, states, refresh, confirmEdit, run, busy, input, summary } = useSession();
   const { data, error, isLoading, mutate } = useApi<ScopingData>(projectPath(projectId, "scoping"));
   const [idea, setIdea] = useState(project.idea);
   const [answer, setAnswer] = useState("");
@@ -52,14 +53,6 @@ export function IdeaPanel() {
   const started = useRef(false);
   const chatEnd = useRef<HTMLDivElement>(null);
   const answerRef = useRef<HTMLTextAreaElement>(null);
-  // The last topic deleted from the list, until it is brought back (Undo) or another one is deleted.
-  const [deleted, setDeleted] = useState<Topic | null>(null);
-  const undoRef = useRef<HTMLButtonElement>(null);
-  const goneId = deleted && data && !data.topics.some((x) => x.id === deleted.id) ? deleted.id : null;
-  // Delete removes its own button: focus goes to Undo, which takes its place.
-  useEffect(() => {
-    if (goneId) undoRef.current?.focus();
-  }, [goneId]);
   const s1 = states["1"];
   const ideaApproved = s1 === "approved";
   useEffect(() => setIdea(project.idea), [project.idea]);
@@ -106,26 +99,6 @@ export function IdeaPanel() {
   if (isLoading) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (!data) return null;
-
-  const gone = goneId ? deleted : null;
-  async function undoDelete() {
-    if (!gone) return;
-    setLocal("undo");
-    setErr(null);
-    try {
-      // Added back as a topic you chose (a deleted suggestion comes back kept, at the end of the list).
-      const r = await api<{ id: string; state: ScopingData }>(projectPath(projectId, "topics"), { body: { name: gone.name, synonyms: gone.synonyms, controlledTerms: gone.controlledTerms, rationale: gone.rationale } });
-      await mutate(r.state, { revalidate: false });
-      setDeleted(null);
-      await refresh();
-      announce(`The topic ${gone.name} is back.`);
-      requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-topic-row="${CSS.escape(r.id)}"]`)?.focus());
-    } catch (e) {
-      setErr(e);
-    } finally {
-      setLocal(null);
-    }
-  }
 
   const dirty = idea.trim() !== project.idea.trim();
   async function saveIdea() {
@@ -236,7 +209,7 @@ export function IdeaPanel() {
                     <span className="flex gap-1 pr-1">
                       <button className="btn-ghost btn-sm" onClick={() => canvasStore.getState().openPanel(`topic:${t.id}`)} aria-label={`Edit the topic ${t.name}`}>Edit</button>
                       <button className="btn-ghost btn-sm" onClick={() => run({ type: "acceptTopic", topicId: t.id })} aria-label={`Keep the topic ${t.name}`}>Keep</button>
-                      <button className="btn-ghost btn-sm" onClick={() => { setDeleted(t); run({ type: "dismissTopic", topicId: t.id }); }} aria-label={`Delete the topic ${t.name}`}>Delete</button>
+                      <button className="btn-ghost btn-sm" onClick={() => run({ type: "dismissTopic", topicId: t.id })} aria-label={`Delete topic: ${t.name}`}>Delete</button>
                     </span>
                   )}
                 </li>
@@ -246,13 +219,7 @@ export function IdeaPanel() {
           {ghosts.length > 0 && <p className="mt-2 text-12 text-fg-2">Suggested topics stay dashed until you keep or delete them. Keep the ones that are part of your question; you can edit any topic afterwards.</p>}
         </section>
       )}
-      {gone && (
-        <p role="status" className="flex flex-wrap items-center gap-2 rounded-sm border border-line px-2 py-1 text-fg-1">
-          <Trash2 className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden />
-          <span className="min-w-0 flex-1">Deleted the topic “{gone.name}”.</span>
-          <button ref={undoRef} className="btn-ghost btn-sm" disabled={!!local} onClick={undoDelete} aria-label={`Undo: bring back the topic ${gone.name}`}>{local === "undo" && <Spinner />} Undo</button>
-        </p>
-      )}
+      <TopicUndo />
 
       {ideaApproved && !data.topics.length && (
         <section aria-label="What we know so far">
@@ -470,8 +437,9 @@ export function TopicPanel({ topicId }: { topicId: string }) {
         <PanelFooter>
           {ghost ? (
             <>
-              <button className="btn-ghost" onClick={() => run({ type: "dismissTopic", topicId })}>Delete</button>
+              {/* The primary action comes first in tab order; Delete (Undo shows after it) follows it. */}
               <button className="btn-primary" onClick={() => run({ type: "acceptTopic", topicId })}>Keep this topic</button>
+              <button className="btn-ghost" onClick={() => run({ type: "dismissTopic", topicId })} aria-label={`Delete topic: ${t.name}`}>Delete</button>
             </>
           ) : (
             frontier && <ActionButton action={frontier} primary showReason />

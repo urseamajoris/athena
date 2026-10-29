@@ -70,7 +70,7 @@ function NodeCardImpl({ id, data }: NodeProps<FlowNode>) {
           <button tabIndex={tabbable ? 0 : -1} className="btn-secondary btn-sm flex-1" onClick={(e) => { e.stopPropagation(); run({ type: "acceptTopic", topicId: node.topicId! }); }}>
             <Check className="h-3 w-3" strokeWidth={2} aria-hidden /> Keep
           </button>
-          <button tabIndex={tabbable ? 0 : -1} className="btn-ghost btn-sm" aria-label={`Delete the topic ${node.title}`} onClick={(e) => { e.stopPropagation(); run({ type: "dismissTopic", topicId: node.topicId! }); }}>
+          <button tabIndex={tabbable ? 0 : -1} className="btn-ghost btn-sm" aria-label={`Delete topic: ${node.title}`} onClick={(e) => { e.stopPropagation(); run({ type: "dismissTopic", topicId: node.topicId! }); }}>
             <X className="h-3 w-3" strokeWidth={2} aria-hidden /> Delete
           </button>
         </div>
