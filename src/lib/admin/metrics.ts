@@ -106,7 +106,7 @@ export function verdict(i: VerdictInput): { level: Level; reasons: { level: Leve
   if (i.keyProblem) add("amber", i.keyProblem);
   for (const m of i.modelProblems) add("amber", m);
   const level: Level = reasons.some((r) => r.level === "red") ? "red" : reasons.length ? "amber" : "green";
-  if (!reasons.length) reasons.push({ level: "green", text: i.mockMode ? "Everything is healthy. Mock mode: nothing is spent." : "Everything is healthy." });
+  if (!reasons.length) reasons.push({ level: "green", text: i.mockMode ? "Demo mode: AI is scripted and nothing is spent. No problems found." : "No problems found." });
   return { level, reasons };
 }
 

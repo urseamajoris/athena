@@ -123,7 +123,7 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
           <Stat label="Input tokens" value={num(d.ai.totals.tokens.input)} sub={`${num(d.ai.totals.tokens.cached)} cached`} />
           <Stat label="Output tokens" value={num(d.ai.totals.tokens.output)} sub={`${num(d.ai.totals.tokens.reasoning)} reasoning`} />
           <Stat label="Latency p50 / p90" value={`${ms(d.ai.latency.p50)}`} sub={`p90 ${ms(d.ai.latency.p90)} · p99 ${ms(d.ai.latency.p99)}`} />
-          <Stat label="Validation retries" value={pct(d.ai.totals.retryRate)} sub={`${d.ai.totals.invalid} invalid · ${d.ai.totals.errors} errors · ${d.ai.totals.refused} refused · ${d.ai.totals.paused} paused`} />
+          <Stat label="Validation retries" value={pct(d.ai.totals.retryRate)} sub={`${d.ai.totals.invalid} invalid · ${d.ai.totals.errors} errors${d.ai.totals.blocked ? ` · ${num(d.ai.totals.blocked)} blocked, not sent` : ""}`} />
         </div>
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
           {([["Cost by step (30 days)", d.ai.byStage], ["Cost by model", d.ai.byModel], ["Cost by prompt version", d.ai.byPrompt]] as const).map(([t, rows]) => (
@@ -322,6 +322,8 @@ function AiKeyPanel({ d, refresh }: { d: AdminOverview; refresh: () => void }) {
           <p className="mt-1 text-fg-1">
             {k.inUse === "admin" ? <>Set here{k.admin && <span suppressHydrationWarning> {relTime(k.admin.setAt)} by {k.admin.setBy ?? "an admin"}</span>}. It overrides the environment key.</> : k.inUse === "environment" ? "From the server environment (XAI_API_KEY)." : "Neither the environment nor this dashboard provides a key."}
           </p>
+          {/* Demo mode never calls the model, so a key on the server is neither used nor charged. */}
+          {d.mode.mockAi && <p className="mt-1 font-medium text-fg-0">Demo mode: no key is used and nothing is spent.</p>}
           {k.problem && <p className="mt-1 text-12 text-warn">{k.problem}</p>}
           {k.lastTest && (
             <p className={cx("mt-1 flex items-start gap-1 text-12", k.lastTest.ok ? "text-ok" : "text-fg-1")}>

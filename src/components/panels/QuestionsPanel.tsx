@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Check, Pencil } from "lucide-react";
+import { AlertTriangle, Check, Pencil } from "lucide-react";
 import { api, projectPath, useApi } from "../api";
 import { Badge, EmptyState, ErrorState, Loading, Spinner, cx } from "../ui";
 import { Disclosure } from "../disclosure";
@@ -9,6 +9,7 @@ import { ActionButton, JobLog, JobStatus, PanelFooter, StaleNotice } from "./com
 import { ClaimChip, type ClaimRef, type PaperRef } from "./evidence";
 import { nextAction } from "@/lib/canvas/actions";
 import { fmtInt } from "@/lib/shared/format";
+import { noveltyVerdict } from "@/lib/shared/novelty";
 import { WhatHappens } from "../guide/WhatHappens";
 
 /** What each question framework's letters stand for (shown next to its name, never as a bare acronym). */
@@ -55,6 +56,8 @@ export function useQuestions() {
 export function QuestionsPanel() {
   const { projectId, refresh, states, graph, input } = useSession();
   const { data, error, isLoading, mutate } = useQuestions();
+  // Demo mode: the novelty search returns recorded sample records, which the verdict must say.
+  const demo = !!useApi<{ mockMode: boolean }>("/api/status").data?.mockMode;
   const [err, setErr] = useState<unknown>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -100,7 +103,7 @@ export function QuestionsPanel() {
         <>
           <WhatHappens stage={9} />
           <p className="text-fg-1">Compare the gap each one fills, how feasible it is and its main weakness, then choose one. Once chosen, “Edit this question” lets you change its wording.</p>
-          <p className="text-12 text-fg-2">The novelty check is a fresh database search for similar studies. Finding none does not prove a question is new.</p>
+          <p className="text-12 text-fg-2">The novelty check searches the databases again for each question and compares the top records with it. Finding no similar study does not prove a question is new.</p>
           <ul className="space-y-3" aria-label="Candidate research questions">
             {data.questions.map((q, i) => {
               const fw = frameworkOf(q);
@@ -121,6 +124,7 @@ export function QuestionsPanel() {
                   <dt className="text-fg-2">Feasibility</dt><dd className="line-clamp-2 text-fg-1">{q.feasibility}</dd>
                   <dt className="text-fg-2">Weakness</dt><dd className="line-clamp-2 text-fg-1">{q.weakness}</dd>
                   <dt className="text-fg-2">Structure</dt><dd className="text-fg-1">{fw}{FRAMEWORK[fw] ? ` (${FRAMEWORK[fw]})` : ""}</dd>
+                  <dt className="text-fg-2">Novelty check</dt><dd className="text-fg-1">{noveltyVerdict(q, { demo }).headline}{demo && <span className="text-fg-2"> (demo: sample records)</span>}</dd>
                 </dl>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button className={cx("btn-secondary", q.chosen && "border-fg-0")} onClick={() => choose(q.id)} disabled={q.chosen || finished || !!busy} aria-pressed={q.chosen}>
@@ -148,7 +152,7 @@ export function QuestionsPanel() {
                     <p>{q.feasibility}</p>
                     <h4 className="label mt-3">Main weakness</h4>
                     <p>{q.weakness}</p>
-                    <Novelty q={q} onRerun={(d) => mutate(d, { revalidate: false })} />
+                    <Novelty q={q} demo={demo} onRerun={(d) => mutate(d, { revalidate: false })} />
                   </Disclosure>
                 </div>
               </li>
@@ -167,31 +171,35 @@ export function QuestionsPanel() {
   );
 }
 
-function Novelty({ q, onRerun }: { q: RQ; onRerun: (d: QData) => void }) {
+function Novelty({ q, demo, onRerun }: { q: RQ; demo: boolean; onRerun: (d: QData) => void }) {
   const { projectId } = useSession();
   const [busy, setBusy] = useState(false);
+  const v = noveltyVerdict(q, { demo });
   return (
     <div className="mt-3 rounded-sm bg-bg-2 p-3 text-12">
       <div className="flex items-center justify-between gap-2">
         <p className="font-medium text-fg-1">Novelty check: what was found</p>
         <button className="btn-ghost btn-sm" disabled={busy} onClick={async () => { setBusy(true); try { onRerun(await api(projectPath(projectId, `questions/${q.id}/novelty`), { body: {} })); } finally { setBusy(false); } }}>{busy ? <Spinner className="h-3 w-3" /> : "Re-run"}</button>
       </div>
-      <ul className="mt-1 space-y-1 text-fg-2">
+      {/* The verdict first: whether a top record looks like the same question, then what the counts mean. */}
+      <p className="mt-1 text-fg-0">{v.headline}</p>
+      {v.notes.map((n) => <p key={n} className="mt-1 text-fg-1">{n}</p>)}
+      <ul className="mt-2 space-y-1 text-fg-2">
         {q.noveltyQueries.map((n) => (
-          <li key={n.database}><strong className="font-medium">{n.database}</strong>: {n.error ? <span className="text-err">failed: {n.error}</span> : `${n.count == null ? "?" : fmtInt(n.count)} matching records`}<code className="block truncate font-mono" title={n.query}>{n.query}</code></li>
+          <li key={n.database}><strong className="font-medium">{n.database}</strong>: {n.error ? <span className="text-err">failed: {n.error}</span> : `${n.count == null ? "?" : fmtInt(n.count)} records contain the search words${demo ? " (sample count)" : ""}`}<code className="block truncate font-mono" title={n.query}>{n.query}</code></li>
         ))}
       </ul>
-      {q.noveltyStatus === "pending" && <p className="mt-1 text-fg-2">Searching…</p>}
-      <ol className="mt-2 space-y-2">
-        {q.noveltyMatches.slice(0, 6).map((m, i) => (
+      {q.noveltyMatches.length > 0 && <p className="mt-2 text-fg-2">Top records{demo ? " (recorded samples)" : ""}:</p>}
+      <ol className="mt-1 space-y-2">
+        {q.noveltyMatches.map((m, i) => (
           <li key={i} className="text-fg-1">
             {m.title} <span className="text-fg-2">({m.year ?? "n.d."})</span>
             <span className="block text-fg-2">
               {m.doi ? <a className="link" href={`https://doi.org/${m.doi}`} target="_blank" rel="noreferrer">DOI {m.doi}</a> : m.pmid ? <a className="link" href={`https://pubmed.ncbi.nlm.nih.gov/${m.pmid}/`} target="_blank" rel="noreferrer">PMID {m.pmid}</a> : m.openalexId ? `OpenAlex ${m.openalexId}` : ""} · {m.similarityNote}
             </span>
+            {v.close[i] && <span className="mt-0.5 flex items-center gap-1 font-medium text-fg-0"><AlertTriangle className="h-3 w-3 shrink-0 text-warn" strokeWidth={2} aria-hidden /> Looks like the same question</span>}
           </li>
         ))}
-        {q.noveltyStatus === "done" && !q.noveltyMatches.length && <li className="text-fg-2">No closely matching records were returned. This does not prove the question is new.</li>}
       </ol>
     </div>
   );
