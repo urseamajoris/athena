@@ -1640,7 +1640,7 @@
     "severity": "minor",
     "category": "clarity",
     "page": "Admin dashboard, AI & API key panel and Models row",
-    "what_happened": "In mock mode the key panel shows a masked key ending \u2022\u2022\u2022\u2022RWBq 'From the server environment (XAI_API_KEY)', with active Test key and Set a key buttons. The same key tail is shown on all 7 servers. The Models row says 'mock \u00b7 mock \u00b7 mock' but the cost-by-model table lists 'grok-4.3' and 'grok-4.20-0309-reasoning' with call counts. An admin cannot tell whether a real key is present or whether any paid model was used.",
+    "what_happened": "In mock mode the key panel shows a masked key ending \u2022\u2022\u2022\u2022[last 4 redacted] 'From the server environment (XAI_API_KEY)', with active Test key and Set a key buttons. The same key tail is shown on all 7 servers. The Models row says 'mock \u00b7 mock \u00b7 mock' but the cost-by-model table lists 'grok-4.3' and 'grok-4.20-0309-reasoning' with call counts. An admin cannot tell whether a real key is present or whether any paid model was used.",
     "expected": "Mock mode states plainly 'No key is used in demo mode', or the cost table labels these rows 'mock (stands in for grok-4.3)'.",
     "evidence": "docs/qa/iteration-2/admin/05-dash-4101-top.jpg, docs/qa/iteration-2/admin/11-models.jpg and the Cost by model text on every server",
     "suggested_fix": "Label mock calls as 'mock' in cost-by-model and cost-by-prompt tables. In mock mode say 'Key not used in demo mode' next to the masked tail."
