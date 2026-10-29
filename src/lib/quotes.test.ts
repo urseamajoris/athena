@@ -108,8 +108,7 @@ test("an ellipsis quote fails if any part is altered or too short", () => {
   assert.match(scraps.note, /at least 4 words/);
   assert.equal(verifyQuote(paper, "A total of 3754 and 8439 HCWs … which clearly proves the intervention works everywhere").verified, false);
 });
-test("the deliberately altered mock quote still fails", () => {
-  // mock.ts keeps the first six words of a real quote and appends an overstatement.
+test("a real opening followed by an overstatement still fails", () => {
   const q = "A total of 3754 and 8439 which clearly proves the intervention works everywhere";
   assert.equal(verifyQuote(paper, q).verified, false);
   assert.equal(joinedWithoutEllipsis(paper, q), null);

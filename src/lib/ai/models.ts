@@ -1,5 +1,5 @@
 import "server-only";
-import { config, guardPaid, type ModelRole } from "../config";
+import { config, countPaid, type ModelRole } from "../config";
 import { effectiveXaiKey } from "../settings";
 import { redactSecrets } from "../auth/secrets";
 
@@ -12,7 +12,7 @@ interface Resolution {
   role: ModelRole;
   configured: string;
   resolved: string;
-  status: "ok" | "substituted" | "unchecked" | "mock";
+  status: "ok" | "substituted" | "unchecked";
   note: string;
 }
 
@@ -22,7 +22,7 @@ function initial(): Record<ModelRole, Resolution> {
   const out = {} as Record<ModelRole, Resolution>;
   for (const role of Object.keys(config.models) as ModelRole[]) {
     const id = config.models[role];
-    out[role] = { role, configured: id, resolved: id, status: config.mockAi ? "mock" : "unchecked", note: config.mockAi ? "MOCK_MODE: canned responses" : "not yet checked" };
+    out[role] = { role, configured: id, resolved: id, status: "unchecked", note: "not yet checked" };
   }
   return out;
 }
@@ -56,16 +56,12 @@ async function listModels(key: string): Promise<string[]> {
   return j.data.map((m) => m.id);
 }
 
-/**
- * The dashboard's "Test key": the same /v1/models check the server runs at start, for the key in force.
- * Outside production no request is made (paid-API guard), and the result says so.
- */
+/** The dashboard's "Test key": the same /v1/models check the server runs at start, for the key in force. */
 export async function testKey(): Promise<{ ok: boolean; message: string; source: "admin" | "environment" | "none" }> {
   const { key, source, error } = await effectiveXaiKey();
   if (!key) return { ok: false, message: "No key is configured.", source };
-  if (!config.production) return { ok: false, message: "Not tested: outside production (ATHENA_ENV=production) the server never contacts xAI.", source };
   try {
-    guardPaid("xai", "key test (GET /v1/models)");
+    countPaid();
     const ids = await listModels(key);
     const missing = Object.values(config.models).filter((m) => !ids.includes(m));
     g.__modelsChecked = undefined; // re-resolve models with this key on the next status read
@@ -75,10 +71,16 @@ export async function testKey(): Promise<{ ok: boolean; message: string; source:
   }
 }
 
+/** Confirms the model IDs whenever a key is configured; with no key every role stays unchecked and says why. */
 export async function checkModels(): Promise<void> {
-  if (config.mockAi || !config.production) return;
   const { key } = await effectiveXaiKey();
-  if (!key) return;
+  if (!key) {
+    const res = modelResolutions();
+    for (const role of Object.keys(res) as ModelRole[]) res[role] = { ...res[role], resolved: res[role].configured, status: "unchecked", note: "no xAI key configured" };
+    g.__modelsChecked = undefined;
+    g.__modelsKey = undefined;
+    return;
+  }
   if (g.__modelsChecked && g.__modelsKey === key) return g.__modelsChecked;
   g.__modelsKey = key;
   g.__modelsChecked = (async () => {

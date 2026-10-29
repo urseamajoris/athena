@@ -22,8 +22,6 @@ export async function statusView(user: SessionUser) {
   await checkModels();
   const base = {
     production: config.production,
-    mockMode: config.mockMode,
-    mockAi: config.mockAi,
     models: modelResolutions(),
     maxResultsPerQuery: config.maxResultsPerQuery,
     user: { email: user.email, name: user.name, role: user.role },

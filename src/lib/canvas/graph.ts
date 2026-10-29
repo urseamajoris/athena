@@ -53,7 +53,7 @@ export interface GNode {
   topicId?: string;
   claimId?: string;
   progress?: { done: number; total: number };
-  /** Its job is paused (AI switched off or budget reached): work is kept and resumes later. */
+  /** Its job is paused (AI switched off, no xAI key, or budget reached): work is kept and resumes later. */
   paused?: boolean;
   trust?: Trust;
   staleReason?: string;

@@ -120,7 +120,6 @@ export async function appraisalJob(ctx: JobContext) {
             year: String(paper.year ?? "n/a"),
             text: wrapData(`source text of ${paper.id}`, sent),
           },
-          mockInput: { paper, text: sent, checklist },
           check: (o) => {
             const missing = EXTRACTION_FIELDS.filter((f) => !o.extractions.some((e) => e.field === f));
             if (missing.length) return `Missing extraction fields: ${missing.join(", ")}`;

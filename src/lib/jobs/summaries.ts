@@ -49,7 +49,6 @@ export async function summariesJob(ctx: JobContext) {
               .map((p) => wrapData(`paper ${p.id}`, `ID: ${p.id}\nTitle: ${p.title}\nPublication types: ${p.publicationTypes.join(", ") || "n/a"}\nAbstract: ${(p.abstract ?? "").slice(0, MAX_ABSTRACT)}`))
               .join("\n\n"),
           },
-          mockInput: batch,
           check: (o) => {
             const bad = unknownIds(o.rows.map((r) => r.paperId), ids);
             if (bad.length) return `Unknown paperId(s): ${bad.join(", ")}`;

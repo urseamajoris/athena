@@ -68,7 +68,6 @@ export async function rankingJob(ctx: JobContext) {
               })
               .join("\n\n"),
           },
-          mockInput: { batch, summaries: batch.map((x) => sum.get(x.id) ?? null), topic },
           check: (o) => {
             const bad = unknownIds(o.scores.map((r) => r.paperId), ids);
             if (bad.length) return `Unknown paperId(s): ${bad.join(", ")}`;
@@ -124,7 +123,6 @@ export async function rankingJob(ctx: JobContext) {
       projectId,
       stage: 6,
       vars: { idea: wrapData("research idea", p.idea), topics: wrapData("topics", stats.join("\n")) },
-      mockInput: { topics },
       check: (o) => {
         const bad = unknownIds(o.order.map((x) => x.topicId), topicIds);
         if (bad.length) return `Unknown topicId(s): ${bad.join(", ")}`;

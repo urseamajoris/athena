@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { looksLikeSameQuestion, noveltyVerdict, stems, type NoveltyInput } from "./novelty";
 
 const q = (over: Partial<NoveltyInput> = {}): NoveltyInput => ({
-  text: "(mock) Does tele-rehabilitation improve walking in adults over 65 after hip fracture surgery?",
+  text: "Does tele-rehabilitation improve walking in adults over 65 after hip fracture surgery?",
   structure: { Population: "Adults over 65 after hip fracture surgery", Intervention: "Tele-rehabilitation", Comparison: "Usual care", Outcome: "Walking ability" },
   noveltyQueries: [
     { database: "pubmed", query: "x", count: 2207, error: null },
@@ -16,7 +16,7 @@ const q = (over: Partial<NoveltyInput> = {}): NoveltyInput => ({
 
 test("stems drop question words and endings", () => {
   assert.deepEqual(stems("How do nurses and nursing students sleep?"), ["nurs", "nurs", "studen", "sleep"]);
-  assert.deepEqual(stems("(mock) Diabetes"), ["diabet"]);
+  assert.deepEqual(stems("Diabetes"), ["diabet"]);
 });
 
 test("a title on the same question is close; an unrelated one is not", () => {
@@ -42,15 +42,12 @@ test("counts the top records that look like the same question", () => {
   assert.match(none.headline, /^The top record does not look like the same question/);
 });
 
-test("zero records, failures, pending and demo mode", () => {
+test("zero records, failures and pending", () => {
   const zero = noveltyVerdict(q({ noveltyQueries: [{ database: "pubmed", query: "x", count: 0, error: null }] }));
   assert.match(zero.headline, /^No records contain these search words/);
   assert.deepEqual(zero.notes, []);
   assert.match(noveltyVerdict(q({ noveltyQueries: [{ database: "pubmed", query: "x", count: null, error: "timeout" }], noveltyStatus: "failed" })).headline, /search failed/);
   assert.match(noveltyVerdict(q({ noveltyStatus: "pending" })).headline, /Searching/);
-  const demo = noveltyVerdict(q(), { demo: true });
-  assert.match(demo.notes[0], /^Demo mode: these counts and records are recorded samples/);
-  assert.equal(demo.notes.length, 1);
 });
 
 test("hyphen spellings match, a generic word alone does not, and the intervention is required", () => {
@@ -59,13 +56,10 @@ test("hyphen spellings match, a generic word alone does not, and the interventio
   assert.equal(looksLikeSameQuestion(q(), "Walking ability in adults after hip fracture surgery"), false);
 });
 
-test("a large count is never headlined as a sign the question is new; demo records never are", () => {
+test("a large count is never headlined as a sign the question is new", () => {
   const busy = noveltyVerdict(q({ noveltyQueries: [{ database: "pubmed", query: "x", count: 8058, error: null }], noveltyMatches: [{ title: "Precision medicine in Thailand" }] }));
   assert.doesNotMatch(busy.headline, /suggests/);
   assert.match(busy.headline, /8,058 records/);
-  const demo = noveltyVerdict(q({ noveltyMatches: [{ title: "Precision medicine in Thailand" }] }), { demo: true });
-  assert.doesNotMatch(demo.headline, /suggests/);
-  assert.match(demo.headline, /recorded sample/);
 });
 
 // Real run 2 (undergraduate): an unrelated title was flagged, and the paper in the review that asks the question was not.
@@ -79,10 +73,10 @@ test("a title on the same exposure but another outcome is not the same question"
   assert.equal(looksLikeSameQuestion(gpa(), "Association between Sleep Quality and Duration and Periodontal Disease among University Students"), false);
   assert.equal(looksLikeSameQuestion(gpa(), "Sleep duration and quality in university students: a cross-sectional survey"), true);
 });
-test("the review's own papers are checked too, even in demo mode", () => {
+test("the review's own papers are checked too", () => {
   const own = "Consequences of inadequate sleep during the college years: sleep deprivation, GPA and college graduation";
   assert.equal(looksLikeSameQuestion(gpa(), own), true);
-  const v = noveltyVerdict(gpa(), { demo: true, ownTitles: ["Precision medicine in Thailand", own] });
+  const v = noveltyVerdict(gpa(), { ownTitles: ["Precision medicine in Thailand", own] });
   assert.deepEqual(v.own, [own]);
   assert.match(v.headline, /^One of the papers in this review looks like the same question/);
 });

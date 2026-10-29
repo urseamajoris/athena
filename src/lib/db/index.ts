@@ -11,7 +11,7 @@ import { config } from "../config";
 type DB = LibSQLDatabase<typeof schema>;
 const g = globalThis as unknown as { __athenaDb?: DB; __athenaClient?: Client; __athenaReady?: Promise<void> };
 
-/** Turso when TURSO_DATABASE_URL is set (with TURSO_AUTH_TOKEN); otherwise a local SQLite file (dev, tests, mock runs). */
+/** Turso when TURSO_DATABASE_URL is set (with TURSO_AUTH_TOKEN); otherwise a local SQLite file (dev, tests). */
 export function databaseUrl(): string {
   const remote = process.env.TURSO_DATABASE_URL?.trim();
   if (remote) return remote;

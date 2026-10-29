@@ -9,7 +9,7 @@ import { deleteUserAndData } from "../auth/account";
 import { fingerprint } from "../auth/secrets";
 import { config } from "../config";
 import { testKey } from "../ai/models";
-import { aiSwitch, budgetSetting, clearBudget, clearXaiKey, keyStatus, recordKeyTest, saveXaiKey, setAiEnabled, setBudget, SettingsError } from "../settings";
+import { aiEnabled, aiSwitch, budgetSetting, clearBudget, clearXaiKey, effectiveXaiKey, keyStatus, recordKeyTest, saveXaiKey, setAiEnabled, setBudget, SettingsError } from "../settings";
 import { resumePausedJobs } from "../jobs";
 
 async function target(id: string) {
@@ -74,6 +74,7 @@ export async function setAi(admin: SessionUser, enabled: boolean) {
 }
 
 export async function setKey(admin: SessionUser, key: string) {
+  const hadKey = !!(await effectiveXaiKey()).key;
   try {
     const { fingerprint: fp } = await saveXaiKey(key, admin.id);
     await audit("admin", "xai_key_set", { actorId: admin.id, detail: { fingerprint: fp } });
@@ -81,7 +82,9 @@ export async function setKey(admin: SessionUser, key: string) {
     if (e instanceof SettingsError) throw new HttpError(409, e.message);
     throw e;
   }
-  return keyStatus();
+  // Jobs paused for want of a key pick up again, as they do when AI is switched back on.
+  const resumed = !hadKey && (await aiEnabled()) ? await resumePausedJobs() : 0;
+  return { ...(await keyStatus()), resumedJobs: resumed };
 }
 
 export async function clearKey(admin: SessionUser) {
