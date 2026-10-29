@@ -7,6 +7,7 @@ import { structuredCall, isAiStop } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { Appraisal, EXTRACTION_FIELDS } from "../stages/ai-schemas";
 import { CHECKLISTS, FIELD_GUIDANCE, TEMPLATE_LABEL, templateFor } from "../stages/templates";
+import { dropSharedQuotes } from "../stages/checklist";
 import { closestPassage, joinedWithoutEllipsis, normalizeWithMap, sectionAt, verifyQuote } from "../quotes";
 import { errMsg, newId } from "../util";
 import { logDecision } from "../project";
@@ -145,13 +146,17 @@ export async function appraisalJob(ctx: JobContext) {
           return id;
         };
         for (const e of data.extractions) mk(e.field, e.statement, e.quote, e.location, e.notReported);
-        // One answer per canonical checklist item (in template order), using the template's wording.
-        const answers = checklist.map((item) => data.checklist.find((c) => itemKey(c.item) === itemKey(item))!);
+        // One answer per canonical checklist item (in template order), using the template's wording. A quote the AI
+        // gave for several questions backs none of them: those answers become "not reported" (see dropSharedQuotes).
+        const answers = dropSharedQuotes(checklist.map((item) => data.checklist.find((c) => itemKey(c.item) === itemKey(item))!));
         const cl: ChecklistItem[] = answers.map((c, i) => ({
           item: checklist[i],
           answer: c.answer,
           claimId: c.answer === "not_reported" && !c.quote.trim() ? null : mk("checklist", `${c.item}: ${c.answer.replace("_", " ")}`, c.quote, c.location, c.answer === "not_reported" && !c.quote.trim()),
+          ...(c.downgraded ? { downgraded: c.downgraded } : {}),
         }));
+        const shared = answers.filter((c) => c.downgraded).length;
+        if (shared) (await ctx.log(`${paper.id}: ${shared} checklist answers shared one quote and were set to not reported`));
         {
     const stmts: BatchItem<"sqlite">[] = [];
                     for (const r of claimRows) stmts.push(db.insert(schema.claims).values(r));

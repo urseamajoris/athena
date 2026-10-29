@@ -4,7 +4,7 @@ import { api, projectPath, useApi } from "../api";
 import { ErrorState, Loading, Spinner } from "../ui";
 import { Disclosure } from "../disclosure";
 import { canvasStore, useSession } from "../session/SessionContext";
-import { FOUND_MEANS, QuoteVerdict, SourcePassage, partsSuffix } from "./evidence";
+import { CheckNote, FOUND_MEANS, QuoteVerdict, SourcePassage, judgeLine, partsSuffix } from "./evidence";
 import type { AppraisalDetailData } from "./AppraisalPanel";
 
 /** Quote node: does the quote match its source? Quote beside the highlighted passage, and the verdict. */
@@ -50,11 +50,11 @@ export function QuotePanel({ claimId }: { claimId: string }) {
               {partsSuffix(c) && c.verificationNote && <p className="mt-1 text-12 text-fg-2">{c.verificationNote} The passage above is the first part.</p>}
             </>
           ) : (
-            <p className="rounded-sm border border-err-line px-3 py-2 text-fg-1">Not found word for word in the retrieved text. {c.verificationNote?.replace(/^(UNVERIFIED:\s*)?(Quote not found in the retrieved source text\.\s*)?/, "")}</p>
+            <div className="rounded-sm border border-err-line px-3 py-2"><CheckNote note={c.verificationNote} muted={c.userAccepted || c.userRejected} /></div>
           )}
         </section>
       </div>
-      <p className="text-12 text-fg-2">{FOUND_MEANS} Nor does it prove the sentence above says the same as the quote.</p>
+      <p className="text-12 text-fg-2">{c.verified ? `${FOUND_MEANS} ` : ""}{judgeLine("statement")}</p>
       {!c.verified && c.userRejected && <p className="text-12 text-fg-2">Rejected: left out of the synthesis.</p>}
       <div className="flex flex-wrap gap-2">
         {busy && <Spinner />}

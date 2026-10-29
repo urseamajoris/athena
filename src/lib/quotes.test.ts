@@ -127,3 +127,24 @@ test("partsLabel counts parts like the check does", () => {
   assert.equal(partsLabel("one two three four ... five six seven eight"), ", in two parts");
   assert.equal(partsLabel("one two three four […] five six seven eight . . . nine ten eleven twelve"), ", in three parts");
 });
+
+import { plainNote } from "./quotes";
+test("plainNote leads with one plain sentence and keeps the check's note as detail", () => {
+  const paper = "RESULTS\nBlood pressure fell in the app group. Weight did not change. Adherence improved in the app group at six months.";
+  // Built the way the appraisal job builds a note (the check's note, then the joined-without-ellipsis explanation).
+  const q = "Blood pressure fell in the app group. Adherence improved in the app group at six months.";
+  const joined = `${verifyQuote(paper, q).note} ${joinedWithoutEllipsis(paper, q)}`;
+  const j = plainNote(joined);
+  assert.equal(j.lead, "Both parts are in the paper, but not together.");
+  assert.match(j.detail!, /^Each of its two sentences is in the paper word for word, but not next to each other/);
+  assert.equal(plainNote("Quote not found in the retrieved source text. Each of its four sentences is in the paper word for word, but not next to each other: x").lead, "All four parts are in the paper, but not together.");
+  // Nothing more to say than "not found": no detail to show.
+  assert.deepEqual(plainNote(verifyQuote(paper, "Weight fell sharply in the control group").note), { lead: "These words are not in the paper.", detail: null });
+  assert.equal(plainNote('Quote not found in the retrieved source text. Closest passage in the text (77% of words match): "…"').lead, "These words are not in the paper.");
+  assert.equal(plainNote(verifyQuote(paper, "Adherence improved in the app group ... Blood pressure fell in the app group").note).lead, "All parts are in the paper, but in a different order.");
+  assert.equal(plainNote(verifyQuote(paper, "Blood pressure fell in the app group ... Weight rose a great deal").note).lead, "One part of the quote is not in the paper.");
+  // Notes written by an older check still get a plain sentence.
+  assert.equal(plainNote('Fragment not found in source text: "abc" Closest passage in the text (60% of words match): "x"').lead, "One part of the quote is not in the paper.");
+  assert.equal(plainNote('UNVERIFIED: Quote not found in the retrieved source text. Closest passage in the text (the same words, but not in this order or form): "x"').lead, "The same words are in the paper, but in a different order or form.");
+  assert.equal(plainNote(null).lead, "These words are not in the paper.");
+});

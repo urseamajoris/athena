@@ -6,14 +6,16 @@ import { Badge, EmptyState, ErrorState, Loading, Spinner, TextSourceBadge, cx } 
 import { Disclosure } from "../disclosure";
 import { canvasStore, useJobRefresh, useSession } from "../session/SessionContext";
 import { ActionButton, JobLog, JobStatus, PanelFooter, SectionTitle, StaleNotice } from "./common";
-import { FOUND_MEANS, PinButton, QuoteVerdict, SourcePassage } from "./evidence";
+import { CheckNote, PinButton, QuoteVerdict, SourcePassage, VerdictLegend } from "./evidence";
+import { downgradeNote } from "@/lib/stages/checklist";
+import type { ChecklistItem } from "@/lib/db/schema";
 import { nextAction } from "@/lib/canvas/actions";
 import { isUndecided } from "@/lib/shared/canvas";
 import { fmtInt } from "@/lib/shared/format";
 import { Checklist } from "../guide/Checklist";
 import { appraisalChecks } from "../guide/checklist-rules";
 import { WhatHappens } from "../guide/WhatHappens";
-import { usingKeyboard } from "../canvas/focus";
+import { revealInPanel, usingKeyboard } from "../canvas/focus";
 
 export interface AppraisalRow {
   id: string; paperId: string; status: string; error: string | null; textSource: string; textNote: string; templateType: string;
@@ -23,7 +25,7 @@ export interface AppraisalRow {
 }
 export interface Claim { id: string; field: string; statement: string; quote: string; location: string; notReported: boolean; verified: boolean; userAccepted: boolean; userRejected: boolean; matchStart: number | null; matchEnd: number | null; verificationNote: string | null; paperId: string; appraisalId: string }
 export interface AppraisalDetailData {
-  appraisal: { id: string; textSource: string; textNote: string; templateType: string; checklist: { item: string; answer: string; claimId: string | null }[]; status: string; error: string | null; model: string | null; charsSentToModel: number | null };
+  appraisal: { id: string; textSource: string; textNote: string; templateType: string; checklist: ChecklistItem[]; status: string; error: string | null; model: string | null; charsSentToModel: number | null };
   paper: { id: string; title: string; year: number | null; doi: string | null; pmid: string | null; pmcid: string | null };
   sourceText: { kind?: string; text: string; source: string; license: string | null; url: string | null; sections: { title: string; start: number }[] } | null;
   claims: Claim[];
@@ -34,6 +36,9 @@ export const TEMPLATE_LABEL: Record<string, string> = { trial: "Trial", cohort: 
 const ANSWER_TONE: Record<string, "ok" | "err" | "neutral" | "warn"> = { yes: "ok", no: "err", not_reported: "neutral", unclear: "warn" };
 const ANSWER_LABEL: Record<string, string> = { yes: "Yes", no: "No", not_reported: "Not reported", unclear: "Unclear" };
 
+/** The paper last shown in the Appraisal panel, per project (for this page visit). */
+const shownPaper = new Map<string, string>();
+
 export function useAppraisals() {
   const { projectId } = useSession();
   const r = useApi<{ appraisals: AppraisalRow[] }>(projectPath(projectId, "appraisals"));
@@ -43,11 +48,21 @@ export function useAppraisals() {
 
 /** Appraisal node: finish one appraisal at a time (checklist + extracted claims with verified quotes). */
 export function AppraisalPanel() {
-  const { projectId, ui, graph, input, states } = useSession();
+  const { projectId, ui, graph, input, states, announce } = useSession();
   const { data, error, isLoading, mutate } = useAppraisals();
   const list = useMemo(() => data?.appraisals ?? [], [data]);
-  const [active, setActive] = useState<string | null>(null);
+  // The paper on screen is remembered for the project, so closing and reopening the panel (or anything that remounts
+  // it) does not send the user back to paper 1.
+  const [active, setActiveState] = useState<string | null>(() => shownPaper.get(projectId) ?? null);
+  const setActive = (id: string) => {
+    shownPaper.set(projectId, id);
+    setActiveState(id);
+  };
   const [onlyOpen, setOnlyOpen] = useState(false);
+  // "Next quote to decide": the last quote it moved to, and a paper whose first quote to decide is shown once loaded.
+  const detailRef = useRef<HTMLDivElement>(null);
+  const lastJump = useRef<string | null>(null);
+  const [revealIn, setRevealIn] = useState<string | null>(null);
   const firstUnreviewed = list.find((a) => a.status === "done" && !ui.reviewed.includes(a.id)) ?? list.find((a) => a.status === "done");
   const current = list.find((a) => a.id === active) ?? firstUnreviewed ?? null;
   const idx = current ? list.findIndex((a) => a.id === current.id) : -1;
@@ -59,6 +74,7 @@ export function AppraisalPanel() {
   // Ticked only once every paper's appraisal has finished (while they run, "0 of 11 looked at, 0 left" is not done).
   const checks = appraisalChecks({ running: states["7"] === "running", appraisals: list, reviewed: ui.reviewed, undecided: totals.left });
   const leftOut = `${totals.left} quote${totals.left === 1 ? "" : "s"} you have not decided will be left out of the synthesis.`;
+  const toDecideOn = list.flatMap((a, i) => (a.counts.undecided > 0 ? [i + 1] : []));
 
   if (isLoading) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
@@ -69,6 +85,28 @@ export function AppraisalPanel() {
     const next = list[Math.min(list.length - 1, Math.max(0, idx + delta))];
     if (next) setActive(next.id);
   }
+  function revealQuote(el: HTMLElement) {
+    lastJump.current = el.dataset.quote ?? null;
+    el.scrollIntoView({ block: "center" });
+    revealInPanel(el);
+    el.querySelector<HTMLElement>("[data-decide]")?.focus({ preventScroll: true });
+  }
+  /** The next quote still to decide: on this paper after the last one moved to, then on the next paper that has one. */
+  function nextToDecide() {
+    const here = [...(detailRef.current?.querySelectorAll<HTMLElement>("[data-quote][data-undecided]") ?? [])];
+    const after = here[here.findIndex((q) => q.dataset.quote === lastJump.current) + 1];
+    if (after) return revealQuote(after);
+    const other = (idx < 0 ? list : [...list.slice(idx + 1), ...list.slice(0, idx)]).find((a) => a.counts.undecided > 0);
+    if (other) {
+      lastJump.current = null;
+      setActive(other.id);
+      setRevealIn(other.id);
+      announce(`Paper ${list.indexOf(other) + 1} of ${list.length}: ${other.counts.undecided} quote${other.counts.undecided === 1 ? "" : "s"} to decide.`);
+    } else if (here[0]) revealQuote(here[0]);
+  }
+  const nextButton = totals.left > 0 && (
+    <button className="btn-secondary" onClick={nextToDecide}>Next quote to decide</button>
+  );
   const last = idx === list.length - 1;
   const markLast = current && last && current.status === "done" && !ui.reviewed.includes(current.id);
 
@@ -89,19 +127,35 @@ export function AppraisalPanel() {
               { label: "Then summarise the evidence", done: states["7"] === "approved" },
             ]}
           />
-          <p className="text-12 text-fg-1">
-            For each quality question the AI gives an answer (<span className="text-fg-0">Yes, No, Unclear, Not reported</span>) and a quote from the paper. Athena then looks for the quote word for word: <span className="text-ok">✓ found word for word</span> or <span className="text-err">✗ not found, you decide</span>. {FOUND_MEANS}
-          </p>
-          <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} /> Show only quotes I need to decide</label>
+          <div className="text-12 text-fg-1">
+            For each quality question the AI gives an answer (<span className="text-fg-0">Yes, No, Unclear, Not reported</span>) and a quote from the paper. Athena then looks for the quote&apos;s exact words in the paper:
+            <VerdictLegend />
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            {/* Filtering keeps the paper on screen (it is pinned first, in case it was only shown by default). */}
+            <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={onlyOpen} onChange={(e) => { if (current) setActive(current.id); setOnlyOpen(e.target.checked); }} /> Show only quotes I need to decide</label>
+            {nextButton}
+          </div>
           <div className="flex items-center gap-2">
             <button className="btn-ghost h-11 w-11 px-0" onClick={() => go(-1)} disabled={idx <= 0} aria-label="Previous paper"><ChevronLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden /></button>
             <p className="flex-1 text-center" aria-live="polite">
               <span className="font-medium tabular-nums">Paper {idx + 1} of {list.length}</span>
-              <span className="block text-12 tabular-nums text-fg-2">{reviewed}/{list.length} reviewed · {totals.ft} full text · {totals.left} quote{totals.left === 1 ? "" : "s"} to decide</span>
+              <span className="block text-12 tabular-nums text-fg-2">{reviewed}/{list.length} reviewed · {totals.ft} full text · {totals.left} quote{totals.left === 1 ? "" : "s"} to decide{toDecideOn.length ? ` (paper ${toDecideOn.join(", ")})` : ""}</span>
             </p>
             <button className="btn-ghost h-11 w-11 px-0" onClick={() => go(1)} disabled={last} aria-label="Next paper (marks this one reviewed)"><ChevronRight className="h-4 w-4" strokeWidth={1.5} aria-hidden /></button>
           </div>
-          {current && <AppraisalDetail key={current.id} row={current} onChanged={() => mutate()} onlyOpen={onlyOpen} />}
+          {current && (
+            <div ref={detailRef}>
+              <AppraisalDetail
+                key={current.id}
+                row={current}
+                onChanged={() => mutate()}
+                onlyOpen={onlyOpen}
+                elsewhere={totals.left - current.counts.undecided}
+                reveal={revealIn === current.id ? (el) => { setRevealIn(null); if (el) revealQuote(el); } : undefined}
+              />
+            </div>
+          )}
           <Disclosure title="All appraised papers" meta={`${list.length}`}>
             <ul className="space-y-1">
               {list.map((a, i) => (
@@ -146,7 +200,13 @@ export function AppraisalPanel() {
   );
 }
 
-function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onChanged: () => void; onlyOpen: boolean }) {
+function AppraisalDetail({ row, onChanged, onlyOpen, elsewhere, reveal }: {
+  row: AppraisalRow; onChanged: () => void; onlyOpen: boolean;
+  /** Quotes to decide on the other papers ("Next quote to decide" goes to them). */
+  elsewhere: number;
+  /** Set right after "Next quote to decide" opened this paper: called once with its first quote to decide. */
+  reveal?: (el: HTMLElement | null) => void;
+}) {
   const { projectId, confirmEdit, refresh, openPaper, states, announce } = useSession();
   const { data, error, isLoading, mutate } = useApi<AppraisalDetailData>(projectPath(projectId, `appraisals/${row.id}`));
   const [busy, setBusy] = useState<string | null>(null);
@@ -176,6 +236,10 @@ function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onCh
       quotes[at]?.querySelector<HTMLElement>("button");
     target?.focus();
   }, [data]);
+  // Opened by "Next quote to decide": once the appraisal is on screen, move to its first quote to decide.
+  useEffect(() => {
+    if (reveal && data) reveal(rootRef.current?.querySelector<HTMLElement>("[data-quote][data-undecided]") ?? null);
+  }, [reveal, data]);
   if (isLoading) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (!data) return null;
@@ -202,6 +266,7 @@ function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onCh
   const open = (c: Claim | null | undefined) => !!c && (isUndecided(c) || decidedHere.has(c.id));
   const fieldClaims = data.claims.filter((c) => c.field !== "checklist" && (!onlyOpen || open(c)));
   const checklist = a.checklist.filter((it) => !onlyOpen || open(it.claimId ? byId.get(it.claimId) : null));
+  const nothingHere = onlyOpen && !checklist.length && !fieldClaims.length;
   return (
     <div ref={rootRef} className="space-y-4">
       <div>
@@ -218,6 +283,12 @@ function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onCh
         {a.status === "failed" && <div className="mt-2"><ErrorState error={a.error ?? "failed"} title="This appraisal failed" /></div>}
       </div>
 
+      {nothingHere ? (
+        <div className="rounded-md border border-line p-3">
+          <p>Nothing to decide on this paper.</p>
+          {elsewhere > 0 && <p className="mt-1 text-fg-1">{elsewhere} quote{elsewhere === 1 ? " is" : "s are"} waiting on other papers: “Next quote to decide” takes you there.</p>}
+        </div>
+      ) : (<>
       <section aria-label="Quality checklist">
         <SectionTitle>{a.templateType === "other" ? "General quality questions" : `Quality questions for a ${(TEMPLATE_LABEL[a.templateType] ?? a.templateType).toLowerCase()} study`}</SectionTitle>
         {onlyOpen && !checklist.length && <p className="text-fg-2">Nothing to decide in this checklist.</p>}
@@ -228,8 +299,13 @@ function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onCh
               <li key={i} className="rounded-md border border-line p-3">
                 <div className="flex items-start justify-between gap-2">
                   <span>{it.item}</span>
-                  <Badge tone={ANSWER_TONE[it.answer] ?? "warn"} title="The AI's answer to this question">AI: {ANSWER_LABEL[it.answer] ?? it.answer.replace("_", " ")}</Badge>
+                  {it.downgraded ? (
+                    <Badge tone="neutral" title="Set by Athena, not by the AI">{ANSWER_LABEL.not_reported}</Badge>
+                  ) : (
+                    <Badge tone={ANSWER_TONE[it.answer] ?? "warn"} title="The AI's answer to this question">AI: {ANSWER_LABEL[it.answer] ?? it.answer.replace("_", " ")}</Badge>
+                  )}
                 </div>
+                {it.downgraded && <p className="mt-1 text-12 text-fg-2">{downgradeNote(it.downgraded)}</p>}
                 {c && !c.notReported && <QuoteLine c={c} text={data.sourceText?.text} stale={stale} onDecide={(d) => decide(c, d)} busy={busy === c.id} />}
               </li>
             );
@@ -263,6 +339,7 @@ function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onCh
           );
         })}
       </section>
+      </>)}
 
       <Disclosure title={data.sourceText?.kind === "abstract" ? "The abstract that was read" : "Full retrieved text"} meta={data.sourceText ? `${data.sourceText.source}${data.sourceText.license ? ` · ${data.sourceText.license}` : ""}` : "none"}>
         <FullText data={data} />
@@ -293,7 +370,7 @@ export function QuoteLine({ c, text, stale, onDecide, busy }: { c: Claim; text?:
       {c.userRejected && !c.verified ? (
         <p className="mt-1 text-12 text-fg-2">Rejected: left out of the synthesis.</p>
       ) : (
-        !c.verified && c.verificationNote && <p className={cx("mt-1 text-12", c.userAccepted ? "text-fg-2" : "text-err")}>{c.verificationNote.replace(/^UNVERIFIED:\s*/, "")}</p>
+        !c.verified && c.verificationNote && <CheckNote note={c.verificationNote} muted={c.userAccepted} />
       )}
       {open && canShow && <div className="mt-2"><SourcePassage text={text!} start={c.matchStart!} end={c.matchEnd!} /></div>}
     </div>

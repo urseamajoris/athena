@@ -103,7 +103,7 @@ test("pinned quotes become Quote nodes under the Appraisal, with their verdict",
   const g = buildGraph(finished({ claims, client: { acceptedTopics: [], pinnedQuotes: ["c1", "c2", "gone"] } }));
   const quotes = g.nodes.filter((n) => n.kind === "quote");
   assert.deepEqual(quotes.map((q) => q.id), ["quote:c1", "quote:c2"], "unknown claim ids are ignored");
-  assert.equal(quotes[0].key, "Found word for word · Paper one");
+  assert.equal(quotes[0].key, "Words are in the paper · Paper one");
   assert.equal(quotes[1].status, "review");
   assert.deepEqual(quotes[1].parents, ["appraisal"]);
 });

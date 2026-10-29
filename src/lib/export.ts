@@ -10,6 +10,7 @@ import { noveltyVerdict } from "./shared/novelty";
 import { reportHtmlPage } from "./report-html";
 import { partsLabel } from "./quotes";
 import { ideaSetting, settingWords } from "./shared/scope";
+import { downgradeNote } from "./stages/checklist";
 
 const ids = (a: string[]) => a.concat(["-"]);
 
@@ -158,13 +159,13 @@ export async function markdownReport(projectId: string): Promise<string> {
     L.push(`### ${pp.title} (${pp.year ?? "n.d."})\n\n${ref(pp)}\n\n**Text source: ${a.textSource === "full_text" ? "FULL TEXT" : "ABSTRACT ONLY"}.** ${a.textNote}\n\nTemplate: ${a.templateType}. Status: ${a.status}${a.error ? ` (${a.error})` : ""}.\n`);
     const cs = claims.filter((c) => c.appraisalId === a.id);
     for (const c of cs.filter((x) => x.field !== "checklist")) {
-      L.push(`- **${c.field}** ${c.notReported ? "— not reported" : `— ${c.statement}\n  > "${c.quote}" (${c.location}) — ${c.verified ? `✅ found word for word${partsLabel(c.quote)}` : c.userAccepted ? "⚠️ not found, accepted by user" : c.userRejected ? "❌ not found, rejected by user" : "⚠️ NOT FOUND, not decided (left out of the synthesis)"}`}`);
+      L.push(`- **${c.field}** ${c.notReported ? "— not reported" : `— ${c.statement}\n  > "${c.quote}" (${c.location}) — ${c.verified ? `✅ words are in the paper${partsLabel(c.quote)}` : c.userAccepted ? "⚠️ not found, accepted by user" : c.userRejected ? "❌ not found, rejected by user" : "⚠️ NOT FOUND, not decided (left out of the synthesis)"}`}`);
     }
     if (a.checklist.length) {
       L.push(`\nQuality checklist:\n`);
       for (const it of a.checklist) {
         const c = it.claimId ? cById.get(it.claimId) : null;
-        L.push(`- ${it.item}: **${it.answer.replace("_", " ")}**${c ? ` — "${c.quote}" ${c.verified ? "✅ found" : "⚠️ not found"}` : ""}`);
+        L.push(`- ${it.item}: **${it.answer.replace("_", " ")}**${c ? ` — "${c.quote}" ${c.verified ? "✅ words are in the paper" : "⚠️ not found"}` : ""}${it.downgraded ? ` — ${downgradeNote(it.downgraded)}` : ""}`);
       }
     }
     L.push("");

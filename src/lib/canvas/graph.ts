@@ -255,7 +255,7 @@ export function buildGraph(input: GraphInput): Graph {
     for (const cid of client.pinnedQuotes) {
       const c = byId.get(cid);
       if (!c) continue;
-      const verdict = c.verified ? "Found word for word" : c.userAccepted ? "Not found, accepted by you" : c.userRejected ? "Rejected by you" : "Not found, you decide";
+      const verdict = c.verified ? "Words are in the paper" : c.userAccepted ? "Accepted by you" : c.userRejected ? "Rejected by you" : "Not found, you decide";
       add({
         id: `quote:${c.id}`,
         kind: "quote",
