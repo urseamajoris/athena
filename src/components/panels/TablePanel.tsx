@@ -5,7 +5,8 @@ import { Disclosure } from "../disclosure";
 import { useSession } from "../session/SessionContext";
 import { ActionButton, JobLog, JobStatus, PanelFooter, SectionTitle, Stat, StaleNotice } from "./common";
 import { nextAction } from "@/lib/canvas/actions";
-import { MIN_TOPIC_FIT, PER_TOPIC, RUBRIC, thinTopics } from "@/lib/shared/stages";
+import { MIN_TOPIC_FIT, PER_TOPIC, RUBRIC } from "@/lib/shared/stages";
+import { topicCoverage } from "@/lib/scoring";
 import { fmtInt } from "@/lib/shared/format";
 
 /** Table node (stages 5–6): summary rows, then ranking; the full table opens on its own page. */
@@ -16,6 +17,7 @@ export function TablePanel() {
   const t = summary?.table;
   const ranking = summary?.ranking ?? [];
   const activeStage = states["5"] === "approved" ? 6 : 5;
+  const { short, few } = topicCoverage(ranking);
   return (
     <div className="space-y-4">
       <StaleNotice stage={5} also={[6]} />
@@ -41,7 +43,8 @@ export function TablePanel() {
           </ul>
           <p className="mt-2 text-12 text-fg-2">
             Aim for 3–5 papers per topic. Pick and swap papers in the full table.
-            {thinTopics(ranking).length > 0 && ` Fewer than ${PER_TOPIC.min} are selected in ${thinTopics(ranking).length === 1 ? "1 topic" : `${thinTopics(ranking).length} topics`}: papers that do not match a topic are not selected for it.`}
+            {short.length > 0 && ` Fewer than ${PER_TOPIC.min} are selected in ${short.length === 1 ? "1 topic" : `${short.length} topics`} although more papers match.`}
+            {few.length > 0 && ` Fewer than ${PER_TOPIC.min} papers match ${few.length === 1 ? "1 topic" : `${few.length} topics`} (${few.map((r) => r.name).join(", ")}): papers that do not match a topic are not selected for it.`}
           </p>
         </section>
       )}

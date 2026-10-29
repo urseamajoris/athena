@@ -10,7 +10,7 @@ import { ActionButton, JobLog, JobStatus, PanelFooter, SectionTitle, StaleNotice
 import { ClaimChip, short, type ClaimRef, type PaperRef } from "./evidence";
 import { nextAction } from "@/lib/canvas/actions";
 import dynamic from "next/dynamic";
-import { CheckCircle2, HelpCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, HelpCircle } from "lucide-react";
 import { Checklist } from "../guide/Checklist";
 import { WhatHappens } from "../guide/WhatHappens";
 import { canvasStore, useCanvas } from "../session/SessionContext";
@@ -38,7 +38,7 @@ const STANCE_CLASS: Record<string, string> = { supports: "border-ok-line", contr
 
 /** Synthesis node: write and verify the synthesis; every statement cites verified (or accepted) quotes. */
 export function SynthesisPanel() {
-  const { projectId, states, confirmEdit, refresh, graph, input, openPaper } = useSession();
+  const { projectId, states, confirmEdit, refresh, graph, input, openPaper, summary } = useSession();
   const seen = useCanvas((s) => sessionOf(s, projectId).seen);
   const { data, error, isLoading, mutate } = useApi<SynData>(projectPath(projectId, "synthesis"));
   useJobRefresh(8, mutate);
@@ -50,6 +50,17 @@ export function SynthesisPanel() {
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (!data) return null;
   const topics = data.topics.filter((t) => t.items.length || t.cells.length);
+  // Topics with nothing to synthesise are not tabs; once the synthesis has run, say which and why instead of
+  // leaving them out silently.
+  const ran = ["needs_review", "approved", "stale"].includes(states["8"] ?? "");
+  const empty = ran ? data.topics.filter((t) => !t.items.length && !t.cells.length) : [];
+  const whyEmpty = (id: string) => {
+    const r = summary?.ranking.find((x) => x.topicId === id);
+    if (r && r.scored === 0) return "no papers were found for it";
+    if (r && r.selected === 0 && r.matching === 0) return "none of the papers found matches it, so none was selected";
+    if (!r || r.selected === 0) return "no papers were selected for it";
+    return `its ${r.selected} selected paper${r.selected === 1 ? " gave" : "s gave"} no quotes that were found or accepted`;
+  };
 
   async function saveItem(id: string, statement: string) {
     setEditing(null);
@@ -78,6 +89,17 @@ export function SynthesisPanel() {
             { label: "Then suggest research questions", done: states["8"] === "approved" },
           ]}
         />
+      )}
+      {empty.length > 0 && (
+        <div role="note" className="rounded-md border border-warn-line bg-warn-soft px-3 py-3">
+          <p className="flex items-start gap-2 text-fg-0">
+            <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden />
+            <span>
+              <strong className="font-semibold">No evidence for {empty.length === 1 ? "1 topic" : `${empty.length} topics`}:</strong>{" "}
+              {empty.map((t) => `${t.name} (${whyEmpty(t.id)})`).join("; ")}. This review can say nothing about {empty.length === 1 ? "it" : "them"}. To cover {empty.length === 1 ? "it" : "them"}, change the search in step 3 or the selection in step 6, then bring the later steps up to date.
+            </span>
+          </p>
+        </div>
       )}
       {!topics.length ? (
         <EmptyState title="No synthesis yet">It is built from the appraisal quotes found in the papers (or accepted by you).</EmptyState>

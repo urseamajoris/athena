@@ -29,8 +29,10 @@ export function ConfirmEditDialog({ downstream, onCancel, onConfirm }: { downstr
   );
 }
 
-/** "Appraise selected papers" while a topic has fewer than 3 papers: say which, and what that means. */
-export function ThinTopicsDialog({ topics, onCancel, onConfirm }: { topics: { name: string; selected: number }[]; onCancel: () => void; onConfirm: () => void }) {
+/** "Appraise selected papers" while a topic has fewer than 3 papers: say which, why, and the ways to recover. */
+export function ThinTopicsDialog({ topics, onCancel, onEditSearches, onConfirm }: { topics: { name: string; selected: number; matching: number; spare: number }[]; onCancel: () => void; onEditSearches: () => void; onConfirm: () => void }) {
+  const canPick = topics.some((t) => t.spare > 0);
+  const fewMatch = topics.filter((t) => t.spare === 0);
   return (
     <Modal
       open
@@ -39,14 +41,24 @@ export function ThinTopicsDialog({ topics, onCancel, onConfirm }: { topics: { na
       footer={
         <>
           <button className="btn-secondary" onClick={onCancel}>Go back and pick papers</button>
+          <button className="btn-secondary" onClick={onEditSearches}>Edit the searches (step 3)</button>
           <button className="btn-primary" onClick={onConfirm}>Appraise anyway</button>
         </>
       }
     >
       <ul className="mb-3 list-disc space-y-1 pl-5">
-        {topics.map((t) => <li key={t.name}><strong className="font-semibold">{t.name}</strong>: {t.selected === 0 ? "no papers" : `${t.selected} paper${t.selected === 1 ? "" : "s"}`} selected</li>)}
+        {topics.map((t) => (
+          <li key={t.name}>
+            <strong className="font-semibold">{t.name}</strong>: {t.selected === 0 ? "no papers" : `${t.selected} paper${t.selected === 1 ? "" : "s"}`} selected
+            {t.spare > 0 ? `; ${t.spare} more match${t.spare === 1 ? "es" : ""} the topic` : t.matching === 0 ? "; no papers match the topic" : `; only ${t.matching} match${t.matching === 1 ? "es" : ""} the topic`}
+          </li>
+        ))}
       </ul>
-      <p>Only the selected papers are appraised, so {topics.length === 1 ? "this topic" : "these topics"} will have little or no evidence in the next steps. This usually means few of the papers found match the topic. You can tick more papers in the topic’s view first, or go on.</p>
+      <p>
+        Only the selected papers are appraised, so {topics.length === 1 ? "this topic" : "these topics"} will have little or no evidence in the next steps.
+        {canPick && " You can tick more matching papers in the topic’s view first."}
+        {fewMatch.length > 0 && ` Few of the papers found match ${fewMatch.length === 1 ? `“${fewMatch[0].name}”` : "some topics"}: to find more, change the search words in step 3, then bring the later steps up to date.`}
+      </p>
     </Modal>
   );
 }

@@ -14,8 +14,10 @@ import { useViewPrefs } from "../session/viewPrefs";
 import { CategoryChip, ShapeIcon } from "../categories";
 import { Checklist } from "../guide/Checklist";
 import { WhatHappens } from "../guide/WhatHappens";
-import { MIN_TOPIC_FIT, PER_TOPIC, RUBRIC, STAGES, STUDY_TYPES, STUDY_TYPE_LABEL, thinTopics, type StudyType } from "@/lib/shared/stages";
-import { frontierStage } from "@/lib/canvas/graph";
+import { MIN_TOPIC_FIT, PER_TOPIC, RUBRIC, STAGES, STUDY_TYPES, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
+import { topicCoverage } from "@/lib/scoring";
+import { frontierStage, nodeForStage } from "@/lib/canvas/graph";
+import { TransitionLink } from "../vt";
 import { ARTICLE_TYPES, DIMENSIONS, hasHues, accessOf, articleTypeOf, categoriesFor, categoryVar, describeFilters, evidenceOf, periodOf, scoreBandOf, sourceOf, studyGroupOf, type ColorBy, type Dimension } from "@/lib/shared/categories";
 import { sessionOf } from "@/lib/canvas/store";
 import type { MapPoint } from "../viz/paper-points";
@@ -37,12 +39,14 @@ export interface Row extends Paper {
   score: Score | null;
   rank: number | null;
   selectedIn: number;
+  /** Selected for appraisal in the topic being viewed (under "All topics": in any topic). */
+  kept: boolean;
   /** Category key per dimension (filters, grouping, colour). */
   cats: Record<Dimension, string[]>;
 }
 
 /** Every category a paper belongs to, per dimension (a paper can be in several topics). */
-function categorize(p: Paper, selectedIn: number): Record<Dimension, string[]> {
+function categorize(p: Paper, kept: boolean): Record<Dimension, string[]> {
   return {
     study: [studyGroupOf(p.summary?.studyType)],
     article: [articleTypeOf(p.publicationTypes)],
@@ -50,7 +54,7 @@ function categorize(p: Paper, selectedIn: number): Record<Dimension, string[]> {
     source: [sourceOf(p.sourceDatabases)],
     period: [periodOf(p.year)],
     access: [accessOf(p)],
-    selected: [selectedIn > 0 ? "selected" : "not_selected"],
+    selected: [kept ? "selected" : "not_selected"],
     evidence: [evidenceOf(p.appraisal)],
   };
 }
@@ -64,7 +68,7 @@ const COL_W: Record<string, string> = { expand: "48px", select: "48px", rank: "6
 
 /** Full-screen summary + ranking table: rank and pick papers for appraisal. */
 export function TableView() {
-  const { projectId, states, confirmEdit, refresh, openPaper } = useSession();
+  const { projectId, states, confirmEdit, refresh, openPaper, graph } = useSession();
   const papers = useApi<PapersData>(projectPath(projectId, "papers"));
   const ranking = useApi<RankingData>(projectPath(projectId, "ranking"));
   useJobRefresh(5, papers.mutate);
@@ -94,9 +98,13 @@ export function TableView() {
       .filter((p) => (topic === "all" ? true : p.topicIds.includes(topic) || (scoresByPaper.get(p.id) ?? []).some((s) => s.topicId === topic)))
       .map((p) => {
         const all = scoresByPaper.get(p.id) ?? [];
-        const score = topic === "all" ? [...all].sort((a, b) => b.total - a.total)[0] ?? null : all.find((s) => s.topicId === topic) ?? null;
+        // Under "All topics" the score shown is from a topic the paper is selected in, else one it matches, else
+        // its best: a high score for a topic it does not match must not stand in for the paper.
+        const best = (ss: Score[]) => [...ss].sort((a, b) => b.total - a.total)[0];
+        const score = topic === "all" ? best(all.filter((s) => s.selected)) ?? best(all.filter((s) => s.topicFit >= MIN_TOPIC_FIT)) ?? best(all) ?? null : all.find((s) => s.topicId === topic) ?? null;
         const selectedIn = all.filter((s) => s.selected).length;
-        return { ...p, score, rank: score && topic !== "all" ? rankOf.get(score.id) ?? null : null, selectedIn, cats: categorize(p, selectedIn) };
+        const kept = topic === "all" ? selectedIn > 0 : !!score?.selected;
+        return { ...p, score, rank: score && topic !== "all" ? rankOf.get(score.id) ?? null : null, selectedIn, kept, cats: categorize(p, kept) };
       });
   }, [papers.data, ranking.data, topic]);
   const activeFilters = (Object.entries(view.filters) as [Dimension, string[]][]).filter(([, k]) => k?.length);
@@ -210,14 +218,22 @@ export function TableView() {
   const hidden = allRows.length - rows.length;
   const summaryLine = describeFilters(rows.length, allRows.length, activeFilters.map(([dim, keys]) => ({ dim, keys })), topicList);
   // Per topic: how many are selected, and how many papers match the topic at all (the most that could be).
-  const perTopic = rt.map((t) => ({ id: t.id, name: t.name, scored: t.scores.length, selected: t.scores.filter((s) => s.selected).length, matching: t.scores.filter((s) => s.topicFit >= MIN_TOPIC_FIT).length }));
-  // A topic with fewer than 3 matching papers is done once all of them are kept.
-  const perTopicOk = rt.length > 0 && perTopic.every((t) => t.selected <= PER_TOPIC.max && (t.selected >= PER_TOPIC.min || t.selected >= t.matching));
+  const perTopic = rt.map((t) => {
+    const matching = t.scores.filter((s) => s.topicFit >= MIN_TOPIC_FIT);
+    return { id: t.id, name: t.name, scored: t.scores.length, selected: t.scores.filter((s) => s.selected).length, matching: matching.length, spare: matching.filter((s) => !s.selected).length };
+  });
+  // The 3–5 rule, and the topics where fewer than 3 papers match at all (done once every matching paper is kept).
+  // The checklist item and the warning below both come from this, so they cannot disagree.
+  const coverage = topicCoverage(perTopic);
+  const perTopicOk = rt.length > 0 && !coverage.short.length && !coverage.over.length;
   const openTopic = perTopic.find((t) => t.id === topic) ?? null;
   // The review has moved past this page (e.g. the appraisal was started here).
   const f = frontierStage(states);
   const movedOn = ranked && states["6"] === "approved" && (f === null || f > 6);
-  const thin = ranked && stage === 6 && !movedOn ? thinTopics(perTopic) : [];
+  const warnNow = ranked && stage === 6 && !movedOn;
+  const short = warnNow ? coverage.short : [];
+  const few = warnNow ? coverage.few : [];
+  const step3 = nodeForStage(graph, 3);
   const checklist =
     stage === 5
       ? [
@@ -228,7 +244,9 @@ export function TableView() {
       : [
           { label: "Pick a topic to see its ranked papers", done: topic !== "all", hint: "The buttons above the table: one per topic." },
           { label: "Open a selected paper to see why it scored high", done: seen.includes("opened-score"), hint: "Click the arrow at the start of its row." },
-          { label: "Keep 3–5 papers per topic", done: perTopicOk, hint: thin.length ? "Fewer is fine when few papers match a topic: keep the ones that do." : "Tick or untick papers in a topic's view, or swap one from its details." },
+          coverage.few.length
+            ? { label: "Keep 3–5 papers per topic, or every matching paper where fewer match", done: perTopicOk, hint: perTopicOk ? "Fewer than 3 papers match some topics, and all of them are selected." : "Tick or untick papers in a topic's view, or swap one from its details." }
+            : { label: "Keep 3–5 papers per topic", done: perTopicOk, hint: "Tick or untick papers in a topic's view, or swap one from its details." },
         ];
   // A topic that no paper was matched to: say so, rather than blame filters the user did not set.
   const emptyTopic = openTopic && openTopic.scored === 0 && !rows.length ? `No papers were found for “${openTopic.name}”, so none can be selected for it. You can still appraise the other topics. To cover it, rename the topic or change its search (steps 2 and 3), then bring the later steps up to date.` : null;
@@ -239,7 +257,7 @@ export function TableView() {
     score: r.score?.total ?? null,
     layer: Math.max(-1, topicList.findIndex((t) => r.topicIds.includes(t.id))),
     cat: view.colorBy === "topic" ? r.topicIds[0] ?? "" : view.colorBy === "score" ? scoreBandOf(r.score?.total) : view.colorBy === "evidence" ? r.cats.evidence[0] : view.colorBy === "source" ? r.cats.source[0] : r.cats.study[0],
-    selected: r.selectedIn > 0,
+    selected: r.kept,
   }));
 
   // One page scroll: the task and filters first, then the table (which scrolls its own rows, header kept in view).
@@ -319,16 +337,31 @@ export function TableView() {
           </div>
         )}
 
-        {thin.length > 0 && (
-          <div role="status" className="rounded-md border border-warn-line bg-warn-soft px-3 py-3">
-            <p className="flex items-start gap-2 text-fg-0">
-              <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden />
-              <span>
-                <strong className="font-semibold">Fewer than {PER_TOPIC.min} papers selected in {thin.length === 1 ? "1 topic" : `${thin.length} topics`}:</strong>{" "}
-                {thin.map((t) => `${t.name} (${t.selected}${t.matching < PER_TOPIC.min ? `, ${t.matching === 0 ? "no papers match" : `only ${t.matching} match${t.matching === 1 ? "es" : ""}`}` : ""})`).join("; ")}.{" "}
-                Papers that do not match a topic are not selected for it. Pick the topic to tick more papers, or go on: only the selected papers are appraised.
-              </span>
-            </p>
+        {(short.length > 0 || few.length > 0) && (
+          <div role="status" className="space-y-2 rounded-md border border-warn-line bg-warn-soft px-3 py-3">
+            {short.length > 0 && (
+              <p className="flex items-start gap-2 text-fg-0">
+                <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden />
+                <span>
+                  <strong className="font-semibold">Fewer than {PER_TOPIC.min} papers selected in {short.length === 1 ? "1 topic" : `${short.length} topics`}:</strong>{" "}
+                  {short.map((t) => `${t.name} (${t.selected} selected, ${t.spare} more match${t.spare === 1 ? "es" : ""})`).join("; ")}.{" "}
+                  Pick the topic to tick more papers, or go on: only the selected papers are appraised.
+                </span>
+              </p>
+            )}
+            {few.length > 0 && (
+              <div className="flex items-start gap-2 text-fg-0">
+                <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden />
+                <div className="space-y-2">
+                  <p>
+                    <strong className="font-semibold">Few papers match {few.length === 1 ? "1 topic" : `${few.length} topics`}:</strong>{" "}
+                    {few.map((t) => `${t.name} (${t.matching === 0 ? "no papers match" : `only ${t.matching} match${t.matching === 1 ? "es" : ""}`}${t.selected !== t.matching ? `, ${t.selected} selected` : ""})`).join("; ")}.{" "}
+                    Every matching paper is already selected, so {few.length === 1 ? "this topic" : "these topics"} will have little or no evidence. Papers that do not match a topic are not selected for it. To find more, change the search words in step 3.
+                  </p>
+                  {step3 && <TransitionLink href={`/s/${projectId}?node=${encodeURIComponent(step3)}`} prefetch={false} className="btn-secondary btn-sm">Edit the searches (step 3)</TransitionLink>}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -461,14 +494,14 @@ function PaperCards({ rows, sorting, groupBy, topics, onOpen, onToggle }: { rows
                 <span className="tabular-nums">{r.year ?? "year unknown"}</span>
                 <CategoryChip dim="study" value={r.cats.study[0]} />
                 {r.score && <span className="tabular-nums">score {r.score.total}</span>}
-                {r.rank !== null && r.score && r.score.topicFit < MIN_TOPIC_FIT && <span>does not match the topic</span>}
-                {r.selectedIn > 0 && <span className="inline-flex items-center gap-1 text-ok"><CheckCircle2 className="h-3 w-3" aria-hidden />selected</span>}
+                {r.rank !== null && r.score && <TopicFit score={r.score} />}
+                {r.kept && <span className="inline-flex items-center gap-1 text-ok"><CheckCircle2 className="h-3 w-3" aria-hidden />selected{r.rank === null && r.selectedIn > 1 ? ` in ${r.selectedIn} topics` : ""}</span>}
               </span>
               {r.summary && <span className="mt-1 line-clamp-2 block text-12 text-fg-2">{r.summary.keyFinding}</span>}
             </button>
             {onToggle && r.score && (
               <label className="flex min-h-11 items-center gap-2 px-4 pb-2 text-fg-1">
-                <input type="checkbox" checked={r.score.selected} onChange={() => onToggle(r.score!)} /> Selected for appraisal in this topic
+                <input type="checkbox" checked={r.score.selected} onChange={() => onToggle(r.score!)} /> Keep for appraisal in this topic
               </label>
             )}
           </li>
@@ -592,10 +625,19 @@ function ScoreCell({ row, all }: { row: Row; all: boolean }) {
         <span className="tabular-nums" aria-label={`Score ${s.total} out of 100`}>{s.total}</span>
       </span>
       {all && row.selectedIn > 0 && <span className="text-12 text-ok">selected{row.selectedIn > 1 ? ` in ${row.selectedIn} topics` : ""}</span>}
-      {!all && s.topicFit < MIN_TOPIC_FIT && <span className="text-12 text-fg-2">does not match the topic</span>}
-      {s.userChanged && <span className="text-12 text-fg-2">changed by you</span>}
+      {/* Under "All topics" an unselected paper shows a non-matching score only when it matches no topic at all. */}
+      {all ? s.topicFit < MIN_TOPIC_FIT && (s.selected ? <TopicFit score={s} className="text-12" /> : <span className="text-12 text-fg-2">matches no topic</span>) : <TopicFit score={s} className="text-12" />}
+      {s.userChanged && !(s.selected && s.topicFit < MIN_TOPIC_FIT) && <span className="text-12 text-fg-2">changed by you</span>}
     </span>
   );
+}
+
+/** How well a paper matches the topic being viewed. A paper that does not match is never pre-selected; if the
+ *  user keeps it anyway, the row says so plainly rather than looking like a match. */
+function TopicFit({ score, className }: { score: Score; className?: string }) {
+  if (score.topicFit >= MIN_TOPIC_FIT) return score.topicFit === MIN_TOPIC_FIT ? <span className={cx("text-fg-2", className)}>weak match to the topic</span> : null;
+  if (score.selected) return <span className={cx("inline-flex items-start gap-1 text-warn", className)}><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />Kept by you, but it does not match the topic</span>;
+  return <span className={cx("text-fg-2", className)}>does not match the topic</span>;
 }
 
 function AiCell({ row, field, editing, setEditing, onSave }: { row: Row; field: Field; editing: { id: string; field: Field } | null; setEditing: (e: { id: string; field: Field } | null) => void; onSave: (id: string, f: Field, v: string) => void }) {

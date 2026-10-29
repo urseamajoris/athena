@@ -121,7 +121,9 @@ export function AppraisalPanel() {
           <JobLog stage={7} />
         </>
       )}
-      <PanelFooter note={action?.cmd.type === "approve" && totals.left > 0 ? leftOut : undefined}>
+      {/* Once the appraisal is approved and the review has moved on, no footer here: the panel's fallback then offers
+          "Go to step N" as the primary action (the arrows above still page through the papers). */}
+      {!(states["7"] === "approved" && !action) && <PanelFooter note={action?.cmd.type === "approve" && totals.left > 0 ? leftOut : undefined}>
         {list.length > 0 && !last ? (
           <>
             {action && <ActionButton action={action} />}
@@ -135,7 +137,7 @@ export function AppraisalPanel() {
         ) : list.length > 0 ? (
           <button className="btn-secondary" onClick={() => { go(0); setActive(list[0].id); }}>Back to the first paper</button>
         ) : null}
-      </PanelFooter>
+      </PanelFooter>}
     </div>
   );
 }
