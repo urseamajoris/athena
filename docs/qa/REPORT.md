@@ -133,3 +133,23 @@ The admin's first report failed the report schema, and it then sent a blank plac
 | 11 | major (validity) | 1 | The report did not say the search is a scoping aid, capped at 40 records per search and run topic by topic, not an exhaustive systematic search. |
 | 12 | major (validity) | 1 | Demo counts did not reconcile between the dry run and the retrieval run. This is a demo-fixture artefact: recorded samples are picked by request. |
 | 13 | minor | 2+ | After typing the idea, step 1 asked for it again. Deleting a topic had no undo. The "Project not found" page had no header, a pointless "Try again", and called it a "session". The demo admin panel showed a key tail and real model names for mock calls. Skipped scoping questions appeared in the report as mock defaults. |
+
+### Fixed after iteration 2
+
+Four fix agents worked in parallel worktrees, each followed by an independent review; I then merged their branches. The reviews raised 9 follow-ups. I fixed 8; the ninth (a small layout shift when the download message appears) is left as a known minor.
+
+After merging, `node scripts/e2e.mjs` caught a React hook-order error (#310). The new idea-autosave hook ran after the panel's early returns; it now runs before them. Final results: `npm test` 113/113, `npm run build` clean, `node scripts/e2e.mjs` 30/30, `npm run test:security` 48/48.
+
+| Finding | What changed |
+|---|---|
+| 1. Checklist contradicted the warning | **Checklist:** when few papers match a topic, the item reads "Keep 3–5 papers per topic, or every matching paper where fewer match", and it ticks only when that is true. **Thin topics:** the dialog and the ranking warning offer "Edit the searches for *topic* (step 3)", which opens that topic's own searches. |
+| 2. "Does not match" yet "Selected" | Pre-selection and the labels now use one threshold. A paper the user keeps anyway says "Kept by you, but it does not match the topic". Phone and tablet cards show the same words as the table, including under "All topics". |
+| 3. Novelty contradiction | One shared verdict in `src/lib/shared/novelty.ts`, unit-tested, keeps two things apart: how many records contain the search words, and whether a top record looks like the same question. **"The same question":** a title must touch the intervention or exposure, and hyphen spellings now match. **Large counts:** never headlined as a hint that the question is new. **Demo records:** never given a novelty verdict. The exported report uses the same wording. |
+| 4. Vacuous demo synthesis | **Statements:** Known statements condense a cited finding and name the paper. Unknown statements come from the cited limitations. Contested statements set two findings from different papers side by side, saying they may not really disagree. **Altered quote:** planted in only one or two papers per review, and it comes back after re-retrieval. **Gap quotes:** limitations first. |
+| 5. Demo questions | **Direction:** exposure and outcome follow the order in the idea. **Comparison:** a contrast that fits, e.g. "usual care, without …", "fewer …" or "less use of …" (only for things people use). **Effect question:** "Does X help…?" now gets a PICO effect question. **Skipped scoping questions:** they read "not stated". |
+| 6. Panel stayed on step 7 | After "Summarise without them" the panel moves to the synthesis step. |
+| 7. Empty topics vanished | **Note:** the synthesis names each topic that has no evidence, and why (no papers found, none matched, none selected). **Out of date:** if the synthesis is stale, it gives no reason. |
+| 8. Keyboard | **Tab order:** a "Skip to the next action" link on the table page. **Focus:** handled after Esc in List view, after hiding the demo note, on new pages and after "Keep". |
+| 9. Silent reopening of step 2 | Editing a topic after step 2 was approved now says plainly that step 2 has reopened and what to do. |
+| 10–11. Export and report | **Phones:** the printable report is the first choice on narrow screens, and Download shows a visible confirmation. **Report header:** it says the search is a scoping aid, at most 40 records per search, with topics searched one at a time, and is not exhaustive. |
+| 13. Minor | **Step 1:** it reads as a confirmation of the idea already entered, and the idea saves itself. **Topics:** deleting one offers Undo. **Review not found:** a page with a header and plain words, and no pointless retry. **Demo admin panel:** says "Demo mode: no key is used and nothing is spent", and labels mock calls as mock. |
