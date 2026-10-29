@@ -1,4 +1,6 @@
 import { canvasView, projectView, retrievalView } from "@/lib/views";
+import { ownedProject, requireUser } from "@/lib/auth/server";
+import { errorResponse } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -9,6 +11,11 @@ type Ctx = { params: Promise<{ id: string }> };
  */
 export async function GET(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
+  try {
+    await ownedProject(id, await requireUser());
+  } catch (e) {
+    return errorResponse(e);
+  }
   const enc = new TextEncoder();
   let timer: ReturnType<typeof setInterval> | undefined;
   const stream = new ReadableStream({

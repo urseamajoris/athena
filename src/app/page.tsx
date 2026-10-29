@@ -5,9 +5,14 @@ import { Disclosure } from "@/components/disclosure";
 import { TransitionLink } from "@/components/vt";
 import { preload } from "react-dom";
 import { POSTER, POSTER_SET, POSTER_SIZES } from "@/components/landing/poster";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { SESSION_COOKIE } from "@/lib/auth/policy";
 
 /** Landing: one sentence, one call to action, one demo. */
-export default function Landing() {
+export default async function Landing() {
+  // Signed-in visitors go straight to their projects (a cookie check only: no database call on the landing page).
+  if ((await cookies()).get(SESSION_COOKIE)) redirect("/sessions");
   // The poster is the largest thing on the page: request it from the head, before the scripts.
   preload(POSTER, { as: "image", fetchPriority: "high", imageSrcSet: POSTER_SET, imageSizes: POSTER_SIZES });
   return (
@@ -17,7 +22,7 @@ export default function Landing() {
           <LogoMark />
           Athena
         </span>
-        <Link href="/sessions" className="btn-ghost min-h-11">Your sessions</Link>
+        <Link href="/login" className="btn-ghost min-h-11">Log in</Link>
       </header>
       <main id="main" className="mx-auto max-w-6xl px-4 pb-16">
         {/* On phones the first screen is the mission alone (headline, sentence, one button); the demo follows
@@ -26,7 +31,7 @@ export default function Landing() {
           <h1 className="text-28 font-semibold md:text-44">Turn a rough idea into a research question you can defend.</h1>
           <p className="mx-auto mt-4 max-w-2xl text-16 text-fg-1">Athena searches PubMed and OpenAlex, reads the papers with you, and checks every quote against its source, so each step is yours to confirm.</p>
           <div className="mt-8">
-            <TransitionLink href="/s/new" className="btn-primary min-h-11 px-6 text-16">Start a review</TransitionLink>
+            <TransitionLink href="/signup?next=/s/new" className="btn-primary min-h-11 px-6 text-16">Start a review</TransitionLink>
           </div>
         </section>
         <section aria-label="Demo" className="md:mt-16">

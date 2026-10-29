@@ -1,5 +1,8 @@
 // Drives a whole review through the HTTP API (no UI), approving every checkpoint with the AI's proposals.
 // Usage: node scripts/api-flow.mjs [baseUrl] [--until=N] [--project=ID]
+// Signs up a fresh user, or logs in with FLOW_EMAIL / FLOW_PASSWORD (needed with --project=ID).
+import { Client } from "./lib/client.mjs";
+import { pathToFileURL } from "node:url";
 const base = process.argv.find((a) => a.startsWith("http")) ?? "http://localhost:3000";
 const until = Number(process.argv.find((a) => a.startsWith("--until="))?.split("=")[1] ?? 9);
 let pid = process.argv.find((a) => a.startsWith("--project="))?.split("=")[1];
@@ -12,14 +15,8 @@ const ANSWERS = [
   "English-language papers are fine.",
 ];
 
-async function call(path, body, method) {
-  const r = await fetch(`${base}/api/projects${path}`, { method: method ?? (body ? "POST" : "GET"), headers: body ? { "content-type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
-  const t = await r.text();
-  let d;
-  try { d = JSON.parse(t); } catch { d = t; }
-  if (!r.ok) throw new Error(`${method ?? (body ? "POST" : "GET")} ${path} → ${r.status}: ${typeof d === "string" ? d.slice(0, 300) : d.error}`);
-  return d;
-}
+let client = new Client(base, "flow");
+const call = (path, body, method) => client.json(`/api/projects${path}`, { body, method });
 const p = (s) => `/${pid}/${s}`;
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
@@ -35,7 +32,14 @@ async function waitStage(n) {
   }
 }
 
-(async () => {
+/** Runs the whole flow for `c` (a signed-in Client) and returns the project id. */
+export async function runFlow(c, opts = {}) {
+  client = c;
+  pid = opts.project;
+  return main(opts.until ?? until);
+}
+
+async function main(until) {
   if (!pid) {
     pid = (await call("", { idea: IDEA })).id;
     log("project", pid);
@@ -81,7 +85,16 @@ async function waitStage(n) {
     await call(p(`stages/${n}/approve`), {});
   }
   log("done; project", pid);
-})().catch((e) => {
-  console.error("\nFAILED:", e.message);
-  process.exit(1);
-});
+  return pid;
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  (async () => {
+    if (process.env.FLOW_EMAIL) await client.login(process.env.FLOW_EMAIL, process.env.FLOW_PASSWORD ?? "");
+    else await client.signup(`flow-${Date.now()}@example.org`);
+    await main(until);
+  })().catch((e) => {
+    console.error("\nFAILED:", e.message);
+    process.exit(1);
+  });
+}

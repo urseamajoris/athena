@@ -17,6 +17,14 @@ export class AiValidationError extends Error {
   }
 }
 export class BudgetError extends Error {}
+/** The administrator switched AI off. Nothing was sent and nothing was spent; the work is kept. */
+export class AiPausedError extends Error {
+  constructor() {
+    super("AI is paused by the administrator. Your work is saved.");
+  }
+}
+/** Errors that must stop a whole job (not just one batch): it pauses or fails cleanly and can be resumed. */
+export const isAiStop = (e: unknown) => e instanceof BudgetError || e instanceof AiPausedError;
 
 const g = globalThis as unknown as { __xai?: OpenAI; __aiLimit?: ReturnType<typeof limiter>; __noEffort?: Set<string> };
 function client() {

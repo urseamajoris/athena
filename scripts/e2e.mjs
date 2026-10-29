@@ -34,7 +34,8 @@ page.on("console", (m) => m.type() === "error" && consoleErrors.push(m.text().sl
 page.on("pageerror", (e) => consoleErrors.push(String(e).slice(0, 200)));
 const shot = (name) => page.screenshot({ path: `${out}/${name}.png` });
 let pid;
-const api = async (path) => (await fetch(`${base}/api/projects/${pid}${path}`)).json();
+// API reads go through the browser context, so they carry the signed-in user's session cookie.
+const api = async (path) => (await ctx.request.get(`${base}/api/projects/${pid}${path}`)).json();
 const states = async () => (await api("")).project.stageStates;
 const panel = () => page.locator("[data-panel]");
 const node = (id) => page.locator(`[data-node-id="${id}"]`);
@@ -66,8 +67,15 @@ async function menu(label) {
 }
 
 try {
+  // 0. Accounts: a new user signs up through the UI (the landing's call to action), then lands on the empty canvas.
+  await page.goto(`${base}/`);
+  await page.getByRole("link", { name: "Start a review" }).click();
+  await page.getByLabel("Email").fill(`e2e-${Date.now()}@example.org`);
+  await page.getByLabel("Password").fill("e2e-password-123");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.waitForURL(/\/s\/new/);
+
   // 1. Idea: the empty canvas.
-  await page.goto(`${base}/s/new`);
   await page.getByLabel("What do you want to understand?").fill(IDEA);
   await page.keyboard.press("Enter");
   await page.waitForURL(/\/s\/prj_/);
@@ -294,10 +302,11 @@ try {
   await shot("error").catch(() => {});
 } finally {
   check("no browser console errors", consoleErrors.length === 0, consoleErrors.slice(0, 5).join(" | "));
-  const status = await (await fetch(`${base}/api/status`)).json();
+  const status = await (await ctx.request.get(`${base}/api/status`)).json();
   const view = pid ? await api("") : null;
   const total = view ? Object.values(view.costs).reduce((a, c) => a + c.cost, 0) : 0;
-  log(`AI cost this project: $${total.toFixed(4)} · total recorded spend $${status.spendUsd.toFixed(4)} · paid API calls attempted: ${status.paidCalls?.attempted ?? "?"}`);
+  // Server-wide spend and paid-call counts are admin-only; this run is an ordinary user.
+  log(`AI cost this project: $${total.toFixed(4)}${status.spendUsd !== undefined ? ` · total recorded spend $${status.spendUsd.toFixed(4)} · paid API calls attempted: ${status.paidCalls?.attempted ?? "?"}` : ""}`);
   fs.writeFileSync(`${out}/results.json`, JSON.stringify({ project: pid, mode: status.mockMode ? "mock" : status.mockAi ? "mock-ai" : "real", costs: view?.costs, paidCalls: status.paidCalls, checks }, null, 2));
   const failed = checks.filter((c) => !c.ok);
   log(failed.length ? `${failed.length} CHECK(S) FAILED` : `ALL ${checks.length} CHECKS PASSED`);

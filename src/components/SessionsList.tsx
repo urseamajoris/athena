@@ -22,6 +22,12 @@ interface ProjectRow {
   updatedAt: string;
 }
 
+/** Where to resume: the first stage not yet approved, opened in its node. */
+export function resumeHref(p: ProjectRow) {
+  const f = frontier(p);
+  return f ? `/s/${p.id}?node=${f.key}` : `/s/${p.id}`;
+}
+
 function frontier(p: ProjectRow) {
   return STAGES.find((s) => p.stageStates[String(s.n)] !== "approved") ?? null;
 }
@@ -33,6 +39,7 @@ export function SessionsList() {
   const [sort, setSort] = useState<"updated" | "title" | "stage">("updated");
   const [filter, setFilter] = useState<"all" | "active" | "done" | "stale">("all");
   const [confirm, setConfirm] = useState<ProjectRow | null>(null);
+  const [rename, setRename] = useState<{ row: ProjectRow; title: string; error?: string } | null>(null);
   const rows = useMemo(() => {
     const list = (data?.projects ?? []).filter((p) => {
       const stale = Object.values(p.stageStates).some((s) => s === "stale");
@@ -52,7 +59,7 @@ export function SessionsList() {
       </header>
       <main id="main" className="mx-auto max-w-5xl px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-20 font-semibold">Sessions</h1>
+          <h1 className="text-20 font-semibold">My projects</h1>
           <TransitionLink href="/s/new" className="btn-primary min-h-11">
             <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden /> New session
           </TransitionLink>
@@ -88,7 +95,7 @@ export function SessionsList() {
             const stale = Object.values(p.stageStates).filter((s) => s === "stale").length;
             return (
               <li key={p.id} className="flex items-start rounded-md border border-line bg-bg-1 hover:border-line-strong">
-                <TransitionLink href={`/s/${p.id}`} className="flex min-h-full flex-1 flex-col gap-2 self-stretch rounded-md p-4">
+                <TransitionLink href={resumeHref(p)} className="flex min-h-full flex-1 flex-col gap-2 self-stretch rounded-md p-4">
                   <span className="line-clamp-3 font-medium text-fg-0">{p.title || p.idea}</span>
                   <span className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-12 text-fg-1">
                     <span className="inline-flex items-center gap-1"><StateIcon state={state} className="h-3 w-3" />{f ? `${f.n}. ${f.title} · ${STATE_LABEL[state].toLowerCase()}` : "Finished"}</span>
@@ -97,7 +104,7 @@ export function SessionsList() {
                   </span>
                 </TransitionLink>
                 <div className="p-1">
-                  <MoreMenu label={`Actions for ${p.title || p.idea}`} items={[{ label: "Delete session", danger: true, onSelect: () => setConfirm(p) }]} />
+                  <MoreMenu label={`Actions for ${p.title || p.idea}`} items={[{ label: "Rename", onSelect: () => setRename({ row: p, title: p.title || p.idea.slice(0, 90) }) }, { label: "Delete project", danger: true, onSelect: () => setConfirm(p) }]} />
                 </div>
               </li>
             );
@@ -105,9 +112,39 @@ export function SessionsList() {
         </ul>
       </main>
       <Modal
+        open={!!rename}
+        onClose={() => setRename(null)}
+        title="Rename this project"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={() => setRename(null)}>Cancel</button>
+            <button
+              className="btn-primary"
+              disabled={!rename?.title.trim()}
+              onClick={async () => {
+                if (!rename) return;
+                try {
+                  await api(`/api/projects/${rename.row.id}`, { method: "PATCH", body: { title: rename.title } });
+                  setRename(null);
+                  mutate();
+                } catch (e) {
+                  setRename({ ...rename, error: (e as Error).message });
+                }
+              }}
+            >
+              Save name
+            </button>
+          </>
+        }
+      >
+        <label className="label block">Name<input className="input mt-1 w-full" value={rename?.title ?? ""} maxLength={120} onChange={(e) => rename && setRename({ ...rename, title: e.target.value, error: undefined })} /></label>
+        <p className="mt-2 text-12 text-fg-2">Only the name changes. Your research idea and every step stay as they are.</p>
+        {rename?.error && <p role="alert" className="mt-2 text-err">{rename.error}</p>}
+      </Modal>
+      <Modal
         open={!!confirm}
         onClose={() => setConfirm(null)}
-        title="Delete this session?"
+        title="Delete this project?"
         footer={
           <>
             <button className="btn-secondary" onClick={() => setConfirm(null)}>Keep it</button>
