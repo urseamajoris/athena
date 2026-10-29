@@ -10,8 +10,8 @@ import { canvasView, papersTableView, projectView, questionsView, rankingTableVi
 import { exportPreview } from "./api";
 
 /** GET /api/projects */
-export function projectsList() {
-  const rows = db.select().from(schema.projects).orderBy(desc(schema.projects.updatedAt)).all();
+export async function projectsList() {
+  const rows = (await db.select().from(schema.projects).orderBy(desc(schema.projects.updatedAt)).all());
   return { projects: rows.map((p) => ({ id: p.id, title: p.title, idea: p.idea, currentStage: p.currentStage, status: p.status, stageStates: p.stageStates, createdAt: p.createdAt, updatedAt: p.updatedAt })) };
 }
 
@@ -24,7 +24,7 @@ export async function statusView() {
     mockMode: config.mockMode,
     mockAi: config.mockAi,
     models: modelResolutions(),
-    spendUsd: totalSpend(),
+    spendUsd: (await totalSpend()),
     budgetUsd: config.budgetUsd,
     keys: { xai: !!config.xaiApiKey, openalex: !!config.openalexApiKey, contactEmail: !!config.contactEmail },
     maxResultsPerQuery: config.maxResultsPerQuery,
@@ -43,13 +43,13 @@ export async function sessionFallback(id: string, views: SessionView[], opts: { 
   const base = `/api/projects/${id}`;
   const out: Record<string, unknown> = {};
   try {
-    out[base] = plain(projectView(id));
+    out[base] = plain((await projectView(id)));
   } catch {
     return out;
   }
   for (const v of views) {
     try {
-      out[`${base}/${v}`] = plain(SESSION_VIEWS[v](id));
+      out[`${base}/${v}`] = plain(await SESSION_VIEWS[v](id));
     } catch {}
   }
   if (opts.status) out["/api/status"] = plain(await statusView());
