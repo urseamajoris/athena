@@ -355,7 +355,7 @@ export function IdeaPanel() {
             </button>
             </>
           ) : action.cmd.type === "openScoping" ? (
-            aiStopKind(err) ? <p className="text-fg-2">The first question appears when AI is available again.</p> : <p className="flex items-center gap-2 text-fg-2"><Spinner /> Preparing the first question…</p>
+            aiStopKind(err) ? <p className="text-fg-2">The first question appears when AI is available.</p> : <p className="flex items-center gap-2 text-fg-2"><Spinner /> Preparing the first question…</p>
           ) : (
             <ActionButton action={action} primary showReason />
           )}

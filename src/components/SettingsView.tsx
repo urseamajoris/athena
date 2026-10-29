@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, FlaskConical, PauseCircle, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, PauseCircle, Sparkles } from "lucide-react";
 import { RadioGroup } from "radix-ui";
 import { useApi } from "./api";
 import { ErrorState, Loading, cx } from "./ui";
@@ -11,21 +11,19 @@ import { applyThemePref, readThemePref, type ThemePref } from "@/lib/theme";
 
 interface Status {
   production: boolean;
-  mockMode: boolean;
-  mockAi: boolean;
   models: Record<string, { resolved: string; status: string; note: string }>;
   maxResultsPerQuery: number;
   user: { email: string; role: "user" | "admin" };
-  ai: { enabled: boolean; budgetReached: boolean };
+  ai: { enabled: boolean; budgetReached: boolean; keyMissing: boolean };
   // Admins only:
   spendUsd?: number;
   budgetUsd?: number;
-  paidCalls?: { attempted: number; blocked: number };
+  paidCalls?: { attempted: number };
   keys?: { xai: boolean; openalex: boolean; contactEmail: boolean };
   simulatedFailures?: string[];
 }
 
-/** Settings: how this browser shows Athena (theme), and how the server runs it (demo mode, AI on/off). */
+/** Settings: how this browser shows Athena (theme), and how the server runs it (AI key, AI on/off, budget). */
 export function SettingsView() {
   const { data, error, mutate } = useApi<Status>("/api/status");
   const [theme, setTheme] = useState<ThemePref>("dark");
@@ -61,23 +59,27 @@ export function SettingsView() {
               <h2 id="run-title" className="font-semibold">How this server runs Athena</h2>
               <ul className="mt-3 space-y-3">
                 <li className="flex items-start gap-3">
-                  {data.mockMode ? <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-fg-1" strokeWidth={1.5} aria-hidden /> : <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-fg-1" strokeWidth={1.5} aria-hidden />}
+                  {data.ai.keyMissing || !data.ai.enabled ? <PauseCircle className="mt-0.5 h-4 w-4 shrink-0 text-warn" strokeWidth={2} aria-hidden /> : <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-fg-1" strokeWidth={1.5} aria-hidden />}
                   <span>
-                    <strong className="font-medium">{data.mockMode ? "Demo mode" : data.mockAi ? "Scripted AI, live databases" : "Live AI and databases"}</strong>
+                    <strong className="font-medium">{data.ai.keyMissing ? "AI not set up: no xAI key" : !data.ai.enabled ? "AI switched off by the administrator" : "Live AI and databases"}</strong>
                     <span className="block text-fg-1">
-                      {data.mockMode
-                        ? "A scripted AI and recorded sample papers, so you can try every step without cost. Results will not match your topic."
-                        : "Searches run on PubMed and OpenAlex, and the AI reads the papers you choose."}
+                      {data.ai.keyMissing
+                        ? "Searches run on PubMed and OpenAlex. Steps that need AI wait until an administrator adds an xAI API key; your work is saved."
+                        : !data.ai.enabled
+                          ? "Searches run on PubMed and OpenAlex. Your work is saved; AI steps continue when it is back on."
+                          : "Searches run on PubMed and OpenAlex, and the AI reads the papers you choose."}
                     </span>
                   </span>
                 </li>
-                <li className="flex items-start gap-3">
-                  {data.ai.enabled && !data.ai.budgetReached ? <Check className="mt-0.5 h-4 w-4 shrink-0 text-ok" strokeWidth={2} aria-hidden /> : <PauseCircle className="mt-0.5 h-4 w-4 shrink-0 text-warn" strokeWidth={2} aria-hidden />}
-                  <span>
-                    <strong className="font-medium">{data.ai.budgetReached ? "AI budget reached" : data.ai.enabled ? "AI is on" : "AI is paused by the administrator"}</strong>
-                    <span className="block text-fg-1">{data.ai.enabled && !data.ai.budgetReached ? "AI steps run when you start them." : "Your work is saved; AI steps continue when it is back on."}</span>
-                  </span>
-                </li>
+                {!data.ai.keyMissing && data.ai.enabled && (
+                  <li className="flex items-start gap-3">
+                    {data.ai.budgetReached ? <PauseCircle className="mt-0.5 h-4 w-4 shrink-0 text-warn" strokeWidth={2} aria-hidden /> : <Check className="mt-0.5 h-4 w-4 shrink-0 text-ok" strokeWidth={2} aria-hidden />}
+                    <span>
+                      <strong className="font-medium">{data.ai.budgetReached ? "AI budget reached" : "AI is on"}</strong>
+                      <span className="block text-fg-1">{data.ai.budgetReached ? "Your work is saved; AI steps continue when the administrator raises the budget." : "AI steps run when you start them."}</span>
+                    </span>
+                  </li>
+                )}
               </ul>
               <p className="mt-3 text-12 text-fg-2">Your own AI use is on the <Link href="/account" className="link">Account</Link> page. Each search fetches up to {data.maxResultsPerQuery} papers.</p>
             </section>
@@ -86,7 +88,7 @@ export function SettingsView() {
               <Disclosure title="Server details (admins)">
                 <ul className="space-y-1 text-fg-1">
                   <li>Spend: <span className="tabular-nums">${data.spendUsd?.toFixed(2)}</span> of <span className="tabular-nums">${data.budgetUsd?.toFixed(2)}</span></li>
-                  <li>Paid API calls since this instance started: {data.paidCalls?.attempted ?? 0} ({data.paidCalls?.blocked ?? 0} blocked)</li>
+                  <li>Paid API calls since this instance started: {data.paidCalls?.attempted ?? 0}</li>
                   <li>Keys in the environment: xAI {data.keys.xai ? "set" : "not set"}, OpenAlex {data.keys.openalex ? "set" : "not set"}, contact email {data.keys.contactEmail ? "set" : "not set"}</li>
                   <li>Models: {Object.entries(data.models).map(([r, m]) => `${r} ${m.resolved}`).join(", ")}</li>
                   {data.simulatedFailures?.length ? <li>Simulated source failures: {data.simulatedFailures.join(", ")}</li> : null}

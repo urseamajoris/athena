@@ -49,8 +49,8 @@ export interface LiveData {
   canvas: CanvasSummary;
   ai?: AiState;
 }
-/** Whether AI steps can run right now (admin switch and server budget). */
-export interface AiState { enabled: boolean; budgetReached: boolean }
+/** Whether AI steps can run right now (admin switch, server budget, and an xAI key on the server). */
+export interface AiState { enabled: boolean; budgetReached: boolean; keyMissing: boolean }
 
 /** One canvas store per browser tab; layout and choices persist per session. */
 export const canvasStore = createCanvasStore();
@@ -204,7 +204,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const costs = useStable(live?.costs ?? data?.costs ?? {});
   const liveRetrieval = useStable(live?.retrieval ?? null);
   const { data: status } = useApi<{ ai?: AiState }>("/api/status");
-  const ai = useStable(live?.ai ?? status?.ai ?? { enabled: true, budgetReached: false });
+  const ai = useStable(live?.ai ?? status?.ai ?? { enabled: true, budgetReached: false, keyMissing: false });
 
   // Announce run-state changes to screen readers, and refresh the project when stages move.
   const prevStates = useRef<Record<string, StageState> | null>(null);
