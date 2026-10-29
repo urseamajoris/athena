@@ -6,7 +6,7 @@ import { Client } from "./client.mjs";
 /** Why this /api/status answer means the server could spend money, or null when it has no xAI key. */
 export function keyProblem(status) {
   if (!status || typeof status !== "object") return "/api/status did not answer with JSON";
-  if (status.keys?.xai === true) return "XAI_API_KEY is set in the server's environment";
+  if (status.keys?.xai === true) return "an xAI key is in force (from the server's environment or set by an admin in the dashboard)";
   if (status.ai?.keyMissing === false) return "an xAI key is configured (in the server's environment or set by an admin in the dashboard)";
   if (status.ai?.keyMissing !== true) return "the server does not say whether an xAI key is configured (no ai.keyMissing in /api/status; is it an older build?)";
   return null;

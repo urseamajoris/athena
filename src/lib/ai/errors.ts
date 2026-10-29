@@ -14,9 +14,10 @@ export class AiPausedError extends Error {
   }
 }
 /** No xAI key is configured. Handled like the AI switch: the job pauses and resumes once a key is added. */
+export const NO_KEY_MESSAGE = "AI is not set up on this server yet: no xAI API key is configured. An administrator can add one in the dashboard. Your work is saved.";
 export class AiUnavailableError extends AiPausedError {
   constructor() {
-    super("AI is not set up on this server yet: no xAI API key is configured. An administrator can add one in the dashboard. Your work is saved.");
+    super(NO_KEY_MESSAGE);
   }
 }
 /** Errors that must stop a whole job (not just one batch): it pauses or fails cleanly and can be resumed. */

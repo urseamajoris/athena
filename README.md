@@ -316,7 +316,19 @@ See **Test results** below.
 
 ## Test results
 
-**Needs a fresh run.** Mock mode was removed after the runs below, and the scripts were rewritten for a server with no xAI key. The rewritten `npm test`, `scripts/e2e.mjs`, `scripts/security.mjs`, `npm run qa` and `scripts/ux-shots.mjs` have no recorded results yet: run them as described under **Testing** and record the results here.
+### After removing mock mode (no xAI key, $0)
+
+These checks ran on a production build with no xAI key on the server, and none in the environment or the dashboard. The server logged only refused ("paused") AI calls, so **nothing reached xAI and $0 was spent**.
+
+| Run | Result |
+|---|---|
+| `npx tsc --noEmit` | clean |
+| `npm test` | 137/137 pass. This includes the no-key refusal (`src/lib/ai/errors.test.ts`) and the paid-call counter. |
+| `npm run build` | compiles. Shared first-load JS is 104 kB. |
+| `node scripts/e2e.mjs` (with admin) | 23/23 checks. The idea saves; "Sharpen my idea" and "Write the searches" show the AI-not-set-up message with no spinner left running; topics can be added, edited, deleted and approved by hand; another account gets 404; the banner, the exports and settings are checked; no AI call reached xAI. |
+| `npm run test:security` (with admin) | 54/54 checks. Covers isolation on every route, login limits, admin-only routes, the key never leaking (a made-up key is set only while AI is off), the budget, and AI refused both with AI off and with no key. |
+| `npm run qa -- --quick` | Covers the views that need no AI output (`qa/report-nomock.md`). Known minors: the landing, export and admin pages use 4 type sizes; the canvas route is 251 kB against a 250 kB budget; on the admin page, focus stays on the "Table" toggle. |
+| `scripts/ux-shots.mjs` | not run for this change |
 
 Everything below is history. It was measured in mock mode (the canvas redesign) or with live AI (before the redesign), on code that has since changed.
 

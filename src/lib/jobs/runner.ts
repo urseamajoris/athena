@@ -4,6 +4,7 @@ import { db, schema } from "../db";
 import { newId, nowIso, errMsg } from "../util";
 import { setStageState, logDecision } from "../project";
 import { AiPausedError, AiUnavailableError, BudgetError } from "../ai/client";
+import { NO_KEY_MESSAGE } from "../ai/errors";
 
 /**
  * In-process job runner. Job state lives in SQLite (jobs table), so a page refresh or a client
@@ -148,6 +149,13 @@ export async function resumeJob(id: string): Promise<string> {
 }
 
 /** Every paused job (after an admin turns AI back on, adds a key or raises the budget). */
+/** Startup: jobs paused only because no key was set resume once one is (e.g. XAI_API_KEY added and redeployed). */
+export async function resumeJobsPausedForNoKey(): Promise<number> {
+  const paused = (await db.select({ id: schema.jobs.id }).from(schema.jobs).where(and(eq(schema.jobs.status, "paused"), eq(schema.jobs.error, NO_KEY_MESSAGE))).all());
+  for (const j of paused) await resumeJob(j.id);
+  return paused.length;
+}
+
 export async function resumePausedJobs(): Promise<number> {
   const paused = (await db.select({ id: schema.jobs.id }).from(schema.jobs).where(eq(schema.jobs.status, "paused")).all());
   for (const j of paused) await resumeJob(j.id);

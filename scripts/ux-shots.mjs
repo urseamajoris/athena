@@ -88,7 +88,7 @@ const SHOTS = [
   { page: "idea", state: "not-set-up", url: () => `/s/${P.nokey}?node=idea`, what: "“Sharpen my idea” with no xAI key: the plain AI-not-set-up message", act: async (p) => { await p.locator("[data-panel]").getByText(NOT_SET_UP).first().waitFor({ timeout: 20_000 }); } },
   { page: "scoping", state: "manual-topics", url: () => `/s/${P.topics}?node=idea`, what: "Questions skipped, topics added by hand, ready to approve" },
   { page: "canvas", state: "topics", url: () => `/s/${P.approved}`, what: "Session overview: the idea and the approved hand-made topics" },
-  { page: "search", state: "not-set-up", url: () => `/s/${P.approved}`, what: "“Write the searches” with no xAI key: the AI-not-set-up message", act: async (p) => { await p.locator('[data-kind="topic"]').first().getByRole("button", { name: "Write the searches" }).click(); await p.getByText(NOT_SET_UP).first().waitFor({ timeout: 20_000 }); await p.waitForTimeout(500); } },
+  { page: "search", state: "not-set-up", url: () => `/s/${P.approved}`, what: "“Write the searches” with no xAI key: the AI-not-set-up message", act: async (p) => { await p.getByRole("button", { name: "Write the searches" }).first().click(); await p.getByText(NOT_SET_UP).first().waitFor({ timeout: 20_000 }); await p.waitForTimeout(500); } },
   { page: "export", state: "partial", url: () => `/s/${P.approved}/export`, what: "Export of what exists so far, under the “AI is not set up yet.” banner" },
   { page: "account", state: "populated", url: "/account", what: "Account page" },
   { page: "settings", state: "populated", url: "/settings", what: "Settings: how this server runs Athena (AI not set up)" },
@@ -113,6 +113,8 @@ const NOT_COVERED = [
 const todo = SHOTS.filter((s) => (!ONLY || ONLY.includes(s.page)) && ((s.who !== "admin" && !s.aiOff) || hasAdmin));
 const admin = hasAdmin ? await new Client(base, "admin").login(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD) : null;
 const setAi = (enabled) => admin.json("/api/admin/ai", { body: { enabled } });
+// The AI-off shots put the switch back as they found it, never simply on.
+const aiWasOn = admin ? (await admin.json("/api/status")).ai?.enabled !== false : true;
 try {
   for (const s of todo) {
     const dir = path.join(OUT, s.page, `v${version}`);
@@ -140,7 +142,7 @@ try {
         await ctx.close();
       }
     } finally {
-      if (s.aiOff) await setAi(true);
+      if (s.aiOff) await setAi(aiWasOn);
     }
     fs.writeFileSync(indexFile, JSON.stringify(index, null, 2));
     log("✓", s.page, s.state);

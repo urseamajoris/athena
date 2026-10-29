@@ -59,7 +59,8 @@ async function startServer() {
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
   // Set empty rather than deleted: Next.js fills unset variables from .env files, so a deleted key could come back.
-  for (const k of ["XAI_API_KEY", "OPENALEX_API_KEY", "NCBI_API_KEY", "CONTACT_EMAIL", "SETTINGS_ENCRYPTION_KEY", "ATHENA_ENV", "SIMULATE_SOURCE_FAILURE"]) env[k] = "";
+  // TURSO_*: the audit must never open a shared database (it switches AI off and seeds accounts).
+  for (const k of ["XAI_API_KEY", "OPENALEX_API_KEY", "NCBI_API_KEY", "CONTACT_EMAIL", "SETTINGS_ENCRYPTION_KEY", "ATHENA_ENV", "SIMULATE_SOURCE_FAILURE", "TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN"]) env[k] = "";
   env.DATABASE_PATH = DB;
   env.ADMIN_EMAIL = AUDIT_ADMIN.email;
   env.ADMIN_PASSWORD = AUDIT_ADMIN.password;

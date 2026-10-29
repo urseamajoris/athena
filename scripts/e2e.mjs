@@ -216,7 +216,7 @@ try {
   await page.getByRole("button", { name: "Account and settings" }).click();
   await page.getByRole("menuitem", { name: "Account" }).click();
   await page.waitForURL(/\/account/);
-  await page.getByRole("heading", { name: "Your account" }).waitFor();
+  await page.getByRole("heading", { name: "Your account", exact: true }).waitFor();
   await page.getByText(/AI calls? across/).waitFor();
   check("the account menu opens the account page, which shows $0.00 of AI use", (await page.getByText(/costing \$0\.00/).count()) > 0);
   await shot("9-account");

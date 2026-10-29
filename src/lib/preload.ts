@@ -9,7 +9,7 @@ import { totalSpend } from "./ai/client";
 import { canvasView, papersTableView, projectView, questionsView, rankingTableView } from "./views";
 import { exportPreview } from "./api";
 import { ownedProject, type SessionUser } from "./auth/server";
-import { aiState, budgetLimit } from "./settings";
+import { aiState, budgetLimit, effectiveXaiKey } from "./settings";
 
 /** GET /api/projects */
 export async function projectsList(ownerId: string) {
@@ -33,7 +33,8 @@ export async function statusView(user: SessionUser) {
     paidCalls,
     spendUsd: (await totalSpend()),
     budgetUsd: await budgetLimit(),
-    keys: { xai: !!config.xaiApiKey, openalex: !!config.openalexApiKey, contactEmail: !!config.contactEmail },
+    // xai: a key in force from the environment or set in the dashboard (scripts refuse to drive a server that has one).
+    keys: { xai: !!(await effectiveXaiKey()).key, openalex: !!config.openalexApiKey, contactEmail: !!config.contactEmail },
     simulatedFailures: config.simulateFailure,
   };
 }

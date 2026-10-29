@@ -119,8 +119,9 @@ export function aiStopKind(error: unknown): "ai_paused" | "budget" | null {
 function AiStopped({ kind, message, onRetry }: { kind: "ai_paused" | "budget"; message: string; onRetry?: () => void }) {
   const { data } = useApi<{ ai?: { enabled: boolean; budgetReached: boolean; keyMissing: boolean } }>("/api/status", onRetry ? { refreshInterval: 10_000 } : undefined);
   const available = !!data?.ai && data.ai.enabled && !data.ai.budgetReached && !data.ai.keyMissing;
-  // No key: the server's own message says so, and who can add one.
-  const notSetUp = kind === "ai_paused" && !!data?.ai?.keyMissing;
+  // No key: the server's own message says so, and who can add one. The refusal itself is the authority (the cached
+  // status can be older than it).
+  const notSetUp = kind === "ai_paused" && (/not set up/i.test(message) || !!data?.ai?.keyMissing);
   const sawStopped = useRef(false);
   useEffect(() => {
     // Only on the change from stopped to available: a cached "available" from before the refusal is not news.

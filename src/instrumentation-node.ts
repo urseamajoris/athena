@@ -1,9 +1,9 @@
 import { config } from "./lib/config";
 import { checkModels } from "./lib/ai/models";
-import { resumeJobs } from "./lib/jobs";
+import { resumeJobs, resumeJobsPausedForNoKey } from "./lib/jobs";
 import { ready } from "./lib/db";
 import { ensureAdminFromEnv } from "./lib/auth/server";
-import { budgetLimit, effectiveXaiKey } from "./lib/settings";
+import { aiState, budgetLimit, effectiveXaiKey } from "./lib/settings";
 
 // Apply database migrations (local file or Turso) before anything reads the database.
 // A remote database (Turso) can time out on a cold start: retry, and never crash the server over it
@@ -46,6 +46,9 @@ if (dbReady) {
   }
   try {
     await resumeJobs();
+    // A key added to the environment since: jobs that paused for want of one carry on.
+    const ai = await aiState();
+    if (ai.enabled && !ai.keyMissing && !ai.budgetReached) await resumeJobsPausedForNoKey();
   } catch (e) {
     console.error("[athena] could not resume interrupted jobs:", e);
   }

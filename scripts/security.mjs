@@ -201,16 +201,18 @@ if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
   check("the dashboard never contains password hashes", !/scrypt\$/.test(ovText));
   check("the dashboard counts the users, projects and refused AI calls this test created", ov.users.total >= 3 && ov.users.projects >= 2 && ov.ai.totals.calls > 0 && ov.ai.totals.paused > 0, `${ov.users.total} users, ${ov.users.projects} projects, ${ov.ai.totals.calls} AI calls (${ov.ai.totals.paused} refused)`);
 
-  // The xAI key: stored encrypted, never returned, never logged, never exported. The key here is made up: while it
-  // is set the server may check it against xAI's model list, which rejects it, so nothing can be spent. No AI step
-  // runs while it is set, and it is cleared straight after.
+  // The xAI key: stored encrypted, never returned, never logged, never exported. The key here is made up, and AI is
+  // switched off while it is set: setting a key where there was none resumes paused jobs only while AI is on, so no AI
+  // step runs. The server may check the key against xAI's free model list, which rejects it, so nothing is spent.
   const SAMPLE = `xai-SAMPLE${stamp}TESTKEYdoNotUse0123456789`;
-  // If anything below throws, the made-up key and the AI switch are put back before the script stops.
+  const aiWasOn = ov.ai.enabled;
+  // Afterwards (and if anything below throws), the made-up key is cleared and the AI switch is put back as it was.
   const restore = async () => {
     await admin.raw("/api/admin/key", { method: "DELETE" }).catch(() => {});
-    await admin.raw("/api/admin/ai", { body: { enabled: true } }).catch(() => {});
+    await admin.raw("/api/admin/ai", { body: { enabled: aiWasOn } }).catch(() => {});
   };
   try {
+    await admin.json("/api/admin/ai", { body: { enabled: false } });
     const put = await admin.raw("/api/admin/key", { method: "PUT", body: { key: SAMPLE } });
     const putText = await put.text();
     check("an admin can set a key, and the response does not contain it", put.status === 200 && !putText.includes(SAMPLE) && putText.includes(SAMPLE.slice(-4)), `status ${put.status}`);
@@ -218,6 +220,7 @@ if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
     const scan = async (label, c, path, opts) => { const t = await (await c.raw(path, opts)).text(); if (t.includes(SAMPLE) || t.includes(SAMPLE.slice(4, 20))) leaks.push(label); };
     await scan("overview", admin, "/api/admin/overview");
     await scan("key status", admin, "/api/admin/key");
+    await scan("key test", admin, "/api/admin/key/test", { body: {} });
     await scan("users", admin, "/api/admin/users");
     await scan("status", admin, "/api/status");
     await scan("A status", A, "/api/status");
@@ -259,9 +262,8 @@ if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
     const pdView = await A.json(`/api/projects/${pd}`);
     const pdCosts = Object.values(pdView.costs ?? {});
     check("refused AI steps cost nothing", pdCosts.every((c) => c.cost === 0 && c.failures === c.calls) && pdCosts.reduce((a, c) => a + c.calls, 0) > 0, pdCosts.map((c) => `${c.calls} calls $${c.cost}`).join(", "));
-  } catch (e) {
+  } finally {
     await restore();
-    throw e;
   }
 
   // Budget: raising above the server's limit needs an explicit confirmation; every change is logged.
