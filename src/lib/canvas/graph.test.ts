@@ -143,3 +143,17 @@ test("query blocks: top-level AND splits concepts; OR terms stay together", () =
   assert.equal(b[1].join, "AND");
   assert.equal(queryBlocks("sleep AND grades NOT children").map((x) => x.join).join(","), ",AND,NOT");
 });
+
+test("the Idea card says when the questions are over, and topic cards use plain words", () => {
+  const scoping = (done: boolean) => ({ messages: 4, asked: 2, maxQuestions: 5, done, awaitingAnswer: !done });
+  const idea = (done: boolean) => buildGraph(input({ states: states(1), summary: summary({ topics: [], scoping: scoping(done) }) })).nodes.find((n) => n.id === "idea")!;
+  // QA run 3: two questions answered and the rest finished, yet the card still read "2 of 5 questions".
+  assert.equal(idea(true).key, "Questions done");
+  assert.equal(idea(false).key, "2 of 5 questions");
+  const g = buildGraph(input({ states: states(1), client: { acceptedTopics: ["t2"], pinnedQuotes: [] } }));
+  const ghost = g.nodes.find((n) => n.id === "topic:t1")!;
+  const kept = g.nodes.find((n) => n.id === "topic:t2")!;
+  assert.equal(ghost.key, "Suggested by Athena");
+  assert.match(kept.key, /MeSH/);
+  assert.match(kept.keyHint ?? "", /Medical Subject Headings/);
+});

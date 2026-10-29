@@ -36,7 +36,7 @@ export function taskFor(node: GNode, input: GraphInput): Task {
     case "idea": {
       if (st(states, 1) !== "approved") {
         // The idea was typed on the New review page: this step only confirms it, so it must not read as asking again.
-        if (input.idea.trim()) return { ...base, step: 1, headline: "Check your idea, then start", help: "Your idea is saved. Change it below if you like, then answer a few short questions to sharpen it.", next: "Next: a few short questions to sharpen it" };
+        if (input.idea.trim()) return { ...base, step: 1, headline: "Your idea is saved: now sharpen it", help: "Change it below if you like, then press “Sharpen my idea”. Athena asks up to 5 short questions about who and what you want to study.", next: "Next: a few short questions to sharpen it" };
         return { ...base, step: 1, headline: "Tell us what you want to research", help: "Write your idea in a sentence or two, the way you would say it to a supervisor. It does not need to be a polished question.", next: "Next: a few short questions to sharpen it" };
       }
       const topics = s?.topics ?? [];

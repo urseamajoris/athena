@@ -48,6 +48,8 @@ export interface GNode {
   status: NodeStatus;
   /** The one key number shown on the card. */
   key: string;
+  /** Plain-words explanation of a term in `key` (shown as its tooltip), e.g. what MeSH is. */
+  keyHint?: string;
   parents: string[];
   ghost?: boolean;
   topicId?: string;
@@ -104,6 +106,8 @@ export function toStatus(s: StageState): NodeStatus {
 const fmt = fmtInt;
 const plural = (n: number, one: string, many = `${one}s`) => `${fmt(n)} ${n === 1 ? one : many}`;
 const DB_LABEL: Record<string, string> = { pubmed: "PubMed", openalex: "OpenAlex" };
+/** "MeSH" in plain words, wherever a topic shows its MeSH count. */
+export const MESH_HINT = "MeSH (Medical Subject Headings): the official subject keywords PubMed uses to label papers.";
 
 export function isGhostTopic(t: CanvasSummary["topics"][number], states: StageStates, accepted: string[]) {
   return t.origin === "ai" && !t.approved && st(states, 2) !== "approved" && !accepted.includes(t.id);
@@ -135,7 +139,8 @@ export function buildGraph(input: GraphInput): Graph {
     stages: [1, 2],
     title: input.title || input.idea,
     status: ideaStatus,
-    key: s1 !== "approved" ? "Draft idea" : topics.length ? plural(topics.length, "topic") : s ? `${s.scoping.asked} of ${s.scoping.maxQuestions} questions` : "Scoping",
+    // Once the questions are over (answered, or the rest skipped) the card says so, not "2 of 5 questions".
+    key: s1 !== "approved" ? "Draft idea" : topics.length ? plural(topics.length, "topic") : s ? (s.scoping.done ? "Questions done" : `${s.scoping.asked} of ${s.scoping.maxQuestions} questions`) : "Scoping",
     parents: [],
     staleReason: ideaStatus === "stale" ? reason(2) : undefined,
   });
@@ -150,7 +155,8 @@ export function buildGraph(input: GraphInput): Graph {
       title: t.name,
       // A kept topic is done: what step 2 still needs ("Use these topics") is on the Idea card, not on every topic.
       status: ghost ? "review" : s2 === "needs_review" || s2 === "not_started" ? "done" : toStatus(s2),
-      key: ghost ? "Suggested subtopic" : `${plural(t.synonyms, "synonym")} · ${t.controlledTerms} MeSH`,
+      key: ghost ? "Suggested by Athena" : `${plural(t.synonyms, "synonym")} · ${t.controlledTerms} MeSH`,
+      keyHint: ghost ? "Athena suggested this topic from your answers. Keep it, edit it or delete it." : MESH_HINT,
       parents: ["idea"],
       ghost,
       topicId: t.id,
@@ -246,7 +252,7 @@ export function buildGraph(input: GraphInput): Graph {
       progress: jobProgress(input.jobs, 9),
       staleReason: s9 === "stale" ? reason(9) : undefined,
     });
-    if (s9 === "approved") add({ id: "export", kind: "export", stages: [9], title: "Report", status: "done", key: "Markdown · CSV · BibTeX", parents: ["questions"] });
+    if (s9 === "approved") add({ id: "export", kind: "export", stages: [9], title: "Report", status: "done", key: "Text file (.md) · CSV · BibTeX", parents: ["questions"] });
   }
 
   // Quotes pinned from the appraisal (verification status always visible).

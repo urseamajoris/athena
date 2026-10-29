@@ -35,7 +35,9 @@ export function EmptyCanvas() {
     try {
       const { id } = await api<{ id: string }>("/api/projects", { body: { idea } });
       canvasStore.getState().setIntro("idea");
-      router.replace(`/s/${id}`);
+      // Opens on the Idea panel: its headline and one primary button ("Sharpen my idea") are the next step,
+      // instead of a nearly empty canvas with the step in a small bar.
+      router.replace(`/s/${id}?node=idea`);
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : String(e2));
       setBusy(false);

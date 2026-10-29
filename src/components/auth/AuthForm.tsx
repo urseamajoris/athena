@@ -51,12 +51,12 @@ export function AuthForm({ mode, next, signupOpen = true }: { mode: "login" | "s
           {signup && (
             <label className="label block">
               Your name <span className="font-normal text-fg-2">(optional)</span>
-              <input className="input mt-1 w-full" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+              <input className="input mt-1 w-full" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoFocus />
             </label>
           )}
           <label className="label block">
             Email
-            <input className="input mt-1 w-full" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus aria-invalid={!!error || undefined} />
+            <input className="input mt-1 w-full" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus={!signup} aria-invalid={!!error || undefined} />
           </label>
           <div>
             <label className="label block">

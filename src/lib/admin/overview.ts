@@ -69,12 +69,13 @@ export async function adminOverview() {
       output: sql<number>`coalesce(sum(${schema.aiCalls.outputTokens}),0)`,
       reasoning: sql<number>`coalesce(sum(${schema.aiCalls.reasoningTokens}),0)`,
       retries: sql<number>`sum(case when ${schema.aiCalls.attempt} > 1 then 1 else 0 end)`,
+      firstAttempt: sql<number>`sum(case when ${schema.aiCalls.attempt} = 1 then 1 else 0 end)`,
     })
     .from(schema.aiCalls)
     .where(notMock)
     .groupBy(schema.aiCalls.status)
     .all();
-  const sum = (k: "n" | "cost" | "input" | "cached" | "output" | "reasoning" | "retries", f: (s: string) => boolean = () => true) => totals.filter((t) => f(t.status)).reduce((a, t) => a + Number(t[k] ?? 0), 0);
+  const sum = (k: "n" | "cost" | "input" | "cached" | "output" | "reasoning" | "retries" | "firstAttempt", f: (s: string) => boolean = () => true) => totals.filter((t) => f(t.status)).reduce((a, t) => a + Number(t[k] ?? 0), 0);
   const recentCalls = await db
     .select({ createdAt: schema.aiCalls.createdAt, costUsd: schema.aiCalls.costUsd, stage: schema.aiCalls.stage, model: schema.aiCalls.model, prompt: schema.aiCalls.promptName, version: schema.aiCalls.promptVersion, status: schema.aiCalls.status, durationMs: schema.aiCalls.durationMs })
     .from(schema.aiCalls)
@@ -99,6 +100,13 @@ export async function adminOverview() {
   const lat = sentCalls.map((c) => c.durationMs).filter((x) => x > 0);
   const callTotal = sum("n");
   const sent = sum("n", (s) => !isBlocked(s));
+  // An invalid reply on the first attempt is sent back once with the problems (the retry); one still invalid on
+  // the retry fails the step. Only the second kind, and errors (no reply), are failures.
+  const invalidRetried = sum("firstAttempt", (s) => s === "invalid");
+  const invalidFinal = sum("n", (s) => s === "invalid") - invalidRetried;
+  const errorCalls = sum("n", (s) => s === "error");
+  // The spend limit is a total over every call ever logged: when that history starts.
+  const firstCallAt = (await db.select({ at: sql<string | null>`min(${schema.aiCalls.createdAt})` }).from(schema.aiCalls).where(notMock).get())?.at ?? null;
 
   // ---- requests (this app's API) ----
   // Browser error reports share the table (method BROWSER); they are not API requests.
@@ -209,7 +217,7 @@ export async function adminOverview() {
       aiEnabled: ai.enabled,
       spent,
       limit: budget.limitUsd,
-      sourceErrorRates: sources.map((s) => ({ source: s.source, requests: s.requests, errorRate: s.errorRate })),
+      sourceErrorRates: sources.map((s) => ({ source: s.source, requests: s.requests, errors: s.errors, errorRate: s.errorRate })),
       keyProblem: key.problem ?? (key.inUse === "none" ? "No xAI key is configured: AI steps are paused until one is added." : null),
       modelProblems,
     }),
@@ -234,27 +242,31 @@ export async function adminOverview() {
       key,
       paidCalls,
       models,
-      budget: { ...budget, spentUsd: spent, pct: budget.limitUsd > 0 ? spent / budget.limitUsd : 0, ...exhaustion },
+      budget: { ...budget, spentUsd: spent, pct: budget.limitUsd > 0 ? spent / budget.limitUsd : 0, since: firstCallAt, ...exhaustion },
       totals: {
         calls: callTotal,
         sent,
         ok: sum("n", (s) => s === "ok"),
         invalid: sum("n", (s) => s === "invalid"),
-        errors: sum("n", (s) => s === "error"),
+        invalidRetried,
+        invalidFinal,
+        errors: errorCalls,
         refused: sum("n", (s) => s === "refused"),
         paused: sum("n", (s) => s === "paused"),
         blocked: sum("n", isBlocked),
         costUsd: sum("cost"),
         tokens: { input: sum("input"), cached: sum("cached"), output: sum("output"), reasoning: sum("reasoning") },
         retryRate: sent ? sum("retries") / sent : 0,
-        failureRate: sent ? (sum("n", (s) => s === "invalid" || s === "error")) / sent : 0,
+        invalidRetriedRate: sent ? invalidRetried / sent : 0,
+        // Failed = an error, or a reply still invalid after its retry. A retried invalid reply is not a failure.
+        failureRate: sent ? (errorCalls + invalidFinal) / sent : 0,
       },
       latency: { p50: percentile(lat, 50), p90: percentile(lat, 90), p99: percentile(lat, 99) },
       byDay: dailySeries(sentCalls, 14, now, (r) => r.createdAt, (r) => r.costUsd),
       callsByDay: dailySeries(sentCalls, 14, now, (r) => r.createdAt),
       byStage: group((r) => (r.stage ? `${r.stage}. ${STAGES[r.stage - 1]?.title ?? ""}` : "other")),
       byModel: group((r) => r.model),
-      byPrompt: group((r) => `${r.prompt} ${r.version.startsWith("v") ? r.version : `v${r.version}`}`),
+      byPrompt: group((r) => (r.prompt ? `${r.prompt} ${r.version?.startsWith("v") ? r.version : r.version ? `v${r.version}` : "(no version)"}` : "no prompt version")),
     },
     users: {
       total: users.length,

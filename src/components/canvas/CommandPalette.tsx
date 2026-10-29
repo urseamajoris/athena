@@ -39,7 +39,7 @@ export default function CommandPalette({ open, onClose, onFit, onShortcuts }: { 
     { id: "add-topic", label: "Add a topic", group: "Edit", run: () => run({ type: "addTopic" }), disabled: states["1"] === "approved" ? undefined : "Start scoping first" },
     { id: "table", label: "Open the full summary table", group: "Go to", run: () => router.push(`/s/${projectId}/table`), disabled: graph.nodes.some((n) => n.id === "table") ? undefined : "No table yet" },
     { id: "export", label: "Open the export preview", group: "Go to", run: () => router.push(`/s/${projectId}/export`) },
-    { id: "md", label: "Download the report (Markdown)", group: "Export", run: () => window.location.assign(projectPath(projectId, "export/markdown")) },
+    { id: "md", label: "Download the report (text file, .md)", group: "Export", run: () => window.location.assign(projectPath(projectId, "export/markdown")) },
     { id: "csv", label: "Download the summary table (CSV)", group: "Export", run: () => window.location.assign(projectPath(projectId, "export/csv")) },
     { id: "bib", label: "Download the selected papers (BibTeX)", group: "Export", run: () => window.location.assign(projectPath(projectId, "export/bibtex")) },
     { id: "sessions", label: "My projects", group: "Go to", run: () => router.push("/sessions") },

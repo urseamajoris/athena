@@ -27,6 +27,23 @@ export const ScopingTurn = z.object({
 });
 export type ScopingTurn = z.infer<typeof ScopingTurn>;
 
+/** What the person is studying: asked before years and study designs (scoping_turn v2). */
+const CORE_FIELDS = ["population", "phenomenon", "outcome"] as const;
+
+/**
+ * The scoping order, enforced on every turn (a failed check is sent back once with this reason): the first
+ * question, and every question while population, phenomenon or outcome is still unknown, is about one of those
+ * three or the setting, never about publication years or study designs. Run 3 opened with "Which publication
+ * years?" because the idea named the rest; v2 of the prompt then sharpens one of them instead.
+ */
+export function scopingOrderProblem(o: Pick<ScopingTurn, "done" | "questionTarget" | "coverage">, asked: number): string | null {
+  if (o.done || !o.questionTarget || (o.questionTarget !== "timeframe" && o.questionTarget !== "studyTypes")) return null;
+  const missing = CORE_FIELDS.filter((k) => !o.coverage[k]?.trim());
+  if (asked === 0) return `The first question must be about what the person is studying (population, phenomenon or outcome), not ${o.questionTarget}. If the idea names all three, ask to make the vaguest one more specific.`;
+  if (missing.length) return `Ask about ${missing.join(", ")} before ${o.questionTarget}.`;
+  return null;
+}
+
 export const ScopingTopics = z.object({
   summary: z.object({
     population: str(300),

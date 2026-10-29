@@ -11,10 +11,11 @@ import { PanelFooter, Stat } from "./common";
 import { useQuestions } from "./QuestionsPanel";
 import { fmtInt } from "@/lib/shared/format";
 
+// `ext` names the file in plain words ("Markdown" means nothing to most readers): "Download text file (.md)".
 export const FORMATS = [
-  { id: "markdown", label: "Report", ext: "Markdown", open: "a text file to edit or keep; to read, print or save it as PDF, open the printable report", help: "Your question, the search strategy, the papers you chose, appraisals with checked quotes, the synthesis and every decision you made." },
-  { id: "csv", label: "Spreadsheet of all papers", ext: "CSV", open: "opens in Excel, Numbers or Google Sheets", help: "Every paper found, with its study type, setting and key finding (AI-drafted, plus your corrections)." },
-  { id: "bibtex", label: "Reference list", ext: "BibTeX", open: "imports into Zotero, EndNote or Mendeley", help: "The papers you selected for appraisal, ready to cite." },
+  { id: "markdown", label: "Report", ext: "text file (.md)", open: "to edit or keep in any text editor; to read, print or save it as PDF, open the printable report", help: "Your question, the search strategy, the papers you chose, appraisals with checked quotes, the synthesis and every decision you made." },
+  { id: "csv", label: "Spreadsheet of all papers", ext: "CSV file", open: "opens in Excel, Numbers or Google Sheets", help: "Every paper found, with its study type, setting and key finding (AI-drafted, plus your corrections)." },
+  { id: "bibtex", label: "Reference list", ext: "BibTeX file", open: "imports into Zotero, EndNote or Mendeley", help: "The papers you selected for appraisal, ready to cite." },
 ] as const;
 
 /** A light Markdown preview (headings, bold, lists, paragraphs) so the report reads like a document, not code. */
@@ -54,7 +55,7 @@ export function ExportView({ full = false }: { full?: boolean }) {
   // Next to the Download button (the footer on a phone), so the person who tapped it sees that something happened.
   const status = (
     <p role="status" className="flex min-w-0 flex-1 basis-48 items-center gap-1 text-12 text-fg-1 empty:sr-only">
-      {downloaded === format && <><Check className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden /> Download started: the {fmt.label.toLowerCase()} ({fmt.ext} file). Find it in your browser’s downloads{format === "markdown" ? ", or open the printable report to read it now" : ""}.</>}
+      {downloaded === format && <><Check className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden /> Download started: the {fmt.label.toLowerCase()} as a {fmt.ext}. Find it in your browser’s downloads{format === "markdown" ? ", or open the printable report to read it now" : ""}.</>}
     </p>
   );
   return (
@@ -103,7 +104,7 @@ export function ExportView({ full = false }: { full?: boolean }) {
       {full && (
         <div className="sticky bottom-0 z-10 -mx-4 border-t border-line bg-bg-0 px-4 py-3 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
           <a className="btn-primary min-h-11 w-full sm:w-auto" href={href} download onClick={() => setDownloaded(format)}>
-            <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Download the {fmt.label.toLowerCase()} ({fmt.ext})
+            <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Download the {fmt.label.toLowerCase()} as a {fmt.ext}
           </a>
           <div className="mt-2">{status}</div>
         </div>

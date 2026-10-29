@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { hashPassword, passwordProblem, verifyPassword } from "./password";
-import { decryptSecret, encryptSecret, fingerprint, maskKey, redactSecrets, settingsKey } from "./secrets";
+import { decryptSecret, encryptSecret, fingerprint, keyId, redactSecrets, settingsKey } from "./secrets";
 import { MAX_FAILS_PER_EMAIL, MAX_FAILS_PER_IP, loginRetryAfter, maskEmail, normEmail, sameOrigin } from "./policy";
 import { safeNext } from "../shared/nav";
 
@@ -39,8 +39,14 @@ test("secrets: AES-256-GCM round-trip, tamper detection, wrong key fails", () =>
   const tampered = [...parts.slice(0, 3), Buffer.from("x" + Buffer.from(parts[3], "base64").toString("latin1")).toString("base64")].join(":");
   assert.throws(() => decryptSecret(tampered, key));
   assert.throws(() => decryptSecret(blob, settingsKey("f".repeat(64))!));
-  assert.equal(maskKey("xai-SAMPLEKEY1234567890abcd"), "••••abcd");
   assert.equal(fingerprint("a").length, 8);
+  // The key id shown on the dashboard is the start of the fingerprint, not any part of the key.
+  const sample = "xai-SAMPLEKEY1234567890abcd";
+  const id = keyId({ key: sample });
+  assert.match(id, /^[0-9a-f]{6}$/);
+  assert.equal(id, fingerprint(sample).slice(0, 6));
+  assert.equal(keyId({ fingerprint: fingerprint(sample) }), id);
+  for (let i = 0; i + 4 <= sample.length; i++) assert.ok(!id.includes(sample.slice(i, i + 4)));
 });
 
 test("redaction removes known keys and key-shaped strings", () => {

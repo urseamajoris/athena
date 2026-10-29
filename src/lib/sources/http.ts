@@ -102,7 +102,7 @@ export async function httpFetch(source: SourceName, url: string, opts: FetchOpts
     return { status: hit.status, text: hit.body, contentType: hit.contentType, cached: true };
   }
 
-  if (source === "openalex" && config.openalexApiKey) countPaid();
+  if (source === "openalex" && config.openalexApiKey) countPaid("openalex");
   const maxRetries = opts.maxRetries ?? 4;
   let lastErr: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {

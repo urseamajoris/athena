@@ -80,19 +80,50 @@ export function projectsPerUser(counts: number[]) {
   return Object.entries(b).map(([bucket, users]) => ({ bucket, users }));
 }
 
-/** Spend per day over the last 7 days (or since the first call), and when the limit runs out at that rate. */
+/** A forecast needs at least this many days of spend history: a two-hour burst is not a daily rate. */
+export const FORECAST_MIN_DAYS = 3;
+
+/**
+ * Spend per day over the last 7 days, and when the limit runs out at that rate. `historyDays` is how long ago
+ * the first of `calls` was made; under FORECAST_MIN_DAYS there is no forecast (`enoughHistory` false), because
+ * a few hours of use say nothing about a day. The rate is averaged over the whole window (7 days, or the history
+ * when shorter), never over the hours that happened to have calls.
+ */
 export function projectExhaustion(calls: { createdAt: string; costUsd: number }[], spent: number, limit: number, now: number) {
-  const weekAgo = now - 7 * 86_400_000;
-  const recent = calls.filter((c) => Date.parse(c.createdAt) >= weekAgo);
-  const first = recent.length ? Math.min(...recent.map((c) => Date.parse(c.createdAt))) : now;
-  const spanDays = Math.max(1, (now - first) / 86_400_000);
-  const perDay = recent.reduce((a, c) => a + c.costUsd, 0) / spanDays;
+  const D = 86_400_000;
+  const first = calls.length ? Math.min(...calls.map((c) => Date.parse(c.createdAt))) : now;
+  const historyDays = Math.max(0, (now - first) / D);
+  const windowDays = Math.min(7, Math.max(1, historyDays));
+  const recent = calls.filter((c) => Date.parse(c.createdAt) >= now - windowDays * D);
+  const perDay = recent.reduce((a, c) => a + c.costUsd, 0) / windowDays;
+  const enoughHistory = historyDays >= FORECAST_MIN_DAYS;
+  const base = { perDay, windowDays, historyDays, enoughHistory };
   const remaining = Math.max(0, limit - spent);
-  if (remaining === 0) return { perDay, exhaustedAt: new Date(now).toISOString(), daysLeft: 0 };
-  if (perDay <= 0) return { perDay: 0, exhaustedAt: null, daysLeft: null };
+  if (remaining === 0) return { ...base, exhaustedAt: new Date(now).toISOString(), daysLeft: 0 };
+  if (perDay <= 0 || !enoughHistory) return { ...base, exhaustedAt: null, daysLeft: null };
   const daysLeft = remaining / perDay;
-  return { perDay, exhaustedAt: new Date(now + daysLeft * 86_400_000).toISOString(), daysLeft };
+  return { ...base, exhaustedAt: new Date(now + daysLeft * D).toISOString(), daysLeft };
 }
+
+/**
+ * The first `n` rows of a breakdown, with the rest summed into one "other" row, so a chart that shows a few
+ * rows still adds up to its total.
+ */
+export function topRows<R extends { key: string; calls: number; cost: number; failed: number }>(rows: R[], n: number): { key: string; calls: number; cost: number; failed: number }[] {
+  if (rows.length <= n) return rows;
+  const rest = rows.slice(n - 1);
+  const other = rest.reduce((a, r) => ({ ...a, calls: a.calls + r.calls, cost: a.cost + r.cost, failed: a.failed + r.failed }), { key: `other (${rest.length} more)`, calls: 0, cost: 0, failed: 0 });
+  return [...rows.slice(0, n - 1), other];
+}
+
+/** Display names for the literature sources (the table and the verdict use the same words). */
+export const SOURCE_LABEL: Record<string, string> = { pubmed: "PubMed", openalex: "OpenAlex", crossref: "Crossref", unpaywall: "Unpaywall", europepmc: "Europe PMC", pdf: "PDF downloads" };
+
+/**
+ * Full-text sources: they are asked for every selected paper, and many papers are not open access, so a share of
+ * failures is expected (the appraisal then uses the abstract). Only a majority failing means something broke.
+ */
+export const FULL_TEXT_SOURCES = new Set(["unpaywall", "europepmc", "pdf"]);
 
 export type Level = "green" | "amber" | "red";
 export interface VerdictInput {
@@ -104,7 +135,7 @@ export interface VerdictInput {
   aiEnabled: boolean;
   spent: number;
   limit: number;
-  sourceErrorRates: { source: string; requests: number; errorRate: number }[];
+  sourceErrorRates: { source: string; requests: number; errorRate: number; errors?: number }[];
   keyProblem: string | null;
   modelProblems: string[];
   /** Errors reported by users' browsers (page errors and unhandled promise rejections). */
@@ -112,8 +143,12 @@ export interface VerdictInput {
   topClientError?: { page: string; message: string } | null;
 }
 
-/** Green / amber / red, with the reasons in plain words (the "what needs my attention" list). */
-export function verdict(i: VerdictInput): { level: Level; reasons: { level: Level; text: string }[] } {
+/**
+ * Green / amber / red, with the reasons in plain words (the "what needs my attention" list). A green verdict can
+ * still carry reasons: things worth a look that are not a fault (`worthALook`), such as a full-text source that
+ * fails for papers that are not open access.
+ */
+export function verdict(i: VerdictInput): { level: Level; worthALook: boolean; reasons: { level: Level; text: string }[] } {
   const reasons: { level: Level; text: string }[] = [];
   const add = (level: Level, text: string) => reasons.push({ level, text });
   if (!i.dbOk) add("red", "The database is not answering.");
@@ -127,12 +162,23 @@ export function verdict(i: VerdictInput): { level: Level; reasons: { level: Leve
   if (!i.aiEnabled) add("amber", "AI is switched off: users see a paused message on AI steps.");
   if (i.stuckJobs > 0) add("amber", `${i.stuckJobs} job${i.stuckJobs === 1 ? " has" : "s have"} not reported progress for over 10 minutes.`);
   if (i.pausedJobs > 0) add("amber", `${i.pausedJobs} job${i.pausedJobs === 1 ? " is" : "s are"} paused, waiting for AI or budget.`);
-  for (const s of i.sourceErrorRates) if (s.requests >= 10 && s.errorRate > 0.25) add("amber", `${s.source} is failing ${Math.round(s.errorRate * 100)}% of requests (last 24 h).`);
+  for (const s of i.sourceErrorRates) {
+    const name = SOURCE_LABEL[s.source] ?? s.source;
+    const share = `${s.errors !== undefined ? `${s.errors} of ${s.requests} requests, ` : ""}${Math.round(s.errorRate * 100)}%, last 24 h`;
+    const fullText = FULL_TEXT_SOURCES.has(s.source);
+    if (s.requests >= 10 && s.errorRate > (fullText ? 0.5 : 0.25)) add("amber", `${name} is failing (${share}).`);
+    else if (s.requests >= 5 && s.errorRate > 0.1) {
+      add("green", fullText
+        ? `Worth a look: ${name} failed for some papers (${share}). Usually expected: papers that are not open access have no full text, and their appraisal uses the abstract.`
+        : `Worth a look: ${name} failed for some requests (${share}). Failed searches are retried; check the step's log if results look thin.`);
+    }
+  }
   if (i.keyProblem) add("amber", i.keyProblem);
   for (const m of i.modelProblems) add("amber", m);
-  const level: Level = reasons.some((r) => r.level === "red") ? "red" : reasons.length ? "amber" : "green";
+  const level: Level = reasons.some((r) => r.level === "red") ? "red" : reasons.some((r) => r.level === "amber") ? "amber" : "green";
+  const worthALook = reasons.some((r) => r.level === "green");
   if (!reasons.length) reasons.push({ level: "green", text: "No problems found." });
-  return { level, reasons };
+  return { level, worthALook, reasons };
 }
 
 /**

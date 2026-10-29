@@ -32,14 +32,17 @@ export function decryptSecret(blob: string, key: Buffer): string {
   return Buffer.concat([d.update(Buffer.from(ct, "base64")), d.final()]).toString("utf8");
 }
 
-/** "••••abcd": the only form of a key that ever leaves the server. */
-export function maskKey(key: string): string {
-  return key.length <= 4 ? "••••" : `••••${key.slice(-4)}`;
-}
-
 /** Short, stable fingerprint (to tell keys apart in the audit log without revealing them). */
 export function fingerprint(key: string): string {
   return createHash("sha256").update(key).digest("hex").slice(0, 8);
+}
+
+/**
+ * "3f9a1c": the only form of a key that ever leaves the server. It is the start of the key's SHA-256
+ * fingerprint, not any part of the key, so a screenshot of the dashboard shows no character of the key.
+ */
+export function keyId(from: { key: string } | { fingerprint: string }): string {
+  return ("key" in from ? fingerprint(from.key) : from.fingerprint).slice(0, 6);
 }
 
 const KEY_PATTERNS = [/\bxai-[A-Za-z0-9_-]{8,}/g, /\bsk-[A-Za-z0-9_-]{8,}/g, /\b(Bearer)\s+[A-Za-z0-9._~+/=-]{12,}/gi];

@@ -124,7 +124,7 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
       throw new BudgetError(`AI budget reached ($${spent.toFixed(2)} of $${limit.toFixed(2)}). Your work is saved; the administrator can raise the limit.`);
     }
     const { client: xai, key } = await client();
-    countPaid();
+    countPaid("ai");
     const started = Date.now();
     const useEffort = (opts.role === "fast" || opts.role === "summary") && config.fastReasoningEffort && !noEffort.has(model);
     try {

@@ -3,7 +3,7 @@ import { LogoMark } from "./Logo";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { TransitionLink } from "./vt";
-import { AlertTriangle, Plus } from "lucide-react";
+import { AlertTriangle, Gauge, Plus } from "lucide-react";
 import { api, useApi } from "./api";
 import { ErrorState, Loading, StateIcon } from "./ui";
 import { Disclosure } from "./disclosure";
@@ -53,8 +53,8 @@ function frontier(p: ProjectRow) {
 }
 
 
-/** Sessions: open one, or start a new one. */
-export function SessionsList() {
+/** Sessions: open one, or start a new one. Admins also get a visible route to the dashboard in the top bar. */
+export function SessionsList({ admin = false }: { admin?: boolean }) {
   const { data, error, mutate } = useApi<{ projects: ProjectRow[] }>("/api/projects");
   const [sort, setSort] = useState<"updated" | "title" | "stage">("updated");
   const [filter, setFilter] = useState<"all" | "active" | "done" | "stale">("all");
@@ -75,7 +75,14 @@ export function SessionsList() {
           <LogoMark />
           Athena
         </Link>
-        <AppMenu />
+        <div className="flex items-center gap-1">
+          {admin && (
+            <Link href="/admin" className="btn-ghost min-h-11">
+              <Gauge className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Admin
+            </Link>
+          )}
+          <AppMenu />
+        </div>
       </header>
       <main id="main" className="mx-auto max-w-5xl px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-4">

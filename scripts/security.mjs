@@ -17,6 +17,7 @@
 // - after AI is back on, AI steps work again;
 // - the dashboard never contains paper titles (topic names are checked instead).
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import { Client } from "./lib/client.mjs";
 import { requireNoKey } from "./lib/no-key.mjs";
 
@@ -204,7 +205,14 @@ if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
   // The xAI key: stored encrypted, never returned, never logged, never exported. The key here is made up, and AI is
   // switched off while it is set: setting a key where there was none resumes paused jobs only while AI is on, so no AI
   // step runs. The server may check the key against xAI's free model list, which rejects it, so nothing is spent.
-  const SAMPLE = `xai-SAMPLE${stamp}TESTKEYdoNotUse0123456789`;
+  // Letters only after the public "xai-" prefix (the stamp's digits become letters), so a 4-character run of the
+  // key found in a response is a leak, not a timestamp or a size that happens to share digits with it.
+  const SAMPLE = `xai-SAMPLE${String(stamp).replace(/\d/g, (d) => "KLMNPQRVWZ"[d])}TESTKEYdoNotUseQRSTUVWXYZ`;
+  // The dashboard names a key by its key id: the first 6 hex of its SHA-256 fingerprint, never any of its characters.
+  const SAMPLE_ID = createHash("sha256").update(SAMPLE).digest("hex").slice(0, 6);
+  const runs = [];
+  for (let i = 4; i + 4 <= SAMPLE.length; i++) runs.push(SAMPLE.slice(i, i + 4));
+  const keyRunIn = (t) => runs.find((r) => t.includes(r)) ?? null;
   const aiWasOn = ov.ai.enabled;
   // Afterwards (and if anything below throws), the made-up key is cleared and the AI switch is put back as it was.
   const restore = async () => {
@@ -215,9 +223,10 @@ if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
     await admin.json("/api/admin/ai", { body: { enabled: false } });
     const put = await admin.raw("/api/admin/key", { method: "PUT", body: { key: SAMPLE } });
     const putText = await put.text();
-    check("an admin can set a key, and the response does not contain it", put.status === 200 && !putText.includes(SAMPLE) && putText.includes(SAMPLE.slice(-4)), `status ${put.status}`);
+    check("an admin can set a key, and the response shows its key id and no 4-character run of the key", put.status === 200 && !keyRunIn(putText) && putText.includes(SAMPLE_ID), `status ${put.status}${keyRunIn(putText) ? `, contains "${keyRunIn(putText)}"` : ""}`);
     const leaks = [];
-    const scan = async (label, c, path, opts) => { const t = await (await c.raw(path, opts)).text(); if (t.includes(SAMPLE) || t.includes(SAMPLE.slice(4, 20))) leaks.push(label); };
+    // Admin responses must hold no 4-character run of the key at all; exports (which carry papers' text) no long run.
+    const scan = async (label, c, path, opts, strict = !path.includes("/export") && !path.endsWith("/log")) => { const t = await (await c.raw(path, opts)).text(); if (t.includes(SAMPLE) || t.includes(SAMPLE.slice(4, 20)) || (strict && keyRunIn(t))) leaks.push(label); };
     await scan("overview", admin, "/api/admin/overview");
     await scan("key status", admin, "/api/admin/key");
     await scan("key test", admin, "/api/admin/key/test", { body: {} });
@@ -228,7 +237,7 @@ if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
     await scan("log", A, `/api/projects/${pa}/log`);
     await scan("account export", A, "/api/account/export");
     const ks = await admin.json("/api/admin/key");
-    check("the admin-set key is in use and shown masked", ks.inUse === "admin" && ks.masked === `••••${SAMPLE.slice(-4)}`, `${ks.inUse} ${ks.masked}`);
+    check("the admin-set key is in use and shown only by its key id", ks.inUse === "admin" && ks.keyId === SAMPLE_ID && ks.admin?.keyId === SAMPLE_ID && !keyRunIn(JSON.stringify(ks)), `${ks.inUse} key id ${ks.keyId}`);
     const cleared = await admin.json("/api/admin/key", { method: "DELETE" });
     check("clearing the key leaves the server with no key (none in the environment)", cleared.inUse === "none" && !cleared.admin, cleared.inUse);
     for (const f of [process.env.SECURITY_DB, process.env.SECURITY_DB && `${process.env.SECURITY_DB}-wal`, process.env.SECURITY_LOG].filter(Boolean)) {

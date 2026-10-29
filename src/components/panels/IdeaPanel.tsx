@@ -14,7 +14,7 @@ import { TopicUndo } from "./topic-undo";
 
 const TopicConstellation = dynamic(() => import("../viz/TopicConstellation").then((m) => m.TopicConstellation), { ssr: false, loading: () => <Loading label="Drawing your topics…" /> });
 import { stageAction } from "@/lib/canvas/actions";
-import { frontierStage, isGhostTopic } from "@/lib/canvas/graph";
+import { MESH_HINT, frontierStage, isGhostTopic } from "@/lib/canvas/graph";
 
 interface Topic { id: string; name: string; synonyms: string[]; controlledTerms: string[]; rationale: string; origin: string; approved: boolean }
 export interface ScopingData {
@@ -42,7 +42,7 @@ const COVERAGE_LABEL: Record<string, [string, string]> = {
 
 /** Idea node: the idea itself, then the scoping chat whose answers fill the scope (PICO-style) fields. */
 export function IdeaPanel() {
-  const { projectId, project, states, refresh, confirmEdit, run, busy, input, summary } = useSession();
+  const { projectId, project, states, refresh, confirmEdit, run, busy, input, summary, ai } = useSession();
   const { data, error, isLoading, mutate } = useApi<ScopingData>(projectPath(projectId, "scoping"));
   const [idea, setIdea] = useState(project.idea);
   const [answer, setAnswer] = useState("");
@@ -155,6 +155,10 @@ export function IdeaPanel() {
     if (!d) setAnswer((typed) => (typed.trim() ? `${text} ${typed.trim()}` : text)); // keep what was typed while sending
   }
 
+  // AI cannot run now (paused by the administrator, not set up, or out of budget): the waiting answer box says
+  // why, where the eye is, instead of "Waiting for the next question…".
+  const stopped = aiStopKind(err) ?? (ai.keyMissing || !ai.enabled ? "ai_paused" : ai.budgetReached ? "budget" : null);
+  const stoppedWhy = !stopped ? null : stopped === "budget" ? "The AI budget is reached, so no question can be asked now. Your work is saved." : ai.keyMissing || /not set up/i.test((err as Error | null)?.message ?? "") ? "AI is not set up yet, so no question can be asked. Your work is saved; the questions start once an administrator adds a key." : "AI is paused by the administrator. Your work is saved; the next question appears when AI is back on.";
   const isFrontier = frontierStage(states) === 1 || frontierStage(states) === 2;
   const action = isFrontier ? stageAction(frontierStage(states), input) : null;
   const ghosts = (summary?.topics ?? []).filter((t) => isGhostTopic(t, states, input.client.acceptedTopics));
@@ -182,7 +186,7 @@ export function IdeaPanel() {
       ) : null}
 
       {!ideaApproved && <WhatHappens stage={1} />}
-      {ideaApproved && <WhatHappens stage={2} />}
+      {ideaApproved && <WhatHappens stage={2} showLength={!stopped} />}
 
       {ideaApproved && (chatOpen ? (
         <section aria-label="Scoping conversation" className="rounded-md border border-line">
@@ -201,7 +205,7 @@ export function IdeaPanel() {
               id="answer"
               ref={answerRef}
               className="input min-h-16"
-              placeholder={data.awaitingAnswer ? "Type your answer in your own words (Enter sends)" : "Waiting for the next question…"}
+              placeholder={data.awaitingAnswer ? "Type your answer in your own words (Enter sends)" : stoppedWhy ?? "Waiting for the next question…"}
               value={answer}
               // Not disabled while an answer is being sent: a disabled box would drop what is typed meanwhile.
               disabled={!data.awaitingAnswer || (!!local && local !== "answer")}
@@ -266,14 +270,15 @@ export function IdeaPanel() {
               );
             })}
           </ul>
-          {ghosts.length > 0 && <p className="mt-2 text-12 text-fg-2">Suggested topics stay dashed until you keep or delete them. Keep the ones that are part of your question; you can edit any topic afterwards.</p>}
+          {ghosts.length > 0 && <p className="mt-2 text-12 text-fg-2">Topics marked “suggested” were suggested by Athena from your answers. They stay dashed until you keep or delete them. Keep the ones that are part of your question; you can edit any topic afterwards.</p>}
+          <p className="mt-2 text-12 text-fg-2">Each topic has synonyms (other words for it) and MeSH terms. {MESH_HINT}</p>
         </section>
       )}
       <TopicUndo />
 
       {ideaApproved && !data.topics.length && (
         <section aria-label="What we know so far">
-          <SectionTitle right={<span className="text-12 tabular-nums text-fg-2">{chatOpen ? `question ${Math.max(1, Math.min(data.asked, data.maxQuestions))} of up to ${data.maxQuestions}` : "questions done"}</span>}>What we know so far</SectionTitle>
+          <SectionTitle right={<span className="text-12 tabular-nums text-fg-2">{chatOpen ? (stopped && !data.awaitingAnswer ? "waiting for AI" : `question ${Math.max(1, Math.min(data.asked, data.maxQuestions))} of up to ${data.maxQuestions}`) : "questions done"}</span>}>What we know so far</SectionTitle>
           {chatOpen ? (
             <>
               {answered > 0 && knownList(true)}
@@ -455,7 +460,7 @@ export function TopicPanel({ topicId }: { topicId: string }) {
   const isFrontierNode = node && frontier && (frontierStage(states) === 3 && graph.nodes.find((n) => n.kind === "topic" && !n.ghost)?.id === node.id);
   return (
     <div className="space-y-4">
-      {ghost && <p className="rounded-md border border-dashed border-line-control px-3 py-2 text-fg-1">Suggested by the AI from your scoping answers. Keep it, or delete it if it does not fit.</p>}
+      {ghost && <p className="rounded-md border border-dashed border-line-control px-3 py-2 text-fg-1">Suggested by Athena from your scoping answers. Keep it, or delete it if it does not fit.</p>}
       {approved2 && !ghost && (
         <p className="flex items-start gap-2 text-12 text-fg-1">
           <Info className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden />
@@ -478,8 +483,9 @@ export function TopicPanel({ topicId }: { topicId: string }) {
       <label className="block text-12 text-fg-1">Synonyms (comma-separated)
         <input className="input mt-1" key={`s-${t.synonyms.join()}`} defaultValue={t.synonyms.join(", ")} onBlur={(e) => e.target.value !== t.synonyms.join(", ") && patch({ synonyms: splitList(e.target.value) })} />
       </label>
-      <label className="block text-12 text-fg-1">Controlled vocabulary (MeSH)
-        <input className="input mt-1 font-mono" key={`c-${t.controlledTerms.join()}`} defaultValue={t.controlledTerms.join(", ")} placeholder="none" onBlur={(e) => e.target.value !== t.controlledTerms.join(", ") && patch({ controlledTerms: splitList(e.target.value) })} />
+      <label className="block text-12 text-fg-1">MeSH terms (comma-separated)
+        <input className="input mt-1 font-mono" key={`c-${t.controlledTerms.join()}`} defaultValue={t.controlledTerms.join(", ")} placeholder="none" aria-describedby={`mesh-${t.id}`} onBlur={(e) => e.target.value !== t.controlledTerms.join(", ") && patch({ controlledTerms: splitList(e.target.value) })} />
+        <span id={`mesh-${t.id}`} className="mt-1 block text-fg-2">{MESH_HINT}</span>
       </label>
       <p className="text-12 text-fg-2">Changes save when you leave a field.</p>
       {err ? <ErrorState error={err} /> : null}

@@ -117,7 +117,7 @@ export function childOptions(node: GNode, graph: Graph, input: GraphInput): Chil
       const started = st(states, 1) === "approved" ? undefined : "Start scoping first";
       return [
         opt("topic", "Topic (name your own)", { type: "addTopic" }, started ?? ((s?.topics.length ?? 0) >= 8 ? "A review can have at most 8 topics" : undefined)),
-        opt("topic", "Suggested subtopics", { type: "branch" }, started ?? (!s?.scoping.done ? "Finish the scoping questions first" : undefined)),
+        opt("topic", "Topics suggested by Athena", { type: "branch" }, started ?? (!s?.scoping.done ? "Finish the scoping questions first" : undefined)),
       ];
     }
     case "topic": {

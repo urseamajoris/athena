@@ -62,7 +62,7 @@ function NodeCardImpl({ id, data }: NodeProps<FlowNode>) {
       </div>
       <p className={cx("mt-2 text-14 font-medium text-fg-0", quote ? "line-clamp-2 italic" : "line-clamp-2")}>{node.title}</p>
       <div className="mt-1 flex min-w-0 items-center gap-2" data-detail={node.trust && !quote ? undefined : ""}>
-        <p className="min-w-0 flex-1 truncate text-12 tabular-nums text-fg-1">{node.key}</p>
+        <p className="min-w-0 flex-1 truncate text-12 tabular-nums text-fg-1" title={node.keyHint}>{node.key}</p>
         <TrustBadges node={node} />
       </div>
       {node.ghost ? (
