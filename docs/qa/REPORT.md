@@ -224,3 +224,42 @@ Three fix agents worked in parallel worktrees, and each branch got an independen
 - typography: views with more than 3 text sizes, and a few 6 px gaps.
 
 **After the fixes**, rounds 7 and 8 re-checked the affected views. **Tap targets:** all 44 px on phones. **Landing page:** on phones the first screen is now the mission alone (headline, one sentence, one button), so the largest paint dropped to 0.76 s with Lighthouse mobile performance 94 and accessibility 100. **Canvas JavaScript:** within budget, after the error page is loaded only when needed. **Table:** loads at both widths. **Typography:** panels use three sizes, and the chip gaps are on the 4 pt grid. The landing and export pages still use 4–5 sizes. That breaks only the audit's own 3-size rule and is left as a known minor.
+
+## Real-AI validation
+
+Only real model output can show whether the research question and the review are valid, so a small, planned part of the budget went on real runs.
+
+**Setup:**
+
+- **Server:** production mode (`ATHENA_ENV=production`, `MOCK_MODE=false`), using the real xAI models and the real PubMed and OpenAlex databases.
+- **Database:** its own, `data/qa-real.db`, with the budget capped at **$10**. This keeps at least $5 of the key's $15 limit in reserve.
+- **The xAI key:** used only by that server, from the server's environment. It was never shown to an agent or printed.
+- **Runs:** one persona at a time, with spend read from `ai_calls` after each run.
+
+All three model IDs were confirmed through the free `/v1/models` check before the first run.
+
+### Real run 1: the PhD candidate
+
+**Spend: $0.85** for 72 AI calls, of which 71 succeeded.
+
+**The run:**
+
+- **Retrieval:** 204 real papers.
+- **Appraisal:** 11 papers, 8 from full text and 3 from abstracts.
+- **Quote check:** 159 of 179 quotes found word for word.
+- **Chosen question:** *"What is the long-term trajectory of return-to-work outcomes beyond 24 months among healthcare workers who develop long COVID compared to those who do not?"*
+
+The persona finished all nine steps and judged the workflow traceable: every paper is a real record with an identifier, quotes are checked against the text, and the limits are stated. It found 18 issues that demo mode could not show (6 major), and all of them were fixed before run 2:
+
+| Finding (real mode) | What changed |
+|---|---|
+| False "not found" flags. The model joins passages with "…"; hyphens and spacing such as "n = 463" differ from the paper. | **What a match tolerates:** hyphens count as spaces, no space is kept next to = and %, and a single quotation mark is dropped. **What it still requires:** word boundaries and apostrophes are kept, so "a symptomatic" ≠ "asymptomatic" and "patient's" ≠ "patients". **Quotes with "…":** checked part by part, in the paper's order, and each part must be 4 or more words. Parts in another order stay "not found", with a note saying why. Sentences joined without "…" get a note too. **Re-check on run 1's quotes:** none of the 159 verified quotes was lost, and 1 more genuine quote verifies. |
+| A paper's "abstract" was only a data-availability notice, and the AI used it as the key finding. | Boilerplate (data availability, funding, conflicts of interest, copyright) is cut at ingestion, from OpenAlex, PubMed and Crossref. A text too short to be an abstract counts as no abstract, so the PubMed abstract can be used instead. Unit-tested. |
+| A search without the main concept. A topic with no terms of its own. A study design turned into a topic. | New prompt versions `search_builder.v2` and `scoping_topics.v2`. **Searches:** every query includes the main concept, and each topic has its own terms. **Topics:** study designs, languages and years are criteria, never topics. |
+| "Known: what the papers agree on" listed a single study, and a preprint and its journal version looked like two sources. | **Prompt:** `synthesis.v4` requires two independent studies for "known" and treats a preprint and its journal version as one study. **Panel:** every statement shows how many papers its quotes come from ("1 paper only" for a single-paper Known), with a reminder to check that they are separate studies. |
+| The question said 24 months, its gap 6 and its feasibility 12. A near-identical study was flagged only inside the reasoning. | **Prompt:** `research_questions.v3` requires one population, time frame and outcome throughout. **Card:** a "May already be studied" warning now sits on the candidate's card itself. |
+| UI bugs. **Table:** the Title column collapsed when extra columns were shown. **Searches:** writing them showed only a 75-second spinner. **Footer:** said "Go to step 3" while on step 3. **Checklists:** ticked items before any work. **Topics:** a kept topic still said "Your turn". | **Table:** Title keeps a readable width and the table scrolls sideways. **Searches:** a status line while they are written. **Footer:** on the current step it shows that step's own action. **Checklists:** an item ticks only once it is true with data loaded. **Topics:** a kept topic shows as kept. |
+
+After the fixes: `npm test` 145/145, `npm run build` clean, `node scripts/e2e.mjs` 30/30, `npm run test:security` 48/48.
+
+The persona's report failed the report schema on its first attempt (findings only), and its retry was a placeholder. It was recovered from the transcript. For the later runs the schema asks for the summary fields first and the findings last.
