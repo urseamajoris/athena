@@ -15,7 +15,15 @@ function words(s: string): string[] {
     .filter((w) => w && !STOP.has(w));
 }
 
-const pairs = (ws: string[]) => ws.slice(1).map((w, i) => `${ws[i]} ${w}`);
+// Study-design words and place names that many titles share ("… in South East Asia: a scoping review"). A word pair
+// made only of these says nothing about which paper a text is, so it is left out of the comparison.
+const GENERIC = new Set(
+  ("review reviews scoping systematic metaanalysis meta analysis narrative rapid umbrella literature study studies protocol trial " +
+    "randomised randomized controlled pilot cohort casecontrol crosssectional qualitative mixed methods evidence synthesis survey " +
+    "south north east west southeast southern northern eastern western central asia asian africa african europe european america " +
+    "american pacific region regional global countries country lowincome middleincome highincome lmics world").split(" "),
+);
+const pairs = (ws: string[]) => ws.slice(1).map((w, i) => `${ws[i]} ${w}`).filter((p) => !p.split(" ").every((w) => GENERIC.has(w)));
 
 /** Share of `a`'s adjacent word pairs that also appear in `b`. */
 function coverage(a: string[], b: string[]): number {

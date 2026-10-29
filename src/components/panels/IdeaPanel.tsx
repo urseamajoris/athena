@@ -148,7 +148,7 @@ export function IdeaPanel() {
     const text = answer;
     setAnswer("");
     const d = await call("answer", "scoping/answer", { text });
-    if (!d) setAnswer(text);
+    if (!d) setAnswer((typed) => (typed.trim() ? `${text} ${typed.trim()}` : text)); // keep what was typed while sending
   }
 
   const isFrontier = frontierStage(states) === 1 || frontierStage(states) === 2;

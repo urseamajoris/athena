@@ -159,7 +159,7 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
       owned = aside.contains(e.target as Node);
       // A control that gets focus is never left behind the pinned footer (after the browser's own scrolling).
       cancelAnimationFrame(reveal);
-      if (owned) reveal = requestAnimationFrame(() => { if (document.activeElement === e.target) revealInPanel(e.target as HTMLElement); });
+      if (owned && usingKeyboard()) reveal = requestAnimationFrame(() => { if (document.activeElement === e.target) revealInPanel(e.target as HTMLElement); });
     };
     // A click anywhere hands focus back to the user's own choice; only a later focusin inside the panel re-owns it.
     const onPointerDown = () => { owned = false; };

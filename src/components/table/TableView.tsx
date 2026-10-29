@@ -129,8 +129,7 @@ export function TableView() {
     if (!others.length) return setNotice(null);
     const name = (papers.data?.papers ?? []).find((p) => p.id === out.paperId)?.title ?? "This paper";
     const msg = `“${name.length > 80 ? `${name.slice(0, 80).replace(/\s+\S*$/, "")}…` : name}” is no longer selected for ${after.topics.find((t) => t.id === out.topicId)?.name ?? "this topic"}, but it is still selected in ${others.join(", ")}, so it will still be appraised. To leave it out, untick it there too.`;
-    setNotice(msg);
-    announce(msg);
+    setNotice(msg); // its role="status" line is what screen readers hear
   }
   async function toggle(s: Score) {
     if (!(await confirmEdit(6))) return;

@@ -56,7 +56,11 @@ export function TopicUndo({ className }: { className?: string }) {
       await refresh();
       announce(`The topic ${mine.name} is back.`);
       requestAnimationFrame(() =>
-        document.querySelector<HTMLElement>(`[data-topic-row="${CSS.escape(mine.id)}"], [data-list-node="topic:${CSS.escape(mine.id)}"] > button, [data-node-id="topic:${CSS.escape(mine.id)}"]`)?.focus(),
+        // In order of preference (querySelector with a selector list would return the first in the document instead).
+        [`[data-topic-row="${CSS.escape(mine.id)}"]`, `[data-list-node="topic:${CSS.escape(mine.id)}"] > button`, `[data-node-id="topic:${CSS.escape(mine.id)}"]`]
+          .map((sel) => document.querySelector<HTMLElement>(sel))
+          .find(Boolean)
+          ?.focus(),
       );
     } catch (e) {
       setErr((e as Error).message);

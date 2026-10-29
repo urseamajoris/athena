@@ -43,3 +43,9 @@ test("the text's own title is read from its TITLE section", () => {
   assert.equal(ownTitle(SEA), "Telemedicine Guidelines in South East Asia—A Scoping Review");
   assert.equal(ownTitle("Page one text without sections"), null);
 });
+
+test("titles that share only a place and a study design are not the same paper", () => {
+  for (const t of ["Telehealth in South East Asia: a scoping review", "Teledentistry in South East Asia: A Scoping Review", "Mental health apps in South East Asia: a scoping review"]) {
+    assert.equal(fullTextMatchesTitle(t, SEA), false, t);
+  }
+});
