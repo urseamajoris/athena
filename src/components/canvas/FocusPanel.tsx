@@ -8,8 +8,9 @@ import { MoreMenu, type MenuItem } from "../overlays";
 import { canvasStore, useSession } from "../session/SessionContext";
 import { PanelFooterSlot, useJobMenu } from "../panels/common";
 import { KindIcon } from "./icons";
+import { focusWithRing, usingKeyboard } from "./focus";
 import { NodeStatusBadge } from "./node-bits";
-import { KIND_LABEL, frontierNodeId, frontierStage, type GNode } from "@/lib/canvas/graph";
+import { KIND_LABEL, frontierNodeId, frontierStage, st, toStatus, type GNode } from "@/lib/canvas/graph";
 import { taskFor } from "@/lib/canvas/tasks";
 import { stageAction } from "@/lib/canvas/actions";
 import { STAGES } from "@/lib/shared/stages";
@@ -126,8 +127,12 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
   const { costs, input, states } = useSession();
   const task = taskFor(node, input);
   const viewing = task.step && task.step !== frontierStage(states);
+  // A node can hold a later step's work (before any search exists, step 3 opens on the first topic): the
+  // badge then shows that step's state, matching the "Step N of 9" beside it.
+  const badgeNode = task.step && !node.stages.includes(task.step) ? { ...node, status: toStatus(st(states, task.step)) } : node;
   const showTitle = node.kind === "topic" || node.kind === "query" || node.kind === "quote" || (node.kind === "idea" && input.states["1"] === "approved");
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const asideRef = useRef<HTMLElement>(null);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const slotUsed = useSlotUsed(slot);
   const items0 = useNodeMenu(node);
@@ -138,8 +143,37 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
   const items = calls > 0 ? [...items0, { label: `AI used here: ${calls} call${calls === 1 ? "" : "s"}, $${dollars.toFixed(3)}`, onSelect: () => {}, disabled: true }] : items0;
 
   useEffect(() => {
-    headingRef.current?.focus({ preventScroll: true });
+    focusWithRing(headingRef.current);
   }, [node.id]);
+
+  // After an action the button that had focus often disappears or is disabled (Send answer, Keep topics,
+  // Chosen), which drops focus to the page body. For keyboard users, put it back on the panel heading.
+  useEffect(() => {
+    const aside = asideRef.current;
+    if (!aside) return;
+    let owned = aside.contains(document.activeElement);
+    const onFocusIn = (e: FocusEvent) => { owned = aside.contains(e.target as Node); };
+    let frame = 0;
+    const check = () => {
+      frame = 0;
+      const a = document.activeElement as HTMLElement | null;
+      const lost = !a || a === document.body || !a.isConnected || (a as HTMLButtonElement).disabled === true;
+      if (owned && lost && usingKeyboard()) focusWithRing(headingRef.current);
+    };
+    const mo = new MutationObserver(() => { frame ||= requestAnimationFrame(check); });
+    mo.observe(aside, { subtree: true, childList: true, attributes: true, attributeFilter: ["disabled"] });
+    document.addEventListener("focusin", onFocusIn);
+    return () => {
+      mo.disconnect();
+      cancelAnimationFrame(frame);
+      document.removeEventListener("focusin", onFocusIn);
+    };
+  }, []);
+
+  /** Skip the step's content (an appraisal has dozens of controls) to its next action in the footer. */
+  function skipToActions() {
+    asideRef.current?.querySelector<HTMLElement>("[data-panel-footer] button, [data-panel-footer-fallback] button")?.focus();
+  }
 
   function close() {
     canvasStore.getState().closePanel();
@@ -148,6 +182,7 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
 
   return (
     <m.aside
+      ref={asideRef}
       key={node.id}
       initial={{ opacity: 0, x: 24 }}
       animate={{ opacity: 1, x: 0 }}
@@ -164,7 +199,9 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
         }
       }}
       style={mobile ? undefined : { top }}
-      className={cx("fixed bottom-0 right-0 z-30 flex flex-col border-l border-line bg-bg-1", mobile ? "top-0 w-full" : "w-[480px] xl:w-[560px]")}
+      // On short viewports (200% zoom on a laptop) the whole panel scrolls: the header scrolls away with the
+      // content and only the footer (the next action) stays pinned, without covering what has focus.
+      className={cx("fixed bottom-0 right-0 z-30 flex flex-col border-l border-line bg-bg-1 short:overflow-y-auto short:scroll-pb-28", mobile ? "top-0 w-full" : "w-[480px] xl:w-[560px]")}
     >
       <header className="flex items-start gap-2 border-b border-line px-4 py-3">
         <div className="min-w-0 flex-1">
@@ -172,7 +209,7 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
             <KindIcon kind={node.kind} />
             <span className="font-medium">{task.step ? `${viewing ? "Viewing step" : "Step"} ${task.step} of 9 · ${STAGES[task.step - 1].title}` : "Finished"}</span>
             <span aria-hidden className="text-fg-2">·</span>
-            <NodeStatusBadge node={node} />
+            <NodeStatusBadge node={badgeNode} />
           </p>
           <h2 ref={headingRef} tabIndex={-1} className="mt-1 text-20 font-semibold text-fg-0">{task.headline}</h2>
           {showTitle && node.title && <p className="mt-1 line-clamp-2 text-fg-1" title={node.title}>{node.kind === "idea" ? `“${node.title}”` : `${KIND_LABEL[node.kind]}: ${node.title}`}</p>}
@@ -187,13 +224,14 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
         <MoreMenu items={items} label={`More actions for ${KIND_LABEL[node.kind]}`} />
         <CloseButton onClick={close} label="Close panel (Esc)" />
       </header>
-      <div className="flex-1 overflow-y-auto px-4 py-4" data-panel-body>
+      <button type="button" className="sr-only focus:not-sr-only focus:mx-4 focus:mt-2 focus:self-start focus:rounded-sm focus:bg-bg-2 focus:px-3 focus:py-2" onClick={skipToActions}>Skip to the next action</button>
+      <div className="flex-1 overflow-y-auto px-4 py-4 short:flex-[1_0_auto] short:overflow-visible" data-panel-body>
         <PanelFooterSlot.Provider value={slot}>
           <Body node={node} />
         </PanelFooterSlot.Provider>
       </div>
-      <div ref={setSlot} data-panel-footer className="border-t border-line empty:hidden" />
-      {!slotUsed && <div className="border-t border-line"><WayForward node={node} /></div>}
+      <div ref={setSlot} data-panel-footer className="border-t border-line bg-bg-1 empty:hidden short:sticky short:bottom-0" />
+      {!slotUsed && <div className="border-t border-line bg-bg-1 short:sticky short:bottom-0"><WayForward node={node} /></div>}
     </m.aside>
   );
 }

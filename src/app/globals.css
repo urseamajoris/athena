@@ -163,6 +163,9 @@
   --animate-spin: spin 0.9s linear infinite;
 }
 
+/* Short viewports (e.g. a laptop at 200% zoom, ~450 CSS px tall): fixed headers give way to the content. */
+@custom-variant short (@media (max-height: 640px));
+
 :root {
   --dur-hover: 120ms;
   --dur-panel: 180ms;
@@ -450,9 +453,15 @@ svg.lucide {
   }
 }
 
-/* Headings that receive focus programmatically (tabindex=-1, not reachable by Tab) need no ring. */
+/* Headings that receive focus programmatically (tabindex=-1, not reachable by Tab) need no ring... */
 [tabindex="-1"]:focus {
   outline: none;
+}
+/* ...unless focus was moved there for a keyboard user (focusWithRing in components/canvas/focus.ts). */
+[tabindex="-1"][data-focus-ring]:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* Touch: every control is at least 44 × 44 px on small screens. */

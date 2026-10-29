@@ -78,10 +78,12 @@ export function IdeaPanel() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, ideaApproved]);
+  // A new question puts the cursor in the answer box. The box is disabled until the request that brought the
+  // question has finished (`local`), so focus it only once it is enabled again.
   useEffect(() => {
     chatEnd.current?.scrollIntoView({ block: "nearest" });
-    if (data?.awaitingAnswer) answerRef.current?.focus({ preventScroll: true });
-  }, [data?.messages.length, data?.awaitingAnswer]);
+    if (data?.awaitingAnswer && !local) answerRef.current?.focus({ preventScroll: true });
+  }, [data?.messages.length, data?.awaitingAnswer, local]);
 
   if (isLoading) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;

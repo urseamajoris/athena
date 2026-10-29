@@ -6,6 +6,7 @@ import { mutate as globalMutate } from "swr";
 import { api, projectPath, useApi } from "../api";
 import { AbstractBadge, Badge, ErrorState, Loading, TextSourceBadge } from "../ui";
 import { Disclosure } from "../disclosure";
+import { useReturnFocus } from "../overlays";
 import { RUBRIC, STUDY_TYPES, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
 import { useSession } from "./SessionContext";
 
@@ -21,13 +22,15 @@ interface Detail {
 export function PaperDialog({ paperId, onClose }: { paperId: string | null; onClose: () => void }) {
   const { projectId, refresh } = useSession();
   const [editing, setEditing] = useState(false);
+  // Closing goes back to the row or button that opened the paper (it is opened from code, not a trigger).
+  const returnFocus = useReturnFocus();
   const { data, error, isLoading, mutate } = useApi<Detail>(paperId ? projectPath(projectId, `papers/${paperId}`) : null);
   const p = data?.paper;
   return (
     <Dialog.Root open={!!paperId} onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-scrim" />
-        <Dialog.Content aria-describedby={undefined} className="fixed inset-y-0 right-0 z-50 flex w-[min(560px,100vw)] flex-col border-l border-line-strong bg-bg-1">
+        <Dialog.Content {...returnFocus} aria-describedby={undefined} className="fixed inset-y-0 right-0 z-50 flex w-[min(560px,100vw)] flex-col border-l border-line-strong bg-bg-1">
           <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2">
             <Dialog.Title className="text-12 font-medium text-fg-2">Paper details</Dialog.Title>
             <Dialog.Close className="btn-ghost h-11 w-11 px-0" aria-label="Close paper details">
