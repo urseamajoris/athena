@@ -249,7 +249,7 @@ All three model IDs were confirmed through the free `/v1/models` check before th
 - **Quote check:** 159 of 179 quotes found word for word.
 - **Chosen question:** *"What is the long-term trajectory of return-to-work outcomes beyond 24 months among healthcare workers who develop long COVID compared to those who do not?"*
 
-The persona finished all nine steps and judged the workflow traceable: every paper is a real record with an identifier, quotes are checked against the text, and the limits are stated. It found 18 issues that demo mode could not show (6 major), and all of them were fixed before run 2:
+The persona finished all nine steps. Its summary of the run was lost with the failed report (see below), but its findings were recovered. It found 18 issues that demo mode could not show (6 major), and all of them were fixed before run 2:
 
 | Finding (real mode) | What changed |
 |---|---|
