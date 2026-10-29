@@ -6,9 +6,9 @@ import { plain, projectsList } from "@/lib/preload";
 export const metadata: Metadata = { title: "Sessions · Athena" };
 export const dynamic = "force-dynamic";
 
-export default function SessionsPage() {
+export default async function SessionsPage() {
   return (
-    <SWRConfig value={{ fallback: { "/api/projects": plain(projectsList()) } }}>
+    <SWRConfig value={{ fallback: { "/api/projects": plain((await projectsList())) } }}>
       <SessionsList />
     </SWRConfig>
   );

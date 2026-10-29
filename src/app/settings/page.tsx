@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   return (
-    <SWRConfig value={{ fallback: { "/api/status": plain(await statusView()), "/api/projects": plain(projectsList()) } }}>
+    <SWRConfig value={{ fallback: { "/api/status": plain(await statusView()), "/api/projects": plain((await projectsList())) } }}>
       <SettingsView />
     </SWRConfig>
   );
