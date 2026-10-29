@@ -5,6 +5,7 @@ import { api, projectPath, useApi } from "../api";
 import { Badge, ErrorState, Loading, Spinner, cx } from "../ui";
 import { Disclosure } from "../disclosure";
 import { useLiveRetrieval, useSession } from "../session/SessionContext";
+import { criteriaDrafts } from "./criteria-draft";
 import { ActionButton, PanelFooter, SectionTitle, StaleNotice } from "./common";
 import { FIELD_LABEL, queryBlocks } from "@/lib/canvas/query-chips";
 import { WhatHappens } from "../guide/WhatHappens";
@@ -264,12 +265,18 @@ const critKey = (c: Criteria) => JSON.stringify([c.yearFrom, c.yearTo, c.languag
  */
 function useCriteriaDraft(saved: Criteria | null, onSaved: (d: SearchData) => void) {
   const { projectId, confirmEdit, refresh } = useSession();
-  const [draft, setDraft] = useState<Draft | null>(saved && toDraft(saved));
-  const [base, setBase] = useState<Criteria | null>(saved); // the saved criteria the draft started from
+  // Unsaved edits outlive the panel (closing it, or opening another topic's searches, keeps them).
+  const kept = criteriaDrafts.get<Draft, Criteria>(projectId);
+  const [draft, setDraft] = useState<Draft | null>(kept?.draft ?? (saved && toDraft(saved)));
+  const [base, setBase] = useState<Criteria | null>(kept?.base ?? saved); // the saved criteria the draft started from
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<unknown>(null);
   // Compared as typed: a saved item containing a comma must not make a just-opened form look edited.
   const dirty = !!(draft && base && JSON.stringify(draft) !== JSON.stringify(toDraft(base)) && critKey(fromDraft(draft, base)) !== critKey(base));
+  useEffect(() => {
+    if (draft && base && dirty) criteriaDrafts.set(projectId, { draft, base }, true);
+    else criteriaDrafts.clear(projectId);
+  }, [projectId, draft, base, dirty]);
   useEffect(() => {
     if (!saved || (base && critKey(saved) === critKey(base))) return;
     if (!dirty) setDraft(toDraft(saved)); // newly saved criteria replace the form only when it has no unsaved changes

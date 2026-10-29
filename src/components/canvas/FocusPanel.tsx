@@ -9,6 +9,7 @@ import { canvasStore, useSession } from "../session/SessionContext";
 import { PanelFooterSlot, useJobMenu } from "../panels/common";
 import { KindIcon } from "./icons";
 import { focusWithRing, usingKeyboard } from "./focus";
+import { useUnsavedCriteria } from "../panels/criteria-draft";
 import { NodeStatusBadge } from "./node-bits";
 import { KIND_LABEL, frontierNodeId, frontierStage, st, toStatus, type GNode } from "@/lib/canvas/graph";
 import { taskFor } from "@/lib/canvas/tasks";
@@ -59,6 +60,7 @@ function useSlotUsed(slot: HTMLElement | null) {
 /** Secondary commands for the panel's ⋯ menu. */
 function useNodeMenu(node: GNode): MenuItem[] {
   const { projectId, refresh, run, confirmEdit, summary, states, claims } = useSession();
+  const unsavedCriteria = useUnsavedCriteria(projectId);
   const stage = node.kind === "table" ? (states["5"] === "approved" ? 6 : 5) : node.stages[0];
   const jobMenu = useJobMenu(stage);
   const post = (path: string) => async () => {
@@ -80,7 +82,7 @@ function useNodeMenu(node: GNode): MenuItem[] {
       ];
     case "query":
       return [
-        { label: "Count matches for every search", onSelect: post("search/dryrun-all") },
+        { label: unsavedCriteria ? "Count matches for every search (save your criteria changes first)" : "Count matches for every search", onSelect: post("search/dryrun-all"), disabled: unsavedCriteria },
         { label: "Rewrite all searches", onSelect: () => run({ type: "buildQueries" }) },
       ];
     case "appraisal":

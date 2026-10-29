@@ -4,6 +4,7 @@ import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { useSWRConfig } from "swr";
 import { api, projectPath, useApi } from "../api";
+import { criteriaDrafts } from "../panels/criteria-draft";
 import dynamic from "next/dynamic";
 import { STAGES, STATE_LABEL, thinTopics, type StageState } from "@/lib/shared/stages";
 import type { CanvasSummary, ClaimLite, JobLite } from "@/lib/shared/canvas";
@@ -287,6 +288,13 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
       };
       switch (cmd.type) {
         case "approve": {
+          // Running the searches from the canvas while criteria edits are unsaved would ignore them: show them first.
+          if (cmd.stage === 3 && criteriaDrafts.hasUnsaved(projectId)) {
+            const q = graph.nodes.find((n) => n.kind === "query");
+            if (q) store.openPanel(q.id);
+            announce("Your changes to dates and criteria are not saved yet. Save or undo them, then run the searches.");
+            return;
+          }
           // Appraising with too few papers in a topic is allowed, but never silent.
           const few = cmd.stage === 6 ? thinTopics(summary?.ranking ?? []) : [];
           if (few.length && !(await new Promise<boolean>((resolve) => setThin({ topics: few, resolve })))) return;
@@ -364,7 +372,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
           return;
       }
     },
-    [approve, projectId, refresh, announce, confirmEdit, summary, focusStage],
+    [approve, projectId, refresh, announce, confirmEdit, summary, focusStage, graph],
   );
 
   const runRef = useRef(run);
