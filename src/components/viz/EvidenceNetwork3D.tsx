@@ -33,7 +33,7 @@ export default function EvidenceNetwork3D({ g, theme, animate, label, isolated, 
           </lineSegments>
           {g.statements.map((s) => (
             <mesh key={s.id} position={[s.x, s.y, s.z]} onPointerOver={() => setHover(s.text)} onPointerOut={() => setHover(null)}>
-              <boxGeometry args={[0.32, 0.32, 0.32]} />
+              {s.kind === "known" ? <boxGeometry args={[0.32, 0.32, 0.32]} /> : s.kind === "contested" ? <octahedronGeometry args={[0.26]} /> : <torusGeometry args={[0.14, 0.05, 8, 20]} />}
               <meshStandardMaterial color={KIND_HEX[theme][s.kind]} />
             </mesh>
           ))}

@@ -29,12 +29,9 @@ export function NextStepBar({ floating = false }: { floating?: boolean }) {
           <span className="block font-medium">{task.headline}</span>
         </p>
         {check ? (
-          <>
-            {next && <ActionButton action={next} />}
-            <button className="btn-primary" onClick={() => canvasStore.getState().openPanel(node.id)}>
+          <button className="btn-primary" onClick={() => canvasStore.getState().openPanel(node.id)}>
               Open step {task.step ?? ""} <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
             </button>
-          </>
         ) : (
           next && <ActionButton action={next} primary showReason />
         )}

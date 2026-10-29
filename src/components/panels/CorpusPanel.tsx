@@ -11,7 +11,7 @@ import dynamic from "next/dynamic";
 import { WhatHappens } from "../guide/WhatHappens";
 import { ShapeIcon } from "../categories";
 import { useViewPrefs } from "../session/viewPrefs";
-import { ARTICLE_TYPES, STUDY_GROUPS, articleTypeOf, categoryVar, sourceOf, studyGroupFromLabels, studyGroupOf, type Category, type Dimension } from "@/lib/shared/categories";
+import { ARTICLE_TYPES, STUDY_GROUPS, hasHues, articleTypeOf, categoryVar, sourceOf, studyGroupFromLabels, studyGroupOf, type Category, type Dimension } from "@/lib/shared/categories";
 import type { MapPoint } from "../viz/paper-points";
 
 const PaperMap = dynamic(() => import("../viz/PaperMap").then((m) => m.PaperMap), { ssr: false });
@@ -26,7 +26,7 @@ function Mix({ title, cats, dim, counts, total, note }: { title: string; cats: C
       <ul className="mt-1 space-y-1">
         {cats.filter((c) => counts[c.key]).map((c) => (
           <li key={c.key} className="grid grid-cols-[minmax(0,11rem)_1fr_auto] items-center gap-2 text-12">
-            <span className="flex min-w-0 items-center gap-1.5 text-fg-1"><ShapeIcon shape={c.shape} color={categoryVar(dim, c.key)} /><span className="truncate">{c.label}</span></span>
+            <span className="flex min-w-0 items-center gap-1.5 text-fg-1">{hasHues(dim) && <ShapeIcon shape={c.shape} color={categoryVar(dim, c.key)} />}<span className="truncate">{c.label}</span></span>
             <span className="h-2.5 rounded-sm bg-bg-2" aria-hidden><span className="block h-2.5 rounded-r-[4px]" style={{ width: `${Math.max(3, (counts[c.key] / Math.max(1, total)) * 100)}%`, background: categoryVar(dim, c.key) }} /></span>
             <span className="tabular-nums text-fg-0">{counts[c.key]}</span>
           </li>

@@ -53,13 +53,13 @@ export function AccountView() {
               {data.usage.byProject.length > 0 && (
                 <table className="mt-3 w-full text-left">
                   <caption className="sr-only">AI usage by project</caption>
-                  <thead className="text-12 text-fg-2"><tr><th className="py-1 font-medium">Project</th><th className="py-1 text-right font-medium">AI calls</th><th className="py-1 text-right font-medium">Cost</th></tr></thead>
+                  <thead className="text-12 text-fg-2"><tr><th className="py-1 font-medium">Project</th><th className="py-1 pl-4 text-right font-medium">AI calls</th><th className="py-1 pl-4 text-right font-medium">Cost</th></tr></thead>
                   <tbody>
                     {data.usage.byProject.map((r) => (
                       <tr key={r.projectId} className="border-t border-line">
                         <td className="py-2 pr-2"><Link className="link line-clamp-2" href={`/s/${r.projectId}`}>{r.title || "Untitled"}</Link><span className="block text-12 text-fg-2" suppressHydrationWarning>Started {new Date(r.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</span></td>
-                        <td className="py-2 text-right tabular-nums">{r.calls}</td>
-                        <td className="py-2 text-right tabular-nums">${r.cost.toFixed(2)}</td>
+                        <td className="py-2 pl-4 text-right align-top tabular-nums">{r.calls}</td>
+                        <td className="py-2 pl-4 text-right align-top tabular-nums">${r.cost.toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>

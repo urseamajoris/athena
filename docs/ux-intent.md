@@ -19,7 +19,7 @@ Shared on every step page:
 | New review `/s/new` | Step 1: describe your research idea | Type a sentence (or click an example) | **Start my review** |
 | Idea (scoping chat) | Step 2: answer a few questions to sharpen your idea | Answer the question in your own words | **Send answer** (up to 5; skip via ⋯) |
 | Scoping (topics) | Step 2: keep the search topics you want | Keep or delete each suggested topic, open one to edit | **Keep N suggested topics**, then **Use these topics** |
-| Search builder | Step 3: check the database searches before they run | Read each concept block; count matches | **Run the searches** |
+| Search builder | Step 3: check the database searches before they run | Read each concept block; count matches | **Run all N searches** |
 | Retrieval | Step 4: see what was found (and the mix of study and article types) | Read "N fetched, M duplicates, K papers" | **Summarise the papers** |
 | Summary table | Step 5: skim the papers and fix wrong AI cells | Do the 3-item checklist (see the mix, open a paper, correct a cell) | **Rank the papers** |
 | Ranking | Step 6: check which papers go forward (3–5 per topic) | Pick a topic, open a selected paper, keep 3–5 per topic | **Appraise selected papers** |
@@ -43,7 +43,7 @@ The rules (implemented in `src/lib/shared/categories.ts`, tokens `--cat-1..8`, `
 5. **Legend interaction:** hover or focus highlights a category; click isolates it (click again for all).
 6. **Size and brightness mean something only where the legend says so:** faded = not selected for appraisal (ranking map).
 7. **The palette is validated** (`dataviz` validator): adjacent-pair colour-blind separation ΔE ≥ 8, normal-vision ΔE ≥ 15, and every colour ≥ 3:1 against the page and card surfaces in both themes (`src/lib/design/categories.test.ts`).
-8. **Fallbacks keep the same encoding:** with no WebGL, on weak devices, or by choice ("Flat view"), the 2D versions use the same colours, shapes and legend; under reduced motion nothing moves on its own.
+8. **Fallbacks keep the same encoding:** with no WebGL, on weak devices, or by choice ("Show as 2D chart"), the 2D versions use the same colours, shapes and legend; under reduced motion nothing moves on its own.
 
 | Study type (default colour) | Shape | Meaning |
 |---|---|---|

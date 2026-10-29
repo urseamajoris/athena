@@ -68,11 +68,12 @@ export function PaperMap({ points, colorBy, onColorBy, topics, onOpen, layers, t
           {mode && (
             <button className="btn-secondary btn-sm" onClick={() => setPref(pref === "2d" ? "auto" : "2d")} title={mode === "3d" ? "Show a flat chart instead" : "Show the 3D view"}>
               {mode === "3d" ? <Square className="h-3 w-3" aria-hidden /> : <Box className="h-3 w-3" aria-hidden />}
-              {mode === "3d" ? "Flat view" : "3D view"}
+              {mode === "3d" ? "Show as 2D chart" : "Show in 3D"}
             </button>
           )}
         </span>
       </figcaption>
+      <Legend dim={colorBy} topics={topics} counts={counts} highlight={highlight} isolated={isolated} onHighlight={setHighlight} onIsolate={setIsolated} className="mt-2" title={isolated ? `Showing only one category (${counts[isolated] ?? 0} papers). Click it again to show all.` : "Key: hover to highlight, click to show only that category"} />
       <div className={cx("mt-2", !mode && "h-[300px]")}>
         {mode === "3d" ? (
           <PaperMap3D points={shown} colorBy={colorBy} topics={topics} theme={theme} isolated={null} highlight={highlight} animate={!reduced} onOpen={onOpen} layers={layers} label={caption} dimUnselected={dimUnselected} />
@@ -80,7 +81,6 @@ export function PaperMap({ points, colorBy, onColorBy, topics, onOpen, layers, t
           <PaperMap2D points={shown} colorBy={colorBy} topics={topics} isolated={null} highlight={highlight} onOpen={onOpen} label={caption} dimUnselected={dimUnselected} />
         ) : null}
       </div>
-      <Legend dim={colorBy} topics={topics} counts={counts} highlight={highlight} isolated={isolated} onHighlight={setHighlight} onIsolate={setIsolated} className="mt-2" title={isolated ? `Showing only one category (${counts[isolated] ?? 0} papers). Click it again to show all.` : "Hover to highlight, click to show only that category"} />
       <p className="mt-2 text-12 text-fg-2">{caption}{mode === "3d" ? " Drag to turn, scroll to zoom." : ""}</p>
     </figure>
   );

@@ -1,10 +1,12 @@
 "use client";
 import { Dialog } from "radix-ui";
 import { X } from "lucide-react";
-import { projectPath, useApi } from "../api";
+import { useState } from "react";
+import { mutate as globalMutate } from "swr";
+import { api, projectPath, useApi } from "../api";
 import { AbstractBadge, Badge, ErrorState, Loading, TextSourceBadge } from "../ui";
 import { Disclosure } from "../disclosure";
-import { RUBRIC, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
+import { RUBRIC, STUDY_TYPES, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
 import { useSession } from "./SessionContext";
 
 interface Detail {
@@ -17,8 +19,9 @@ interface Detail {
 
 /** Paper details: identifiers, AI summary, abstract, which queries found it, scores. */
 export function PaperDialog({ paperId, onClose }: { paperId: string | null; onClose: () => void }) {
-  const { projectId } = useSession();
-  const { data, error, isLoading } = useApi<Detail>(paperId ? projectPath(projectId, `papers/${paperId}`) : null);
+  const { projectId, refresh } = useSession();
+  const [editing, setEditing] = useState(false);
+  const { data, error, isLoading, mutate } = useApi<Detail>(paperId ? projectPath(projectId, `papers/${paperId}`) : null);
   const p = data?.paper;
   return (
     <Dialog.Root open={!!paperId} onOpenChange={(o) => !o && onClose()}>
@@ -55,9 +58,23 @@ export function PaperDialog({ paperId, onClose }: { paperId: string | null; onCl
                     <li>Open access: {p.oaUrl ? <a className="link" href={p.oaUrl} target="_blank" rel="noreferrer">{p.oaStatus ?? "link"}</a> : "no open-access link found"}{p.license ? ` (licence: ${p.license})` : ""}</li>
                   </ul>
                 </section>
-                {data.summary && (
+                {data.summary && editing && (
+                  <SummaryEditor
+                    summary={data.summary}
+                    onCancel={() => setEditing(false)}
+                    onSave={async (body) => {
+                      await api(projectPath(projectId, `papers/${paperId}/summary`), { method: "PATCH", body });
+                      setEditing(false);
+                      await mutate();
+                      // The table and maps read the paper list; refresh them too.
+                      await globalMutate((k) => typeof k === "string" && k.startsWith(projectPath(projectId, "papers")));
+                      await refresh();
+                    }}
+                  />
+                )}
+                {data.summary && !editing && (
                   <section>
-                    <h3 className="label flex items-center gap-2">Summary <AbstractBadge />{data.summary.edited && <Badge>edited by you</Badge>}</h3>
+                    <h3 className="label flex flex-wrap items-center gap-2">Summary <AbstractBadge />{data.summary.edited && <Badge>edited by you</Badge>}<button className="btn-ghost btn-sm ml-auto" onClick={() => setEditing(true)}>Correct the summary</button></h3>
                     <dl className="grid grid-cols-[112px_1fr] gap-x-3 gap-y-1">
                       <dt className="text-fg-2">Study type</dt><dd>{STUDY_TYPE_LABEL[data.summary.studyType as StudyType] ?? data.summary.studyType}</dd>
                       <dt className="text-fg-2">Setting</dt><dd>{data.summary.setting}</dd>
@@ -98,5 +115,49 @@ export function PaperDialog({ paperId, onClose }: { paperId: string | null; onCl
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+/** Correct the AI-drafted summary of one paper (the same edit as the table's cells, reachable on touch screens). */
+function SummaryEditor({ summary, onSave, onCancel }: { summary: NonNullable<Detail["summary"]>; onSave: (b: Partial<{ studyType: string; setting: string; keyFinding: string }>) => Promise<void>; onCancel: () => void }) {
+  const [v, setV] = useState({ studyType: summary.studyType, setting: summary.setting, keyFinding: summary.keyFinding });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>(null);
+  return (
+    <form
+      className="space-y-3 rounded-md border border-line p-3"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        setErr(null);
+        // Send only what changed (an untouched long AI cell may exceed the edit limits).
+        const changed = Object.fromEntries(Object.entries(v).filter(([k, x]) => x.trim() !== summary[k as keyof typeof v]));
+        if (!Object.keys(changed).length) return onCancel();
+        try {
+          await onSave(changed);
+        } catch (e2) {
+          setErr(e2);
+          setBusy(false);
+        }
+      }}
+    >
+      <h3 className="label">Correct the summary</h3>
+      <label className="block text-12 text-fg-1">Study type
+        <select className="input mt-1" value={v.studyType} onChange={(e) => setV({ ...v, studyType: e.target.value })}>
+          {STUDY_TYPES.map((x) => <option key={x} value={x}>{STUDY_TYPE_LABEL[x]}</option>)}
+        </select>
+      </label>
+      <label className="block text-12 text-fg-1">Setting
+        <textarea className="input mt-1 min-h-16" value={v.setting} onChange={(e) => setV({ ...v, setting: e.target.value })} />
+      </label>
+      <label className="block text-12 text-fg-1">Key finding
+        <textarea className="input mt-1 min-h-24" value={v.keyFinding} onChange={(e) => setV({ ...v, keyFinding: e.target.value })} />
+      </label>
+      {err ? <ErrorState error={err} /> : null}
+      <div className="flex justify-end gap-2">
+        <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>
+        <button className="btn-secondary" disabled={busy}>Save correction</button>
+      </div>
+    </form>
   );
 }

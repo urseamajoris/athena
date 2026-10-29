@@ -11,7 +11,7 @@ test("exactly one node has a next action: the frontier", () => {
   const g = buildGraph(inp);
   const withAction = g.nodes.filter((n) => nextAction(n, g, inp));
   assert.deepEqual(withAction.map((n) => n.id), ["query:t1"]);
-  assert.equal(nextAction(withAction[0], g, inp)!.label, "Run the searches");
+  assert.equal(nextAction(withAction[0], g, inp)!.label, "Run all 4 searches");
 });
 
 test("ghost topics offer Accept; the Idea offers to accept them all before approval", () => {

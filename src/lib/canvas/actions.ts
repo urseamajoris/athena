@@ -60,7 +60,7 @@ export function stageAction(stage: number | null, input: GraphInput): Action | n
     }
     case 3:
       if (!s?.queries.length) return { cmd: { type: "buildQueries" }, label: "Write the searches" };
-      return { cmd: { type: "approve", stage: 3 }, label: "Run the searches" };
+      return { cmd: { type: "approve", stage: 3 }, label: s.queries.length > 1 ? `Run all ${s.queries.length} searches` : "Run the search" };
     case 4:
       return { cmd: { type: "approve", stage: 4 }, label: "Summarise the papers" };
     case 5:

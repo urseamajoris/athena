@@ -116,7 +116,7 @@ function WayForward({ node }: { node: GNode }) {
     <div data-panel-footer-fallback className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
       <p className="text-12 text-fg-2">{f && f < (node.stages[0] ?? 0) ? `This step waits for ${title}.` : action ? `Next: ${action.label.toLowerCase()} (${title}).` : `Continue with ${title}.`}</p>
       <button className="btn-primary" onClick={() => canvasStore.getState().openPanel(target)}>
-        Go to {f ? `step ${f}` : "the report"} <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+        Go to {f ? `step ${f}: ${STAGES[f - 1].title}` : "the report"} <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
       </button>
     </div>
   );
@@ -176,8 +176,13 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
           </p>
           <h2 ref={headingRef} tabIndex={-1} className="mt-1 text-20 font-semibold text-fg-0">{task.headline}</h2>
           {showTitle && node.title && <p className="mt-1 line-clamp-2 text-fg-1" title={node.title}>{node.kind === "idea" ? `“${node.title}”` : `${KIND_LABEL[node.kind]}: ${node.title}`}</p>}
-          <p className="mt-2 text-fg-1 max-sm:line-clamp-3">{task.help}</p>
-          {task.next && <p className="mt-1 text-12 text-fg-2 max-sm:hidden">{task.next}</p>}
+          <p className="mt-2 text-fg-1">{task.help}</p>
+          {task.next && <p className="mt-1 text-12 text-fg-2">{task.next}</p>}
+          {mobile && (
+            <div className="mt-2 flex gap-0.5" aria-hidden>
+              {STAGES.map((s) => <span key={s.n} className={cx("h-1 flex-1 rounded-full", s.n === task.step ? "bg-fg-0" : states[String(s.n)] === "approved" ? "bg-ok" : states[String(s.n)] === "stale" ? "bg-warn" : "bg-bg-3")} />)}
+            </div>
+          )}
         </div>
         <MoreMenu items={items} label={`More actions for ${KIND_LABEL[node.kind]}`} />
         <CloseButton onClick={close} label="Close panel (Esc)" />

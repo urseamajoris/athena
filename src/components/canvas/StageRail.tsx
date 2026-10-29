@@ -46,7 +46,7 @@ export function StageRail({ compact }: { compact: boolean }) {
                   canvasStore.getState().openPanel(id);
                 }}
               >
-                {state === "approved" ? <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden /> : state === "running" ? <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" strokeWidth={2.5} aria-hidden /> : state === "stale" ? <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> : state === "failed" ? <X className="h-3.5 w-3.5" strokeWidth={3} aria-hidden /> : s.n}
+                {state === "approved" ? <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden /> : state === "running" ? <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" strokeWidth={2.5} aria-hidden /> : state === "stale" ? <>{s.n}<AlertTriangle className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-bg-0 text-warn" strokeWidth={2.5} aria-hidden /></> : state === "failed" ? <X className="h-3.5 w-3.5" strokeWidth={3} aria-hidden /> : s.n}
               </button>
             </li>
           );

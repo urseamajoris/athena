@@ -30,7 +30,7 @@ export function taskFor(node: GNode, input: GraphInput): Task {
   const state = st(states, n);
   const frontier = frontierStage(states);
   const base = { step: n, next: nextTitle(n) };
-  if (state === "stale") return { ...base, headline: "This step is out of date", help: "Something earlier changed after these results were made. Re-run it, or keep the results and review them again." };
+  if (state === "stale") return { ...base, headline: "This step is out of date", help: "Something earlier changed after these results were made. You can still read them; the notice below says what to do." };
   if (state === "failed") return { ...base, headline: "This step did not finish", help: "Read what went wrong below, then try again." };
   switch (node.kind) {
     case "idea": {

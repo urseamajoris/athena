@@ -142,7 +142,7 @@ try {
   check("one query per database per topic", search.topics.every((t) => t.queries.length === 2), `${qs.length} queries`);
   check("dry-run counts shown", qs.every((q) => q.dryRunAt), qs.map((q) => q.dryRunCount ?? `ERR ${q.dryRunError}`).join(", "));
   await shot("3-search");
-  await footer().getByRole("button", { name: "Run the searches" }).click();
+  await footer().getByRole("button", { name: /^Run (all \d+ searches|the search)$/ }).click();
   await waitApproved(3);
 
   // 4. Retrieval (background job + SSE)

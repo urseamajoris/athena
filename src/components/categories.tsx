@@ -1,6 +1,6 @@
 "use client";
 import type { CSSProperties } from "react";
-import { categoriesFor, categoryVar, type Category, type ColorBy, type Dimension, type Shape } from "@/lib/shared/categories";
+import { categoriesFor, categoryVar, hasHues, type Category, type ColorBy, type Dimension, type Shape } from "@/lib/shared/categories";
 import { cx } from "./ui";
 
 /** SVG path for each category shape in a 16×16 box (the second cue besides colour and label). */
@@ -32,7 +32,7 @@ export function CategoryChip({ dim, value, topics = [], className, style }: { di
   if (!cat) return null;
   return (
     <span className={cx("inline-flex items-center gap-1.5 text-12 text-fg-1", className)} style={style} title={cat.hint}>
-      <ShapeIcon shape={cat.shape} color={categoryVar(dim, value, topics)} />
+      {hasHues(dim) && <ShapeIcon shape={cat.shape} color={categoryVar(dim, value, topics)} />}
       {cat.label}
     </span>
   );
@@ -91,7 +91,7 @@ export function Legend({
                   (dim0 || (isolated && !active) || (highlight && highlight !== c.key)) && "opacity-55",
                 )}
               >
-                <ShapeIcon shape={c.shape} color={categoryVar(dim, c.key, topics)} />
+                {hasHues(dim) && <ShapeIcon shape={c.shape} color={categoryVar(dim, c.key, topics)} />}
                 <span>{c.label}</span>
                 {n !== undefined && <span className="tabular-nums text-fg-2">{n}</span>}
               </button>

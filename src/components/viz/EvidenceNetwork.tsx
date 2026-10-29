@@ -1,13 +1,14 @@
 "use client";
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { Legend, shapePath } from "../categories";
+import { Legend, ShapeIcon, shapePath } from "../categories";
 import { useReducedMotion, useTheme, useVizMode } from "./support";
 import { layoutEvidence, type EvPaper, type EvStatement } from "./evidence-graph";
 import { STUDY_GROUPS, categoryVar } from "@/lib/shared/categories";
 
 const EvidenceNetwork3D = dynamic(() => import("./EvidenceNetwork3D"), { ssr: false, loading: () => <div className="h-[360px]" /> });
-const KIND = { known: { label: "Known: the papers agree", color: "var(--ok)" }, contested: { label: "Contested: the papers disagree", color: "var(--cat-7)" }, unknown: { label: "Unknown: not yet studied", color: "var(--fg-2)" } } as const;
+// Statement kinds: colour plus shape (square, diamond, ring), never colour alone.
+const KIND = { known: { label: "Known: the papers agree", color: "var(--ok)", shape: "square" }, contested: { label: "Contested: the papers disagree", color: "var(--cat-7)", shape: "diamond" }, unknown: { label: "Unknown: not yet studied", color: "var(--fg-2)", shape: "ring" } } as const;
 
 /** Statements joined to the papers whose quotes support them; papers coloured and shaped by study type. */
 export function EvidenceNetwork({ statements, papers, onOpenPaper }: { statements: EvStatement[]; papers: EvPaper[]; onOpenPaper: (id: string) => void }) {
@@ -35,7 +36,7 @@ export function EvidenceNetwork({ statements, papers, onOpenPaper }: { statement
             if (iso && p.group !== iso) return null;
             return <line key={i} x1={110} y1={24 + si * 18} x2={290} y2={24 + pi * 18} stroke="var(--line-strong)" />;
           })}
-          {g.statements.map((s, i) => <rect key={s.id} x={100} y={18 + i * 18} width={10} height={10} fill={KIND[s.kind].color}><title>{s.text}</title></rect>)}
+          {g.statements.map((s, i) => <path key={s.id} d={shapePath(KIND[s.kind].shape)} transform={`translate(97 ${16 + i * 18}) scale(0.85)`} fill={KIND[s.kind].color} fillRule="evenodd"><title>{s.text}</title></path>)}
           {g.papers.map((p, i) => {
             const c = STUDY_GROUPS.find((x) => x.key === p.group);
             return (
@@ -49,11 +50,11 @@ export function EvidenceNetwork({ statements, papers, onOpenPaper }: { statement
       )}
       <ul className="mt-2 flex flex-wrap gap-3 text-12 text-fg-1" aria-label="Statement kinds">
         {(Object.keys(KIND) as (keyof typeof KIND)[]).map((kind) => (
-          <li key={kind} className="inline-flex items-center gap-1.5"><span aria-hidden className="inline-block h-2.5 w-2.5" style={{ background: KIND[kind].color }} />{KIND[kind].label} ({k(kind)})</li>
+          <li key={kind} className="inline-flex items-center gap-1.5"><ShapeIcon shape={KIND[kind].shape} color={KIND[kind].color} />{KIND[kind].label} ({k(kind)})</li>
         ))}
       </ul>
       <Legend dim="study" counts={counts} isolated={isolated} highlight={highlight} onHighlight={setHighlight} onIsolate={setIsolated} className="mt-2" title="Papers, by study type (hover to highlight, click to show only one)" />
-      <figcaption className="mt-1 text-12 text-fg-2">Squares are statements; each line is a quote linking a statement to the paper it came from.{mode === "3d" ? " Drag to turn." : ""}</figcaption>
+      <figcaption className="mt-1 text-12 text-fg-2">Squares, diamonds and rings on the left are statements; each line is a quote linking a statement to the paper it came from.{mode === "3d" ? " Drag to turn." : ""}</figcaption>
     </figure>
   );
 }

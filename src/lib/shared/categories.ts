@@ -221,7 +221,7 @@ export function categoriesFor(dim: Dimension | ColorBy, topics: { id: string; na
  * plain ink with their shapes, so one colour never means two things on the same screen.
  */
 const INK: Record<Theme, string> = { light: "#3e3e47", dark: "#b4b4bd" };
-function hasHues(dim: Dimension | ColorBy): boolean {
+export function hasHues(dim: Dimension | ColorBy): boolean {
   return COLOR_BY.some((c) => c.key === dim);
 }
 

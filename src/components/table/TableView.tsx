@@ -15,7 +15,7 @@ import { CategoryChip, ShapeIcon } from "../categories";
 import { Checklist } from "../guide/Checklist";
 import { WhatHappens } from "../guide/WhatHappens";
 import { RUBRIC, STUDY_TYPES, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
-import { ARTICLE_TYPES, DIMENSIONS, accessOf, articleTypeOf, categoriesFor, categoryVar, describeFilters, evidenceOf, periodOf, scoreBandOf, sourceOf, studyGroupOf, type ColorBy, type Dimension } from "@/lib/shared/categories";
+import { ARTICLE_TYPES, DIMENSIONS, hasHues, accessOf, articleTypeOf, categoriesFor, categoryVar, describeFilters, evidenceOf, periodOf, scoreBandOf, sourceOf, studyGroupOf, type ColorBy, type Dimension } from "@/lib/shared/categories";
 import { sessionOf } from "@/lib/canvas/store";
 import type { MapPoint } from "../viz/paper-points";
 
@@ -214,7 +214,7 @@ export function TableView() {
       ? [
           { label: "See what kinds of studies you found", done: seen.includes("explored") || activeFilters.length > 0, hint: "Click a study type below to show only those papers, or open the map." },
           { label: "Open one paper and compare its row with the abstract", done: seen.includes("opened-paper"), hint: "Click a title, or the arrow at the start of a row." },
-          { label: "Correct any cell the AI got wrong", done: all.some((p) => p.summary?.edited), hint: "Optional. Double-click a study type, setting or key finding (or press Enter on it)." },
+          { label: "Correct any cell the AI got wrong", done: all.some((p) => p.summary?.edited), hint: "Optional. Double-click a study type, setting or key finding cell (or press Enter on it). On a phone or tablet, open the paper and use “Correct the summary”." },
         ]
       : [
           { label: "Pick a topic to see its ranked papers", done: topic !== "all", hint: "The buttons above the table: one per topic." },
@@ -368,7 +368,7 @@ function Facets({ rows, filters, toggle, topics, ranked }: { rows: Row[]; filter
           return (
             <button key={x.key} aria-pressed={on} title={x.hint} onClick={() => toggle(dim, x.key)} className={cx("inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-12", on ? "border-fg-1 bg-bg-3 text-fg-0" : "border-line text-fg-1 hover:border-line-strong hover:text-fg-0")}>
               {on && <CheckCircle2 className="h-3 w-3" strokeWidth={2} aria-hidden />}
-              <ShapeIcon shape={x.shape} color={categoryVar(dim, x.key, topics)} />
+              {hasHues(dim) && <ShapeIcon shape={x.shape} color={categoryVar(dim, x.key, topics)} />}
               {x.label}
               <span className="tabular-nums text-fg-2">{c[x.key] ?? 0}</span>
             </button>

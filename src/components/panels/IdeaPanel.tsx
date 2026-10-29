@@ -111,9 +111,9 @@ export function IdeaPanel() {
   const ghosts = (summary?.topics ?? []).filter((t) => isGhostTopic(t, states, input.client.acceptedTopics));
   const chatOpen = ideaApproved && !data.done && !data.topics.length;
   const answered = Object.keys(COVERAGE_LABEL).filter((k) => data.coverage?.[k]).length;
-  const knownList = (
+  const knownList = (onlyAnswered = false) => (
     <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-      {Object.entries(COVERAGE_LABEL).map(([k, [label, hint]]) => (
+      {Object.entries(COVERAGE_LABEL).filter(([k]) => !onlyAnswered || data.coverage?.[k]).map(([k, [label, hint]]) => (
         <div key={k}>
           <dt className="text-12 text-fg-1"><span className="font-medium">{label}</span> <span className="text-fg-2">· {hint}</span></dt>
           <dd className={data.coverage?.[k] ? "text-fg-0" : "text-fg-2"}>{data.coverage?.[k]?.replace(/[\s;,.]+$/, "") || "not answered yet"}</dd>
@@ -191,6 +191,7 @@ export function IdeaPanel() {
                   </button>
                   {ghost && (
                     <span className="flex gap-1 pr-1">
+                      <button className="btn-ghost btn-sm" onClick={() => canvasStore.getState().openPanel(`topic:${t.id}`)} aria-label={`Edit the topic ${t.name}`}>Edit</button>
                       <button className="btn-secondary btn-sm" onClick={() => run({ type: "acceptTopic", topicId: t.id })} aria-label={`Keep the topic ${t.name}`}>Keep</button>
                       <button className="btn-ghost btn-sm" onClick={() => run({ type: "dismissTopic", topicId: t.id })} aria-label={`Delete the topic ${t.name}`}>Delete</button>
                     </span>
@@ -206,7 +207,14 @@ export function IdeaPanel() {
       {ideaApproved && !data.topics.length && (
         <section aria-label="What we know so far">
           <SectionTitle right={<span className="text-12 tabular-nums text-fg-2">{chatOpen ? `question ${Math.max(1, Math.min(data.asked, data.maxQuestions))} of up to ${data.maxQuestions}` : "questions done"}</span>}>What we know so far</SectionTitle>
-          {knownList}
+          {chatOpen ? (
+            <>
+              {answered > 0 && knownList(true)}
+              <p className="mt-1 text-12 text-fg-2">{answered ? `${Object.keys(COVERAGE_LABEL).length - answered} more to cover` : "Filled in as you answer"}: {Object.entries(COVERAGE_LABEL).filter(([k]) => !data.coverage?.[k]).map(([, [label]]) => label.toLowerCase()).join(", ")}.</p>
+            </>
+          ) : (
+            knownList()
+          )}
         </section>
       )}
 
@@ -219,7 +227,7 @@ export function IdeaPanel() {
 
       {data.topics.length > 0 && (
         <Disclosure title="What we know so far" meta={`${answered} of ${Object.keys(COVERAGE_LABEL).length} answered`}>
-          {knownList}
+          {knownList()}
         </Disclosure>
       )}
       {data.topics.length > 0 && <ManageTopics topics={data.topics} onChange={(d) => mutate(d, { revalidate: false })} />}
@@ -257,7 +265,7 @@ export function IdeaPanel() {
       {err ? <ErrorState error={err} title="That step failed" onRetry={() => (data.messages.length ? undefined : call("start", "scoping/start"))} /> : null}
 
       {action && (
-        <PanelFooter note={chatOpen && data.awaitingAnswer ? "Up to five short questions. To skip the rest, use ⋯ (More actions) at the top." : undefined}>
+        <PanelFooter note={chatOpen && data.awaitingAnswer ? "Up to five short questions. “Skip the rest” goes straight to your search topics." : undefined}>
           {!ideaApproved ? (
             <button
               className="btn-primary"
@@ -272,9 +280,12 @@ export function IdeaPanel() {
               {busy === cmdKey({ type: "approve", stage: 1 }) && <Spinner />} Start scoping
             </button>
           ) : action.cmd.type === "answer" ? (
+            <>
+            <button type="button" className="btn-ghost" disabled={!!local} onClick={() => call("skip", "scoping/skip")}>Skip the rest</button>
             <button type="submit" form="scoping-answer-form" className="btn-primary" data-await-input aria-disabled={!answer.trim() || !!local || undefined} onClick={(e) => { if (!answer.trim() || local) e.preventDefault(); }}>
               {local === "answer" && <Spinner />} Send answer
             </button>
+            </>
           ) : action.cmd.type === "openScoping" ? (
             <p className="flex items-center gap-2 text-fg-2"><Spinner /> Preparing the first question…</p>
           ) : (

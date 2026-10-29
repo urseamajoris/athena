@@ -40,8 +40,8 @@ export function TrustBadges({ node }: { node: GNode }) {
   if (node.kind === "quote") return null;
   return (
     <span className="inline-flex items-center gap-2 text-12 tabular-nums" aria-label={`${t.verified} quotes verified, ${t.unverified} unverified, ${t.accepted} accepted${t.stale ? ", stale" : ""}`}>
-      <span className="inline-flex items-center gap-1 text-ok"><Check {...I} />{t.verified}</span>
-      {t.unverified > 0 && <span className="inline-flex items-center gap-1 text-err"><X {...I} />{t.unverified}</span>}
+      <span className="inline-flex items-center gap-1 text-ok" title="Quotes found word for word in the paper"><Check {...I} />{t.verified} verified</span>
+      {t.unverified > 0 && <span className="inline-flex items-center gap-1 text-err" title="Quotes the check could not find in the paper"><X {...I} />{t.unverified} not found</span>}
       {t.stale && <span className="inline-flex items-center gap-1 text-warn"><AlertTriangle {...I} />stale</span>}
     </span>
   );
