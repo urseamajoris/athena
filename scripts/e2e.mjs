@@ -237,7 +237,15 @@ try {
     await page.waitForTimeout(300);
   }
   await page.keyboard.press("Escape");
+  const undecided = (await api("/canvas")).appraisal.pending;
   await node("appraisal").getByRole("button", { name: "Summarise the evidence" }).click();
+  if (undecided > 0) {
+    // Undecided quotes are left out of the synthesis; the app asks before summarising without them.
+    const dialog = page.getByRole("dialog", { name: /not decided yet/ });
+    await dialog.waitFor({ timeout: 10_000 });
+    check("summarising asks before leaving undecided quotes out", (await dialog.textContent()).includes("left out of the synthesis"), `${undecided} undecided`);
+    await dialog.getByRole("button", { name: "Summarise without them" }).click();
+  }
   await waitApproved(7);
 
   // 8. Synthesis

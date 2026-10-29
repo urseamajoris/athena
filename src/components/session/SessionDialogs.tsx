@@ -29,6 +29,29 @@ export function ConfirmEditDialog({ downstream, onCancel, onConfirm }: { downstr
   );
 }
 
+/** "Summarise with quotes undecided?" — the synthesis leaves undecided quotes out. */
+export function ConfirmLeaveOutDialog({ count, onCancel, onConfirm }: { count: number; onCancel: () => void; onConfirm: () => void }) {
+  const n = `${count} quote${count === 1 ? "" : "s"}`;
+  return (
+    <Modal
+      open
+      onClose={onCancel}
+      title={`${n} not decided yet`}
+      footer={
+        <>
+          <button className="btn-secondary" onClick={onCancel}>Go back and decide</button>
+          <button className="btn-primary" onClick={onConfirm}>Summarise without them</button>
+        </>
+      }
+    >
+      <p>
+        {n} you have not decided will be left out of the synthesis. The check could not find {count === 1 ? "it" : "them"} word for word in the paper. Accept a quote if the
+        paper does say it, and it will be used.
+      </p>
+    </Modal>
+  );
+}
+
 export function AddTopicDialog({ state, onClose }: { state: { flowAt?: Pos } | null; onClose: () => void }) {
   const { projectId, refresh, confirmEdit, announce } = useSession();
   const [name, setName] = useState("");

@@ -62,7 +62,7 @@ export function taskFor(node: GNode, input: GraphInput): Task {
       return { ...base, headline: "Check which papers go forward", help: "The top 3–5 papers per topic are selected for appraisal. Swap any you disagree with, then appraise them." };
     case "appraisal":
       if (state === "running") return { ...base, headline: "Reading the selected papers", help: "Each paper is appraised on its open full text where that is legal, otherwise on its abstract. Quotes are checked word for word." };
-      return { ...base, headline: "Check each paper's appraisal", help: "Go through the papers one by one. Look at the quality checklist and decide on any quote marked unverified." };
+      return { ...base, headline: "Check each paper's appraisal", help: "Go through the papers one by one. Look at the quality checklist and decide on any quote marked “not found, you decide”." };
     case "synthesis":
       if (state === "running") return { ...base, headline: "Writing the synthesis", help: "Claims from the appraisals are grouped into what is known, contested and still unknown." };
       return { ...base, headline: "Read what the evidence says", help: "What is known, contested and unknown, each linked to its quotes. Edit any statement, then ask for research questions." };

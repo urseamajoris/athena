@@ -18,7 +18,7 @@ export const STAGES: StageDef[] = [
   { n: 4, key: "retrieval", title: "Retrieval", done: "Wait for every query to finish, review the counts and any errors, then approve.", job: "retrieval" },
   { n: 5, key: "summary", title: "Summary table", done: "Skim the papers found, correct any abstract-derived cells, then approve.", job: "summaries" },
   { n: 6, key: "ranking", title: "Ranking", done: "Check the 3–5 papers selected per topic, swap any you disagree with, then approve.", job: "ranking" },
-  { n: 7, key: "appraisal", title: "Appraisal", done: "Review each appraisal, accept or reject unverified quotes, then approve.", job: "appraisal" },
+  { n: 7, key: "appraisal", title: "Appraisal", done: "Review each appraisal, accept or reject the quotes not found in the paper, then approve.", job: "appraisal" },
   { n: 8, key: "synthesis", title: "Synthesis", done: "Read the evidence matrix and the known / contested / unknown summaries, then approve.", job: "synthesis" },
   { n: 9, key: "questions", title: "Research question", done: "Compare the three candidates, pick one, edit it if needed, then finish.", job: "questions" },
 ];

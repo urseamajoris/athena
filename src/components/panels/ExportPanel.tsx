@@ -107,9 +107,9 @@ export function ExportView({ full = false }: { full?: boolean }) {
           <Stat label="Unique papers" value={fmtInt(summary?.retrieval.unique ?? 0)} />
           <Stat label="Papers appraised" value={a?.papers ?? 0} />
           <Stat label="Full text / abstract" value={`${a?.fullText ?? 0} / ${(a?.papers ?? 0) - (a?.fullText ?? 0)}`} />
-          <Stat label="Quotes verified / not" value={`${a?.verified ?? 0} / ${(a?.pending ?? 0) + (a?.accepted ?? 0) + (a?.rejected ?? 0)}`} />
+          <Stat label="Quotes found / not found" value={`${a?.verified ?? 0} / ${(a?.pending ?? 0) + (a?.accepted ?? 0) + (a?.rejected ?? 0)}`} />
         </div>
-        <p className="mt-2 text-12 text-fg-2">The report includes the full search strategy with dates and counts, every selection you changed, the appraisals with their verified quotes, the synthesis and the decision log, so the review can be reproduced.</p>
+        <p className="mt-2 text-12 text-fg-2">The report includes the full search strategy with dates and counts, every selection you changed, the appraisals with their quotes (and whether each was found in the paper), the synthesis and the decision log, so the review can be reproduced.</p>
       </Disclosure>
       {!full && (
         <PanelFooter>

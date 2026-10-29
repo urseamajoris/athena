@@ -13,6 +13,7 @@ import { createCanvasStore, sessionOf, type SessionUi } from "@/lib/canvas/store
 import type { Pos } from "@/lib/canvas/layout";
 const PaperDialog = dynamic(() => import("./PaperDialog").then((m) => m.PaperDialog), { ssr: false });
 const ConfirmEditDialog = dynamic(() => import("./SessionDialogs").then((m) => m.ConfirmEditDialog), { ssr: false });
+const ConfirmLeaveOutDialog = dynamic(() => import("./SessionDialogs").then((m) => m.ConfirmLeaveOutDialog), { ssr: false });
 const AddTopicDialog = dynamic(() => import("./SessionDialogs").then((m) => m.AddTopicDialog), { ssr: false });
 
 export type Job = JobLite;
@@ -138,6 +139,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const [paperId, setPaperId] = useState<string | null>(null);
   const [guard, setGuard] = useState<{ stage: number; downstream: number[]; resolve: (b: boolean) => void } | null>(null);
   const confirmed = useRef(new Set<number>());
+  const [leaveOut, setLeaveOut] = useState<{ count: number; resolve: (b: boolean) => void } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<unknown>(null);
   const [message, setMessage] = useState("");
@@ -282,8 +284,15 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
         }
       };
       switch (cmd.type) {
-        case "approve":
+        case "approve": {
+          // Summarising the evidence leaves undecided quotes out: say so and ask first.
+          const left = cmd.stage === 7 ? (summary?.appraisal.pending ?? 0) : 0;
+          if (left && !(await new Promise<boolean>((resolve) => setLeaveOut({ count: left, resolve })))) {
+            store.openPanel("appraisal");
+            return;
+          }
           return step(() => approve(cmd.stage));
+        }
         case "run":
           return step(async () => {
             await api(projectPath(projectId, `stages/${cmd.stage}/run`), { body: { force: true } });
@@ -439,6 +448,19 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
             confirmed.current.add(guard.stage);
             guard.resolve(true);
             setGuard(null);
+          }}
+        />
+      )}
+      {leaveOut && (
+        <ConfirmLeaveOutDialog
+          count={leaveOut.count}
+          onCancel={() => {
+            leaveOut.resolve(false);
+            setLeaveOut(null);
+          }}
+          onConfirm={() => {
+            leaveOut.resolve(true);
+            setLeaveOut(null);
           }}
         />
       )}

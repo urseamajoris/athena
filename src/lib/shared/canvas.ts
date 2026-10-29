@@ -27,6 +27,15 @@ export interface ClaimLite {
   userRejected: boolean;
 }
 
+/**
+ * A quote still waiting for the user: extracted, not found word for word in the paper, and neither accepted
+ * nor rejected. The one definition behind every "to decide" count (panel, paper list, canvas, table); the
+ * synthesis leaves these quotes out.
+ */
+export function isUndecided(c: { verified: boolean; notReported?: boolean; userAccepted: boolean; userRejected: boolean }) {
+  return !c.notReported && !c.verified && !c.userAccepted && !c.userRejected;
+}
+
 export interface JobLite {
   id: string;
   kind: string;

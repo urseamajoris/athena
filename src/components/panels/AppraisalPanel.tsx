@@ -6,8 +6,9 @@ import { Badge, EmptyState, ErrorState, Loading, Spinner, TextSourceBadge, cx } 
 import { Disclosure } from "../disclosure";
 import { canvasStore, useJobRefresh, useSession } from "../session/SessionContext";
 import { ActionButton, JobLog, JobStatus, PanelFooter, SectionTitle, StaleNotice } from "./common";
-import { PinButton, QuoteVerdict, SourcePassage } from "./evidence";
+import { FOUND_MEANS, PinButton, QuoteVerdict, SourcePassage } from "./evidence";
 import { nextAction } from "@/lib/canvas/actions";
+import { isUndecided } from "@/lib/shared/canvas";
 import { fmtInt } from "@/lib/shared/format";
 import { Checklist } from "../guide/Checklist";
 import { WhatHappens } from "../guide/WhatHappens";
@@ -15,7 +16,8 @@ import { WhatHappens } from "../guide/WhatHappens";
 export interface AppraisalRow {
   id: string; paperId: string; status: string; error: string | null; textSource: string; textNote: string; templateType: string;
   paper: { id: string; title: string; year: number | null };
-  counts: { claims: number; verified: number; unverified: number; accepted: number; notReported: number };
+  /** unverified = not found word for word; of those, accepted / rejected by the user, and undecided (see isUndecided). */
+  counts: { claims: number; verified: number; unverified: number; accepted: number; rejected: number; undecided: number; notReported: number };
 }
 export interface Claim { id: string; field: string; statement: string; quote: string; location: string; notReported: boolean; verified: boolean; userAccepted: boolean; userRejected: boolean; matchStart: number | null; matchEnd: number | null; verificationNote: string | null; paperId: string; appraisalId: string }
 export interface AppraisalDetailData {
@@ -50,7 +52,9 @@ export function AppraisalPanel() {
   const reviewed = list.filter((a) => ui.reviewed.includes(a.id)).length;
   const node = graph.nodes.find((n) => n.id === "appraisal");
   const action = node ? nextAction(node, graph, input) : null;
-  const totals = list.reduce((a, x) => ({ ft: a.ft + (x.textSource === "full_text" ? 1 : 0), unv: a.unv + Math.max(0, x.counts.unverified - x.counts.accepted) }), { ft: 0, unv: 0 });
+  // Every "to decide" count here comes from the server's per-paper counts (the same rule as the canvas card).
+  const totals = list.reduce((a, x) => ({ ft: a.ft + (x.textSource === "full_text" ? 1 : 0), left: a.left + x.counts.undecided, decided: a.decided + x.counts.accepted + x.counts.rejected }), { ft: 0, left: 0, decided: 0 });
+  const leftOut = `${totals.left} quote${totals.left === 1 ? "" : "s"} you have not decided will be left out of the synthesis.`;
 
   if (isLoading) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
@@ -62,6 +66,7 @@ export function AppraisalPanel() {
     if (next) setActive(next.id);
   }
   const last = idx === list.length - 1;
+  const markLast = current && last && current.status === "done" && !ui.reviewed.includes(current.id);
 
   return (
     <div className="space-y-4">
@@ -76,19 +81,19 @@ export function AppraisalPanel() {
             title="Do these things"
             items={[
               { label: `Look at each paper (${reviewed} of ${list.length} looked at)`, done: reviewed >= list.filter((a) => a.status === "done").length, hint: "“Next paper” moves on and marks this one as looked at." },
-              { label: `Decide every quote the check could not find (${totals.unv} left)`, done: totals.unv === 0, hint: "Accept it if the paper does say this, reject it if not. Rejected quotes are left out of the synthesis." },
+              { label: `Decide every quote the check could not find (${totals.decided} decided, ${totals.left} left)`, done: totals.left === 0, hint: "Accept it if the paper does say this, reject it if not. Rejected and undecided quotes are left out of the synthesis." },
               { label: "Then summarise the evidence", done: states["7"] === "approved" },
             ]}
           />
           <p className="text-12 text-fg-1">
-            For each quality question the AI gives an answer (<span className="text-fg-0">Yes, No, Unclear, Not reported</span>) and a quote from the paper. Athena then looks for the quote word for word: <span className="text-ok">✓ found</span> or <span className="text-err">✗ not found, you decide</span>.
+            For each quality question the AI gives an answer (<span className="text-fg-0">Yes, No, Unclear, Not reported</span>) and a quote from the paper. Athena then looks for the quote word for word: <span className="text-ok">✓ found word for word</span> or <span className="text-err">✗ not found, you decide</span>. {FOUND_MEANS}
           </p>
           <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} /> Show only quotes I need to decide</label>
           <div className="flex items-center gap-2">
             <button className="btn-ghost h-11 w-11 px-0" onClick={() => go(-1)} disabled={idx <= 0} aria-label="Previous paper"><ChevronLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden /></button>
             <p className="flex-1 text-center" aria-live="polite">
               <span className="font-medium tabular-nums">Paper {idx + 1} of {list.length}</span>
-              <span className="block text-12 tabular-nums text-fg-2">{reviewed}/{list.length} reviewed · {totals.ft} full text · {totals.unv} unverified quote{totals.unv === 1 ? "" : "s"} to decide</span>
+              <span className="block text-12 tabular-nums text-fg-2">{reviewed}/{list.length} reviewed · {totals.ft} full text · {totals.left} quote{totals.left === 1 ? "" : "s"} to decide</span>
             </p>
             <button className="btn-ghost h-11 w-11 px-0" onClick={() => go(1)} disabled={last} aria-label="Next paper (marks this one reviewed)"><ChevronRight className="h-4 w-4" strokeWidth={1.5} aria-hidden /></button>
           </div>
@@ -103,7 +108,8 @@ export function AppraisalPanel() {
                       <span className="line-clamp-2">{a.paper.title}</span>
                       <span className="mt-1 flex flex-wrap gap-1">
                         {a.status === "done" ? <TextSourceBadge source={a.textSource} /> : a.status === "failed" ? <Badge tone="err">failed</Badge> : <Badge tone="run">{a.status}</Badge>}
-                        {a.counts.unverified - a.counts.accepted > 0 && <Badge tone="err">{a.counts.unverified - a.counts.accepted} unverified</Badge>}
+                        {a.counts.undecided > 0 && <Badge tone="err">{a.counts.undecided} to decide</Badge>}
+                        {a.counts.rejected > 0 && <Badge>{a.counts.rejected} rejected by you</Badge>}
                         {ui.reviewed.includes(a.id) && <Badge>reviewed</Badge>}
                       </span>
                     </span>
@@ -115,14 +121,17 @@ export function AppraisalPanel() {
           <JobLog stage={7} />
         </>
       )}
-      <PanelFooter>
+      <PanelFooter note={action?.cmd.type === "approve" && totals.left > 0 ? leftOut : undefined}>
         {list.length > 0 && !last ? (
           <>
             {action && <ActionButton action={action} />}
             <button className="btn-primary" onClick={() => go(1)}>Next paper</button>
           </>
         ) : action ? (
-          <ActionButton action={action} primary showReason />
+          <>
+            {markLast && <button className="btn-secondary" onClick={() => current && canvasStore.getState().markReviewed(projectId, current.id)}>Mark this paper as looked at</button>}
+            <ActionButton action={action} primary showReason />
+          </>
         ) : list.length > 0 ? (
           <button className="btn-secondary" onClick={() => { go(0); setActive(list[0].id); }}>Back to the first paper</button>
         ) : null}
@@ -132,9 +141,11 @@ export function AppraisalPanel() {
 }
 
 function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onChanged: () => void; onlyOpen: boolean }) {
-  const { projectId, confirmEdit, refresh, openPaper, states } = useSession();
+  const { projectId, confirmEdit, refresh, openPaper, states, announce } = useSession();
   const { data, error, isLoading, mutate } = useApi<AppraisalDetailData>(projectPath(projectId, `appraisals/${row.id}`));
   const [busy, setBusy] = useState<string | null>(null);
+  // Quotes decided on this visit stay in place (as "Rejected", with Undo) even under "only quotes I need to decide".
+  const [decidedHere, setDecidedHere] = useState<Set<string>>(() => new Set());
   const stale = states["7"] === "stale";
   if (isLoading) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
@@ -145,6 +156,8 @@ function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onCh
     setBusy(c.id);
     try {
       await mutate(await api<AppraisalDetailData>(projectPath(projectId, `claims/${c.id}`), { method: "PATCH", body: { decision } }), { revalidate: false });
+      setDecidedHere((s) => new Set(s).add(c.id));
+      announce(decision === "reject" ? "Quote rejected: left out of the synthesis. Undo is next to it." : decision === "accept" ? "Quote accepted: it will be used in the synthesis." : "Decision undone: the quote is waiting for you again.");
       onChanged();
       await refresh();
     } finally {
@@ -152,7 +165,7 @@ function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onCh
     }
   }
   const byId = new Map(data.claims.map((c) => [c.id, c]));
-  const open = (c: Claim | null | undefined) => !!c && !c.notReported && !c.verified && !c.userAccepted && !c.userRejected;
+  const open = (c: Claim | null | undefined) => !!c && (isUndecided(c) || decidedHere.has(c.id));
   const fieldClaims = data.claims.filter((c) => c.field !== "checklist" && (!onlyOpen || open(c)));
   const checklist = a.checklist.filter((it) => !onlyOpen || open(it.claimId ? byId.get(it.claimId) : null));
   return (
@@ -172,7 +185,7 @@ function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onCh
       </div>
 
       <section aria-label="Quality checklist">
-        <SectionTitle>Quality questions for a {(TEMPLATE_LABEL[a.templateType] ?? a.templateType).toLowerCase()} study</SectionTitle>
+        <SectionTitle>{a.templateType === "other" ? "General quality questions" : `Quality questions for a ${(TEMPLATE_LABEL[a.templateType] ?? a.templateType).toLowerCase()} study`}</SectionTitle>
         {onlyOpen && !checklist.length && <p className="text-fg-2">Nothing to decide in this checklist.</p>}
         <ul className="space-y-2">
           {checklist.map((it, i) => {
@@ -200,7 +213,7 @@ function AppraisalDetail({ row, onChanged, onlyOpen }: { row: AppraisalRow; onCh
               {cs.length === 0 && <p className="italic text-fg-2">not extracted</p>}
               <ul className="space-y-2">
                 {cs.map((c) => (
-                  <li key={c.id} className={cx("rounded-md border p-3", c.notReported ? "border-line" : !c.verified && !c.userAccepted ? "border-err-line" : "border-line")}>
+                  <li key={c.id} className={cx("rounded-md border p-3", isUndecided(c) ? "border-err-line" : "border-line")}>
                     {c.notReported ? (
                       <p className="italic text-fg-2">Not reported in the retrieved text</p>
                     ) : (
@@ -230,7 +243,7 @@ export function QuoteLine({ c, text, stale, onDecide, busy }: { c: Claim; text?:
   const canShow = c.verified && text && c.matchStart !== null && c.matchEnd !== null;
   return (
     <div className="mt-2">
-      <blockquote className={cx("border-l-2 pl-2 text-12 italic text-fg-1", c.verified ? "border-ok-line" : "border-err-line")}>“{c.quote}”</blockquote>
+      <blockquote className={cx("border-l-2 pl-2 text-12 italic", c.verified ? "border-ok-line text-fg-1" : c.userRejected ? "border-line text-fg-2 line-through" : "border-err-line text-fg-1")}>“{c.quote}”</blockquote>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-12 text-fg-2">
         <QuoteVerdict c={c} stale={stale} />
         <span>{c.location}</span>
@@ -239,11 +252,15 @@ export function QuoteLine({ c, text, stale, onDecide, busy }: { c: Claim; text?:
           {canShow && <button className="btn-ghost btn-sm" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{open ? "Hide source" : "Show source"}</button>}
           {!c.verified && !c.userAccepted && <button className="btn-secondary btn-sm" onClick={() => onDecide("accept")} title="The paper does say this: keep it">Accept anyway</button>}
           {!c.verified && !c.userRejected && <button className="btn-secondary btn-sm" onClick={() => onDecide("reject")} title="Leave this claim out of the synthesis">Reject</button>}
-          {!c.verified && (c.userAccepted || c.userRejected) && <button className="btn-ghost btn-sm" onClick={() => onDecide("clear")}>Undo</button>}
+          {!c.verified && (c.userAccepted || c.userRejected) && <button className="btn-ghost btn-sm" onClick={() => onDecide("clear")} aria-label={c.userRejected ? "Undo reject" : "Undo accept"}>Undo</button>}
           <PinButton claimId={c.id} />
         </span>
       </div>
-      {!c.verified && c.verificationNote && <p className="mt-1 text-12 text-err">{c.verificationNote}</p>}
+      {c.userRejected && !c.verified ? (
+        <p className="mt-1 text-12 text-fg-2">Rejected: left out of the synthesis.</p>
+      ) : (
+        !c.verified && c.verificationNote && <p className={cx("mt-1 text-12", c.userAccepted ? "text-fg-2" : "text-err")}>{c.verificationNote.replace(/^UNVERIFIED:\s*/, "")}</p>
+      )}
       {open && canShow && <div className="mt-2"><SourcePassage text={text!} start={c.matchStart!} end={c.matchEnd!} /></div>}
     </div>
   );
