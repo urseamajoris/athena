@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { z } from "zod";
 import { toXaiSchema } from "./ai/schema";
 import { normalizeDoi, normalizeTitle } from "./util";
-import { citationScore, recencyScore, weightedTotal } from "./scoring";
-import { surname, scrubIds } from "./shared/stages";
+import { citationScore, defaultSelection, recencyScore, weightedTotal } from "./scoring";
+import { surname, scrubIds, thinTopics } from "./shared/stages";
 
 test("xAI schema strips unsupported keywords but keeps structure", () => {
   const s = toXaiSchema(z.object({ a: z.string().min(2).max(5), b: z.array(z.number()).min(1).max(3), c: z.enum(["x", "y"]).nullable() }));
@@ -30,6 +30,17 @@ test("recency and citation formulas", () => {
 });
 test("weighted total is 100 for all-5 scores", () => {
   assert.equal(weightedTotal({ topicFit: 5, designStrength: 5, settingMatch: 5, recency: 5, citationImpact: 5 }), 100);
+});
+test("ranking pre-selects the best papers that match the topic, never one with no topic match", () => {
+  const sc = (id: string, total: number, topicFit: number) => ({ id, total, subScores: { topicFit } });
+  // b scores highest on design, setting and recency but found no topic terms (fit 1): it is skipped, not swapped in.
+  const picked = defaultSelection([sc("a", 60, 4), sc("b", 66, 1), sc("c", 40, 2), sc("d", 70, 0), sc("e", 55, 3), sc("f", 50, 5), sc("g", 30, 2)]);
+  assert.deepEqual(picked.map((s) => s.id), ["a", "e", "f", "c"]);
+  // A topic where nothing matches gets no selection at all, and one with two matches gets two.
+  assert.deepEqual(defaultSelection([sc("x", 80, 1), sc("y", 70, 0)]), []);
+  assert.deepEqual(defaultSelection([sc("x", 80, 1), sc("y", 20, 2), sc("z", 30, 3)]).map((s) => s.id), ["z", "y"]);
+  // Those topics are then flagged as having fewer than 3 papers.
+  assert.deepEqual(thinTopics([{ name: "A", selected: 4 }, { name: "B", selected: 0 }, { name: "C", selected: 2 }, { name: "D", selected: 3 }]).map((t) => t.name), ["B", "C"]);
 });
 test("surname handles PubMed and OpenAlex name styles", () => {
   assert.equal(surname("Lee SWH"), "Lee");

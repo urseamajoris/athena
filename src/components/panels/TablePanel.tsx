@@ -5,7 +5,7 @@ import { Disclosure } from "../disclosure";
 import { useSession } from "../session/SessionContext";
 import { ActionButton, JobLog, JobStatus, PanelFooter, SectionTitle, Stat, StaleNotice } from "./common";
 import { nextAction } from "@/lib/canvas/actions";
-import { RUBRIC } from "@/lib/shared/stages";
+import { MIN_TOPIC_FIT, PER_TOPIC, RUBRIC, thinTopics } from "@/lib/shared/stages";
 import { fmtInt } from "@/lib/shared/format";
 
 /** Table node (stages 5–6): summary rows, then ranking; the full table opens on its own page. */
@@ -39,7 +39,10 @@ export function TablePanel() {
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-12 text-fg-2">Aim for 3–5 papers per topic. Pick and swap papers in the full table.</p>
+          <p className="mt-2 text-12 text-fg-2">
+            Aim for 3–5 papers per topic. Pick and swap papers in the full table.
+            {thinTopics(ranking).length > 0 && ` Fewer than ${PER_TOPIC.min} are selected in ${thinTopics(ranking).length === 1 ? "1 topic" : `${thinTopics(ranking).length} topics`}: papers that do not match a topic are not selected for it.`}
+          </p>
         </section>
       )}
       <Disclosure title="How papers are scored">
@@ -48,7 +51,7 @@ export function TablePanel() {
             <li key={r.key}><strong className="font-medium">{r.label}</strong> <span className="tabular-nums text-fg-2">{Math.round(r.weight * 100)}%</span> · {r.by === "AI" ? "scored by the AI from title and abstract" : "a fixed formula"}</li>
           ))}
         </ul>
-        <p className="mt-2 text-12 text-fg-2">Total = weighted sum out of 100. The top 4 per topic are pre-selected.</p>
+        <p className="mt-2 text-12 text-fg-2">Total = weighted sum out of 100. The 4 best-scoring papers per topic are pre-selected, but only papers that match the topic (topic fit {MIN_TOPIC_FIT}/5 or more).</p>
       </Disclosure>
       <JobLog stage={activeStage} />
       {action && (

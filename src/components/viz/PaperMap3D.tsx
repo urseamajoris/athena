@@ -1,8 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import * as THREE from "three";
-import { Html } from "@react-three/drei";
-import Scene3D from "./Scene3D";
+import Scene3D, { Label } from "./Scene3D";
 import { shapeTexture } from "./shapes3d";
 import { place, type MapPoint, type Placed } from "./paper-points";
 import { categoriesFor, categoryHex, type ColorBy } from "@/lib/shared/categories";
@@ -49,11 +48,11 @@ export default function PaperMap3D({ points, colorBy, topics, theme, isolated, h
             </bufferGeometry>
             <lineBasicMaterial color={axis} />
           </lineSegments>
-          <Html position={[-4.9, -3.35, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>{yearMin}</Html>
-          <Html position={[4.1, -3.35, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>{yearMax}</Html>
-          <Html position={[-0.6, -3.35, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Year →</Html>
-          {scored && <Html position={[-6.1, 2.8, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Score 100 ↑</Html>}
-          {scored && <Html position={[-5.7, -2.6, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>0</Html>}
+          <Label position={[-4.9, -3.35, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>{yearMin}</Label>
+          <Label position={[4.1, -3.35, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>{yearMax}</Label>
+          <Label position={[-0.6, -3.35, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Year →</Label>
+          {scored && <Label position={[-6.1, 2.8, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Score 100 ↑</Label>}
+          {scored && <Label position={[-5.7, -2.6, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>0</Label>}
           {groups.map(([key, pts]) => {
             const [cat, dim] = key.split("|");
             const c = cats.find((x) => x.key === cat);

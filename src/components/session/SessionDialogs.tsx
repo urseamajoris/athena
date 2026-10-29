@@ -4,7 +4,7 @@ import { api, projectPath } from "../api";
 import { Spinner } from "../ui";
 import { Modal } from "../overlays";
 import { canvasStore, useSession } from "./SessionContext";
-import { STAGES } from "@/lib/shared/stages";
+import { PER_TOPIC, STAGES } from "@/lib/shared/stages";
 import type { Pos } from "@/lib/canvas/layout";
 
 /** "Edit an earlier step?" — later steps would go stale. */
@@ -25,6 +25,28 @@ export function ConfirmEditDialog({ downstream, onCancel, onConfirm }: { downstr
         Later steps ({downstream.map((n) => STAGES[n - 1].title).join(", ")}) were built from the current version of this step. If you change it, they will be marked
         <strong> out of date</strong>. Nothing is re-run automatically: use “Bring later steps up to date” when you are ready.
       </p>
+    </Modal>
+  );
+}
+
+/** "Appraise selected papers" while a topic has fewer than 3 papers: say which, and what that means. */
+export function ThinTopicsDialog({ topics, onCancel, onConfirm }: { topics: { name: string; selected: number }[]; onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <Modal
+      open
+      onClose={onCancel}
+      title={`${topics.length === 1 ? "A topic has" : `${topics.length} topics have`} fewer than ${PER_TOPIC.min} papers`}
+      footer={
+        <>
+          <button className="btn-secondary" onClick={onCancel}>Go back and pick papers</button>
+          <button className="btn-primary" onClick={onConfirm}>Appraise anyway</button>
+        </>
+      }
+    >
+      <ul className="mb-3 list-disc space-y-1 pl-5">
+        {topics.map((t) => <li key={t.name}><strong className="font-semibold">{t.name}</strong>: {t.selected === 0 ? "no papers" : `${t.selected} paper${t.selected === 1 ? "" : "s"}`} selected</li>)}
+      </ul>
+      <p>Only the selected papers are appraised, so {topics.length === 1 ? "this topic" : "these topics"} will have little or no evidence in the next steps. This usually means few of the papers found match the topic. You can tick more papers in the topic’s view first, or go on.</p>
     </Modal>
   );
 }

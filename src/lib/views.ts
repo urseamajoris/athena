@@ -113,7 +113,7 @@ export async function rankingTableView(projectId: string) {
   return {
     topics: (await rankingView(projectId)).topics.map((t) => ({
       id: t.id, name: t.name, importanceRank: t.importanceRank, importanceJustification: t.importanceJustification,
-      scores: t.scores.map((s) => ({ id: s.id, paperId: s.paperId, topicId: s.topicId, total: s.total, selected: s.selected, userChanged: s.userChanged, rationale: s.rationale })),
+      scores: t.scores.map((s) => ({ id: s.id, paperId: s.paperId, topicId: s.topicId, total: s.total, topicFit: s.subScores.topicFit, selected: s.selected, userChanged: s.userChanged, rationale: s.rationale })),
     })),
   };
 }

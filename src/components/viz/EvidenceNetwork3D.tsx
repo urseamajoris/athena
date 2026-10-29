@@ -1,8 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import * as THREE from "three";
-import { Html } from "@react-three/drei";
-import Scene3D from "./Scene3D";
+import Scene3D, { Label } from "./Scene3D";
 import { shapeTexture } from "./shapes3d";
 import type { EvGraph } from "./evidence-graph";
 import { STUDY_GROUPS, slotHex } from "@/lib/shared/categories";
@@ -46,8 +45,8 @@ export default function EvidenceNetwork3D({ g, theme, animate, label, isolated, 
               </sprite>
             );
           })}
-          <Html position={[-3, 3.3, 0]} center style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Statements</Html>
-          <Html position={[3, 3.3, 0]} center style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Papers</Html>
+          <Label position={[-3, 3.3, 0]} center style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Statements</Label>
+          <Label position={[3, 3.3, 0]} center style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Papers</Label>
         </group>
       </Scene3D>
       {hover && <div role="tooltip" className="pointer-events-none absolute left-3 top-3 max-w-[85%] rounded-sm border border-line-strong bg-bg-2 px-2 py-1 text-12 text-fg-0">{hover}</div>}
