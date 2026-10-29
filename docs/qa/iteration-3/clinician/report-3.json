@@ -1,0 +1,247 @@
+{
+ "persona": "clinician",
+ "completed": true,
+ "stage_reached": 9,
+ "findings": [
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 7 Appraisal (paper 1)",
+   "what_happened": "The first paper is 'Community nursing services during the COVID-19 pandemic: the Singapore experience', but its first quote starts 'TITLE Telemedicine Guidelines in South East Asia A Scoping Review ABSTRACT ...' and is stamped 'found word for word'. Show source highlights that text as the paper's full text. The attached full text belongs to a different paper, and the check cannot tell.",
+   "expected": "Quotes and source text should come from the paper named in the heading, or the app should warn that the text does not match the title or DOI.",
+   "evidence": "docs/qa/iteration-3/clinician/16-appraisal.jpg and docs/qa/iteration-3/clinician/16d-source.jpg",
+   "suggested_fix": "Verify that the retrieved full text's title or DOI matches the paper record before running the quote check. Show a visible 'text may belong to another paper' warning if not, and make the demo fixtures match their papers."
+  },
+  {
+   "severity": "major",
+   "category": "clarity",
+   "page": "Steps 4 and 8 (Retrieval vs Synthesis)",
+   "what_happens": "",
+   "what_happened": "The Retrieval query card says 'Hip fracture surgery: PubMed 979 \u00b7 OpenAlex 707', which looks like plenty of hits. Later, Ranking and Synthesis say 'no papers match' and 'no papers were found for it'. A clinician cannot tell why 1,686 hits became zero papers. The 135 fetched and 71 unique papers vs the 9,245 counts is also not explained, and the text mixes '8 searches' with 'from 4 queries'.",
+   "expected": "One consistent story: say that only the first N records per search are fetched, and say plainly that none of the fetched papers matched this topic's words.",
+   "evidence": "docs/qa/iteration-3/clinician/11-retrieval.jpg and docs/qa/iteration-3/clinician/17-synthesis.jpg",
+   "suggested_fix": "Show 'matches in database' vs 'fetched' vs 'matched this topic' for each query. Reword the synthesis warning to 'none of the N papers we fetched for this topic were about it'. Use one word, 'searches', everywhere."
+  },
+  {
+   "severity": "major",
+   "category": "copy",
+   "page": "Step 9 Research question",
+   "what_happened": "The candidate research questions end with a truncated word: 'surgical repair of a hip fract'. Candidate 2 is also repetitive: 'recovery after hip fracture surgery among adults aged 65 and over after surgical repair of a hip fract?'. These are the questions the user is meant to choose and export. The Population field also holds the truncated phrase.",
+   "expected": "Complete, grammatical question text with no cut-off words.",
+   "evidence": "docs/qa/iteration-3/clinician/18-rq.jpg and docs/qa/iteration-3/clinician/18b.jpg",
+   "suggested_fix": "Do not character-truncate a population phrase when building candidate wording. Truncate at word boundaries or not at all, and avoid repeating the topic in the sentence."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 6 Ranking",
+   "what_happened": "A paper on perinatal mental telehealth in Singapore scores 64 and is auto-selected, and 9 papers are selected in total. Not one is about hip fracture, older adults or rehabilitation. The score looks authoritative, and the paper detail pane does not show why it scored 64, although the checklist says 'Open a selected paper to see why it scored high'. Demo mode is announced, so this is honest overall, but the score itself carries no relevance warning.",
+   "expected": "Open a selected paper to see a per-criterion score breakdown, and a low-relevance flag when a paper does not match the question.",
+   "evidence": "docs/qa/iteration-3/clinician/14-rank.jpg and docs/qa/iteration-3/clinician/14d-paper.jpg",
+   "suggested_fix": "Show the five rubric scores in the paper details, and cap or flag the overall score when topic match is low. Make the checklist text match what the pane shows."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Step 5/6 Summary table",
+   "what_happened": "'The LvL UP trial: Protocol for a ... randomised controlled trial' is labelled 'Trial', but it is only a protocol with no results. A protocol also shows the registry number 'NCT07198828' as its 'key finding'. The detail view calls another paper 'Narrative review' while the list says 'Other design'.",
+   "expected": "Protocols should count as 'Other design', and key finding should be a finding.",
+   "evidence": "docs/qa/iteration-3/clinician/13c-table.jpg and docs/qa/iteration-3/clinician/14d-paper.jpg",
+   "suggested_fix": "Classify protocols as Other design. Do not accept an identifier as a key finding. Show the same study-type vocabulary in the list and the details."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Step 6 Ranking",
+   "what_happened": "The orange 'Few papers match 2 topics' warning is clipped at the right edge. Sentences are cut off ('are already selected ... not'). The 'Edit the searches for Walking ability and function (step 3)' button overflows the box and is truncated.",
+   "expected": "Text wraps inside the box and buttons stay within the viewport at 375px.",
+   "evidence": "docs/qa/iteration-3/clinician/14b-top.jpg",
+   "suggested_fix": "Allow the warning's content and buttons to wrap (min-width:0, flex-wrap, full-width buttons on narrow screens)."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 7 Appraisal (paper 7)",
+   "what_happened": "A quote is flagged 'not found, you decide', yet the 'closest passage' shown is word-for-word identical to the quote, with the note 'same words, but not in this order or form'. A user cannot see why it failed and does not know whether to accept it.",
+   "expected": "A clear reason for the mismatch, for example 'differs only in spacing or line breaks', or an automatic pass.",
+   "evidence": "docs/qa/iteration-3/clinician/16j.jpg (paper 7, first quote, 'Data analysis sufficiently rigorous')",
+   "suggested_fix": "Normalise whitespace, hyphenation and case before matching. If still flagged, highlight the differing characters."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Step 9 Edit this question",
+   "what_happened": "In the edit form the question textarea gets focus but has an empty accessible name, and the 'Question' label is not bound to it. The browser helper's fill by label 'Question' hit a non-input, while Population and Outcome worked. Shift+Tab from Population skipped the textarea and landed on 'What happens in this step'.",
+   "expected": "Every field has a programmatic label, and tab order follows the visual order.",
+   "evidence": "docs/qa/iteration-3/clinician/18c-edit.jpg",
+   "suggested_fix": "Use <label for> or aria-label on the question textarea and check the DOM and tab order of the edit form."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 10 Export",
+   "what_happened": "I wanted to email the report to myself from a phone. There is no email or share button. The default format is a Markdown text file, which a phone cannot open easily. The nicer 'printable report' opens in a new tab and the button sits above the radio list, so it is unclear whether it is the same thing as the Report option. After 'Download Markdown' only a small footer note confirms it.",
+   "expected": "A phone-friendly route: share or email the report, or a PDF.",
+   "evidence": "docs/qa/iteration-3/clinician/19-export.jpg and docs/qa/iteration-3/clinician/21-download.jpg",
+   "suggested_fix": "Add 'Send to my email' or the native share sheet, and make PDF or the readable report the default on phones. Say that the printable report and the Markdown file hold the same content."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Step 8 Synthesis",
+   "what_happened": "The 'Unknown' card is titled 'What has not been studied yet: the gaps your question can fill', but its statements are study limitations ('limited by COVID-19 mHealth apps selected were limited to free applications...'). These are not research gaps and could mislead a user about novelty.",
+   "expected": "Unknown items should be gaps, or the card should say 'limitations noted by the authors'.",
+   "evidence": "docs/qa/iteration-3/clinician/17b.jpg and docs/qa/iteration-3/clinician/17c.jpg",
+   "suggested_fix": "Separate 'Limitations noted by authors' from 'Gaps not yet studied', or relabel the card."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 2 Scoping topics",
+   "what_happened": "A suggested topic is a garbled fragment, 'Whether walking ability', with a copy of that phrase as its synonym. The topic list squeezes names into a narrow column ('Tele- rehabilitation') and the Edit, Keep and Delete targets are small for a thumb. To fix the topic I had to open it, rename it and rewrite the synonyms.",
+   "expected": "Sensible topic names, and roomy thumb-sized controls.",
+   "evidence": "docs/qa/iteration-3/clinician/07-topics.jpg and docs/qa/iteration-3/clinician/07b-edit.jpg",
+   "suggested_fix": "Clean up AI-extracted topic names. On phones, stack each topic as a card with a full-width name and 44px buttons."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 3 Search builder",
+   "what_happened": "After 'Write the searches' the panel jumped back to 'Edit this search topic' with 'Viewing step 2', and the queries I was told to check were not shown. I had to close the panel, then use 'Open step 3' from the list, and only then saw the searches. The panel also covers the list, so tapping a Query row times out.",
+   "expected": "Show the written searches immediately, with the heading 'Check the searches before they run'.",
+   "evidence": "docs/qa/iteration-3/clinician/10-searches.jpg, docs/qa/iteration-3/clinician/10c-list.jpg and docs/qa/iteration-3/clinician/10d-step3.jpg",
+   "suggested_fix": "After writing searches, navigate the panel to the first Query node (step 3) and keep it there."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Steps 1 to 2 (start)",
+   "what_happened": "I pressed 'Start my review', but the next page says 'Check your idea, then start' and asks me to tap 'Open step 1' and then 'Sharpen my idea'. That is three more taps before the first question, and it feels as if my first press did nothing. 'What happens in this step 8 s' is cryptic, and 'Now: step 1/...' in the header is truncated.",
+   "expected": "After 'Start my review' go straight to the first scoping question.",
+   "evidence": "docs/qa/iteration-3/clinician/04-questions.jpg and docs/qa/iteration-3/clinician/05-step1.jpg",
+   "suggested_fix": "Skip the redundant step-1 confirmation when the idea was just submitted. Label the video '8-second explainer'. Shorten the header label so it is not clipped."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 6 confirmation dialog",
+   "what_happened": "The dialog warning that 2 topics have fewer than 3 papers is clear and honest, but the strongest-looking blue button is 'Appraise anyway', which nudges toward continuing with no evidence for one topic. The safer 'Edit the searches' is a grey outline.",
+   "expected": "The primary emphasis should be on the safe path, or the options should have equal weight.",
+   "evidence": "docs/qa/iteration-3/clinician/15-appraise.jpg",
+   "suggested_fix": "Make 'Edit the searches (step 3)' the primary button and 'Appraise anyway' the secondary one."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Scoping chat, step 7 quote decisions",
+   "what_happened": "The panel header (title, intro, step strip) takes about a third of a 375x812 screen, leaving a small window for the chat and the quote cards. 'Accept anyway' and 'Reject' buttons are small. After a decision the buttons move, and a decided quote still shows 'Reject', which can flip an accepted quote.",
+   "expected": "On phones the header collapses on scroll, and decision buttons are large and stable.",
+   "evidence": "docs/qa/iteration-3/clinician/06c-q4.jpg and docs/qa/iteration-3/clinician/16f-decide2.jpg",
+   "suggested_fix": "Make the panel header collapse or scroll away on phones. Use full-width 44px Accept and Reject buttons, and show decided quotes in a compact state with only 'Undo'."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Steps 2, 3 and 4",
+   "what_happened": "Jargon is shown without explanation on the main list: '0 MeSH', 'Query', 'dupes removed', 'Corpus'. The MeSH explanation is only visible on the topic editor.",
+   "expected": "Physicians know MeSH, but plain words suit other users. At least a tooltip.",
+   "evidence": "docs/qa/iteration-3/clinician/08-builder.jpg and docs/qa/iteration-3/clinician/11-retrieval.jpg",
+   "suggested_fix": "Add a short explanation or tooltip for MeSH, and say 'papers' instead of 'Corpus' in user-facing text."
+  },
+  {
+   "severity": "polish",
+   "category": "a11y",
+   "page": "New review (step 1)",
+   "what_happened": "'Start my review' is a bright blue button that looks fully active while the text box is empty, even though it is disabled ('Write at least a sentence to start' sits small beneath it).",
+   "expected": "A visibly muted disabled state.",
+   "evidence": "docs/qa/iteration-3/clinician/03-new.jpg",
+   "suggested_fix": "Give disabled primary buttons a clearly muted style."
+  },
+  {
+   "severity": "polish",
+   "category": "bug",
+   "page": "Landing and Canvas on phone",
+   "what_happened": "The 'See a review take shape' demo animation is far too small to read on a phone. The Canvas overview shows a tiny strip of unreadable nodes after 'Fit view'. The retrieval 3D chart is clipped at the left edge (axis label shows '015').",
+   "expected": "Readable content at 375px, or a phone-specific version.",
+   "evidence": "docs/qa/iteration-3/clinician/01c-wontdo.jpg, docs/qa/iteration-3/clinician/22b-canvasfit.jpg and docs/qa/iteration-3/clinician/11b-chart.jpg",
+   "suggested_fix": "Scale the demo to the width of the screen. Default phones to List view, and add a margin or axis padding to the chart."
+  }
+ ],
+ "three_second_test": [
+  {
+   "page": "Landing",
+   "understood_in_3s": true,
+   "note": "For: turning a rough idea into a research question backed by real papers. First: read the headline. Next: tap 'Start a review'. Clear and calm. The 'What Athena will not do' accordion is reassuring. Demo mode is not mentioned on the landing page, only inside the app."
+  },
+  {
+   "page": "Sign up",
+   "understood_in_3s": true,
+   "note": "Create an account with name, email and password, then tap 'Create account'. The password rule is shown. Nothing confusing."
+  },
+  {
+   "page": "New review (step 1)",
+   "understood_in_3s": true,
+   "note": "Describe my research idea. Type a sentence or tap an example, then 'Start my review'. The button looks active while disabled."
+  },
+  {
+   "page": "Session workspace (list view, after Start)",
+   "understood_in_3s": true,
+   "note": "A list of my idea at step 1, with a 'Your next step' bar and the demo banner. Tap 'Open step 1'. Slightly redundant after pressing Start."
+  },
+  {
+   "page": "Step 2 Scoping chat",
+   "understood_in_3s": true,
+   "note": "Answer up to 5 short questions about who, where and what. Type an answer, then 'Send answer'. 'What we know so far' updates as I answer. The header takes up too much space."
+  },
+  {
+   "page": "Step 2 Scoping topics",
+   "understood_in_3s": true,
+   "note": "Keep or delete the suggested topics, then tap 'Keep N suggested topics'. The dashed and 'suggested' labels help. One topic name is garbled, and small Edit and Delete targets."
+  },
+  {
+   "page": "Step 3 Search builder",
+   "understood_in_3s": false,
+   "note": "Check the PubMed and OpenAlex searches before running. Tap 'Run all 8 searches'. It took me a moment because the panel first showed a topic editor and I had to find the searches. The demo note is clear."
+  },
+  {
+   "page": "Step 4 Retrieval",
+   "understood_in_3s": true,
+   "note": "See how many papers were found and the mix of types, then tap 'Summarise the papers'. The big numbers (135 fetched, 64 duplicates, 71 papers) are clear, with bars that can be tapped to filter."
+  },
+  {
+   "page": "Step 5 Summary table",
+   "understood_in_3s": true,
+   "note": "Skim the AI summaries and fix wrong cells, then 'Rank the papers'. The 3-item checklist is clear, but long before I reach the first paper on a phone."
+  },
+  {
+   "page": "Step 6 Ranking",
+   "understood_in_3s": false,
+   "note": "Choose which papers go forward. First a topic chip, then 'Appraise selected papers'. The clipped warning box and scores without explanation slowed me. The warning that Hip fracture surgery has 0 papers is honest."
+  },
+  {
+   "page": "Step 7 Appraisal",
+   "understood_in_3s": true,
+   "note": "Go through each paper and decide on quotes marked 'not found'. 'Show only quotes I need to decide' then 'Next paper'. The red-flagged quote and the 'Accept anyway or Reject' choice are easy to grasp."
+  },
+  {
+   "page": "Step 8 Synthesis",
+   "understood_in_3s": true,
+   "note": "Read what is known, contested and unknown, with quote chips. Then 'Suggest research questions'. The 'No evidence for 1 topic' banner is excellent."
+  },
+  {
+   "page": "Step 9 Research question",
+   "understood_in_3s": true,
+   "note": "Compare three candidate questions and pick one; tapping a card chooses it. The novelty note is cautious. Truncated 'hip fract' wording hurts trust."
+  },
+  {
+   "page": "Export",
+   "understood_in_3s": true,
+   "note": "Download the review. Check the question and tap Download. As a phone user I wanted 'email to myself', which is not offered."
+  }
+ ],
+ "categories_and_colours": "I could find and filter papers by both study type and article type. In the retrieval step, bars for each article type (Journal article 52, Review article 7, Preprint 2, Editorial/letter/comment 9, Other publication 1) can be tapped to show only those papers. A check mark, 'Chart: showing 7 of 71: review article. 64 papers are hidden from the chart (still in the review). Show all' made the state obvious. The same filters appear as chips in the summary table (Trial 6, Cohort/case-control 1, Cross-sectional 15, Qualitative/mixed 15, Systematic/scoping review 5, Other design 14, Not reported 15) and ranking tables. Study type uses colour and shape together: Trial = blue circle, Cohort/case-control = orange square, Cross-sectional = green triangle, Qualitative/mixed = amber diamond, Systematic/scoping review = pink star, Other design = green cross, Not reported = grey ring. A legend with counts sits above the chart, zero-count types are dimmed, and the key says 'tap a category to show only that one'. I understood the colours without being told. Article type is plain bars without hues, so colour does not mean two things. Small problems: before AI summaries, 59 of 71 are 'Not reported' and after summaries only 15, which is explained ('the AI reads every abstract in the next step'); the legend counts stay at whole-corpus values when a filter is applied; the legend shows green twice (triangle and cross) and relies on shape to separate them; the protocol-as-Trial label and the 'Narrative review' vs 'Other design' wording; the chart is clipped at the left edge on a phone and its height axis 'has no meaning yet', which is honest but puzzling. I did not use 'Colour by' options besides study type.",
+ "validity_assessment": "Mostly honest, and the traceability design is strong, but it would not yet produce a valid review in this demo. Strengths: the demo banner is persistent and plain ('AI is scripted... recorded sample papers... results will not match your topic'); AI text is tagged '(mock)'; every paper has DOI, PMID, PMCID and OpenAlex ids; summaries are labelled 'AI \u00b7 abstract'; appraisal quotes are checked word for word, with 'found word for word' vs 'not found, you decide', a highlighted source view and a nearest passage; a deliberately altered overclaim ('clearly proves the intervention works everywhere') was caught on every paper, and I could reject it, with rejected quotes excluded from the synthesis. The app says 'Found means the words are in the paper, not that they prove the answer'. It also states that 'Finding no similar study does not prove a question is new' and that the novelty check in demo mode says nothing about novelty. Warnings for topics with no evidence appear at ranking, in the confirmation dialog and in synthesis. Weaknesses: (1) a quote and source text came from a different paper than the title ('Telemedicine Guidelines in South East Asia' under a Singapore community nursing paper) yet passed as 'found word for word'; (2) none of the 9 selected papers concern hip fracture, yet they receive scores like 64 with no per-criterion explanation; (3) 979 and 707 hits for Hip fracture surgery contradict 'no papers were found'; (4) candidate questions contain truncated words ('hip fract'); (5) 'Unknown' shows limitations as gaps; (6) a protocol is labelled Trial; (7) a quote flagged 'not found' when the closest passage is identical. A real-mode run would need these traceability checks (title/DOI match, relevance flag) to be trustworthy. Nothing looked like a fabricated reference: all ids came from records, and the app never claimed novelty without a caveat.",
+ "would_have_quit_at": "I completed the whole journey and downloaded the report. A real busy physician would probably have quit at step 6 (Ranking). The page says that 'Hip fracture surgery' has no matching papers, only one paper matches 'Walking ability and function', and all selected papers are about other subjects. Around step 3 and 7 many taps and long panels on a phone also tempt abandonment: the extra 'Open step 1' and 'Sharpen' taps, the Search builder panel jumping back to the topic editor, and 10 quotes spread over 8 papers to decide one by one. Without email or share, the final report would have to be found in downloads, and the printable report opens in a new tab.",
+ "activity": "Created a new account (Dr Okafor, okafor.qa3@example.com). Created one project 'Does tele-rehabilitation help older adults recover after hip fracture surgery?' (prj_d635b3b1f4414481) and took it through all 9 steps to export. Answered 5 scoping questions, edited one topic (name and synonyms) and kept 4 topics, wrote and ran 8 searches (71 unique papers, 64 duplicates), summarised and ranked papers (9 selected, 'Appraise anyway' on a warning), decided 10 quotes (rejected 9 planted overclaims or off-topic quotes and accepted 1), generated synthesis (13 statements, 2 conflicts) and 3 candidate questions, chose candidate 2, edited its wording and outcome, then pressed 'Download Markdown' (download confirmed) and tried the printable report (opened in a new tab that my browser helper could not follow, so I could not read its content). The console and network were clean at every check ('no console errors or failed requests'). No AI errors, stuck spinners or lost inputs. About 130 helper commands; screenshots saved in docs/qa/iteration-3/clinician/. Read docs/ux-intent.md only after finishing.",
+ "narrative": "I opened Athena on my phone between rounds. The landing page told me in a few seconds what it does, so I tapped Start a review, signed up and typed my hip fracture question. Scoping was pleasant: five short questions and the topics took shape. One topic came out garbled ('Whether walking ability'), so I renamed it and rewrote its synonyms. I was a little annoyed by the extra Open step 1 and Sharpen taps after pressing Start, and the search step first showed me a topic editor instead of the searches. Retrieval was the best page for categories: clear counts, tappable article type bars, and a study-type legend using colour plus shape, which I understood at once. Ranking is where trust wobbled. The honest warning says nothing matches Hip fracture surgery, yet nine unrelated papers were selected with confident scores, and the warning box was clipped on the right. The demo banner explained why, which I appreciated. Appraisal impressed me: planted overclaims such as 'clearly proves the intervention works everywhere' were flagged, and I could reject them. However, the first quote and source text belonged to a different paper than the title. Synthesis linked each statement to a quote chip. I chose candidate 2 but the wording ended in 'hip fract', so I edited it. At export I wanted to email myself the report, but only a Markdown download and a new-tab printable report exist. I downloaded Markdown and the app confirmed it. Overall: honest and traceable, but long on a phone."
+}

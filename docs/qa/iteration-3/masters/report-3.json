@@ -1,0 +1,211 @@
+{
+ "persona": "masters",
+ "completed": true,
+ "stage_reached": 9,
+ "findings": [
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 7 Appraisal (quote check and Show source)",
+   "what_happened": "On paper 1, a post-stroke telehealth meta-analysis, the first quote reads 'TITLE Patient satisfaction with telemedicine in the Philippines...'. That is a different paper. Show source displays that other paper's text with the quote highlighted, and the badge says 'found word for word'. The AI answer for the quality question was 'Unclear'.",
+   "expected": "A quote is checked only against the text of the paper it is attached to. A quote from another paper should show as 'not found'. At the least, the badge should not give false assurance.",
+   "evidence": "docs/qa/iteration-3/masters/30-appraise-quotes.jpg and docs/qa/iteration-3/masters/31-show-source.jpg",
+   "suggested_fix": "Verify each quote against that paper's own full text or abstract id. Show the paper title above the source text. In demo mode, make the scripted quotes belong to the paper they are attached to, or label this check '(mock)' prominently. Add a test that fails if source-text paper id differs from the appraised paper id."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 9 Research question (Full reasoning and quotes)",
+   "what_happens": "",
+   "what_happened": "The chosen question, an effect of mindfulness on burnout in ICU nurses, shows a green 'found' supporting chip 'Ni'mah et al. 2023 \u00b7 limitation' for the gap statement 'few included papers compare mindfulness-based interventions with usual care'. None of the included papers is about mindfulness, burnout or ICU nurses. The same chip is cited in the report as the gap's source.",
+   "expected": "A gap statement is backed by a quote that actually shows the claimed gap, or the app says that no included paper supports it. The report should not cite an unrelated telehealth paper as evidence for a mindfulness gap.",
+   "evidence": "docs/qa/iteration-3/masters/35-rq-reasoning.jpg and docs/qa/iteration-3/masters/41-report-scrolled.jpg",
+   "suggested_fix": "If the supporting quote's paper is not matched to any of the question's PICO terms, show 'No included paper supports this gap' instead of a green chip. In the report, label gaps with zero topic-matching evidence as unsupported."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 6 Ranking",
+   "what_happened": "For 'ICU nurses' the top-ranked papers are a post-stroke telehealth meta-analysis (score 72), immunotherapy in Asia, and Indonesian digital-health law, and they are called papers that 'match' the topic. Burnout, the main outcome, has 0 matching papers. A key finding is just a postal address ('Sutami 36A, Surakarta 57126...'). Another is just a trial number ('NCT07198828').",
+   "expected": "Matching and scoring should visibly reflect relevance to the topic, and the key-finding cell should hold a finding. Where it cannot, it should say 'no finding extracted'. Demo mode explains the topic mismatch but not a garbage extraction.",
+   "evidence": "docs/qa/iteration-3/masters/24-rank.jpg and docs/qa/iteration-3/masters/27-rank-table.jpg",
+   "suggested_fix": "Show the matched terms for each paper in the 'why it scored' row. Reject key-finding text that has no result-like content (addresses, registry ids) and show 'not reported'. State in the demo banner on step 6 that rankings are scripted and not based on your topic."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Step 8 Synthesis",
+   "what_happened": "The header counts '3 conflicts'. The conflict text itself says 'the demo sets two findings from different papers side by side... Read both quotes before treating this as a real disagreement.' The Known statements are about telemedicine in Southeast Asia, so they would be meaningless for a nursing dissertation.",
+   "expected": "A count of conflicts should only include real, checked disagreements. Otherwise it should be called 'possible conflicts'.",
+   "evidence": "docs/qa/iteration-3/masters/33-synthesis.jpg",
+   "suggested_fix": "Rename to 'possible conflicts to check'. Do not count scripted or unchecked pairs in the headline number."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 3 Search builder",
+   "what_happened": "I clicked 'Write the searches'. The canvas gained query nodes, but the side panel stayed on 'Edit this search topic', labelled 'Viewing step 2 of 9 \u00b7 Scoping \u00b7 Done', and the footer button changed to 'Run all 8 searches' before I had seen a single search. I only saw the real searches after clicking 'Open step 3' on the canvas.",
+   "expected": "After 'Write the searches' the panel moves to the 'Check the searches before they run' view with the PubMed and OpenAlex blocks.",
+   "evidence": "docs/qa/iteration-3/masters/13-searches.jpg and docs/qa/iteration-3/masters/14-canvas-queries.jpg",
+   "suggested_fix": "Switch the panel to the first query node automatically when the searches are written. If it must stay on the topic, show a 'Go to step 3' primary button as the intent doc describes."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 6 Ranking checklist",
+   "what_happened": "The checklist item 'Keep 3-5 papers per topic, or every matching paper where fewer match' is ticked as done, while the same page warns that Burnout has none and two topics have only 2. The item 'Pick a topic' ticked itself after I merely clicked a topic tab.",
+   "expected": "Checklist ticks reflect what the user actually accomplished, and a warning state should not show as done.",
+   "evidence": "docs/qa/iteration-3/masters/24-rank.jpg and docs/qa/iteration-3/masters/28-appraise.jpg",
+   "suggested_fix": "Do not auto-tick the 3-5 item when any topic has fewer than 3 selected papers. Show it as 'needs attention'."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 1 and Step 2 (idea and scoping)",
+   "what_happened": "After typing my idea on /s/new I land on a second 'Check your idea, then start' screen showing the same text, which asks for another click on 'Sharpen my idea'. Question 1 then asks 'Who do you want to study?' although my idea says ICU nurses and the panel already shows 'ICU nurses'. There is no clear 'Skip the rest' until you are in the chat.",
+   "expected": "After 'Start my review' the user goes straight to the first useful question. Questions already answered by the idea are skipped.",
+   "evidence": "docs/qa/iteration-3/masters/06-step1.jpg and docs/qa/iteration-3/masters/07-clarify.jpg",
+   "suggested_fix": "Merge the idea-confirm screen into /s/new, or auto-start scoping. Pre-fill or skip questions whose slot is already filled from the idea."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Step 2 and Step 3 (topics)",
+   "what_happened": "Topic cards say '3 synonyms \u00b7 0 MeSH' and the field is 'Controlled vocabulary (MeSH)' showing 'none'. I do not know what MeSH is, and a zero looks like a failure. 'Mindfulness' is an actual MeSH heading, yet it is empty. The synonym list repeats the topic name itself, and 'Burnout' has only 1 synonym. The topic cards say 'Done' while Step 3 says 'Not started'. 'Measurement and outcomes' is vague as a search topic.",
+   "expected": "Plain wording such as 'official PubMed keywords: none added' with a short hint. Synonyms are new words. Topic cards say 'Approved' rather than 'Done' before step 3.",
+   "evidence": "docs/qa/iteration-3/masters/11-after-keep.jpg and docs/qa/iteration-3/masters/12-step3.jpg",
+   "suggested_fix": "Replace 'MeSH' on the cards with 'PubMed keywords' plus a tooltip. Drop the topic name from the synonyms list. Use 'Approved' for the topic card status."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Step 4 Retrieval",
+   "what_happened": "Counts do not reconcile for a user. 'Burnout' and 'Measurement and outcomes' both show exactly PubMed 8,058. Per-search counts add up to about 28,000, yet the source bars say 'PubMed 5 fetched \u00b7 OpenAlex 135 fetched'. The text says '140 fetched, 21 duplicates' but the per-query labels give no fetched numbers.",
+   "expected": "Each query card says matches found vs records collected (for example 'found 8,058, collected 40') so the numbers do not look contradictory.",
+   "evidence": "docs/qa/iteration-3/masters/16-running.jpg and docs/qa/iteration-3/masters/18-retrieval-scroll2.jpg",
+   "suggested_fix": "On query nodes show 'N matches, 40 collected'. Label the large numbers 'matches in database' and the other 'records we collected'."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 4 and Step 6 charts (map)",
+   "what_happened": "At retrieval, 116 of 119 papers are grey 'Not reported' circles, so the chart conveys almost nothing. In the ranking map with a topic selected, the legend says 'Other design 25' but I see only 2 plus signs: papers not selected for appraisal are faded to near-invisibility. The caption 'Height has no meaning yet' is odd. Legend entries with zero papers (Trial, Cohort, Cross-sectional) show no count.",
+   "expected": "Faded points are still visible, with a legend line such as 'faded = not selected (34)'. Zero counts are shown as 0.",
+   "evidence": "docs/qa/iteration-3/masters/17-retrieval-scroll1.jpg and docs/qa/iteration-3/masters/25-rank-icu.jpg",
+   "suggested_fix": "Raise the faded opacity to a visible minimum and add a legend entry for faded points. Show '0' for empty categories. At step 4 hide or explain the chart when most papers have no label."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Step 9 and Export",
+   "what_happened": "The primary export button says 'Download Markdown' and the card says 'Markdown, a text file'. I do not know what Markdown is, and I want a PDF or Word file. The PDF route is a secondary button, 'Open printable report', which opens in a new tab. The chosen question is exported with a '(mock)' prefix that I would have to remove by hand. The selected radio card's description text is dim grey.",
+   "expected": "A first-time user sees 'Download report (PDF or Word)' or at least 'Open printable report to save as PDF' as the main action. The question text is editable before export without a mock prefix.",
+   "evidence": "docs/qa/iteration-3/masters/37-export.jpg and docs/qa/iteration-3/masters/39-report.jpg",
+   "suggested_fix": "Make 'Open printable report (save as PDF)' the primary button, or offer a PDF/DOCX download. Rename 'Markdown' to 'Editable text file'. Raise the contrast of the selected card's description."
+  },
+  {
+   "severity": "polish",
+   "category": "a11y",
+   "page": "New review /s/new",
+   "what_happened": "The 'Start my review' button looks fully active (bright blue) while the page says 'Write at least a sentence to start' and the control is disabled. I could not tell from the screenshot that it was disabled until I typed.",
+   "expected": "A disabled button looks disabled, or an enabled button explains the missing input on click.",
+   "evidence": "docs/qa/iteration-3/masters/03-after-signup.jpg",
+   "suggested_fix": "Give the disabled state a clearly muted style, or keep it enabled and show the hint on click."
+  },
+  {
+   "severity": "polish",
+   "category": "clarity",
+   "page": "Canvas views (steps 1 to 9)",
+   "what_happened": "The side panel covers about half the canvas, so nodes are cropped (topic cards and queries cut off at the right edge) and the canvas does not re-fit to the visible area. Tabs in the synthesis panel are cut off ('M...'). Step 1 offers both 'Open step 1' and 'Sharpen my idea', which look like the same action.",
+   "expected": "The canvas re-centres on the active node when the panel opens, and tabs wrap or scroll with a visible cue.",
+   "evidence": "docs/qa/iteration-3/masters/10-search-topics.jpg and docs/qa/iteration-3/masters/33-synthesis.jpg",
+   "suggested_fix": "Fit the view to the visible area when the panel opens. Add scroll arrows or wrap the topic tabs. Show only one primary button on the Idea node."
+  },
+  {
+   "severity": "polish",
+   "category": "clarity",
+   "page": "Landing",
+   "what_happened": "The 'See a review take shape' animation is cropped on the left, leaves the right two thirds empty, and shows an unrelated example (adoption, policy and governance, digital infrastructure) with large counts and a spinner. It is not obvious what it shows. The headline is long.",
+   "expected": "The animation is centred and fits its frame.",
+   "evidence": "docs/qa/iteration-3/masters/01b-landing-bottom.jpg",
+   "suggested_fix": "Centre or scale the animation to its container and add a one-line caption."
+  }
+ ],
+ "three_second_test": [
+  {
+   "page": "Landing /",
+   "understood_in_3s": true,
+   "note": "(a) Turns a rough idea into a research question backed by real papers. (b) Click Start a review. (c) Sign up. The big blue button is obvious. The headline is a bit long."
+  },
+  {
+   "page": "Sign up",
+   "understood_in_3s": true,
+   "note": "(a) Create an account. (b) Type email. (c) Password and Create account. Clear."
+  },
+  {
+   "page": "Step 1 New review (/s/new)",
+   "understood_in_3s": true,
+   "note": "(a) Describe my idea. (b) Type it, or pick an example. (c) Start my review. The button looks active while disabled, but the hint explains it."
+  },
+  {
+   "page": "Canvas overview after start",
+   "understood_in_3s": false,
+   "note": "(a) A progress workspace for 9 steps. (b) Open step 1 or Sharpen my idea, but I could not tell the difference. (c) Unclear. I then had to confirm the same idea again on a second screen."
+  },
+  {
+   "page": "Step 2 Scoping chat",
+   "understood_in_3s": true,
+   "note": "(a) Answer questions to sharpen the idea. (b) Type an answer or Skip the rest. (c) Search topics. Question 1 re-asks what I had already written."
+  },
+  {
+   "page": "Step 2 Search topics (keep topics)",
+   "understood_in_3s": true,
+   "note": "(a) Keep the topics I want. (b) Keep 4 suggested topics. (c) Use these topics. Clear, though '0 MeSH' on the cards is jargon."
+  },
+  {
+   "page": "Step 3 Search builder",
+   "understood_in_3s": false,
+   "note": "(a) Turn topics into database searches. (b) Write the searches, but nothing visible happened in the panel. (c) Unclear until I clicked Open step 3. Then the PubMed and OpenAlex blocks made sense and the Run all button was clear."
+  },
+  {
+   "page": "Step 4 Retrieval",
+   "understood_in_3s": true,
+   "note": "(a) 119 papers found after removing duplicates. (b) Read the summary sentence. (c) Summarise the papers. The plain sentence '140 fetched, 21 duplicates, 119 remain' is excellent."
+  },
+  {
+   "page": "Step 5 Summary table",
+   "understood_in_3s": true,
+   "note": "(a) Table of AI-summarised papers with study-type and article-type filters. (b) Click a filter or Rank the papers. (c) Rank. The chips with colour plus shape are easy to read. The 3-item checklist looks like homework."
+  },
+  {
+   "page": "Step 6 Ranking",
+   "understood_in_3s": true,
+   "note": "(a) Choose which papers go forward. (b) Read the amber warning, then Appraise selected papers. (c) Appraise. The warning that Burnout has no matching papers is clear and a little alarming."
+  },
+  {
+   "page": "Step 7 Appraisal",
+   "understood_in_3s": false,
+   "note": "(a) Check AI quality ratings for each paper. (b) Unsure whether to click Next paper or decide the quotes. (c) Summarise the evidence. Dense text, 3 checklist items, '7 quotes to decide' and 'found word for word' all need explaining."
+  },
+  {
+   "page": "Step 8 Synthesis",
+   "understood_in_3s": true,
+   "note": "(a) What the papers say: known, contested and unknown. (b) Skim it. (c) Suggest research questions. The amber 'No evidence for Burnout' warning is very clear."
+  },
+  {
+   "page": "Step 9 Research question",
+   "understood_in_3s": true,
+   "note": "(a) Pick one of three candidate questions. (b) Choose this question. (c) Finish and export, which is locked with the reason shown. Each card shows gap, feasibility and weakness."
+  },
+  {
+   "page": "Export",
+   "understood_in_3s": true,
+   "note": "(a) Download my review. (b) Click the blue Download Markdown button, or the printable report. (c) Done. I did not know what Markdown was and wanted a PDF."
+  }
+ ],
+ "categories_and_colours": "I could find and filter by study type and by article type in three places: the retrieval panel (article-type bars you click to filter the chart), the step 5/6 table (chips for both, with counts), and the map legend. Study type has 7 values (Trial, Cohort / case-control, Cross-sectional, Qualitative / mixed methods, Systematic / scoping review, Other design, Not reported). Each has its own colour and shape: blue circle, orange square, teal triangle, gold diamond, pink star, green plus, grey ring. Without being told, I understood from the chip row that colour and shape show the kind of study, and that clicking one shows only that kind. Article type is plain grey chips with no colour, which avoids reusing colours. Filtering worked and was honest ('showing 14 of 119: review article, 105 hidden from the chart (still in the review)', with Show all). Counts matched between table chips and legend (for example 23 qualitative, 56 other design). Problems: at retrieval the study type comes only from the databases, so 116 of 119 are 'Not reported' and the chart is a field of identical grey circles. Study-type counts then change completely at step 5 (Not reported 116 becomes 14, Other design 3 becomes 56). The page does explain this, but it is startling. 'Other design' is a large vague bucket (56). In the ranking map, faded 'not selected' papers are almost invisible, so legend counts such as 'Other design 25' do not match the dots visible. Legend entries with zero papers show no number. The 3D/2D chart is small inside the side panel. Colour-by 'Topic' and 'Source' exist but I did not use them.",
+ "validity_assessment": "Honesty about the demo is very strong. A dismissible banner says scripted AI and recorded telemedicine papers. AI text is prefixed '(mock)'. The report opens with 'not a real review' and 'a scoping aid, not an exhaustive systematic search'. Single-reviewer selection is stated. The novelty check says plainly that finding no similar study does not prove novelty, and no 'novel' claim appears anywhere. There are explicit gates for thin evidence: the amber step 6 warning, the 'Appraise anyway' dialog, 'No evidence for Burnout... this review can say nothing about it' at step 8, and the '7 quotes not decided yet' dialog. Traceability machinery is good: PICO breakdown, quote chips, Show source with highlights, a 'found word for word' versus 'you decide' state, and the report counting found and rejected quotes. However, in this run the traceability is not trustworthy. A quote attached to a post-stroke meta-analysis was verified 'found word for word' against a different (Philippines) paper's text. The gap for my chosen question cites an unrelated telehealth paper through a green 'found' chip. Papers 'matching' ICU nurses were about post-stroke telehealth and immunotherapy. Key findings included a postal address and a trial number. A question about mindfulness and burnout was drafted with zero papers on either. These mismatches are explained by demo mode only partly: the app says the topic will not match, but the green 'found' badges still imply support that is not there. For a real run, the verification of quotes against the right paper's text must be checked, since the demo shows a quote check that can pass on the wrong source. Overall I would judge the structure of the workflow valid and traceable by design, and the demo honest, but one badge ('found word for word') is not reliable as built.",
+ "would_have_quit_at": "I would not have quit, as the flow never blocks and every step has one clear main button. My patience ran lowest at step 7 (Appraisal), where the paragraph of explanation, the three checklist items and 7 undecided quotes slow me down, and at step 3, where 'Write the searches' appeared to do nothing in the panel. Trust would break for real at step 7 or step 9 if I noticed that the quote verified as 'found word for word' came from a different paper. If this were a real run rather than a demo, I would stop and not use the question for my proposal.",
+ "activity": "Created account daniel.masters.qa3@example.com (name Daniel). Created one project, prj_a41820b7e69947aa ('Effect of mindfulness-based interventions on burnout in ICU nurses'), and walked all 9 steps to export: answered 1 scoping question and skipped the rest; kept 4 AI-suggested topics; ran 8 searches (119 unique papers); AI summarised 119 rows; ranked and appraised 8 papers via 'Appraise anyway'; left 7 quotes undecided and chose 'Summarise without them'; synthesis gave 14 statements and 3 possible conflicts; chose candidate 2, the PICO effect-on-burnout question; opened the larger report preview and clicked Download the report (Markdown), which confirmed 'Download started'. I did not open the printable report in a new tab (my helper does not follow new tabs), and I did not download the CSV or BibTeX. About 66 helper commands, 42 screenshots in docs/qa/iteration-3/masters/. No console errors or failed requests were reported at any step. No AI step failed or stalled; every step finished within a few seconds. Browser stopped.",
+ "narrative": "I landed, saw the headline, and clicked the blue Start a review. Signup was quick. I typed my topic and kept clicking the obvious button. The first thing that annoyed me was that I typed my idea and was then asked to confirm the same idea on another screen. Then the first scoping question asked who I want to study, although I had written ICU nurses. I answered once, then hit Skip the rest. The four suggested topics were sensible. I did not know what '0 MeSH' meant. At step 3 I clicked Write the searches and nothing seemed to happen in the panel until I found Open step 3 on the canvas. Then the searches were readable, and Run all 8 searches finished in seconds. The retrieval sentence about duplicates is the clearest thing in the app. The table with coloured shape chips was easy, and I could filter by study type and article type without any help. At step 6 the amber warning told me Burnout had no papers, which scared me, and it also made me trust the app. Step 7 was heavy. I skipped the 7 undecided quotes. When I clicked Show source I noticed that the highlighted text was about the Philippines, while the paper I was reading was about post-stroke patients, yet it said found word for word. That damaged my trust. I still reached step 9, picked the PICO question, and downloaded Markdown. I did not know what Markdown is and wanted a PDF. The banner kept saying demo mode, which was honest, but my whole review was about telemedicine in Southeast Asia, so I could not use any of it."
+}
