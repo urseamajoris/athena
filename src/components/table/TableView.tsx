@@ -3,7 +3,7 @@ import { Fragment, memo, useMemo, useRef, useState, type ReactNode } from "react
 import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type OnChangeFn, type Row as TableRow, type SortingState, type VisibilityState } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Popover } from "radix-ui";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, ChevronDown, ChevronRight, LayoutList, Map as MapIcon, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, ChevronDown, ChevronRight, Info, LayoutList, Map as MapIcon, RotateCcw, SlidersHorizontal } from "lucide-react";
 import dynamic from "next/dynamic";
 import { api, projectPath, useApi } from "../api";
 import { AbstractBadge, Badge, EmptyState, ErrorState, Loading, cx } from "../ui";
@@ -40,6 +40,8 @@ export interface Row extends Paper {
   score: Score | null;
   rank: number | null;
   selectedIn: number;
+  /** Topics other than the one being viewed that the paper is selected in (it is appraised if selected in any). */
+  selectedElsewhere: string[];
   /** Selected for appraisal in the topic being viewed (under "All topics": in any topic). */
   kept: boolean;
   /** Category key per dimension (filters, grouping, colour). */
@@ -85,6 +87,8 @@ export function TableView() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<{ id: string; field: Field } | null>(null);
   const [err, setErr] = useState<unknown>(null);
+  // Said after unticking a paper that stays selected in another topic (so it is still appraised).
+  const [notice, setNotice] = useState<string | null>(null);
   const ranked = (ranking.data?.topics ?? []).some((t) => t.scores.length);
 
   // Every paper with its categories (before any filter), then the filters as a non-destructive view.
@@ -95,6 +99,7 @@ export function TableView() {
     for (const t of rt) for (const s of t.scores) scoresByPaper.set(s.paperId, [...(scoresByPaper.get(s.paperId) ?? []), s]);
     const rankOf = new Map<string, number>();
     for (const t of rt) t.scores.forEach((s, i) => rankOf.set(s.id, i + 1));
+    const topicName = new Map(rt.map((t) => [t.id, t.name]));
     return ps
       .filter((p) => (topic === "all" ? true : p.topicIds.includes(topic) || (scoresByPaper.get(p.id) ?? []).some((s) => s.topicId === topic)))
       .map((p) => {
@@ -104,8 +109,9 @@ export function TableView() {
         const best = (ss: Score[]) => [...ss].sort((a, b) => b.total - a.total)[0];
         const score = topic === "all" ? best(all.filter((s) => s.selected)) ?? best(all.filter((s) => s.topicFit >= MIN_TOPIC_FIT)) ?? best(all) ?? null : all.find((s) => s.topicId === topic) ?? null;
         const selectedIn = all.filter((s) => s.selected).length;
+        const selectedElsewhere = all.filter((s) => s.selected && s.topicId !== topic).map((s) => topicName.get(s.topicId) ?? "another topic");
         const kept = topic === "all" ? selectedIn > 0 : !!score?.selected;
-        return { ...p, score, rank: score && topic !== "all" ? rankOf.get(score.id) ?? null : null, selectedIn, kept, cats: categorize(p, kept) };
+        return { ...p, score, rank: score && topic !== "all" ? rankOf.get(score.id) ?? null : null, selectedIn, selectedElsewhere, kept, cats: categorize(p, kept) };
       });
   }, [papers.data, ranking.data, topic]);
   const activeFilters = (Object.entries(view.filters) as [Dimension, string[]][]).filter(([, k]) => k?.length);
@@ -117,11 +123,23 @@ export function TableView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allRows, q, JSON.stringify(view.filters)]);
 
+  /** After a paper leaves one topic's selection: if another topic still selects it, it is still appraised; say so. */
+  function stillSelected(out: Score, after: RankingData) {
+    const others = after.topics.filter((t) => t.id !== out.topicId && t.scores.some((x) => x.paperId === out.paperId && x.selected)).map((t) => t.name);
+    if (!others.length) return setNotice(null);
+    const name = (papers.data?.papers ?? []).find((p) => p.id === out.paperId)?.title ?? "This paper";
+    const msg = `“${name.length > 80 ? `${name.slice(0, 80).replace(/\s+\S*$/, "")}…` : name}” is no longer selected for ${after.topics.find((t) => t.id === out.topicId)?.name ?? "this topic"}, but it is still selected in ${others.join(", ")}, so it will still be appraised. To leave it out, untick it there too.`;
+    setNotice(msg);
+    announce(msg);
+  }
   async function toggle(s: Score) {
     if (!(await confirmEdit(6))) return;
     setErr(null);
     try {
-      await ranking.mutate(await api<RankingData>(projectPath(projectId, "ranking/select"), { body: { scoreId: s.id, selected: !s.selected } }), { revalidate: false });
+      const after = await api<RankingData>(projectPath(projectId, "ranking/select"), { body: { scoreId: s.id, selected: !s.selected } });
+      await ranking.mutate(after, { revalidate: false });
+      if (s.selected) stillSelected(s, after);
+      else setNotice(null);
       await refresh();
     } catch (e) {
       setErr(e);
@@ -130,7 +148,10 @@ export function TableView() {
   async function swap(outId: string, inId: string) {
     if (!(await confirmEdit(6))) return;
     try {
-      await ranking.mutate(await api<RankingData>(projectPath(projectId, "ranking/swap"), { body: { outId, inId } }), { revalidate: false });
+      const out = ranking.data?.topics.flatMap((t) => t.scores).find((x) => x.id === outId);
+      const after = await api<RankingData>(projectPath(projectId, "ranking/swap"), { body: { outId, inId } });
+      await ranking.mutate(after, { revalidate: false });
+      if (out) stillSelected(out, after);
       await refresh();
     } catch (e) {
       setErr(e);
@@ -213,7 +234,9 @@ export function TableView() {
   const all = papers.data?.papers ?? [];
   const missing = all.filter((p) => !p.summary).length;
   const rt = ranking.data?.topics ?? [];
+  // Selections per topic add up to more than the papers appraised when a paper is selected in several topics.
   const selectedTotal = rt.reduce((a, t) => a + t.scores.filter((s) => s.selected).length, 0);
+  const selectedPapers = new Set(rt.flatMap((t) => t.scores.filter((s) => s.selected).map((s) => s.paperId))).size;
   const stage = states["5"] === "approved" ? 6 : 5;
   const topicList = (papers.data?.topics ?? []).map((t) => ({ id: t.id, name: t.name }));
   const hidden = allRows.length - rows.length;
@@ -331,7 +354,7 @@ export function TableView() {
               <button
                 key={t.id}
                 aria-pressed={topic === t.id}
-                onClick={() => { setSorting([]); setTopic(t.id); }}
+                onClick={() => { setSorting([]); setTopic(t.id); setNotice(null); }}
                 className={cx("min-h-11 shrink-0 rounded-sm border px-3 text-left", topic === t.id ? "border-fg-1 bg-bg-2 text-fg-0" : "border-line text-fg-1 hover:text-fg-0")}
               >
                 {t.name}{t.n !== null && <span className={cx("ml-2 text-12 tabular-nums", t.n < 3 || t.n > 5 ? "text-warn" : "text-fg-2")}>{t.n} selected</span>}
@@ -387,8 +410,9 @@ export function TableView() {
           <p className="text-fg-0"><span className="font-medium">{summaryLine}</span>{q.trim() ? ` matching “${q.trim()}”` : ""}.</p>
           {hidden > 0 && <p className="text-12 text-warn">{hidden} paper{hidden === 1 ? " is" : "s are"} hidden by your filters (still in the review).</p>}
           <button className="btn-ghost btn-sm" disabled={!activeFilters.length && !q.trim()} onClick={() => { view.reset(); setQ(""); }}><RotateCcw className="h-3 w-3" aria-hidden /> Reset filters</button>
-          <span className="text-12 text-fg-2">{all.length} papers in total{missing ? ` · ${missing} not yet summarised` : ""}{ranked ? ` · ${selectedTotal} selected` : ""}</span>
+          <span className="text-12 text-fg-2">{all.length} papers in total{missing ? ` · ${missing} not yet summarised` : ""}{ranked ? ` · ${selectedPapers} ${selectedPapers === 1 ? "paper" : "different papers"} selected for appraisal${selectedTotal > selectedPapers ? ` (the topic counts add up to ${selectedTotal}: some papers are selected in more than one topic)` : ""}` : ""}</span>
         </div>
+        {notice && <p role="status" className="flex items-start gap-2 text-fg-0"><Info className="mt-1 h-4 w-4 shrink-0 text-fg-1" strokeWidth={1.5} aria-hidden /><span>{notice}</span></p>}
         {ranked && mode !== "map" && (
           <Disclosure title="How papers are scored" meta="5 criteria, 0–100">
             <ul className="grid gap-1 sm:grid-cols-2">
@@ -505,6 +529,7 @@ function PaperCards({ rows, sorting, groupBy, topics, onOpen, onToggle }: { rows
                 {/* Same topic-match words as the desktop table, including under "All topics" (no rank there). */}
                 {r.score && (r.rank !== null ? <TopicFit score={r.score} /> : r.score.topicFit < MIN_TOPIC_FIT && (r.score.selected ? <TopicFit score={r.score} /> : <span className="text-fg-2">matches no topic</span>))}
                 {r.kept && <span className="inline-flex items-center gap-1 text-ok"><CheckCircle2 className="h-3 w-3" aria-hidden />selected{r.rank === null && r.selectedIn > 1 ? ` in ${r.selectedIn} topics` : ""}</span>}
+                {r.rank !== null && <SelectedElsewhere row={r} />}
               </span>
               {r.summary && <span className="mt-1 line-clamp-2 block text-12 text-fg-2">{r.summary.keyFinding}</span>}
             </button>
@@ -637,8 +662,18 @@ function ScoreCell({ row, all }: { row: Row; all: boolean }) {
       {/* Under "All topics" an unselected paper shows a non-matching score only when it matches no topic at all. */}
       {all ? s.topicFit < MIN_TOPIC_FIT && (s.selected ? <TopicFit score={s} className="text-12" /> : <span className="text-12 text-fg-2">matches no topic</span>) : <TopicFit score={s} className="text-12" />}
       {s.userChanged && !(s.selected && s.topicFit < MIN_TOPIC_FIT) && <span className="text-12 text-fg-2">changed by you</span>}
+      {!all && <SelectedElsewhere row={row} className="text-12" />}
     </span>
   );
+}
+
+/** In a topic's view: the other topics a paper is selected in. Selected in any topic means it is appraised, so an
+ *  unticked paper that another topic keeps says so rather than looking left out. */
+function SelectedElsewhere({ row, className }: { row: Row; className?: string }) {
+  if (!row.score || !row.selectedElsewhere.length) return null;
+  const names = row.selectedElsewhere.join(", ");
+  if (row.score.selected) return <span className={cx("text-fg-2", className)}>also selected in {names}</span>;
+  return <span className={cx("inline-flex items-start gap-1 text-fg-1", className)}><Info className="mt-0.5 h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />still selected in {names}, so it is still appraised</span>;
 }
 
 /** How well a paper matches the topic being viewed. A paper that does not match is never pre-selected; if the

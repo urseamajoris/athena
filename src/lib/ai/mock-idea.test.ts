@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { answersByField, gist, ideaQuestions, ideaSearch, ideaTopics, phrases, respellCommon, summaryOf, synonymsFor, synthesisStatements } from "./mock-idea";
+import { answersByField, gist, ideaQuestions, ideaSearch, ideaTopics, phrases, respellCommon, summaryOf, synonymsFor, synthesisStatements, upToWord } from "./mock-idea";
 
 // Ideas the simulated users typed (docs/qa), with some of their answers.
 const IDEAS: [string, string[]][] = [
@@ -136,4 +136,30 @@ test("demo synthesis statements say what the claims they cite say, and cite only
   const none = synthesisStatements(claims.filter((c) => c.field !== "limitations"), papers, "Main findings");
   assert.deepEqual(none.unknown[0].claimIds, ["c6"]);
   assert.equal(gist("(mock) In conclusion, we found that apps improved adherence among 40 participants in a twelve week pilot trial in two rural districts of northern Thailand with nurse support", 10), "Apps improved adherence among 40 participants in a twelve week…");
+});
+
+test("an answer adds short search terms, never a clause from the answer, and 'whether' never starts a topic", () => {
+  // QA iteration 3 (undergrad): "sleep means lower grades" became a synonym of Sleep.
+  const ts = ideaTopics("I'm interested in sleep and grades", answersByField(["university students", "UK", "less sleep means lower grades"]));
+  for (const t of ts) for (const s of t.synonyms) assert.ok(s.split(" ").length <= 4 && !/\b(means|lower|less)\b/.test(s), `${t.name}: ${s}`);
+  assert.deepEqual(ts.find((t) => t.name === "Sleep")?.synonyms, ["sleep"]);
+  // QA iteration 3 (clinician, keyboard): "Whether walking ability", "whether peer-led groups".
+  const names = ideaTopics("I want to know whether walking ability improves with tele-rehabilitation").map((t) => t.name);
+  assert.ok(names.includes("Walking ability") && !names.some((n) => /^whether/i.test(n)), names.join(", "));
+});
+
+test("candidate questions never cut a word and do not repeat what the population already says", () => {
+  // QA iteration 3 (clinician): "… after surgical repair of a hip fract?" and "recovery after hip fracture surgery among
+  // adults … after surgical repair of a hip fract".
+  const idea = IDEAS[3][0];
+  const pop = "adults aged 65 and over after surgical repair of a hip fracture, living at home";
+  const qs = ideaQuestions(ideaTopics(idea, answersByField([pop])), summaryOf({ population: pop }), "", idea);
+  for (const q of qs) {
+    assert.ok(/hip fracture\b/.test(q.text) && !/fract\b/.test(q.text), q.text);
+    assert.ok((q.text.match(/hip fracture/g) ?? []).length <= 1, q.text);
+    assert.equal(q.structure.find((s) => s.element === "Population")?.value, "adults aged 65 and over after surgical repair of a hip fracture");
+  }
+  assert.equal(qs[1].text, "(mock) What is the effect of tele-rehabilitation compared with usual care on recovery among adults aged 65 and over after surgical repair of a hip fracture?");
+  assert.equal(upToWord("adults aged 65 and over after surgical repair of a hip fracture", 52), "adults aged 65 and over after surgical repair");
+  assert.equal(upToWord("short", 54), "short");
 });
