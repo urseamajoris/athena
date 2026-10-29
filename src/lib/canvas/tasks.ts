@@ -46,6 +46,12 @@ export function taskFor(node: GNode, input: GraphInput): Task {
     case "topic": {
       const t = s?.topics.find((x) => x.id === node.topicId);
       if (t && isGhostTopic(t, states, input.client.acceptedTopics)) return { ...base, step: 2, headline: "Keep or delete this suggested topic", help: "Suggested from your answers. Keep it if it is part of your question; you can edit it after." };
+      // Before any search is written, step 3 opens on the first topic (nodeForStage), so "Go to step 3" lands
+      // here: the panel then says it is step 3.
+      if (s && frontier === 3 && !s.queries.length && s.topics.find((x) => !isGhostTopic(x, states, input.client.acceptedTopics))?.id === node.topicId) {
+        const n3 = s.topics.length;
+        return { step: 3, next: nextTitle(3), headline: "Turn the topics into database searches", help: `Athena writes a PubMed and an OpenAlex search for each of your ${n3} topic${n3 === 1 ? "" : "s"}. This is your first topic: check it below, then write the searches.` };
+      }
       return { ...base, step: 2, headline: "Edit this search topic", help: "Its name, synonyms and MeSH terms (PubMed's official keywords) decide what the searches find." };
     }
     case "query":
