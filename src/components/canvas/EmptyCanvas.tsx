@@ -46,7 +46,7 @@ export function EmptyCanvas() {
     <div className="fixed inset-0 flex flex-col bg-bg-0 [background-image:radial-gradient(var(--line)_1px,transparent_1px)] [background-size:24px_24px]">
       <header className="flex h-12 items-center justify-between px-2 md:px-4">
         <Link href="/sessions" className="inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-sm px-1 font-semibold" aria-label="Athena: my projects">
-          <LogoMark /> <span className="max-sm:sr-only">My projects</span>
+          <LogoMark /> <span>My projects</span>
         </Link>
         <AppMenu />
       </header>
@@ -80,7 +80,7 @@ export function EmptyCanvas() {
           </div>
           <p id="idea-error" role="alert" className="mt-2 min-h-4 text-center text-12 text-err">{err}</p>
           <div className="mt-4 flex flex-col items-center gap-2">
-            <button className="btn-primary min-h-11 w-full px-6 text-16 sm:w-auto" aria-disabled={tooShort || busy || undefined}>
+            <button className="btn-primary min-h-11 w-full px-6 sm:w-auto" data-await-input aria-disabled={tooShort || busy || undefined}>
               {busy && <Spinner />} Start my review
             </button>
             <p id="idea-hint" className="text-12 text-fg-2">{tooShort ? "Write at least a sentence to start." : "Enter starts it · Shift+Enter adds a line"}</p>

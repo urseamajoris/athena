@@ -40,7 +40,7 @@ function Frame({ node, title, children, showAction }: { node: string; title: str
     <div className="fixed inset-0 flex flex-col bg-bg-0">
       <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-3 border-b border-line px-2 py-1 md:px-4">
         <TransitionLink href={back} prefetch={false} className="btn-ghost h-11" aria-label="Back to your review overview">
-          <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden /> <span className="max-sm:sr-only">Overview</span>
+          <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden /> <span>Overview</span>
         </TransitionLink>
         <h1 className="sr-only">{title}</h1>
         <div className="min-w-0 flex-1"><StageRail compact /></div>

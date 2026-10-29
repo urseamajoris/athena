@@ -14,12 +14,12 @@ export function StageRail({ compact }: { compact: boolean }) {
   const cur = f ? STAGES[f - 1] : null;
   const stale = STAGES.filter((s) => states[String(s.n)] === "stale").length;
   const done = STAGES.filter((s) => states[String(s.n)] === "approved").length;
-  const label = cur ? `Step ${cur.n} of 9: ${cur.title}` : "All 9 steps done";
+  const label = cur ? `Current step: ${cur.n} of 9, ${cur.title}` : "All 9 steps done";
   const next = cur && cur.n < 9 ? `Next: ${STAGES[cur.n].title}` : cur ? "Next: download your review" : null;
   if (compact) {
     return (
-      <div className="min-w-0" aria-label={`${label}. ${done} of 9 done.`}>
-        <p className="truncate text-12 font-medium text-fg-0">{cur ? <>Step <span className="tabular-nums">{cur.n}</span>/9 · {cur.title}</> : "Review finished"}</p>
+      <div className="min-w-0" aria-label={`${label}. ${done} of 9 done.${stale ? ` ${stale} out of date.` : ""}`}>
+        <p className="truncate text-12 font-medium text-fg-0">{cur ? <>Now: step <span className="tabular-nums">{cur.n}</span>/9 · {cur.title}</> : "Review finished"}{stale > 0 && <span className="text-warn"> · <AlertTriangle className="inline h-3 w-3 align-[-2px]" strokeWidth={2.5} aria-hidden /> {stale} out of date</span>}</p>
         <div className="mt-1 flex gap-0.5" aria-hidden>
           {STAGES.map((s) => <span key={s.n} className={cx("h-1 flex-1 rounded-full", states[String(s.n)] === "approved" ? "bg-ok" : s.n === f ? "bg-fg-1" : states[String(s.n)] === "stale" ? "bg-warn" : "bg-bg-3")} />)}
         </div>

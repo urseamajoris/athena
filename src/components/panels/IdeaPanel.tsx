@@ -110,6 +110,17 @@ export function IdeaPanel() {
   const action = isFrontier ? stageAction(frontierStage(states), input) : null;
   const ghosts = (summary?.topics ?? []).filter((t) => isGhostTopic(t, states, input.client.acceptedTopics));
   const chatOpen = ideaApproved && !data.done && !data.topics.length;
+  const answered = Object.keys(COVERAGE_LABEL).filter((k) => data.coverage?.[k]).length;
+  const knownList = (
+    <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+      {Object.entries(COVERAGE_LABEL).map(([k, [label, hint]]) => (
+        <div key={k}>
+          <dt className="text-12 text-fg-1"><span className="font-medium">{label}</span> <span className="text-fg-2">· {hint}</span></dt>
+          <dd className={data.coverage?.[k] ? "text-fg-0" : "text-fg-2"}>{data.coverage?.[k]?.replace(/[\s;,.]+$/, "") || "not answered yet"}</dd>
+        </div>
+      ))}
+    </dl>
+  );
 
   return (
     <div className="space-y-4">
@@ -123,20 +134,6 @@ export function IdeaPanel() {
 
       {!ideaApproved && <WhatHappens stage={1} />}
       {ideaApproved && <WhatHappens stage={2} />}
-
-      {ideaApproved && (
-        <section aria-label="What we know so far">
-          <SectionTitle right={<span className="text-12 tabular-nums text-fg-2">{chatOpen ? `question ${Math.max(1, Math.min(data.asked, data.maxQuestions))} of up to ${data.maxQuestions}` : "questions done"}</span>}>What we know so far</SectionTitle>
-          <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-            {Object.entries(COVERAGE_LABEL).map(([k, [label, hint]]) => (
-              <div key={k}>
-                <dt className="text-12 text-fg-1"><span className="font-medium">{label}</span> <span className="text-fg-2">· {hint}</span></dt>
-                <dd className={data.coverage?.[k] ? "text-fg-0" : "text-fg-2"}>{data.coverage?.[k] ?? "not answered yet"}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      )}
 
       {ideaApproved && (chatOpen ? (
         <section aria-label="Scoping conversation" className="rounded-md border border-line">
@@ -206,6 +203,13 @@ export function IdeaPanel() {
         </section>
       )}
 
+      {ideaApproved && !data.topics.length && (
+        <section aria-label="What we know so far">
+          <SectionTitle right={<span className="text-12 tabular-nums text-fg-2">{chatOpen ? `question ${Math.max(1, Math.min(data.asked, data.maxQuestions))} of up to ${data.maxQuestions}` : "questions done"}</span>}>What we know so far</SectionTitle>
+          {knownList}
+        </section>
+      )}
+
       {data.topics.length === 0 && data.draftTopics.length > 0 && (
         <section aria-label="Draft topics">
           <SectionTitle>Search topics taking shape</SectionTitle>
@@ -213,6 +217,11 @@ export function IdeaPanel() {
         </section>
       )}
 
+      {data.topics.length > 0 && (
+        <Disclosure title="What we know so far" meta={`${answered} of ${Object.keys(COVERAGE_LABEL).length} answered`}>
+          {knownList}
+        </Disclosure>
+      )}
       {data.topics.length > 0 && <ManageTopics topics={data.topics} onChange={(d) => mutate(d, { revalidate: false })} />}
       {data.topics.length > 0 && (
         <Disclosure title="See how your topics connect" meta="map">
@@ -252,6 +261,7 @@ export function IdeaPanel() {
           {!ideaApproved ? (
             <button
               className="btn-primary"
+              data-await-input
               data-action="approve"
               aria-disabled={idea.trim().length < 10 || !!busy || undefined}
               onClick={async () => {
@@ -262,7 +272,7 @@ export function IdeaPanel() {
               {busy === cmdKey({ type: "approve", stage: 1 }) && <Spinner />} Start scoping
             </button>
           ) : action.cmd.type === "answer" ? (
-            <button type="submit" form="scoping-answer-form" className="btn-primary" aria-disabled={!answer.trim() || !!local || undefined} onClick={(e) => { if (!answer.trim() || local) e.preventDefault(); }}>
+            <button type="submit" form="scoping-answer-form" className="btn-primary" data-await-input aria-disabled={!answer.trim() || !!local || undefined} onClick={(e) => { if (!answer.trim() || local) e.preventDefault(); }}>
               {local === "answer" && <Spinner />} Send answer
             </button>
           ) : action.cmd.type === "openScoping" ? (

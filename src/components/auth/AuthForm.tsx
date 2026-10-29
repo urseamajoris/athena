@@ -21,6 +21,11 @@ export function AuthForm({ mode, next, signupOpen = true }: { mode: "login" | "s
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
+    if (!email.trim() || !password) {
+      setError(!email.trim() ? "Enter your email address." : "Enter your password.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -55,13 +60,14 @@ export function AuthForm({ mode, next, signupOpen = true }: { mode: "login" | "s
           <label className="label block">
             Password
             <input className="input mt-1 w-full" type="password" autoComplete={signup ? "new-password" : "current-password"} required value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby={signup ? "pw-hint" : undefined} aria-invalid={!!error || undefined} />
-            {signup && <span id="pw-hint" className="mt-1 block text-12 font-normal text-fg-2">At least 10 characters.</span>}
+            {signup && <span id="pw-hint" className="mt-1 block text-12 font-normal text-fg-2">At least 10 characters, not containing the name part of your email.</span>}
           </label>
           {error && <p role="alert" className="rounded-sm border border-err-line px-3 py-2 text-err">{error}</p>}
-          <button className="btn-primary min-h-11 w-full text-16" disabled={busy || !email || !password}>
+          <button className="btn-primary min-h-11 w-full text-16" data-await-input aria-disabled={busy || !email || !password || undefined}>
             {busy && <Spinner label={signup ? "Creating your account" : "Logging in"} />}
             {signup ? "Create account" : "Log in"}
           </button>
+          {!signup && <p className="text-12 text-fg-2">Forgot your password? Ask the person who runs this Athena server to reset it; there is no email reset yet.</p>}
         </form>
         {(signupOpen || signup) && (
           <p className="mt-6 text-fg-1">

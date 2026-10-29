@@ -1,0 +1,20 @@
+{
+  "chat-375": {
+    "what": "Scoping chat: the AI asks a clarifying question about the idea",
+    "url": "/s/<project>?node=idea",
+    "width": 375,
+    "theme": "dark"
+  },
+  "chat-768": {
+    "what": "Scoping chat: the AI asks a clarifying question about the idea",
+    "url": "/s/<project>?node=idea",
+    "width": 768,
+    "theme": "dark"
+  },
+  "chat-1366": {
+    "what": "Scoping chat: the AI asks a clarifying question about the idea",
+    "url": "/s/<project>?node=idea",
+    "width": 1366,
+    "theme": "dark"
+  }
+}

@@ -125,7 +125,7 @@ export function SessionsList() {
                     </span>
                     <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-12 text-fg-1">
                       <span className="inline-flex items-center gap-1"><StateIcon state={state} className="h-3 w-3" />{nextLine(p)}</span>
-                      {stale > 0 && <span className="inline-flex items-center gap-1 text-warn"><AlertTriangle className="h-3 w-3" strokeWidth={2} aria-hidden />{stale} step{stale === 1 ? "" : "s"} out of date</span>}
+                      {stale > 0 && <span className="inline-flex items-center gap-1 text-warn"><AlertTriangle className="h-3 w-3" strokeWidth={2} aria-hidden />{f ? `Step ${f.n} changed, so ${stale} later step${stale === 1 ? "" : "s"} need${stale === 1 ? "s" : ""} updating` : `${stale} step${stale === 1 ? "" : "s"} out of date`}</span>}
                     </span>
                   </span>
                 </TransitionLink>

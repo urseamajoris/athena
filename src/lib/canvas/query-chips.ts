@@ -23,8 +23,8 @@ export function queryChips(q: string): QueryToken[] {
 /** Plain names for PubMed field tags (shown on the chips, defined once under the query). */
 export const FIELD_LABEL: Record<string, string> = {
   tiab: "title/abstract",
-  mh: "subject heading",
-  majr: "main subject",
+  mh: "index term",
+  majr: "main index term",
   pt: "publication type",
   tw: "text word",
   ti: "title",

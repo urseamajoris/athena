@@ -258,6 +258,12 @@ kbd,
     color: var(--fg-2);
     border: 1px dashed var(--line-control);
   }
+  /* Waiting only for the user's input (an empty form): it stays filled, because clicking it says what is missing. */
+  &[data-await-input][aria-disabled="true"] {
+    background: var(--accent);
+    color: var(--accent-fg);
+    border: 0;
+  }
 }
 @utility btn-secondary {
   @apply btn;

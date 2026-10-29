@@ -115,7 +115,7 @@ function WayForward({ node }: { node: GNode }) {
   return (
     <div data-panel-footer-fallback className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
       <p className="text-12 text-fg-2">{f && f < (node.stages[0] ?? 0) ? `This step waits for ${title}.` : action ? `Next: ${action.label.toLowerCase()} (${title}).` : `Continue with ${title}.`}</p>
-      <button className="btn-secondary" onClick={() => canvasStore.getState().openPanel(target)}>
+      <button className="btn-primary" onClick={() => canvasStore.getState().openPanel(target)}>
         Go to {f ? `step ${f}` : "the report"} <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
       </button>
     </div>
@@ -123,8 +123,9 @@ function WayForward({ node }: { node: GNode }) {
 }
 
 export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: boolean; top?: number }) {
-  const { costs, input } = useSession();
+  const { costs, input, states } = useSession();
   const task = taskFor(node, input);
+  const viewing = task.step && task.step !== frontierStage(states);
   const showTitle = node.kind === "topic" || node.kind === "query" || node.kind === "quote" || (node.kind === "idea" && input.states["1"] === "approved");
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
@@ -169,14 +170,14 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-12 text-fg-1">
             <KindIcon kind={node.kind} />
-            <span className="font-medium">{task.step ? `Step ${task.step} of 9` : "Finished"}</span>
+            <span className="font-medium">{task.step ? `${viewing ? "Viewing step" : "Step"} ${task.step} of 9 · ${STAGES[task.step - 1].title}` : "Finished"}</span>
             <span aria-hidden className="text-fg-2">·</span>
             <NodeStatusBadge node={node} />
           </p>
           <h2 ref={headingRef} tabIndex={-1} className="mt-1 text-20 font-semibold text-fg-0">{task.headline}</h2>
           {showTitle && node.title && <p className="mt-1 line-clamp-2 text-fg-1" title={node.title}>{node.kind === "idea" ? `“${node.title}”` : `${KIND_LABEL[node.kind]}: ${node.title}`}</p>}
-          <p className="mt-2 text-fg-1">{task.help}</p>
-          {task.next && <p className="mt-1 text-12 text-fg-2">{task.next}</p>}
+          <p className="mt-2 text-fg-1 max-sm:line-clamp-3">{task.help}</p>
+          {task.next && <p className="mt-1 text-12 text-fg-2 max-sm:hidden">{task.next}</p>}
         </div>
         <MoreMenu items={items} label={`More actions for ${KIND_LABEL[node.kind]}`} />
         <CloseButton onClick={close} label="Close panel (Esc)" />

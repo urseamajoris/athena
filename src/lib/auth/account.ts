@@ -79,6 +79,7 @@ export async function usageFor(userId: string) {
     .select({
       projectId: schema.aiCalls.projectId,
       title: schema.projects.title,
+      createdAt: schema.projects.createdAt,
       calls: sql<number>`count(*)`,
       cost: sql<number>`coalesce(sum(${schema.aiCalls.costUsd}),0)`,
       tokens: sql<number>`coalesce(sum(${schema.aiCalls.inputTokens} + ${schema.aiCalls.outputTokens}),0)`,

@@ -117,7 +117,10 @@ export function AppraisalPanel() {
       )}
       <PanelFooter>
         {list.length > 0 && !last ? (
-          <button className="btn-primary" onClick={() => go(1)}>Next paper</button>
+          <>
+            {action && <ActionButton action={action} />}
+            <button className="btn-primary" onClick={() => go(1)}>Next paper</button>
+          </>
         ) : action ? (
           <ActionButton action={action} primary showReason />
         ) : list.length > 0 ? (

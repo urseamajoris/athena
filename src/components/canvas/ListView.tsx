@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { canvasStore, useCanvas, useSession } from "../session/SessionContext";
 import { cx } from "../ui";
 import { ActionButton } from "../panels/action-button";
+import { NextStepBar } from "./NextStepBar";
 import { KindIcon } from "./icons";
 import { NodeStatusBadge, TrustBadges } from "./node-bits";
 import { KIND_LABEL, frontierNodeId, type GNode, type Graph, type GraphInput } from "@/lib/canvas/graph";
@@ -85,22 +86,9 @@ export function ListView() {
   const selected = useCanvas((s) => s.selected);
   const tree = useMemo(() => graphToTree(graph), [graph]);
   const c: ItemCtx = { graph, input, frontier: frontierNodeId(graph, states), panel, selected, corpusFrom: graph.nodes.find((n) => n.id === "corpus")?.parents.length ?? 0 };
-  const frontierNode = graph.nodes.find((n) => n.id === c.frontier);
-  const next = frontierNode ? nextAction(frontierNode, graph, input) : null;
-  const task = frontierNode ? taskFor(frontierNode, input) : null;
   return (
     <div className="absolute inset-0 overflow-y-auto" data-list-view>
-      {next && frontierNode && (
-        <section aria-label="Next step" className="sticky top-0 z-10 border-b border-line bg-bg-0">
-          <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-3 px-4 py-3">
-            <p className="min-w-0 flex-1">
-              <span className="block text-12 text-fg-2">{task?.step ? `Your next step · step ${task.step} of 9` : "Your next step"}</span>
-              <span className="block font-medium">{task?.headline ?? frontierNode.title}</span>
-            </p>
-            <ActionButton action={next} primary={!panel} showReason />
-          </div>
-        </section>
-      )}
+      <NextStepBar />
       <ul aria-label="Review as a list" className="mx-auto max-w-4xl pb-24">
         {tree.map((t) => <ListItem key={t.node.id} it={t} depth={0} c={c} />)}
       </ul>

@@ -46,7 +46,8 @@ P.topics = (await user.json("/api/projects", { body: { idea: IDEA } })).id;
 await call(P.topics, "stages/1/approve", {});
 {
   let s = await call(P.topics, "scoping/start", {});
-  while (!s.done && s.awaitingAnswer) s = await call(P.topics, "scoping/answer", { text: "Rural patients and health workers in ASEAN; adoption and barriers; 2015 onwards; any design." });
+  const answers = ["Rural patients and the health workers who treat them, in ASEAN countries", "Whether telemedicine gets adopted, and what blocks or helps it", "2015 onwards, any design including interviews and reviews"];
+  for (let i = 0; !s.done && s.awaitingAnswer; i++) s = await call(P.topics, "scoping/answer", { text: answers[i % answers.length] });
   await call(P.topics, "scoping/topics", {});
 }
 // Search builder awaiting review.
@@ -93,7 +94,7 @@ async function context(width, who = "user") {
 const SHOTS = [
   { page: "home", state: "landing", who: "anon", url: "/", what: "Landing page for a first-time visitor" },
   { page: "signup", state: "empty", who: "anon", url: "/signup?next=/s/new", what: "Create-account form" },
-  { page: "login", state: "error", who: "anon", url: "/login", what: "Log-in form after a wrong password", act: async (p) => { await p.getByLabel("Email").fill("nobody@example.org"); await p.getByLabel("Password").fill("wrong-password-1"); await p.getByRole("button", { name: /log in/i }).click(); await p.getByRole("alert").waitFor(); } },
+  { page: "login", state: "error", who: "anon", url: "/login", what: "Log-in form after a wrong password", act: async (p) => { await p.getByLabel("Email").fill("nobody@example.org"); await p.getByLabel("Password").fill("wrong-password-1"); await p.getByRole("button", { name: /log in/i }).click(); await p.getByText(/do not match/).waitFor(); } },
   { page: "projects", state: "populated", url: "/sessions", what: "My projects list (several projects at different steps)" },
   { page: "new", state: "empty", url: "/s/new", what: "Starting a new review: the empty canvas asking for the idea" },
   { page: "idea", state: "chat", url: () => `/s/${P.chat}?node=idea`, what: "Scoping chat: the AI asks a clarifying question about the idea" },
@@ -102,8 +103,10 @@ const SHOTS = [
   { page: "retrieval", state: "done", url: () => `/s/${P.s5}?node=retrieval`, what: "Retrieval finished: papers found and duplicates removed" },
   { page: "summary", state: "review", url: () => `/s/${P.s5}/table`, what: "Summary table: one row per paper, to skim and correct" },
   { page: "ranking", state: "review", url: () => `/s/${P.s6}/table`, what: "Ranking: scored papers with the top ones selected per topic" },
+  { page: "ranking", state: "map", url: () => `/s/${P.s6}/table`, what: "Ranking shown as a map of papers coloured by study type", act: async (p) => { await p.getByRole("button", { name: "Map", exact: true }).click(); await p.waitForTimeout(2500); await p.getByText("Papers by year and score").scrollIntoViewIfNeeded(); await p.waitForTimeout(800); } },
   { page: "appraisal", state: "review", url: () => `/s/${P.s7}?node=appraisal`, what: "Appraisal: checking one paper at a time with verified quotes" },
   { page: "synthesis", state: "review", url: () => `/s/${P.s8}?node=synthesis`, what: "Synthesis: what is known, contested and unknown" },
+  { page: "synthesis", state: "network", url: () => `/s/${P.s8}?node=synthesis`, what: "Synthesis evidence network: statements linked to papers coloured by study type", act: async (p) => { await p.getByRole("button", { name: /See the evidence network/ }).click(); await p.waitForTimeout(2500); await p.locator("[data-panel-body]").evaluate((el) => { const b = el.querySelector("button[aria-expanded=true]"); const all = [...el.querySelectorAll("button[aria-expanded=true]")]; const t = all.find((x) => /evidence network/.test(x.textContent)) ?? b; if (t) el.scrollTop = t.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - 8; }); await p.waitForTimeout(800); } },
   { page: "questions", state: "review", url: () => `/s/${P.s9}?node=questions`, what: "Research questions: three candidates to choose from" },
   { page: "final", state: "done", url: () => `/s/${P.done}/export`, what: "Finished review: download the report" },
   { page: "canvas", state: "mid", url: () => `/s/${P.s7}`, what: "Session overview mid-way (step 7 waiting for review)" },

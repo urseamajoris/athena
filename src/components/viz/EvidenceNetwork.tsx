@@ -7,7 +7,7 @@ import { layoutEvidence, type EvPaper, type EvStatement } from "./evidence-graph
 import { STUDY_GROUPS, categoryVar } from "@/lib/shared/categories";
 
 const EvidenceNetwork3D = dynamic(() => import("./EvidenceNetwork3D"), { ssr: false, loading: () => <div className="h-[360px]" /> });
-const KIND = { known: { label: "Known: the papers agree", color: "var(--ok)" }, contested: { label: "Contested: the papers disagree", color: "var(--warn)" }, unknown: { label: "Unknown: not yet studied", color: "var(--fg-2)" } } as const;
+const KIND = { known: { label: "Known: the papers agree", color: "var(--ok)" }, contested: { label: "Contested: the papers disagree", color: "var(--cat-7)" }, unknown: { label: "Unknown: not yet studied", color: "var(--fg-2)" } } as const;
 
 /** Statements joined to the papers whose quotes support them; papers coloured and shaped by study type. */
 export function EvidenceNetwork({ statements, papers, onOpenPaper }: { statements: EvStatement[]; papers: EvPaper[]; onOpenPaper: (id: string) => void }) {

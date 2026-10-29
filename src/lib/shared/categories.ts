@@ -216,9 +216,19 @@ export function categoriesFor(dim: Dimension | ColorBy, topics: { id: string; na
   }
 }
 
+/**
+ * Only the "Colour by" dimensions own hues. The others (article type, year, full text, selection) are drawn in
+ * plain ink with their shapes, so one colour never means two things on the same screen.
+ */
+const INK: Record<Theme, string> = { light: "#3e3e47", dark: "#b4b4bd" };
+function hasHues(dim: Dimension | ColorBy): boolean {
+  return COLOR_BY.some((c) => c.key === dim);
+}
+
 /** The colour of a category in a dimension (score uses the sequential ramp). */
 export function categoryHex(dim: Dimension | ColorBy, key: string, theme: Theme, topics: { id: string; name: string }[] = []): string {
   if (dim === "score") return scoreHex(key, theme);
+  if (!hasHues(dim)) return INK[theme];
   const c = categoriesFor(dim, topics).find((x) => x.key === key);
   return slotHex(c?.slot ?? null, theme);
 }
@@ -227,6 +237,7 @@ export function categoryVar(dim: Dimension | ColorBy, key: string, topics: { id:
     const i = ["0-19", "20-39", "40-59", "60-79", "80+"].indexOf(key);
     return i < 0 ? "var(--cat-none)" : `var(--seq-${i + 1})`;
   }
+  if (!hasHues(dim)) return "var(--fg-1)";
   return slotVar(categoriesFor(dim, topics).find((x) => x.key === key)?.slot ?? null);
 }
 

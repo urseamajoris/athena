@@ -64,7 +64,7 @@ export function ExportView({ full = false }: { full?: boolean }) {
           <p className="text-16 font-semibold leading-snug">{q.text}</p>
         </section>
       )}
-      <RadioGroup.Root value={format} onValueChange={(v) => setFormat(v as Format)} aria-label="Format" className="grid gap-2">
+      <RadioGroup.Root value={format} onValueChange={(v) => setFormat(v as Format)} aria-label="Format" className={cx("grid gap-2", full && "sm:grid-cols-3")}>
         {FORMATS.map((f) => (
           <RadioGroup.Item key={f.id} value={f.id} className={cx("flex min-h-11 items-start gap-3 rounded-md border px-3 py-2 text-left", format === f.id ? "border-fg-1 bg-bg-2" : "border-line hover:bg-bg-2")}>
             <span aria-hidden className={cx("mt-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-line-control")}>
@@ -78,9 +78,11 @@ export function ExportView({ full = false }: { full?: boolean }) {
         ))}
       </RadioGroup.Root>
       {full && (
-        <a className="btn-primary min-h-11" href={href} download>
-          <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Download {FORMATS.find((f) => f.id === format)!.ext}
-        </a>
+        <div className="sticky bottom-0 z-10 -mx-4 border-t border-line bg-bg-0 px-4 py-3 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+          <a className="btn-primary min-h-11 w-full sm:w-auto" href={href} download>
+            <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Download the {FORMATS.find((f) => f.id === format)!.label.toLowerCase()} ({FORMATS.find((f) => f.id === format)!.ext})
+          </a>
+        </div>
       )}
       <section aria-label="Preview">
         <div className="mb-2 flex items-center justify-between gap-2">

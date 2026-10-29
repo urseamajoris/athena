@@ -9,7 +9,7 @@ import { useReducedMotion, useTheme, useVizMode } from "./support";
 import { AXIS_NOTE, countBy, place, type MapPoint } from "./paper-points";
 import { categoriesFor, categoryVar, COLOR_BY, type ColorBy } from "@/lib/shared/categories";
 
-const PaperMap3D = dynamic(() => import("./PaperMap3D"), { ssr: false, loading: () => <div className="flex h-[340px] items-center justify-center text-12 text-fg-2">Loading the 3D map…</div> });
+const PaperMap3D = dynamic(() => import("./PaperMap3D"), { ssr: false, loading: () => <div className="flex h-[380px] items-center justify-center text-12 text-fg-2">Loading the 3D map…</div> });
 
 /** 2D version (no WebGL, weak devices, or chosen): the same positions, colours, shapes and legend. */
 function PaperMap2D({ points, colorBy, topics, isolated, highlight, onOpen, label, dimUnselected }: { points: MapPoint[]; colorBy: ColorBy; topics: { id: string; name: string }[]; isolated: string | null; highlight: string | null; onOpen: (id: string) => void; label: string; dimUnselected: boolean }) {
@@ -66,9 +66,9 @@ export function PaperMap({ points, colorBy, onColorBy, topics, onOpen, layers, t
             </select>
           </label>
           {mode && (
-            <button className="btn-ghost btn-sm" onClick={() => setPref(pref === "2d" ? "auto" : "2d")} aria-pressed={pref === "2d"} title={mode === "3d" ? "Show a flat 2D chart" : "Try the 3D view"}>
+            <button className="btn-secondary btn-sm" onClick={() => setPref(pref === "2d" ? "auto" : "2d")} title={mode === "3d" ? "Show a flat chart instead" : "Show the 3D view"}>
               {mode === "3d" ? <Square className="h-3 w-3" aria-hidden /> : <Box className="h-3 w-3" aria-hidden />}
-              {mode === "3d" ? "2D" : "3D"}
+              {mode === "3d" ? "Flat view" : "3D view"}
             </button>
           )}
         </span>

@@ -39,6 +39,16 @@ const log = (...a: unknown[]) => console.log(`[${((Date.now() - t0) / 1000).toFi
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "athena-audit-"));
 const DB = path.join(tmp, "audit.db");
 let server: ChildProcess;
+// Accounts: the audit runs as this server's first admin (created from these env vars), so /api/status shows the
+// paid-call counters. Every API call and every browser context carries its session cookie.
+const AUDIT_ADMIN = { email: "audit-admin@example.org", password: "visual-audit-password-1" };
+let COOKIE = "";
+async function login() {
+  const r = await fetch(`${BASE}/api/auth/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(AUDIT_ADMIN) });
+  const c = (r.headers.getSetCookie?.() ?? []).find((x) => x.startsWith("athena_session="));
+  if (!r.ok || !c) throw new Error(`audit login failed: HTTP ${r.status}`);
+  COOKIE = c.split(";")[0];
+}
 
 async function startServer() {
   if (!fs.existsSync(path.join(ROOT, ".next/BUILD_ID"))) throw new Error("No production build: run `npm run build` first.");
@@ -48,12 +58,15 @@ async function startServer() {
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
   for (const k of ["XAI_API_KEY", "OPENALEX_API_KEY", "NCBI_API_KEY", "CONTACT_EMAIL", "ATHENA_ENV", "MOCK_MODE", "MOCK_AI", "RECORD_FIXTURES", "SIMULATE_SOURCE_FAILURE"]) delete env[k];
   env.DATABASE_PATH = DB;
+  env.ADMIN_EMAIL = AUDIT_ADMIN.email;
+  env.ADMIN_PASSWORD = AUDIT_ADMIN.password;
   // Run Next directly in its own process group so the whole server is stopped at the end (npx would orphan it).
   server = spawn(process.execPath, [path.join(ROOT, "node_modules/next/dist/bin/next"), "start", "-p", String(PORT)], { cwd: ROOT, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"], detached: true });
   server.stderr?.on("data", (d) => process.env.AUDIT_VERBOSE && process.stderr.write(d));
   for (let i = 0; i < 60; i++) {
     try {
-      const s = await (await fetch(`${BASE}/api/status`)).json();
+      if (!COOKIE) await login();
+      const s = await (await fetch(`${BASE}/api/status`, { headers: { cookie: COOKIE } })).json();
       if (!s.mockMode || s.production) throw new Error(`refusing to audit: server is not in mock mode (${JSON.stringify(s)})`);
       return s;
     } catch (e) {
@@ -74,7 +87,7 @@ const ANSWERS = [
   "English-language papers.",
 ];
 async function call<T = Any>(pid: string, p: string, body?: unknown, method?: string): Promise<T> {
-  const r = await fetch(`${BASE}/api/projects${pid ? `/${pid}` : ""}${p ? `/${p}` : ""}`, { method: method ?? (body ? "POST" : "GET"), headers: body ? { "content-type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+  const r = await fetch(`${BASE}/api/projects${pid ? `/${pid}` : ""}${p ? `/${p}` : ""}`, { method: method ?? (body ? "POST" : "GET"), headers: { cookie: COOKIE, ...(body ? { "content-type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined });
   const t = await r.text();
   if (!r.ok) throw new Error(`${method ?? (body ? "POST" : "GET")} ${pid}/${p} → ${r.status} ${t.slice(0, 200)}`);
   return t ? JSON.parse(t) : (null as T);
@@ -211,7 +224,7 @@ function views(F: Fixtures, ids: Record<string, string>): View[] {
   return [
     { name: "landing", path: "/", ready: "h1" },
     { name: "sessions", path: "/sessions", ready: "h1" },
-    { name: "settings", path: "/settings", ready: "#mock-title", noPrimary: true },
+    { name: "settings", path: "/settings", ready: "#run-title", noPrimary: true },
     { name: "canvas-empty", path: "/s/new", ready: "#idea" },
     { name: "canvas-idea", path: s("idea"), ready: "[data-node-id],[data-list-node]" },
     { name: "panel-idea-scoping", path: s("scope", "?node=idea"), ready: "[data-panel]" },
@@ -226,13 +239,13 @@ function views(F: Fixtures, ids: Record<string, string>): View[] {
     { name: "panel-appraisal", path: s("full", "?node=appraisal"), ready: "[data-panel]", pins: F.full },
     { name: "panel-synthesis", path: s("full", "?node=synthesis"), ready: "[data-panel]", noPrimary: true },
     { name: "panel-questions", path: s("q", "?node=questions"), ready: "[data-panel]" },
-    { name: "panel-export", path: s("full", "?node=export"), ready: "[data-panel] pre" },
+    { name: "panel-export", path: s("full", "?node=export"), ready: "[data-panel] [aria-label=\"Report preview\"]" },
     { name: "panel-quote", path: s("full", `?node=quote:${ids.quote}`), ready: "[data-panel]", pins: F.full, noPrimary: true },
     { name: "canvas-stale", path: s("stale"), ready: "[data-node-id],[data-list-node]" },
     { name: "canvas-300", path: s("big"), ready: "[data-node-id],[data-list-node]", pins: F.big },
     { name: "list-view", path: s("full"), ready: "[data-list-node]", list: F.full, pins: F.full },
     { name: "table", path: s("rank", "/table"), ready: "table tbody tr" },
-    { name: "export-page", path: s("full", "/export"), ready: "main pre" },
+    { name: "export-page", path: s("full", "/export"), ready: "main [aria-label=\"Report preview\"]" },
   ].filter((v) => !ONLY || ONLY.includes(v.name));
 }
 
@@ -650,7 +663,7 @@ async function bundleSize(browser: Any, path_: string) {
 function lighthouse(url: string, name: string) {
   const out = path.join(tmp, `lh-${name}.json`);
   try {
-    execFileSync(path.join(ROOT, "node_modules/.bin/lighthouse"), [url, "--quiet", "--output=json", `--output-path=${out}`, "--only-categories=performance,accessibility", "--chrome-flags=--headless=new --no-sandbox --disable-gpu"], { env: { ...process.env, CHROME_PATH: CHROME }, stdio: "ignore", timeout: 180000 });
+    execFileSync(path.join(ROOT, "node_modules/.bin/lighthouse"), [url, "--quiet", "--output=json", `--output-path=${out}`, "--only-categories=performance,accessibility", "--chrome-flags=--headless=new --no-sandbox --disable-gpu", `--extra-headers=${JSON.stringify({ Cookie: COOKIE })}`], { env: { ...process.env, CHROME_PATH: CHROME }, stdio: "ignore", timeout: 180000 });
     const r = JSON.parse(fs.readFileSync(out, "utf8"));
     fs.mkdirSync(path.join(ROOT, "qa/lh"), { recursive: true });
     fs.copyFileSync(out, path.join(ROOT, `qa/lh/${ROUND}-${name}.json`));
@@ -676,6 +689,7 @@ const NAME_SHIM = "window.__name = window.__name || ((f) => f);";
 async function newContext(browser: Any, opts: Any) {
   const ctx = await browser.newContext(opts);
   await ctx.addInitScript(NAME_SHIM);
+  await ctx.addCookies([{ name: "athena_session", value: COOKIE.split("=")[1], domain: "localhost", path: "/", httpOnly: true, sameSite: "Lax" }]);
   return ctx;
 }
 
@@ -808,7 +822,7 @@ async function main() {
       if (LH_ONLY && !LH_ONLY.includes(name)) continue;
       // Three runs, median performance (Lighthouse's advice for variable machines); accessibility must be 100
       // in every run.
-      await fetch(BASE + p).catch(() => {}); // warm the server's route first (a running server is warm)
+      await fetch(BASE + p, { headers: { cookie: COOKIE } }).catch(() => {}); // warm the server's route first (a running server is warm)
       const runs = [0, 1, 2].map(() => lighthouse(BASE + p, name) as Any);
       const ok = runs.filter((x) => !x.error).sort((x, y) => x.performance - y.performance);
       const r = ok.length ? { ...ok[Math.floor((ok.length - 1) / 2)], accessibility: Math.min(...ok.map((x) => x.accessibility)), runs: ok.map((x) => x.performance) } : runs[0];
@@ -823,7 +837,7 @@ async function main() {
   }
 
   // 12: console errors and paid API calls.
-  const end = await (await fetch(`${BASE}/api/status`)).json();
+  const end = await (await fetch(`${BASE}/api/status`, { headers: { cookie: COOKIE } })).json();
   metrics.paidCalls = end.paidCalls;
   if (consoleErrors.length) fail(12, "all views", `${consoleErrors.length} console errors, e.g. ${consoleErrors.slice(0, 3).join(" | ")}`);
   else pass(12, "all views", "no console errors");

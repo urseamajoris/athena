@@ -105,40 +105,56 @@ function QueryPreview({ q, label, onChange }: { q: Query; label: string; onChang
   }
   const blocks = queryBlocks(q.queryString);
   const MAX = 40;
+  const verdict = res && !res.error && res.count !== null
+    ? res.count === 0 ? { tone: "text-warn", text: "Too narrow: nothing matches. Remove an AND group or add synonyms." }
+    : res.count < 10 ? { tone: "text-warn", text: "Narrow: all will be collected, but you may miss papers. Consider adding synonyms." }
+    : res.count <= MAX ? { tone: "text-fg-1", text: "Good size: all of them will be collected." }
+    : res.count <= 5000 ? { tone: "text-fg-1", text: `Good size: the ${MAX} most relevant will be collected.` }
+    : { tone: "text-fg-1", text: `Broad: only the ${MAX} most relevant are collected, so that is fine; add a term to focus it.` }
+    : null;
   return (
     <section aria-label={`${label} search`} className="rounded-md border border-line p-3">
       <SectionTitle right={q.edited ? <Badge>edited by you</Badge> : undefined}>{label}</SectionTitle>
-      <ol className="space-y-2" aria-label={`${label} search: ${q.queryString}`}>
-        {blocks.map((b, i) => (
-          <li key={i}>
-            {b.join && <p className="mb-1 text-12 font-semibold text-fg-1">{b.join === "AND" ? "AND also one of:" : "but NOT:"}</p>}
-            {!b.join && <p className="mb-1 text-12 text-fg-2">Any of:</p>}
-            <p className="flex flex-wrap gap-1">
-              {b.terms.map((t, j) => (
-                <span key={j} className="inline-flex items-center gap-1 rounded-sm border border-line-strong bg-bg-2 px-2 py-1 text-12 text-fg-0">
-                  {t.text}
-                  {t.field && <span className="text-fg-2" title={FIELD_LABEL[t.field] ?? t.field}>· {FIELD_LABEL[t.field] ?? t.field}</span>}
-                </span>
-              ))}
-            </p>
-          </li>
-        ))}
-      </ol>
-      <p className="mt-2 text-12 text-fg-2">{q.rationale}</p>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {res && !res.error && res.count !== null ? (
-          <p className={cx("text-fg-0", res.count === 0 && "text-warn")}>
-            <span className="font-semibold tabular-nums">{fmtInt(res.count)}</span> paper{res.count === 1 ? "" : "s"} match.{" "}
-            <span className="text-fg-1">{res.count === 0 ? "Broaden it: remove an AND block or add synonyms." : res.count <= MAX ? "All of them will be collected." : `The ${MAX} most relevant will be collected.`}</span>
+      <div className="mb-3 flex flex-wrap items-center gap-2" aria-live="polite">
+        {verdict ? (
+          <p className="min-w-0 flex-1">
+            <span className="font-semibold tabular-nums text-fg-0">{fmtInt(res!.count!)}</span> paper{res!.count === 1 ? "" : "s"} match. <span className={verdict.tone}>{verdict.text}</span>
           </p>
         ) : res?.error ? (
-          <p className="text-err">Could not count matches: {res.error}</p>
+          <p className="min-w-0 flex-1 text-err">Could not count matches: {res.error}</p>
         ) : (
-          <p className="text-fg-2">Not counted yet.</p>
+          <p className="min-w-0 flex-1 text-fg-2">Not counted yet.</p>
         )}
         <button className="btn-secondary btn-sm" onClick={dry} disabled={busy} title="Ask the database how many papers match, without downloading them">{busy && <Spinner className="h-3 w-3" />} {res ? "Count again" : "Count matches"}</button>
       </div>
+      {blocks.length > 1 && <p className="mb-2 text-12 text-fg-2">A paper must match at least one word from every group.{blocks.some((b) => b.terms.some((t) => t.field === "mh" || t.field === "majr")) ? " An “index term” is PubMed’s official topic label, so it also finds papers that use other words." : ""}</p>}
+      <ol className="space-y-2" aria-label={`${label} search: ${q.queryString}`}>
+        {blocks.map((b, i) => <TermBlock key={i} block={b} index={i} />)}
+      </ol>
+      <p className="mt-2 text-12 text-fg-2">{q.rationale}</p>
     </section>
+  );
+}
+
+function TermBlock({ block: b, index }: { block: ReturnType<typeof queryBlocks>[number]; index: number }) {
+  const [all, setAll] = useState(false);
+  const SHOW = 6;
+  const terms = all ? b.terms : b.terms.slice(0, SHOW);
+  return (
+    <li>
+      <p className="mb-1 text-12 font-semibold text-fg-1">{b.join === "NOT" ? "But NOT:" : `${b.join === "AND" ? "AND " : ""}group ${index + 1}: any of`}</p>
+      <p className="flex flex-wrap gap-1">
+        {terms.map((t, j) => (
+          <span key={j} className="inline-flex items-center gap-1 rounded-sm border border-line-strong bg-bg-2 px-2 py-1 text-12 text-fg-0">
+            {t.text}
+            {t.field && <span className="text-fg-2" title={FIELD_LABEL[t.field] ?? t.field}>· {FIELD_LABEL[t.field] ?? t.field}</span>}
+          </span>
+        ))}
+        {b.terms.length > SHOW && (
+          <button className="btn-ghost btn-sm min-h-8" onClick={() => setAll(!all)} aria-expanded={all}>{all ? "Show fewer" : `+${b.terms.length - SHOW} more`}</button>
+        )}
+      </p>
+    </li>
   );
 }
 

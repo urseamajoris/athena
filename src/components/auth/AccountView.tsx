@@ -12,7 +12,7 @@ import { LogoMark } from "../Logo";
 interface Account {
   user: { id: string; email: string; name: string; role: "user" | "admin"; mustChangePassword: boolean; createdAt: string };
   projects: number;
-  usage: { calls: number; costUsd: number; tokens: number; byProject: { projectId: string; title: string; calls: number; cost: number }[] };
+  usage: { calls: number; costUsd: number; tokens: number; byProject: { projectId: string; title: string; createdAt: string; calls: number; cost: number }[] };
 }
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
@@ -46,20 +46,20 @@ export function AccountView() {
             <Profile data={data} onSaved={() => mutate()} />
             <PasswordForm />
             <Section id="usage-title" title="Your AI usage">
-              <p className="mb-2 text-12 text-fg-2">Each time Athena asks the AI to read, summarise or draft something for you, that is one call. In demo mode calls are scripted and cost nothing.</p>
+              <p className="mb-2 text-fg-1">Each time Athena asks the AI to read, summarise or draft something for you, that is one call. In demo mode calls are scripted and cost nothing.</p>
               <p className="text-fg-1">
                 <span className="tabular-nums text-fg-0">{data.usage.calls}</span> AI call{data.usage.calls === 1 ? "" : "s"} across <span className="tabular-nums text-fg-0">{data.projects}</span> project{data.projects === 1 ? "" : "s"}, costing <span className="tabular-nums text-fg-0">${data.usage.costUsd.toFixed(2)}</span>.
               </p>
               {data.usage.byProject.length > 0 && (
                 <table className="mt-3 w-full text-left">
                   <caption className="sr-only">AI usage by project</caption>
-                  <thead className="text-12 text-fg-2"><tr><th className="py-1 font-medium">Project</th><th className="py-1 text-right font-medium">Calls</th><th className="py-1 text-right font-medium">Cost</th></tr></thead>
+                  <thead className="text-12 text-fg-2"><tr><th className="py-1 font-medium">Project</th><th className="py-1 text-right font-medium">AI calls</th><th className="py-1 text-right font-medium">Cost</th></tr></thead>
                   <tbody>
                     {data.usage.byProject.map((r) => (
                       <tr key={r.projectId} className="border-t border-line">
-                        <td className="max-w-0 truncate py-2 pr-2"><Link className="link" href={`/s/${r.projectId}`}>{r.title || "Untitled"}</Link></td>
+                        <td className="py-2 pr-2"><Link className="link line-clamp-2" href={`/s/${r.projectId}`}>{r.title || "Untitled"}</Link><span className="block text-12 text-fg-2" suppressHydrationWarning>Started {new Date(r.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</span></td>
                         <td className="py-2 text-right tabular-nums">{r.calls}</td>
-                        <td className="py-2 text-right tabular-nums">${r.cost.toFixed(3)}</td>
+                        <td className="py-2 text-right tabular-nums">${r.cost.toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>

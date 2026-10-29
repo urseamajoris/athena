@@ -41,22 +41,24 @@ export default function PaperMap3D({ points, colorBy, topics, theme, isolated, h
   const ink = theme === "light" ? "#3e3e47" : "#b4b4bd";
   return (
     <div className="relative">
-      <Scene3D label={label} animate={animate} autoRotate camera={[0, 1.2, 10]} className="h-[340px] w-full" pointThreshold={0.14}>
-        <group rotation={[0, -0.35, 0]}>
+      <Scene3D label={label} animate={animate} camera={[0, 0.6, 8.2]} className="h-[380px] w-full" pointThreshold={0.18}>
+        <group rotation={[0, -0.22, 0]}>
           <lineSegments>
             <bufferGeometry attach="geometry">
               <bufferAttribute attach="attributes-position" args={[new Float32Array([-4.9, -3, -2.4, 4.4, -3, -2.4, -4.9, -3, -2.4, -4.9, 2.8, -2.4]), 3]} />
             </bufferGeometry>
             <lineBasicMaterial color={axis} />
           </lineSegments>
-          <Html position={[-4.9, -3.35, -2.4]} style={{ color: ink, fontSize: 11, whiteSpace: "nowrap", pointerEvents: "none" }}>{yearMin}</Html>
-          <Html position={[4.1, -3.35, -2.4]} style={{ color: ink, fontSize: 11, whiteSpace: "nowrap", pointerEvents: "none" }}>{yearMax}</Html>
-          {scored && <Html position={[-5.6, 2.8, -2.4]} style={{ color: ink, fontSize: 11, whiteSpace: "nowrap", pointerEvents: "none" }}>score 100</Html>}
+          <Html position={[-4.9, -3.35, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>{yearMin}</Html>
+          <Html position={[4.1, -3.35, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>{yearMax}</Html>
+          <Html position={[-0.6, -3.35, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Year →</Html>
+          {scored && <Html position={[-6.1, 2.8, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Score 100 ↑</Html>}
+          {scored && <Html position={[-5.7, -2.6, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>0</Html>}
           {groups.map(([key, pts]) => {
             const [cat, dim] = key.split("|");
             const c = cats.find((x) => x.key === cat);
             const faded = dim === "dim" || (!!isolated && isolated !== cat) || (!!highlight && highlight !== cat);
-            return <Cloud key={key} pts={pts} color={categoryHex(colorBy, cat, theme, topics)} shape={c?.shape ?? "circle"} faded={faded} size={0.32} onHover={setHover} onOpen={onOpen} />;
+            return <Cloud key={key} pts={pts} color={categoryHex(colorBy, cat, theme, topics)} shape={c?.shape ?? "circle"} faded={faded} size={0.5} onHover={setHover} onOpen={onOpen} />;
           })}
         </group>
       </Scene3D>

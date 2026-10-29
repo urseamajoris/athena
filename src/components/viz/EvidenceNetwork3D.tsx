@@ -7,7 +7,7 @@ import { shapeTexture } from "./shapes3d";
 import type { EvGraph } from "./evidence-graph";
 import { STUDY_GROUPS, slotHex } from "@/lib/shared/categories";
 
-const KIND_HEX = { light: { known: "#0a7446", contested: "#8a5300", unknown: "#5c5c67" }, dark: { known: "#3dd68c", contested: "#f5b547", unknown: "#8a8a94" } } as const;
+const KIND_HEX = { light: { known: "#0a7446", contested: "#6250d6", unknown: "#5c5c67" }, dark: { known: "#3dd68c", contested: "#9085e9", unknown: "#8a8a94" } } as const;
 
 export default function EvidenceNetwork3D({ g, theme, animate, label, isolated, onOpenPaper }: { g: EvGraph; theme: "light" | "dark"; animate: boolean; label: string; isolated: string | null; onOpenPaper: (id: string) => void }) {
   const [hover, setHover] = useState<string | null>(null);
@@ -46,8 +46,8 @@ export default function EvidenceNetwork3D({ g, theme, animate, label, isolated, 
               </sprite>
             );
           })}
-          <Html position={[-3, 3.3, 0]} center style={{ color: ink, fontSize: 11, whiteSpace: "nowrap", pointerEvents: "none" }}>Statements</Html>
-          <Html position={[3, 3.3, 0]} center style={{ color: ink, fontSize: 11, whiteSpace: "nowrap", pointerEvents: "none" }}>Papers</Html>
+          <Html position={[-3, 3.3, 0]} center style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Statements</Html>
+          <Html position={[3, 3.3, 0]} center style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Papers</Html>
         </group>
       </Scene3D>
       {hover && <div role="tooltip" className="pointer-events-none absolute left-3 top-3 max-w-[85%] rounded-sm border border-line-strong bg-bg-2 px-2 py-1 text-12 text-fg-0">{hover}</div>}

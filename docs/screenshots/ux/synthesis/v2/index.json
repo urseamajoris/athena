@@ -1,0 +1,38 @@
+{
+  "review-375": {
+    "what": "Synthesis: what is known, contested and unknown",
+    "url": "/s/<project>?node=synthesis",
+    "width": 375,
+    "theme": "dark"
+  },
+  "review-768": {
+    "what": "Synthesis: what is known, contested and unknown",
+    "url": "/s/<project>?node=synthesis",
+    "width": 768,
+    "theme": "dark"
+  },
+  "review-1366": {
+    "what": "Synthesis: what is known, contested and unknown",
+    "url": "/s/<project>?node=synthesis",
+    "width": 1366,
+    "theme": "dark"
+  },
+  "network-375": {
+    "what": "Synthesis evidence network: statements linked to papers coloured by study type",
+    "url": "/s/<project>?node=synthesis",
+    "width": 375,
+    "theme": "dark"
+  },
+  "network-768": {
+    "what": "Synthesis evidence network: statements linked to papers coloured by study type",
+    "url": "/s/<project>?node=synthesis",
+    "width": 768,
+    "theme": "dark"
+  },
+  "network-1366": {
+    "what": "Synthesis evidence network: statements linked to papers coloured by study type",
+    "url": "/s/<project>?node=synthesis",
+    "width": 1366,
+    "theme": "dark"
+  }
+}

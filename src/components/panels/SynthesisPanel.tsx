@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { AlertTriangle, Pencil } from "lucide-react";
+import { Pencil, Scale } from "lucide-react";
 import { Tabs } from "radix-ui";
 import { api, projectPath, useApi } from "../api";
 import { Badge, EmptyState, ErrorState, Loading, cx } from "../ui";
@@ -29,8 +29,10 @@ export interface SynData {
 
 const KIND_LABEL = { known: "Known", contested: "Contested", unknown: "Unknown" } as const;
 const KIND_HELP = { known: "What the papers agree on", contested: "Where the papers disagree", unknown: "What has not been studied yet: the gaps your question can fill" } as const;
-const KIND_ICON = { known: CheckCircle2, contested: AlertTriangle, unknown: HelpCircle } as const;
-const KIND_TONE = { known: "text-ok", contested: "text-warn", unknown: "text-fg-1" } as const;
+// "Contested" and the contradictions box share one categorical hue and the balance icon; amber stays reserved for
+// "Your turn" and "Out of date", red for errors.
+const KIND_ICON = { known: CheckCircle2, contested: Scale, unknown: HelpCircle } as const;
+const KIND_TONE = { known: "text-ok", contested: "text-[var(--cat-7)]", unknown: "text-fg-1" } as const;
 const STANCE_LABEL: Record<string, string> = { supports: "supports", contradicts: "contradicts", mixed: "mixed", neutral: "neutral", not_addressed: "not addressed" };
 const STANCE_CLASS: Record<string, string> = { supports: "border-ok-line", contradicts: "border-err-line", mixed: "border-warn-line", neutral: "border-line", not_addressed: "border-line border-dashed" };
 
@@ -86,19 +88,19 @@ export function SynthesisPanel() {
           <Tabs.List aria-label="Topics" className="-mx-1 flex gap-1 overflow-x-auto border-b border-line px-1">
             {topics.map((t) => (
               <Tabs.Trigger key={t.id} value={t.id} className="min-h-11 shrink-0 border-b-2 border-transparent px-3 py-2 text-fg-1 data-[state=active]:border-fg-0 data-[state=active]:font-medium data-[state=active]:text-fg-0">
-                {t.name}{t.contradictions.length > 0 && <span className="ml-1 text-12 text-err">· {t.contradictions.length} conflict{t.contradictions.length === 1 ? "" : "s"}</span>}
+                {t.name}{t.contradictions.length > 0 && <span className="ml-1 text-12 text-[var(--cat-7)]">· <Scale className="inline h-3 w-3 align-[-2px]" aria-hidden /> {t.contradictions.length} conflict{t.contradictions.length === 1 ? "" : "s"}</span>}
               </Tabs.Trigger>
             ))}
           </Tabs.List>
           {topics.map((t) => (
             <Tabs.Content key={t.id} value={t.id} className="space-y-4 pt-4">
               {t.contradictions.length > 0 && (
-                <section aria-label="Contradictions" className="rounded-md border border-err-line p-3">
+                <section aria-label="Contradictions" className="rounded-md border border-[var(--cat-7)] p-3">
                   <SectionTitle>Contradictions between papers</SectionTitle>
                   <ul className="space-y-3">
                     {t.contradictions.map((c) => (
                       <li key={c.id}>
-                        <p className="flex items-start gap-2"><AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-err" strokeWidth={1.5} aria-hidden /><span><strong className="font-medium">{c.theme}:</strong> {c.description}</span></p>
+                        <p className="flex items-start gap-2"><Scale className="mt-1 h-4 w-4 shrink-0 text-[var(--cat-7)]" strokeWidth={1.5} aria-hidden /><span><strong className="font-medium">{c.theme}:</strong> {c.description}</span></p>
                         <div className="mt-2 flex flex-wrap gap-1">{c.claimIds.map((id) => <ClaimChip key={id} id={id} claims={data.claims} papers={data.papers} stale={stale} />)}</div>
                       </li>
                     ))}
@@ -109,7 +111,7 @@ export function SynthesisPanel() {
                 const Icon = KIND_ICON[kind];
                 return (
                 <section key={kind} aria-label={KIND_LABEL[kind]} className="rounded-md border border-line p-3">
-                  <h3 className={cx("flex items-center gap-2 text-16 font-semibold", KIND_TONE[kind])}><Icon className="h-4 w-4" strokeWidth={2} aria-hidden />{KIND_LABEL[kind]}</h3>
+                  <h3 className={cx("flex items-center gap-2 font-semibold", KIND_TONE[kind])}><Icon className="h-4 w-4" strokeWidth={2} aria-hidden />{KIND_LABEL[kind]}</h3>
                   <p className="mb-2 text-12 text-fg-2">{KIND_HELP[kind]}</p>
                   <ul className="space-y-3">
                     {t.items.filter((i) => i.kind === kind).map((i) => (
@@ -178,7 +180,7 @@ function Matrix({ t, data, stale }: { t: SynData["topics"][number]; data: SynDat
                 return (
                   <td key={th} className={cx("rounded-sm border p-2 align-top", STANCE_CLASS[c.stance] ?? STANCE_CLASS.neutral)}>
                     <p className="text-fg-0">{c.value}</p>
-                    <p className="mt-1 text-fg-2">{STANCE_LABEL[c.stance] ?? c.stance}{inConflict && <span className="text-err"> · in a contradiction</span>}</p>
+                    <p className="mt-1 text-fg-2">{STANCE_LABEL[c.stance] ?? c.stance}{inConflict && <span className="text-[var(--cat-7)]"> · in a contradiction</span>}</p>
                     <div className="mt-1 flex flex-wrap gap-1">{c.claimIds.map((id) => <ClaimChip key={id} id={id} claims={data.claims} papers={data.papers} stale={stale} />)}</div>
                   </td>
                 );

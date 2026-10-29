@@ -15,6 +15,7 @@ import { loadElk } from "./elk";
 
 const nodeTypes = { athena: NodeCard };
 const AddMenu = dynamic(() => import("./AddMenu").then((m) => m.AddMenu), { ssr: false });
+import { NextStepBar } from "./NextStepBar";
 export const PANEL_W = { md: 480, xl: 560 };
 /** Below this zoom the canvas switches to the simplified overview (see globals.css `[data-zoom="far"]`). */
 const FAR_ZOOM = 0.5;
@@ -312,6 +313,7 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
         {ui.minimap && <MiniMap pannable zoomable nodeClassName={(n) => `mm-${(n.data as NodeData).node.status}`} ariaLabel="Minimap" />}
       </ReactFlow>
       <CanvasControls />
+      <div className="pointer-events-none absolute inset-x-0 top-3 z-10 mx-auto w-fit max-w-[calc(100%-24px)]"><NextStepBar floating /></div>
       {addMenuOpen && <AddMenu />}
     </div>
   );

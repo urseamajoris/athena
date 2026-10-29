@@ -34,7 +34,7 @@ export default async function Landing() {
         <section className="relative isolate mx-auto flex max-w-3xl flex-col justify-center pb-10 pt-8 text-center md:pb-4 md:pt-20">
           <HeroBackdrop />
           <p className="relative text-12 font-medium uppercase tracking-[0.18em] text-fg-1">A guided literature review</p>
-          <h1 className="relative mt-3 text-28 font-semibold md:text-44">Turn a rough idea into a research question you can defend.</h1>
+          <h1 className="relative mt-3 text-28 font-semibold md:text-44">Turn a rough idea into a research question you can back up with real papers.</h1>
           <p className="relative mx-auto mt-4 max-w-2xl text-16 text-fg-1">Tell Athena your idea. It finds real papers in PubMed and OpenAlex (two free research libraries), helps you read and judge them, and drafts research questions, with every quote checked against its source. You confirm each of the 9 steps.</p>
           <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
             <TransitionLink href="/signup?next=/s/new" className="btn-primary min-h-11 px-6 text-16">Start a review</TransitionLink>
@@ -45,12 +45,15 @@ export default async function Landing() {
         <section aria-labelledby="how" className="mx-auto mt-10 max-w-5xl">
           <h2 id="how" className="text-center text-20 font-semibold">How it works: 9 steps, 3 stages</h2>
           <ol className="mt-6 grid gap-4 md:grid-cols-3">
-            {PHASES.map((ph) => (
+            {PHASES.map((ph, i) => (
               <li key={ph.title} className="overflow-hidden rounded-md border border-line bg-bg-1">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/explainers/stage-${ph.poster}.webp`} alt="" width={640} height={360} loading="lazy" decoding="async" className="aspect-video w-full border-b border-line object-cover" />
-                <div className="p-4">
-                  <p className="text-12 font-medium text-fg-2">Steps {ph.steps[0]}–{ph.steps[2]}</p>
+                <figure className="border-b border-line">
+                  <img src={`/explainers/stage-${ph.poster}.webp`} alt="" width={640} height={360} loading="lazy" decoding="async" className="aspect-video w-full object-cover" />
+                  <figcaption className="px-4 pt-2 text-12 text-fg-2">Pictured: step {ph.poster}, {EXPLAINERS[ph.poster - 1].title.toLowerCase()}</figcaption>
+                </figure>
+                <div className="p-4 pt-2">
+                  <p className="text-12 font-medium text-fg-2">Stage {i + 1} of 3 · steps {ph.steps[0]}–{ph.steps[2]}</p>
                   <h3 className="mt-1 text-16 font-semibold">{ph.title}</h3>
                   <p className="mt-1 text-fg-1">{ph.text}</p>
                   <p className="mt-2 text-12 text-fg-2">{ph.steps.map((n) => `${n}. ${EXPLAINERS[n - 1].title}`).join(" · ")}</p>

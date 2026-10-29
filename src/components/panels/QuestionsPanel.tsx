@@ -12,6 +12,15 @@ import { fmtInt } from "@/lib/shared/format";
 import { WhatHappens } from "../guide/WhatHappens";
 
 /** What each question framework's letters stand for (shown next to its name, never as a bare acronym). */
+/** What kind of question each framework suits, in plain words. */
+const FRAMEWORK_KIND: Record<string, string> = {
+  PICO: "the effect of an intervention",
+  PICo: "experiences in a context",
+  PECO: "the effect of an exposure",
+  PEO: "the link between an exposure and an outcome",
+  SPIDER: "a qualitative or mixed-methods question",
+  SPICE: "how a service or policy works in a setting",
+};
 const FRAMEWORK: Record<string, string> = {
   PICO: "Population, Intervention, Comparison, Outcome",
   PICo: "Population, phenomenon of Interest, Context",
@@ -73,16 +82,22 @@ export function QuestionsPanel() {
       ) : (
         <>
           <WhatHappens stage={9} />
-          <p className="text-fg-1">Pick the one that fits you best; you can edit it after. Open “Why this question” to see the gap it fills, the quotes behind it, how feasible it is and its main weakness.</p>
+          <p className="text-fg-1">Compare the gap each one fills, how feasible it is and its main weakness, then choose one; you can edit it after.</p>
           <p className="text-12 text-fg-2">The novelty check is a fresh database search for similar studies. Finding none does not prove a question is new.</p>
           <ul className="space-y-3" aria-label="Candidate research questions">
             {data.questions.map((q, i) => (
               <li key={q.id} className={cx("rounded-md border p-3", q.chosen ? "border-fg-1" : "border-line")} aria-label={`Candidate ${i + 1}`}>
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-12 text-fg-2">Candidate {i + 1}</span>
-                  <span className="flex flex-wrap justify-end gap-1"><Badge title={FRAMEWORK[q.framework] ?? "How the question is structured"}>{q.framework}{FRAMEWORK[q.framework] ? `: ${FRAMEWORK[q.framework]}` : ""}</Badge>{q.edited && <Badge>edited</Badge>}</span>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-12 text-fg-2">Candidate {i + 1}{FRAMEWORK_KIND[q.framework] ? ` · a question about ${FRAMEWORK_KIND[q.framework]}` : ""}</span>
+                  {q.edited && <Badge>edited</Badge>}
                 </div>
                 <p className="font-medium leading-snug">{q.text}</p>
+                <dl className="mt-2 grid grid-cols-[88px_1fr] gap-x-2 gap-y-1 text-12">
+                  <dt className="text-fg-2">Gap it fills</dt><dd className="line-clamp-2 text-fg-1">{q.gap}</dd>
+                  <dt className="text-fg-2">Feasibility</dt><dd className="line-clamp-2 text-fg-1">{q.feasibility}</dd>
+                  <dt className="text-fg-2">Weakness</dt><dd className="line-clamp-2 text-fg-1">{q.weakness}</dd>
+                  <dt className="text-fg-2">Structure</dt><dd className="text-fg-1">{q.framework}{FRAMEWORK[q.framework] ? ` (${FRAMEWORK[q.framework]})` : ""}</dd>
+                </dl>
                 <div className="mt-3 flex items-center gap-2">
                   <button className={cx("btn-secondary", q.chosen && "border-fg-0")} onClick={() => choose(q.id)} disabled={q.chosen || finished || !!busy} aria-pressed={q.chosen}>
                     {busy === q.id ? <Spinner /> : q.chosen ? <Check className="h-4 w-4" strokeWidth={1.5} aria-hidden /> : null}
@@ -90,7 +105,7 @@ export function QuestionsPanel() {
                   </button>
                 </div>
                 <div className="mt-3">
-                  <Disclosure title="Why this question" meta={`${q.claimIds.length} supporting quote${q.claimIds.length === 1 ? "" : "s"}`}>
+                  <Disclosure title="Full reasoning and quotes" meta={`${q.claimIds.length} supporting quote${q.claimIds.length === 1 ? "" : "s"}`}>
                     <dl className="space-y-1">
                       {Object.entries(q.structure).map(([k, v]) => (
                         <div key={k} className="grid grid-cols-[96px_1fr] gap-2"><dt className="text-fg-2">{k}</dt><dd>{v}</dd></div>

@@ -60,7 +60,7 @@ export default function TopicConstellation3D({ idea, topics, theme, animate, lab
             <Orbit center={pos[i]} color={color} n={Math.min(10, t.synonyms.length + t.controlledTerms.length)} radius={0.55} speed={0.25 + i * 0.03} animate={animate} />
             <Html position={[pos[i].x, pos[i].y - 0.75, pos[i].z]} center style={{ color: ink, fontSize: 12, width: 150, textAlign: "center", pointerEvents: "none", lineHeight: "16px" }}>
               {t.name}
-              <span style={{ display: "block", color: sub, fontSize: 11 }}>{t.synonyms.length} synonyms · {t.controlledTerms.length} MeSH</span>
+              <span style={{ display: "block", color: sub, fontSize: 12 }}>{t.synonyms.length} synonyms · {t.controlledTerms.length} MeSH</span>
             </Html>
           </group>
         );

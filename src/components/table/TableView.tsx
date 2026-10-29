@@ -159,7 +159,7 @@ export function TableView() {
         ? [
             ch.display({
               id: "select",
-              header: () => <span className="sr-only">Selected for appraisal</span>,
+              header: () => <span title="Selected for appraisal">Keep</span>,
               cell: (c) => c.row.original.score && <label className="inline-flex h-11 w-11 items-center justify-center md:h-8 md:w-8"><input type="checkbox" checked={c.row.original.score.selected} onChange={() => toggle(c.row.original.score!)} aria-label={`${c.row.original.score.selected ? "Deselect" : "Select"} ${c.row.original.title}`} /></label>,
             }),
             // Papers not scored for this topic have no rank: undefined (not null) so they sort after rank 1, 2, …
@@ -288,7 +288,7 @@ export function TableView() {
         </div>
 
         {ranked && (
-          <div role="group" aria-label="Topic" className="flex gap-1 overflow-x-auto pb-1">
+          <div role="group" aria-label="Topic" className="flex flex-wrap gap-1 pb-1">
             {[{ id: "all", name: "All topics", n: null as number | null }, ...rt.map((t) => ({ id: t.id, name: t.name, n: t.scores.filter((s) => s.selected).length }))].map((t) => (
               <button
                 key={t.id}
@@ -302,7 +302,15 @@ export function TableView() {
           </div>
         )}
 
-        <Facets rows={allRows} filters={view.filters} toggle={(d, k) => { view.toggle(d, k); mark("explored"); }} topics={topicList} ranked={ranked} />
+        {ranked && topic === "all" && <p className="text-12 text-fg-2">To change which papers go forward, pick a topic: each of its papers then has a “Keep” checkbox.</p>}
+
+        {mode === "map" ? (
+          <Disclosure title="Filters" meta={activeFilters.length ? `${activeFilters.length} active` : "study type, article type, year…"}>
+            <Facets rows={allRows} filters={view.filters} toggle={(d, k) => { view.toggle(d, k); mark("explored"); }} topics={topicList} ranked={ranked} />
+          </Disclosure>
+        ) : (
+          <Facets rows={allRows} filters={view.filters} toggle={(d, k) => { view.toggle(d, k); mark("explored"); }} topics={topicList} ranked={ranked} />
+        )}
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-live="polite">
           <p className="text-fg-0"><span className="font-medium">{summaryLine}</span>{q.trim() ? ` matching “${q.trim()}”` : ""}.</p>
@@ -310,7 +318,7 @@ export function TableView() {
           <button className="btn-ghost btn-sm" disabled={!activeFilters.length && !q.trim()} onClick={() => { view.reset(); setQ(""); }}><RotateCcw className="h-3 w-3" aria-hidden /> Reset filters</button>
           <span className="text-12 text-fg-2">{all.length} papers in total{missing ? ` · ${missing} not yet summarised` : ""}{ranked ? ` · ${selectedTotal} selected` : ""}</span>
         </div>
-        {ranked && (
+        {ranked && mode !== "map" && (
           <Disclosure title="How papers are scored" meta="5 criteria, 0–100">
             <ul className="grid gap-1 sm:grid-cols-2">
               {RUBRIC.map((r) => <li key={r.key}><strong className="font-medium">{r.label}</strong> <span className="tabular-nums text-fg-2">{Math.round(r.weight * 100)}%</span> · {r.by === "AI" ? "rated by the AI from the title and abstract" : "a fixed formula"}</li>)}
@@ -322,7 +330,7 @@ export function TableView() {
       {all.length === 0 ? (
         <div className="p-4"><EmptyState title="No papers were retrieved">Go back to the searches and broaden them.</EmptyState></div>
       ) : mode === "map" ? (
-        <div className="shrink-0 px-4 pb-4 pt-3">
+        <div className="mx-auto w-full max-w-4xl shrink-0 px-4 pb-4 pt-3">
           <PaperMap points={points} colorBy={view.colorBy} onColorBy={view.setColorBy} topics={topicList} onOpen={(id) => { mark("opened-paper"); openPaper(id); }} layers={topicList.length} title={stage === 5 ? "Papers by year and kind" : "Papers by year and score"} dimUnselected={ranked} colorChoices={(["study", "topic", "source", "evidence", "score"] as ColorBy[]).filter((c) => (c !== "score" || ranked) && (c !== "evidence" || all.some((p) => p.appraisal)))} />
         </div>
       ) : (
@@ -358,7 +366,7 @@ function Facets({ rows, filters, toggle, topics, ranked }: { rows: Row[]; filter
         {cats.map((x) => {
           const on = filters[dim]?.includes(x.key) ?? false;
           return (
-            <button key={x.key} aria-pressed={on} title={x.hint} onClick={() => toggle(dim, x.key)} className={cx("inline-flex min-h-9 items-center gap-1.5 rounded-full border px-2.5 text-12", on ? "border-fg-1 bg-bg-3 text-fg-0" : "border-line text-fg-1 hover:border-line-strong hover:text-fg-0")}>
+            <button key={x.key} aria-pressed={on} title={x.hint} onClick={() => toggle(dim, x.key)} className={cx("inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-12", on ? "border-fg-1 bg-bg-3 text-fg-0" : "border-line text-fg-1 hover:border-line-strong hover:text-fg-0")}>
               {on && <CheckCircle2 className="h-3 w-3" strokeWidth={2} aria-hidden />}
               <ShapeIcon shape={x.shape} color={categoryVar(dim, x.key, topics)} />
               {x.label}
@@ -564,8 +572,12 @@ function AiCell({ row, field, editing, setEditing, onSave }: { row: Row; field: 
   return (
     <td tabIndex={0} className="h-11 cursor-text px-2 py-2 text-12 text-fg-1" onDoubleClick={() => setEditing({ id: row.id, field })} onKeyDown={(e) => e.key === "Enter" && setEditing({ id: row.id, field })} aria-label={`${field === "studyType" ? "Study type" : field === "setting" ? "Setting" : "Key finding"}: ${value}. ${s.edited ? "Edited by you." : "AI, from the abstract."} Press Enter to edit.`}>
       <span className={cx("inline-flex items-start gap-1.5", field === "keyFinding" && "line-clamp-3", value.startsWith("not reported") && "italic text-fg-2")}>
-        {group && <ShapeIcon shape={group.shape} color={categoryVar("study", group.key)} className="mt-0.5" title={group.label} />}
-        {value}
+        {group && <ShapeIcon shape={group.shape} color={categoryVar("study", group.key)} className="mt-0.5" />}
+        {group && group.label.toLowerCase() !== value.toLowerCase() && !value.startsWith("not reported") ? (
+          <span><span className="text-fg-0">{group.label}</span><span className="block text-fg-2">{value}</span></span>
+        ) : (
+          value
+        )}
       </span>
       {s.edited && <span className="mt-1 block"><Badge>edited by you</Badge></span>}
     </td>
