@@ -202,6 +202,8 @@ export interface ChecklistItem {
   item: string;
   answer: "yes" | "no" | "unclear" | "not_reported";
   claimId: string | null;
+  /** Set when Athena changed the AI's answer to "not_reported" (the AI used one quote for several questions). */
+  downgraded?: { aiAnswer: "yes" | "no" | "unclear" | "not_reported"; sharedWith: number };
 }
 
 export const appraisals = sqliteTable("appraisals", {

@@ -7,7 +7,7 @@ import { Badge, EmptyState, ErrorState, Loading, cx } from "../ui";
 import { Disclosure } from "../disclosure";
 import { useJobRefresh, useSession } from "../session/SessionContext";
 import { ActionButton, JobLog, JobStatus, PanelFooter, SectionTitle, StaleNotice } from "./common";
-import { ClaimChip, short, type ClaimRef, type PaperRef } from "./evidence";
+import { ClaimChip, VerdictLegend, short, type ClaimRef, type PaperRef } from "./evidence";
 import { nextAction } from "@/lib/canvas/actions";
 import dynamic from "next/dynamic";
 import { AlertTriangle, CheckCircle2, HelpCircle } from "lucide-react";
@@ -109,7 +109,7 @@ export function SynthesisPanel() {
         <EmptyState title="No synthesis yet">It is built from the appraisal quotes found in the papers (or accepted by you).</EmptyState>
       ) : (
         <>
-        <p className="text-12 text-fg-1">Each small button under a statement is a quote from a paper (<span className="text-ok">✓ found word for word</span>, or accepted by you). Found means the words are in the paper, not that they prove the statement. Click one to read the quote.</p>
+        <div className="text-12 text-fg-1">Each small button under a statement is a quote from a paper. Click one to read the quote.<VerdictLegend of="statement" /></div>
         <Tabs.Root defaultValue={topics[0].id} onValueChange={() => canvasStore.getState().markSeen(projectId, "read-synthesis")}>
           <Tabs.List aria-label="Topics" className="-mx-1 flex gap-1 overflow-x-auto border-b border-line px-1">
             {topics.map((t) => (
