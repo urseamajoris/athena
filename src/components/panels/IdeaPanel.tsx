@@ -8,6 +8,7 @@ import { ActionButton, PanelFooter, SectionTitle } from "./common";
 import { ConceptMap } from "./ConceptMap";
 import { WhatHappens } from "../guide/WhatHappens";
 import dynamic from "next/dynamic";
+import { AlertTriangle, Info, Trash2 } from "lucide-react";
 
 const TopicConstellation = dynamic(() => import("../viz/TopicConstellation").then((m) => m.TopicConstellation), { ssr: false, loading: () => <Loading label="Drawing your topics…" /> });
 import { stageAction } from "@/lib/canvas/actions";
@@ -39,7 +40,7 @@ const COVERAGE_LABEL: Record<string, [string, string]> = {
 
 /** Idea node: the idea itself, then the scoping chat whose answers fill the scope (PICO-style) fields. */
 export function IdeaPanel() {
-  const { projectId, project, states, refresh, confirmEdit, run, busy, input, summary } = useSession();
+  const { projectId, project, states, refresh, confirmEdit, run, busy, input, summary, announce } = useSession();
   const { data, error, isLoading, mutate } = useApi<ScopingData>(projectPath(projectId, "scoping"));
   const [idea, setIdea] = useState(project.idea);
   const [answer, setAnswer] = useState("");
@@ -51,6 +52,14 @@ export function IdeaPanel() {
   const started = useRef(false);
   const chatEnd = useRef<HTMLDivElement>(null);
   const answerRef = useRef<HTMLTextAreaElement>(null);
+  // The last topic deleted from the list, until it is brought back (Undo) or another one is deleted.
+  const [deleted, setDeleted] = useState<Topic | null>(null);
+  const undoRef = useRef<HTMLButtonElement>(null);
+  const goneId = deleted && data && !data.topics.some((x) => x.id === deleted.id) ? deleted.id : null;
+  // Delete removes its own button: focus goes to Undo, which takes its place.
+  useEffect(() => {
+    if (goneId) undoRef.current?.focus();
+  }, [goneId]);
   const s1 = states["1"];
   const ideaApproved = s1 === "approved";
   useEffect(() => setIdea(project.idea), [project.idea]);
@@ -88,6 +97,26 @@ export function IdeaPanel() {
   if (isLoading) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (!data) return null;
+
+  const gone = goneId ? deleted : null;
+  async function undoDelete() {
+    if (!gone) return;
+    setLocal("undo");
+    setErr(null);
+    try {
+      // Added back as a topic you chose (a deleted suggestion comes back kept, at the end of the list).
+      const r = await api<{ id: string; state: ScopingData }>(projectPath(projectId, "topics"), { body: { name: gone.name, synonyms: gone.synonyms, controlledTerms: gone.controlledTerms, rationale: gone.rationale } });
+      await mutate(r.state, { revalidate: false });
+      setDeleted(null);
+      await refresh();
+      announce(`The topic ${gone.name} is back.`);
+      requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-topic-row="${CSS.escape(r.id)}"]`)?.focus());
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setLocal(null);
+    }
+  }
 
   const dirty = idea.trim() !== project.idea.trim();
   async function saveIdea() {
@@ -133,7 +162,7 @@ export function IdeaPanel() {
         <div>
           <label htmlFor="idea-edit" className="label">Your research idea</label>
           <textarea id="idea-edit" className="input min-h-36 leading-relaxed" value={idea} placeholder="e.g. What is the knowledge gap in implementing telemedicine in Southeast Asia?" onChange={(e) => setIdea(e.target.value)} />
-          <p className="mt-2 text-12 text-fg-2">Explain it the way you would to a supervisor. It does not need to be a polished question yet.</p>
+          <p className="mt-2 text-12 text-fg-2">{dirty ? "Changed, not saved yet: “Sharpen my idea” saves it." : "Saved."} It does not need to be a polished question yet.</p>
         </div>
       ) : null}
 
@@ -190,7 +219,7 @@ export function IdeaPanel() {
               const ghost = !!summary && isGhostTopic({ ...t, synonyms: 0, controlledTerms: 0 }, states, input.client.acceptedTopics);
               return (
                 <li key={t.id} className="flex flex-wrap items-center gap-1 rounded-sm hover:bg-bg-2">
-                  <button className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2 py-2 text-left" onClick={() => canvasStore.getState().openPanel(`topic:${t.id}`)} title="Open to edit its name and keywords">
+                  <button data-topic-row={t.id} className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2 py-2 text-left" onClick={() => canvasStore.getState().openPanel(`topic:${t.id}`)} title="Open to edit its name and keywords">
                     <span className="min-w-0 flex-1">{t.name}</span>
                     {ghost ? <Badge tone="warn">suggested</Badge> : t.origin !== "ai" ? <Badge>{t.origin === "user" ? "added by you" : "merged"}</Badge> : null}
                   </button>
@@ -198,7 +227,7 @@ export function IdeaPanel() {
                     <span className="flex gap-1 pr-1">
                       <button className="btn-ghost btn-sm" onClick={() => canvasStore.getState().openPanel(`topic:${t.id}`)} aria-label={`Edit the topic ${t.name}`}>Edit</button>
                       <button className="btn-secondary btn-sm" onClick={() => run({ type: "acceptTopic", topicId: t.id })} aria-label={`Keep the topic ${t.name}`}>Keep</button>
-                      <button className="btn-ghost btn-sm" onClick={() => run({ type: "dismissTopic", topicId: t.id })} aria-label={`Delete the topic ${t.name}`}>Delete</button>
+                      <button className="btn-ghost btn-sm" onClick={() => { setDeleted(t); run({ type: "dismissTopic", topicId: t.id }); }} aria-label={`Delete the topic ${t.name}`}>Delete</button>
                     </span>
                   )}
                 </li>
@@ -207,6 +236,13 @@ export function IdeaPanel() {
           </ul>
           {ghosts.length > 0 && <p className="mt-2 text-12 text-fg-2">Suggested topics stay dashed until you keep or delete them. Keep the ones that are part of your question; you can edit any topic afterwards.</p>}
         </section>
+      )}
+      {gone && (
+        <p role="status" className="flex flex-wrap items-center gap-2 rounded-sm border border-line px-2 py-1 text-fg-1">
+          <Trash2 className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden />
+          <span className="min-w-0 flex-1">Deleted the topic “{gone.name}”.</span>
+          <button ref={undoRef} className="btn-ghost btn-sm" disabled={!!local} onClick={undoDelete} aria-label={`Undo: bring back the topic ${gone.name}`}>{local === "undo" && <Spinner />} Undo</button>
+        </p>
       )}
 
       {ideaApproved && !data.topics.length && (
@@ -283,7 +319,7 @@ export function IdeaPanel() {
                 if (await saveIdea()) await run({ type: "approve", stage: 1 });
               }}
             >
-              {busy === cmdKey({ type: "approve", stage: 1 }) && <Spinner />} Start scoping
+              {busy === cmdKey({ type: "approve", stage: 1 }) && <Spinner />} Sharpen my idea
             </button>
           ) : action.cmd.type === "answer" ? (
             <>
@@ -363,19 +399,27 @@ function ManageTopics({ topics, onChange }: { topics: Topic[]; onChange: (d: Sco
 
 /** Topic node: edit one topic (name, synonyms, MeSH), or accept / dismiss it while it is a suggestion. */
 export function TopicPanel({ topicId }: { topicId: string }) {
-  const { projectId, confirmEdit, refresh, states, input, run, graph } = useSession();
+  const { projectId, confirmEdit, refresh, states, input, run, graph, announce } = useSession();
   const { data, mutate } = useApi<ScopingData>(projectPath(projectId, "scoping"));
   const [err, setErr] = useState<unknown>(null);
+  // Set when an edit here reopened the approved step 2 (any topic change does, on the server): said, not silent.
+  const [reopened, setReopened] = useState(false);
   const t = data?.topics.find((x) => x.id === topicId);
   if (!data) return <Loading />;
   if (!t) return <p className="text-fg-2">This topic no longer exists.</p>;
   const ghost = isGhostTopic({ ...t, synonyms: 0, controlledTerms: 0 }, states, input.client.acceptedTopics);
+  const approved2 = states["2"] === "approved";
   async function patch(body: Record<string, unknown>) {
     if (!(await confirmEdit(2))) return;
+    const reopens = states["2"] === "approved";
     setErr(null);
     try {
       mutate(await api<ScopingData>(projectPath(projectId, `topics/${topicId}`), { method: "PATCH", body }), { revalidate: false });
       await refresh();
+      if (reopens) {
+        setReopened(true);
+        announce("You changed a topic, so step 2 is open again. Approve the topics again with “Use these topics” to continue.");
+      }
     } catch (e) {
       setErr(e);
     }
@@ -385,7 +429,21 @@ export function TopicPanel({ topicId }: { topicId: string }) {
   const isFrontierNode = node && frontier && (frontierStage(states) === 3 && graph.nodes.find((n) => n.kind === "topic" && !n.ghost)?.id === node.id);
   return (
     <div className="space-y-4">
-      {ghost && <p className="rounded-md border border-dashed border-line-control px-3 py-2 text-fg-1">Suggested by the AI from your scoping answers. Accept it to keep it, or dismiss it.</p>}
+      {ghost && <p className="rounded-md border border-dashed border-line-control px-3 py-2 text-fg-1">Suggested by the AI from your scoping answers. Keep it, or delete it if it does not fit.</p>}
+      {approved2 && !ghost && (
+        <p className="flex items-start gap-2 text-12 text-fg-1">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden />
+          <span>Your topics are approved (step 2). Changing a topic reopens step 2: you then approve the topics again with “Use these topics” to continue.</span>
+        </p>
+      )}
+      {reopened && !approved2 && (
+        <div role="status" className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-fg-0">
+          <p className="flex items-start gap-2">
+            <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden />
+            <span><strong className="font-semibold">Step 2 is open again.</strong> You changed a topic, so the topics need approving again. Use “Go to step 2” below, check the topics, then press “Use these topics” to continue.</span>
+          </p>
+        </div>
+      )}
       <div>
         <label htmlFor={`tn-${t.id}`} className="label">Topic name</label>
         <input id={`tn-${t.id}`} key={`n-${t.name}`} className="input font-medium" defaultValue={t.name} onBlur={(e) => e.target.value.trim() && e.target.value !== t.name && patch({ name: e.target.value })} />
@@ -403,7 +461,7 @@ export function TopicPanel({ topicId }: { topicId: string }) {
         <PanelFooter>
           {ghost ? (
             <>
-              <button className="btn-ghost" onClick={() => run({ type: "dismissTopic", topicId })}>Dismiss</button>
+              <button className="btn-ghost" onClick={() => run({ type: "dismissTopic", topicId })}>Delete</button>
               <button className="btn-primary" onClick={() => run({ type: "acceptTopic", topicId })}>Keep this topic</button>
             </>
           ) : (

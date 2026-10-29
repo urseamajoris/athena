@@ -16,10 +16,19 @@ test("every node has a plain task headline, never a bare stage name", () => {
 });
 
 test("the empty idea asks for the idea; the step number is shown", () => {
-  const input: GraphInput = emptyInput({ summary: null });
+  const input: GraphInput = emptyInput({ summary: null, idea: "" });
   const idea = buildGraph(input).nodes.find((n) => n.id === "idea")!;
   const t = taskFor(idea, input);
   assert.equal(t.headline, "Tell us what you want to research");
+  assert.equal(t.step, 1);
+});
+
+test("an idea typed on the New review page is confirmed at step 1, not asked for again", () => {
+  const input: GraphInput = emptyInput({ summary: null });
+  const idea = buildGraph(input).nodes.find((n) => n.id === "idea")!;
+  const t = taskFor(idea, input);
+  assert.equal(t.headline, "Check your idea, then start");
+  assert.match(t.help, /saved/);
   assert.equal(t.step, 1);
 });
 

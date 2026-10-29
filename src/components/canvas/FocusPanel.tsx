@@ -183,7 +183,12 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
 
   function close() {
     canvasStore.getState().closePanel();
-    requestAnimationFrame(() => (document.querySelector(`[data-node-id="${CSS.escape(node.id)}"]`) as HTMLElement | null)?.focus());
+    // Back to the node's card (canvas) or row (List view); if it is gone (a deleted topic), the first one.
+    requestAnimationFrame(() => {
+      const id = CSS.escape(node.id);
+      const el = document.querySelector<HTMLElement>(`[data-node-id="${id}"], [data-list-node="${id}"] > button`) ?? document.querySelector<HTMLElement>("#main [data-node-id], #main [data-list-node] > button");
+      el?.focus();
+    });
   }
 
   return (

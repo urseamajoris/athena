@@ -14,6 +14,7 @@ import { useViewPrefs } from "../session/viewPrefs";
 import { CategoryChip, ShapeIcon } from "../categories";
 import { Checklist } from "../guide/Checklist";
 import { WhatHappens } from "../guide/WhatHappens";
+import { focusPageAction } from "../session/SessionPage";
 import { MIN_TOPIC_FIT, PER_TOPIC, RUBRIC, STAGES, STUDY_TYPES, STUDY_TYPE_LABEL, thinTopics, type StudyType } from "@/lib/shared/stages";
 import { frontierStage } from "@/lib/canvas/graph";
 import { ARTICLE_TYPES, DIMENSIONS, hasHues, accessOf, articleTypeOf, categoriesFor, categoryVar, describeFilters, evidenceOf, periodOf, scoreBandOf, sourceOf, studyGroupOf, type ColorBy, type Dimension } from "@/lib/shared/categories";
@@ -64,8 +65,8 @@ const COL_W: Record<string, string> = { expand: "48px", select: "48px", rank: "6
 
 /** Full-screen summary + ranking table: rank and pick papers for appraisal. */
 export function TableView() {
-  const { projectId, states, confirmEdit, refresh, openPaper } = useSession();
-  const papers = useApi<PapersData>(projectPath(projectId, "papers"));
+  const { projectId, states, confirmEdit, refresh, openPaper, announce } = useSession();
+  const papers =useApi<PapersData>(projectPath(projectId, "papers"));
   const ranking = useApi<RankingData>(projectPath(projectId, "ranking"));
   useJobRefresh(5, papers.mutate);
   useJobRefresh(6, ranking.mutate);
@@ -258,7 +259,9 @@ export function TableView() {
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="min-w-0">
             <p className="text-12 font-medium text-fg-1">Step {stage} of 9 · {stage === 5 ? "Summary table" : "Ranking"}</p>
-            <h2 className="text-20 font-semibold">{stage === 5 ? "Skim the papers and fix any wrong cells" : "Check which papers go forward"}</h2>
+            <h2 data-page-heading className="text-20 font-semibold">{stage === 5 ? "Skim the papers and fix any wrong cells" : "Check which papers go forward"}</h2>
+            {/* Every paper row has controls, so the page's next action (header or bottom bar) is one key away. */}
+            <button type="button" className="sr-only focus:not-sr-only focus:mt-1 focus:inline-block focus:rounded-sm focus:bg-bg-2 focus:px-3 focus:py-2" onClick={() => { if (!focusPageAction()) announce("This page has no next action right now."); }}>Skip to the next action</button>
             <p className="mt-1 max-w-3xl text-fg-1">
               {stage === 5
                 ? <>One row per paper. The study type, setting and key finding were drafted by the AI from the abstract only <AbstractBadge />. Correct anything wrong, then rank the papers.</>
