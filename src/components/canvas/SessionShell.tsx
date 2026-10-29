@@ -15,7 +15,6 @@ import { SessionProvider, canvasStore, useCanvas, useSession } from "../session/
 import { StageRail } from "./StageRail";
 import { canvasCommands, focusNode } from "./focus";
 import { AiPausedBanner } from "../session/AiPausedBanner";
-import { DemoBanner } from "../session/DemoBanner";
 import { STAGE_KEY_TO_NODE, nodeForStage } from "@/lib/canvas/graph";
 // Only shown when a review cannot be opened: loaded then, not with every canvas.
 const SessionUnavailable = dynamic(() => import("../session/SessionUnavailable").then((m) => m.SessionUnavailable), { ssr: false });
@@ -82,7 +81,7 @@ function Shell() {
   const palette = useCanvas((s) => s.palette);
   const shortcuts = useCanvas((s) => s.shortcuts);
   const [paletteLoaded, setPaletteLoaded] = useState(false);
-  // The side panel starts below the header and any banners (demo mode, AI paused), so it never covers them.
+  // The side panel starts below the header and any banner (AI paused or not set up), so it never covers it.
   const topRef = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(48);
   useEffect(() => {
@@ -202,7 +201,6 @@ function Shell() {
         </button>
         <AppMenu onShortcuts={() => canvasStore.getState().setShortcuts(true)} />
       </header>
-      <DemoBanner />
       <AiPausedBanner />
       </div>
       <main id="main" className="relative flex-1 overflow-hidden" aria-label={view === "list" ? "Review list" : "Review canvas"}>

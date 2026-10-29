@@ -32,7 +32,7 @@ export function StageRail({ compact }: { compact: boolean }) {
         {STAGES.map((s) => {
           const state = (states[String(s.n)] ?? "not_started") as StageState;
           const current = s.n === f;
-          const paused = state === "running" && ai && (!ai.enabled || ai.budgetReached);
+          const paused = state === "running" && ai && (!ai.enabled || ai.budgetReached || ai.keyMissing);
           return (
             <li key={s.n}>
               <button

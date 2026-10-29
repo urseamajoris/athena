@@ -8,7 +8,7 @@ import { AvatarButton } from "./AppMenu";
 import { useApi } from "./api";
 import { applyThemePref, readThemePref, type ThemePref } from "@/lib/theme";
 
-interface Status { mockMode: boolean; mockAi: boolean; production: boolean; spendUsd?: number; budgetUsd?: number; user: { email: string; name: string; role: "user" | "admin" } }
+interface Status { production: boolean; ai?: { enabled: boolean; budgetReached: boolean; keyMissing: boolean }; spendUsd?: number; budgetUsd?: number; user: { email: string; name: string; role: "user" | "admin" } }
 
 const item = "flex min-h-11 cursor-default items-center gap-2 rounded-sm px-3 py-2 text-fg-0 outline-none data-[highlighted]:bg-bg-3";
 
@@ -29,7 +29,7 @@ export function AppMenuContent({ onShortcuts }: { onShortcuts?: () => void }) {
             <DropdownMenu.Label className="px-3 py-2 text-12 text-fg-2">
               <span className="block truncate text-14 text-fg-0">{data.user.name || data.user.email}</span>
               {data.user.name && <span className="block truncate">{data.user.email}</span>}
-              {data.mockMode ? "Mock mode" : data.mockAi ? "Mock AI · live databases" : "Live APIs"}
+              {data.ai?.keyMissing ? "AI not set up (no key)" : data.ai && !data.ai.enabled ? "AI switched off" : data.ai?.budgetReached ? "AI budget reached" : "Live AI and databases"}
               {data.spendUsd !== undefined && data.budgetUsd !== undefined && <> · <span className="tabular-nums">${data.spendUsd.toFixed(2)} of ${data.budgetUsd.toFixed(2)}</span></>}
             </DropdownMenu.Label>
           )}

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, FlaskConical } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { api, projectPath, useApi } from "../api";
 import { Badge, ErrorState, Loading, Spinner, cx } from "../ui";
 import { Disclosure } from "../disclosure";
@@ -31,7 +31,7 @@ const countInputs = (c: Criteria | null) => ({ years: [c?.yearFrom ?? null, c?.y
 export function QueryPanel({ topicId }: { topicId: string }) {
   const { projectId, graph, input, states } = useSession();
   const { data, error, isLoading, mutate } = useSearchData();
-  const { data: status } = useApi<{ mockMode: boolean; maxResultsPerQuery?: number }>("/api/status");
+  const { data: status } = useApi<{ maxResultsPerQuery?: number }>("/api/status");
   const live = useLiveRetrieval() as { runs: Run[] } | null;
   const { data: fetched } = useApi<{ runs: Run[] }>(states["4"] && states["4"] !== "not_started" ? projectPath(projectId, "retrieval") : null);
   const crit = useCriteriaDraft(data?.criteria ?? null, (d) => mutate(d, { revalidate: false }));
@@ -49,12 +49,6 @@ export function QueryPanel({ topicId }: { topicId: string }) {
     <div className="space-y-4">
       <StaleNotice stage={3} />
       <WhatHappens stage={3} />
-      {status?.mockMode && (
-        <p role="note" className="flex items-start gap-2 rounded-md border border-line bg-bg-1 px-3 py-2 text-12 text-fg-1">
-          <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden />
-          <span><strong className="font-semibold text-fg-0">Demo mode:</strong> these searches are a recorded example, not built from your topics. Match counts and papers come from recorded samples, so they do not follow your edits to the search text, years or languages.</span>
-        </p>
-      )}
       {data.databases.map((db) => {
         const q = topic.queries.find((x) => x.database === db.id);
         return q ? <QueryPreview key={q.id} q={q} label={db.label} criteria={data.criteria} run={runs.find((r) => r.queryId === q.id) ?? null} cap={status?.maxResultsPerQuery ?? 40} beforeCount={crit.dirty ? crit.save : null} onChange={(d) => mutate(d, { revalidate: false })} /> : <p key={db.id} className="text-fg-2">No {db.label} query.</p>;
@@ -161,9 +155,7 @@ function QueryPreview({ q, label, criteria, run, cap: MAX, beforeCount, onChange
     : null;
   const ranDone = run?.status === "done" || run?.status === "failed";
   const ranCurrent = !!run && run.queryString === q.queryString && JSON.stringify(countInputs(run.criteria)) === JSON.stringify(countInputs(criteria));
-  // In demo mode a count comes from a recorded sample picked by the request, so a change is not caused by the edit.
-  const { data: status } = useApi<{ mockMode: boolean }>("/api/status");
-  const wasLine = status?.mockMode ? null : verdict && track?.before && track.inputs === inputs && track.before.count !== track.count
+  const wasLine = verdict && track?.before && track.inputs === inputs && track.before.count !== track.count
     ? `It was ${fmtInt(track.before.count)} before you changed ${changedParts(track.before.inputs, inputs)}.`
     : !res && track && track.inputs !== inputs ? `It was ${fmtInt(track.count)} before you changed ${changedParts(track.inputs, inputs)}; count again to see the new number.` : null;
   return (
