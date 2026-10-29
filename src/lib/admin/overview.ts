@@ -1,7 +1,7 @@
 import "server-only";
 import fs from "node:fs";
 import path from "node:path";
-import { and, desc, eq, gt, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, ne, notInArray, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 import { config, paidCalls } from "../config";
 import { totalSpend } from "../ai/client";
@@ -9,6 +9,7 @@ import { modelResolutions } from "../ai/models";
 import { aiSwitch, budgetSetting, keyStatus } from "../settings";
 import { STAGES } from "../shared/stages";
 import { studyGroupOf, STUDY_GROUPS } from "../shared/categories";
+import { BROWSER } from "./client-errors";
 import { abandonment, dailySeries, funnel, percentile, projectExhaustion, projectsPerUser, verdict } from "./metrics";
 
 const H = 3600_000;
@@ -75,9 +76,13 @@ export async function adminOverview() {
     .from(schema.aiCalls)
     .where(gt(schema.aiCalls.createdAt, since30))
     .all();
+  // One definition of "AI calls" everywhere on the dashboard: calls sent to the model. Calls refused because AI
+  // was switched off or the budget was reached are logged too, but never sent; they are counted only as "blocked".
+  const isBlocked = (status: string) => status === "refused" || status === "paused";
+  const sentCalls = recentCalls.filter((c) => !isBlocked(c.status));
   const group = <K extends string>(key: (r: (typeof recentCalls)[number]) => K) => {
     const m = new Map<K, { calls: number; cost: number; failed: number }>();
-    for (const r of recentCalls) {
+    for (const r of sentCalls) {
       const k = key(r);
       const e = m.get(k) ?? { calls: 0, cost: 0, failed: 0 };
       e.calls++;
@@ -87,26 +92,46 @@ export async function adminOverview() {
     }
     return [...m.entries()].map(([k, v]) => ({ key: k, ...v })).sort((a, b) => b.cost - a.cost || b.calls - a.calls);
   };
-  const real = recentCalls.filter((c) => c.costSource !== "mock" && c.status !== "refused" && c.status !== "paused");
+  const real = sentCalls.filter((c) => c.costSource !== "mock");
   const lat = real.map((c) => c.durationMs).filter((x) => x > 0);
   const callTotal = sum("n");
-  const sent = sum("n", (s) => s !== "refused" && s !== "paused");
+  const sent = sum("n", (s) => !isBlocked(s));
 
   // ---- requests (this app's API) ----
-  const reqHour = await db.select({ status: schema.requestMetrics.status, ms: schema.requestMetrics.durationMs }).from(schema.requestMetrics).where(gt(schema.requestMetrics.createdAt, sinceHour)).all();
+  // Browser error reports share the table (method BROWSER); they are not API requests.
+  const notBrowser = ne(schema.requestMetrics.method, BROWSER);
+  const reqHour = await db.select({ status: schema.requestMetrics.status, ms: schema.requestMetrics.durationMs }).from(schema.requestMetrics).where(and(notBrowser, gt(schema.requestMetrics.createdAt, sinceHour))).all();
   // 503 is the deliberate "AI is paused" refusal, not a fault: it is not counted as a server error.
   const isErr = (st: number) => st >= 500 && st !== 503;
   const err5xx = reqHour.filter((r) => isErr(r.status)).length;
   const reqDays = await db
     .select({ day: sql<string>`substr(${schema.requestMetrics.createdAt},1,10)`, n: sql<number>`count(*)`, errors: sql<number>`sum(case when ${schema.requestMetrics.status} >= 500 and ${schema.requestMetrics.status} != 503 then 1 else 0 end)` })
     .from(schema.requestMetrics)
-    .where(gt(schema.requestMetrics.createdAt, iso(now - 14 * D)))
+    .where(and(notBrowser, gt(schema.requestMetrics.createdAt, iso(now - 14 * D))))
     .groupBy(sql`substr(${schema.requestMetrics.createdAt},1,10)`)
     .all();
   const recentErrors = await db
     .select({ at: schema.requestMetrics.createdAt, route: schema.requestMetrics.route, method: schema.requestMetrics.method, status: schema.requestMetrics.status, error: schema.requestMetrics.error })
     .from(schema.requestMetrics)
     .where(and(gt(schema.requestMetrics.status, 499), ne(schema.requestMetrics.status, 503)))
+    .orderBy(desc(schema.requestMetrics.createdAt))
+    .limit(20)
+    .all();
+
+  // ---- errors in users' browsers (reported by ClientErrorReporter) ----
+  const browser = eq(schema.requestMetrics.method, BROWSER);
+  const clientHour = await db
+    .select({ page: schema.requestMetrics.route, message: schema.requestMetrics.error, n: sql<number>`count(*)` })
+    .from(schema.requestMetrics)
+    .where(and(browser, gt(schema.requestMetrics.createdAt, sinceHour)))
+    .groupBy(schema.requestMetrics.route, schema.requestMetrics.error)
+    .orderBy(desc(sql`count(*)`))
+    .all();
+  const clientErrorsHour = clientHour.reduce((a, r) => a + Number(r.n), 0);
+  const recentClientErrors = await db
+    .select({ at: schema.requestMetrics.createdAt, page: schema.requestMetrics.route, message: schema.requestMetrics.error })
+    .from(schema.requestMetrics)
+    .where(browser)
     .orderBy(desc(schema.requestMetrics.createdAt))
     .limit(20)
     .all();
@@ -165,7 +190,7 @@ export async function adminOverview() {
 
   const models = Object.values(modelResolutions());
   const modelProblems = models.filter((m) => m.status === "substituted" || (/failed/.test(m.note) && config.production)).map((m) => `Model ${m.role}: ${m.note}`);
-  const exhaustion = projectExhaustion(recentCalls, spent, budget.limitUsd, now);
+  const exhaustion = projectExhaustion(sentCalls, spent, budget.limitUsd, now);
 
   return {
     generatedAt: iso(now),
@@ -174,6 +199,8 @@ export async function adminOverview() {
       dbOk: database.ok,
       requestsLastHour: reqHour.length,
       errors5xxLastHour: err5xx,
+      clientErrorsLastHour: clientErrorsHour,
+      topClientError: clientHour[0] ? { page: clientHour[0].page, message: clientHour[0].message ?? "" } : null,
       stuckJobs: stuck,
       pausedJobs: jobs.filter((j) => j.status === "paused").length,
       aiEnabled: ai.enabled,
@@ -195,6 +222,7 @@ export async function adminOverview() {
       },
       database,
       jobs: { queued: jobs.filter((j) => j.status === "queued").length, running: jobs.filter((j) => j.status === "running").length, paused: jobs.filter((j) => j.status === "paused").length, stuck },
+      clientErrors: { lastHour: clientErrorsHour },
       requests: { lastHour: reqHour.length, errors5xx: err5xx, errorRate: reqHour.length ? err5xx / reqHour.length : 0, p50Ms: percentile(reqHour.map((r) => r.ms), 50), p95Ms: percentile(reqHour.map((r) => r.ms), 95), byDay: dailySeries(reqDays, 14, now, (r) => `${r.day}T00:00:00Z`, (r) => r.n), errorsByDay: dailySeries(reqDays, 14, now, (r) => `${r.day}T00:00:00Z`, (r) => r.errors) },
     },
     ai: {
@@ -213,17 +241,18 @@ export async function adminOverview() {
         errors: sum("n", (s) => s === "error"),
         refused: sum("n", (s) => s === "refused"),
         paused: sum("n", (s) => s === "paused"),
+        blocked: sum("n", isBlocked),
         costUsd: sum("cost"),
         tokens: { input: sum("input"), cached: sum("cached"), output: sum("output"), reasoning: sum("reasoning") },
         retryRate: sent ? sum("retries") / sent : 0,
         failureRate: sent ? (sum("n", (s) => s === "invalid" || s === "error")) / sent : 0,
       },
       latency: { p50: percentile(lat, 50), p90: percentile(lat, 90), p99: percentile(lat, 99) },
-      byDay: dailySeries(recentCalls, 14, now, (r) => r.createdAt, (r) => r.costUsd),
-      callsByDay: dailySeries(recentCalls, 14, now, (r) => r.createdAt),
+      byDay: dailySeries(sentCalls, 14, now, (r) => r.createdAt, (r) => r.costUsd),
+      callsByDay: dailySeries(sentCalls, 14, now, (r) => r.createdAt),
       byStage: group((r) => (r.stage ? `${r.stage}. ${STAGES[r.stage - 1]?.title ?? ""}` : "other")),
       byModel: group((r) => r.model),
-      byPrompt: group((r) => `${r.prompt} v${r.version}`),
+      byPrompt: group((r) => `${r.prompt} ${r.version.startsWith("v") ? r.version : `v${r.version}`}`),
     },
     users: {
       total: users.length,
@@ -247,7 +276,7 @@ export async function adminOverview() {
       studyTypes: studyCounts,
       staleByStage,
     },
-    errors: { requests: recentErrors, jobs: failedJobs },
+    errors: { requests: recentErrors, jobs: failedJobs, client: recentClientErrors },
     audit: audit.map((a) => ({ id: a.id, at: a.createdAt, category: a.category, action: a.action, actor: a.actorId ? emails.get(a.actorId) ?? "deleted account" : null, target: a.targetId ? emails.get(a.targetId) ?? null : null, detail: a.detail })),
   };
 }
@@ -261,6 +290,8 @@ export async function adminUsers() {
     .select({ ownerId: schema.projects.ownerId, calls: sql<number>`count(*)`, cost: sql<number>`coalesce(sum(${schema.aiCalls.costUsd}),0)` })
     .from(schema.aiCalls)
     .innerJoin(schema.projects, eq(schema.projects.id, schema.aiCalls.projectId))
+    // Sent calls only, the same definition as the dashboard's "AI calls" (blocked attempts were never sent).
+    .where(notInArray(schema.aiCalls.status, ["refused", "paused"]))
     .groupBy(schema.projects.ownerId)
     .all();
   const { frontierOf } = await import("./metrics");

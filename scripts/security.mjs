@@ -113,6 +113,8 @@ const anonPage = await anon.raw(`/s/${pa}`);
 check("anonymous visitors are sent to log in", [302, 303, 307, 308].includes(anonPage.status) && (anonPage.headers.get("location") ?? "").includes("/login"), `${anonPage.status} → ${anonPage.headers.get("location")}`);
 const exp = await B.raw(`/api/projects/${pa}/export/markdown`);
 check("another user's report cannot be downloaded", exp.status === 404, `status ${exp.status}`);
+const expHtml = await B.raw(`/api/projects/${pa}/export/html`);
+check("another user's printable report cannot be opened", expHtml.status === 404, `status ${expHtml.status}`);
 
 // 5. Cross-site writes, cookie flags, open redirect, rate limiting.
 const xs = await A.raw(`/api/projects/${pa}`, { method: "PATCH", body: { title: "csrf" }, headers: { origin: "https://evil.example" } });
@@ -192,7 +194,7 @@ if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
   await scan("users", admin, "/api/admin/users");
   await scan("status", admin, "/api/status");
   await scan("A status", A, "/api/status");
-  for (const k of ["markdown", "csv", "bibtex"]) await scan(`export ${k}`, A, `/api/projects/${pa}/export/${k}`);
+  for (const k of ["markdown", "html", "csv", "bibtex"]) await scan(`export ${k}`, A, `/api/projects/${pa}/export/${k}`);
   await scan("log", A, `/api/projects/${pa}/log`);
   await scan("account export", A, "/api/account/export");
   for (const f of [process.env.SECURITY_DB, process.env.SECURITY_DB && `${process.env.SECURITY_DB}-wal`, process.env.SECURITY_LOG].filter(Boolean)) {

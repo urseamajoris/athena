@@ -6,6 +6,7 @@ import { STAGES, STUDY_TYPE_LABEL, RUBRIC, surname, shortCite, type StudyType } 
 import { appraisalsView, decisionLogView, papersView, questionsView, rankingView, retrievalView, synthesisView } from "./views";
 import { selectedPaperIds } from "./jobs/appraisal";
 import { describeView, type ViewPrefs } from "./shared/categories";
+import { reportHtmlPage } from "./report-html";
 
 const ids = (a: string[]) => a.concat(["-"]);
 
@@ -189,4 +190,9 @@ export async function markdownReport(projectId: string): Promise<string> {
   for (const d of (await decisionLogView(projectId))) L.push(`- ${d.createdAt} · stage ${d.stage} · ${d.actor} · ${d.action}${d.after ? ` · ${JSON.stringify(d.after).slice(0, 300)}` : ""}`);
   L.push(`\n_Summary-table cells for study type, setting and key finding are AI-derived from abstracts only. Papers in table: ${papers.length}._`);
   return L.join("\n") + "\n";
+}
+
+/** The same report as a printable web page, for phones and anyone without a Markdown viewer. */
+export async function htmlReport(projectId: string): Promise<string> {
+  return reportHtmlPage(await markdownReport(projectId));
 }

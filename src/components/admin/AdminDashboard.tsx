@@ -91,12 +91,13 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
 
       <AiKeyPanel d={d} refresh={refresh} />
 
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
-        <Stat label="Users" value={num(d.users.total)} sub={`${d.users.active24h} active today · ${d.users.active7d} this week`} />
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-7">
+        <Stat label="Users" value={num(d.users.total)} sub={`incl. ${d.users.admins} admin${d.users.admins === 1 ? "" : "s"} · ${d.users.active24h} active today · ${d.users.active7d} this week`} />
         <Stat label="Projects" value={num(d.users.projects)} sub={`${d.users.finished} finished`} />
-        <Stat label="AI calls" value={num(d.ai.totals.sent)} sub={`${pct(d.ai.totals.failureRate)} failed · ${pct(d.ai.totals.retryRate)} retried`} />
+        <Stat label="AI calls" value={num(d.ai.totals.sent)} sub={`sent to the model · ${pct(d.ai.totals.failureRate)} failed · ${pct(d.ai.totals.retryRate)} retried${d.ai.totals.blocked ? ` · ${num(d.ai.totals.blocked)} blocked, not sent` : ""}`} />
         <Stat label="AI spend" value={usd(b.spentUsd)} sub={`of ${usd(b.limitUsd)} limit`} tone={b.pct >= 1 ? "err" : b.pct >= 0.8 ? "warn" : undefined} />
         <Stat label="Server errors (1 h)" value={pct(d.health.requests.errorRate)} sub={`${d.health.requests.errors5xx} of ${d.health.requests.lastHour} requests`} tone={d.health.requests.errors5xx ? "warn" : undefined} />
+        <Stat label="Browser errors (1 h)" value={num(d.health.clientErrors.lastHour)} sub="page errors in users' browsers" tone={d.health.clientErrors.lastHour ? "warn" : undefined} />
         <Stat label="Jobs now" value={`${d.health.jobs.running} running`} sub={`${d.health.jobs.queued} queued · ${d.health.jobs.paused} paused · ${d.health.jobs.stuck} stuck`} tone={d.health.jobs.stuck ? "warn" : undefined} />
       </div>
 
@@ -113,7 +114,7 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
         </div>
       </Section>
 
-      <Section id="ai-title" title="AI usage" intro={d.mode.mockAi ? "Mock mode: calls are counted, but they cost nothing." : "From the ai_calls log: every model call, its tokens and its cost."}>
+      <Section id="ai-title" title="AI usage" intro={`${d.mode.mockAi ? "Mock mode: calls are counted, but they cost nothing." : "From the ai_calls log: every model call, its tokens and its cost."} Every count here is calls sent to the model; attempts blocked because AI was off or the budget was reached are never sent and are not counted (${num(d.ai.totals.blocked)} so far).`}>
         <div className="grid gap-6 md:grid-cols-2">
           <DailyBars title="AI spend per day (14 days)" data={d.ai.byDay} format={(v) => usd(v, 3)} />
           <DailyBars title="AI calls per day (14 days)" data={d.ai.callsByDay} />
@@ -126,7 +127,7 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
         </div>
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
           {([["Cost by step (30 days)", d.ai.byStage], ["Cost by model", d.ai.byModel], ["Cost by prompt version", d.ai.byPrompt]] as const).map(([t, rows]) => (
-            <HBars key={t} title={t} rows={rows.slice(0, 9).map((r) => ({ key: r.key, label: r.key, value: r.cost, sub: `· ${r.calls} calls` }))} format={(v) => usd(v, 3)} />
+            <HBars key={t} title={t} rows={rows.slice(0, 9).map((r) => ({ key: r.key, label: r.key, value: r.cost, sub: `· ${r.calls} call${r.calls === 1 ? "" : "s"}` }))} format={(v) => usd(v, 3)} />
           ))}
         </div>
       </Section>
@@ -211,11 +212,11 @@ function Dashboard({ d, refresh, validating }: { d: AdminOverview; refresh: () =
       </Section>
 
       <Section id="errors-title" title="Recent errors">
-        {d.errors.requests.length + d.errors.jobs.length === 0 ? (
-          <p className="text-fg-2">No server errors or failed jobs recorded.</p>
+        {d.errors.requests.length + d.errors.jobs.length + d.errors.client.length === 0 ? (
+          <p className="text-fg-2">No server errors, browser errors or failed jobs recorded.</p>
         ) : (
           <ul className="divide-y divide-line text-12">
-            {[...d.errors.requests.map((e) => ({ at: e.at, what: `${e.method} ${e.route} → ${e.status}`, msg: e.error })), ...d.errors.jobs.map((j) => ({ at: j.at, what: `job ${j.kind} (step ${j.stage}) failed`, msg: j.error }))]
+            {[...d.errors.requests.map((e) => ({ at: e.at, what: `${e.method} ${e.route} → ${e.status}`, msg: e.error })), ...d.errors.jobs.map((j) => ({ at: j.at, what: `job ${j.kind} (step ${j.stage}) failed`, msg: j.error })), ...d.errors.client.map((c) => ({ at: c.at, what: `browser error on ${c.page}`, msg: c.message }))]
               .sort((a, b) => b.at.localeCompare(a.at))
               .slice(0, 20)
               .map((e, i) => (
