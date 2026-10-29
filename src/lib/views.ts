@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import { getProject, latestJob, stageCosts } from "./project";
 import { STAGES, scrubIds } from "./shared/stages";
-import type { CanvasSummary, ClaimLite } from "./shared/canvas";
+import { isUndecided, type CanvasSummary, type ClaimLite } from "./shared/canvas";
 import { scopingState } from "./stages/scoping";
 
 const ids = (a: string[]) => a.concat(["-"]);
@@ -87,7 +87,8 @@ export async function paperDetail(projectId: string, paperId: string) {
  *  HTML, so every unused field costs download and parse time on a phone. Exports use papersView. */
 export async function papersTableView(projectId: string) {
   const v = (await papersView(projectId));
-  // Evidence status per paper (for the category views): what the appraisal was based on, and quotes still undecided.
+  // Evidence status per paper (for the category views): what the appraisal was based on, and quotes still undecided
+  // (the same rule as isUndecided).
   const apps = (await db.select({ id: schema.appraisals.id, paperId: schema.appraisals.paperId, textSource: schema.appraisals.textSource, status: schema.appraisals.status }).from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids(v.papers.map((p) => p.id)))).all()).filter((a) => a.status === "done");
   const open = apps.length
     ? (await db.select({ appraisalId: schema.claims.appraisalId, n: sql<number>`count(*)` }).from(schema.claims).where(and(inArray(schema.claims.appraisalId, ids(apps.map((a) => a.id))), eq(schema.claims.verified, false), eq(schema.claims.userAccepted, false), eq(schema.claims.userRejected, false), eq(schema.claims.notReported, false))).groupBy(schema.claims.appraisalId).all())
@@ -147,7 +148,15 @@ export async function appraisalsView(projectId: string) {
       return {
         ...a,
         paper: { id: p.id, title: p.title, year: p.year, doi: p.doi, pmid: p.pmid, pmcid: p.pmcid },
-        counts: { claims: cs.length, verified: cs.filter((c) => c.verified).length, unverified: cs.filter((c) => !c.verified && !c.notReported).length, accepted: cs.filter((c) => c.userAccepted).length, notReported: cs.filter((c) => c.notReported).length },
+        counts: {
+          claims: cs.length,
+          verified: cs.filter((c) => c.verified).length,
+          unverified: cs.filter((c) => !c.verified && !c.notReported).length,
+          accepted: cs.filter((c) => !c.verified && !c.notReported && c.userAccepted).length,
+          rejected: cs.filter((c) => !c.verified && !c.notReported && c.userRejected).length,
+          undecided: cs.filter(isUndecided).length,
+          notReported: cs.filter((c) => c.notReported).length,
+        },
       };
     }),
   };
@@ -253,7 +262,7 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
       fullText: apps.filter((a) => a.textSource === "full_text").length,
       claims: extracted.length,
       verified: extracted.filter((c) => c.verified).length,
-      pending: extracted.filter((c) => !c.verified && !c.userAccepted && !c.userRejected).length,
+      pending: cl.filter(isUndecided).length,
       accepted: extracted.filter((c) => !c.verified && c.userAccepted).length,
       rejected: extracted.filter((c) => !c.verified && c.userRejected).length,
       notReported: cl.length - extracted.length,

@@ -10,13 +10,16 @@ export interface PaperRef { id: string; title: string; year: number | null; auth
 
 const I = { className: "h-3 w-3", strokeWidth: 2, "aria-hidden": true } as const;
 
-/** Verification verdict, always visible and never colour-only (icon + text). */
+/** What "found" means, in one line: shown wherever the verdict badges are explained. */
+export const FOUND_MEANS = "Found means the words are in the paper, not that they prove the answer.";
+
+/** The quote check's verdict, always visible and never colour-only (icon + text). */
 export function QuoteVerdict({ c, stale }: { c: { verified: boolean; userAccepted: boolean; userRejected?: boolean }; stale?: boolean }) {
   if (stale) return <Badge state tone="warn" icon={<AlertTriangle {...I} />}>stale</Badge>;
-  if (c.verified) return <Badge state tone="ok" icon={<Check {...I} />}>verified</Badge>;
-  if (c.userAccepted) return <Badge state tone="warn" icon={<Check {...I} />}>unverified · accepted</Badge>;
-  if (c.userRejected) return <Badge state icon={<X {...I} />}>rejected by you</Badge>;
-  return <Badge state tone="err" icon={<X {...I} />}>unverified</Badge>;
+  if (c.verified) return <Badge state tone="ok" icon={<Check {...I} />} title={`The quote is in the paper word for word. ${FOUND_MEANS}`}>found word for word</Badge>;
+  if (c.userAccepted) return <Badge state tone="warn" icon={<Check {...I} />} title="Not found word for word; you said the paper does say this">not found · accepted by you</Badge>;
+  if (c.userRejected) return <Badge state icon={<X {...I} />} title="Left out of the synthesis">rejected by you</Badge>;
+  return <Badge state tone="err" icon={<X {...I} />} title="The check could not find these words in the paper: accept or reject the quote">not found, you decide</Badge>;
 }
 
 const FIELD_SHORT: Record<string, string> = { key_findings: "finding", limitations: "limitation", checklist: "quality item", methods: "methods", sample: "sample", setting: "setting", aim: "aim" };
@@ -39,7 +42,7 @@ export function ClaimChip({ id, claims, papers, stale }: { id: string; claims: R
           "inline-flex min-h-11 items-center gap-1 rounded-sm border px-2 text-12 font-medium md:min-h-6",
           stale ? "border-warn-line text-warn" : c.verified ? "border-ok-line text-ok" : "border-warn-line text-warn",
         )}
-        aria-label={`Evidence: ${label}. ${stale ? "Stale" : c.verified ? "Quote verified" : "Unverified, accepted by you"}. Show the quote.`}
+        aria-label={`Evidence: ${label}. ${stale ? "Stale" : c.verified ? "Quote found word for word in the paper" : "Quote not found, accepted by you"}. Show the quote.`}
       >
         {icon}
         {label}
@@ -49,6 +52,7 @@ export function ClaimChip({ id, claims, papers, stale }: { id: string; claims: R
           <p className="font-semibold text-fg-0">{c.statement}</p>
           <blockquote className="mt-2 border-l-2 border-line-control pl-2 italic text-fg-1">“{c.quote}”</blockquote>
           <p className="mt-2 flex items-center gap-2 text-fg-2"><QuoteVerdict c={c} stale={stale} /> {c.location}</p>
+          {c.verified && !stale && <p className="mt-1 text-fg-2">{FOUND_MEANS}</p>}
           <div className="mt-2 flex gap-2">
             <button className="btn-ghost btn-sm" onClick={() => openPaper(c.paperId)}>Open paper</button>
             <button className="btn-ghost btn-sm" onClick={() => canvasStore.getState().pinQuotes(projectId, [c.id])}><Pin className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Pin to canvas</button>

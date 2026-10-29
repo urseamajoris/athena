@@ -121,9 +121,9 @@ export function sourceOf(dbs: string[] | null | undefined): string {
 }
 
 export const EVIDENCE: Category[] = [
-  { key: "full_text", label: "Full text, quotes checked", hint: "Appraised on the open full text; every quote was found in the source.", slot: 1, shape: "circle" },
-  { key: "abstract_only", label: "Abstract only, quotes checked", hint: "Only the abstract was available; every quote was found in it.", slot: 4, shape: "square" },
-  { key: "unverified", label: "Has an unverified quote", hint: "At least one quote could not be found in the source text and has not been accepted by you.", slot: 8, shape: "triangle" },
+  { key: "full_text", label: "Full text, no quote to decide", hint: "Appraised on the open full text; every quote was found word for word or decided by you.", slot: 1, shape: "circle" },
+  { key: "abstract_only", label: "Abstract only, no quote to decide", hint: "Only the abstract was available; every quote was found word for word or decided by you.", slot: 4, shape: "square" },
+  { key: "unverified", label: "Has a quote to decide", hint: "At least one quote was not found word for word in the source and you have not accepted or rejected it yet.", slot: 8, shape: "triangle" },
   { key: "not_appraised", label: "Not appraised", hint: "Not selected for appraisal (yet).", slot: null, shape: "ring" },
 ];
 export function evidenceOf(a: { textSource?: string | null; unverified?: number } | null | undefined): string {

@@ -32,16 +32,20 @@ export function NodeStatusBadge({ node }: { node: GNode }) {
   );
 }
 
-/** Verification counts, always visible on Appraisal, Synthesis and Quote cards. */
+/** Quote-check counts (found word for word; not found and undecided), always visible on Appraisal and Synthesis cards. */
 export function TrustBadges({ node, verbose = false }: { node: GNode; verbose?: boolean }) {
   const t = node.trust;
   if (!t) return null;
   const I = { className: "h-3 w-3", strokeWidth: 2, "aria-hidden": true } as const;
   if (node.kind === "quote") return null;
   return (
-    <span className="inline-flex items-center gap-2 text-12 tabular-nums" title={`Quotes: ${t.verified} verified word for word, ${t.unverified} not found in the paper`} aria-label={`${t.verified} quotes verified, ${t.unverified} unverified, ${t.accepted} accepted${t.stale ? ", stale" : ""}`}>
-      <span className="inline-flex items-center gap-1 text-ok" title="Quotes found word for word in the paper"><Check {...I} />{t.verified}{verbose && " verified"}</span>
-      {t.unverified > 0 && <span className="inline-flex items-center gap-1 text-err" title="Quotes the check could not find in the paper"><X {...I} />{t.unverified}{verbose && " not found"}</span>}
+    <span
+      className="inline-flex items-center gap-2 text-12 tabular-nums"
+      title={`Quotes: ${t.verified} found word for word in the paper, ${t.unverified} not found and still for you to decide. Found means the words are in the paper, not that they prove the answer.`}
+      aria-label={`${t.verified} quotes found word for word, ${t.unverified} not found and still to decide, ${t.accepted} accepted by you${t.stale ? ", stale" : ""}`}
+    >
+      <span className="inline-flex items-center gap-1 text-ok"><Check {...I} />{t.verified}{verbose && " found"}</span>
+      {t.unverified > 0 && <span className="inline-flex items-center gap-1 text-err"><X {...I} />{t.unverified}{verbose && " to decide"}</span>}
       {t.stale && <span className="inline-flex items-center gap-1 text-warn"><AlertTriangle {...I} />stale</span>}
     </span>
   );

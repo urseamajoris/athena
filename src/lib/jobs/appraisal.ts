@@ -28,7 +28,7 @@ export function checkQuote(sent: string, sections: { title: string; start: numbe
     verified: false,
     matchStart: null,
     matchEnd: null,
-    verificationNote: `UNVERIFIED: ${r.note}${near && near.overlap >= 0.5 ? ` Closest passage in the text (${Math.round(near.overlap * 100)}% of words match): "${near.text.slice(0, 400)}"` : ""}`,
+    verificationNote: `${r.note}${near && near.overlap >= 0.5 ? ` Closest passage in the text (${near.overlap >= 0.995 ? "the same words, but not in this order or form" : `${Math.round(near.overlap * 100)}% of words match`}): "${near.text.slice(0, 400)}"` : ""}`,
   };
 }
 

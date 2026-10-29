@@ -80,10 +80,10 @@ export function SynthesisPanel() {
         />
       )}
       {!topics.length ? (
-        <EmptyState title="No synthesis yet">It is built from the verified (or accepted) quotes in the appraisals.</EmptyState>
+        <EmptyState title="No synthesis yet">It is built from the appraisal quotes found in the papers (or accepted by you).</EmptyState>
       ) : (
         <>
-        <p className="text-12 text-fg-1">Each chip under a statement is a quote from a paper (<span className="text-ok">✓ verified</span> word for word, or accepted by you). Click a chip to read the quote.</p>
+        <p className="text-12 text-fg-1">Each chip under a statement is a quote from a paper (<span className="text-ok">✓ found word for word</span>, or accepted by you). Found means the words are in the paper, not that they prove the statement. Click a chip to read the quote.</p>
         <Tabs.Root defaultValue={topics[0].id} onValueChange={() => canvasStore.getState().markSeen(projectId, "read-synthesis")}>
           <Tabs.List aria-label="Topics" className="-mx-1 flex gap-1 overflow-x-auto border-b border-line px-1">
             {topics.map((t) => (

@@ -13,6 +13,7 @@ import { createCanvasStore, sessionOf, type SessionUi } from "@/lib/canvas/store
 import type { Pos } from "@/lib/canvas/layout";
 const PaperDialog = dynamic(() => import("./PaperDialog").then((m) => m.PaperDialog), { ssr: false });
 const ConfirmEditDialog = dynamic(() => import("./SessionDialogs").then((m) => m.ConfirmEditDialog), { ssr: false });
+const ConfirmLeaveOutDialog = dynamic(() => import("./SessionDialogs").then((m) => m.ConfirmLeaveOutDialog), { ssr: false });
 const AddTopicDialog = dynamic(() => import("./SessionDialogs").then((m) => m.AddTopicDialog), { ssr: false });
 const ThinTopicsDialog = dynamic(() => import("./SessionDialogs").then((m) => m.ThinTopicsDialog), { ssr: false });
 
@@ -140,6 +141,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const [guard, setGuard] = useState<{ stage: number; downstream: number[]; resolve: (b: boolean) => void } | null>(null);
   const [thin, setThin] = useState<{ topics: { name: string; selected: number }[]; resolve: (b: boolean) => void } | null>(null);
   const confirmed = useRef(new Set<number>());
+  const [leaveOut, setLeaveOut] = useState<{ count: number; resolve: (b: boolean) => void } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<unknown>(null);
   const [message, setMessage] = useState("");
@@ -288,6 +290,12 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
           // Appraising with too few papers in a topic is allowed, but never silent.
           const few = cmd.stage === 6 ? thinTopics(summary?.ranking ?? []) : [];
           if (few.length && !(await new Promise<boolean>((resolve) => setThin({ topics: few, resolve })))) return;
+          // Summarising the evidence leaves undecided quotes out: say so and ask first.
+          const left = cmd.stage === 7 ? (summary?.appraisal.pending ?? 0) : 0;
+          if (left && !(await new Promise<boolean>((resolve) => setLeaveOut({ count: left, resolve })))) {
+            store.openPanel("appraisal");
+            return;
+          }
           return step(() => approve(cmd.stage));
         }
         case "run":
@@ -445,6 +453,19 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
             confirmed.current.add(guard.stage);
             guard.resolve(true);
             setGuard(null);
+          }}
+        />
+      )}
+      {leaveOut && (
+        <ConfirmLeaveOutDialog
+          count={leaveOut.count}
+          onCancel={() => {
+            leaveOut.resolve(false);
+            setLeaveOut(null);
+          }}
+          onConfirm={() => {
+            leaveOut.resolve(true);
+            setLeaveOut(null);
           }}
         />
       )}

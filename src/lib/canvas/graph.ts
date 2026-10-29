@@ -1,7 +1,7 @@
 // The canvas graph is derived, not stored: server state (stages, topics, queries, counts) plus a little
 // per-browser state (accepted ghost topics, pinned quotes) → nodes and edges. Pure; unit-tested.
 import { STAGES, type StageState } from "../shared/stages";
-import type { CanvasSummary, ClaimLite, JobLite, StageStates } from "../shared/canvas";
+import { isUndecided, type CanvasSummary, type ClaimLite, type JobLite, type StageStates } from "../shared/canvas";
 import { fmtInt } from "../shared/format";
 
 export type NodeKind = "idea" | "topic" | "query" | "corpus" | "table" | "appraisal" | "synthesis" | "questions" | "export" | "quote";
@@ -250,7 +250,7 @@ export function buildGraph(input: GraphInput): Graph {
     for (const cid of client.pinnedQuotes) {
       const c = byId.get(cid);
       if (!c) continue;
-      const verdict = c.verified ? "Verified" : c.userAccepted ? "Accepted by you" : c.userRejected ? "Rejected by you" : "Unverified";
+      const verdict = c.verified ? "Found word for word" : c.userAccepted ? "Not found, accepted by you" : c.userRejected ? "Rejected by you" : "Not found, you decide";
       add({
         id: `quote:${c.id}`,
         kind: "quote",
@@ -260,7 +260,7 @@ export function buildGraph(input: GraphInput): Graph {
         key: `${verdict} · ${c.paperTitle}`,
         parents: ["appraisal"],
         claimId: c.id,
-        trust: { verified: c.verified ? 1 : 0, unverified: !c.verified && !c.userAccepted && !c.userRejected ? 1 : 0, accepted: !c.verified && c.userAccepted ? 1 : 0, stale: s7 === "stale" },
+        trust: { verified: c.verified ? 1 : 0, unverified: isUndecided(c) ? 1 : 0, accepted: !c.verified && c.userAccepted ? 1 : 0, stale: s7 === "stale" },
         staleReason: s7 === "stale" ? reason(7) : undefined,
       });
     }
