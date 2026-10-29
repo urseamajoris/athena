@@ -3,6 +3,7 @@ import { config } from "../config";
 import { httpFetch, httpJson } from "./http";
 import type { SearchAdapter, SourceRecord } from "./types";
 import { hardFilterPubmed } from "./filters";
+import { dropEmptyGroups } from "./syntax";
 import type { Criteria } from "../db/schema";
 import { decodeEntities, normalizeDoi, stripTags, chunk } from "../util";
 
@@ -22,7 +23,7 @@ function common() {
 const LANG: Record<string, string> = { en: "english", english: "english", fr: "french", es: "spanish", de: "german", zh: "chinese", ja: "japanese", pt: "portuguese", th: "thai", vi: "vietnamese", id: "indonesian", ms: "malay" };
 
 export function pubmedTerm(query: string, c: Criteria | null) {
-  const parts = [`(${query})`];
+  const parts = [`(${dropEmptyGroups(query)})`];
   if (c?.yearFrom || c?.yearTo) parts.push(`("${c?.yearFrom ?? 1900}"[dp] : "${c?.yearTo ?? 3000}"[dp])`);
   const langs = (c?.languages ?? []).map((l) => LANG[l.toLowerCase()] ?? l.toLowerCase()).filter(Boolean);
   if (langs.length) parts.push(`(${langs.map((l) => `${l}[la]`).join(" OR ")})`);

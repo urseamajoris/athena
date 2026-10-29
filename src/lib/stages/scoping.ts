@@ -18,18 +18,27 @@ async function transcript(projectId: string) {
   };
 }
 
+type TurnMeta = { kind?: string; target?: string | null; coverage?: Record<string, string | null>; draftTopics?: string[]; done?: boolean } | null;
+
+/** The latest assistant turn that carried a coverage summary. "Skip the rest" and the closing turn carry none of their own. */
+function lastCoverage(msgs: { role: string; meta: unknown }[]) {
+  const m = [...msgs].reverse().find((x) => x.role === "assistant" && (x.meta as TurnMeta)?.coverage);
+  return (m?.meta ?? null) as TurnMeta;
+}
+
 export async function scopingState(projectId: string) {
   const t = (await transcript(projectId));
   const last = [...t.msgs].reverse().find((m) => m.role === "assistant");
-  const meta = (last?.meta ?? null) as { kind?: string; coverage?: Record<string, string | null>; draftTopics?: string[]; done?: boolean } | null;
+  const meta = (last?.meta ?? null) as TurnMeta;
+  const known = lastCoverage(t.msgs);
   const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
   const p = (await getProject(projectId));
   return {
     messages: t.msgs,
     asked: t.asked,
     maxQuestions: MAX_SCOPING_QUESTIONS,
-    coverage: meta?.coverage ?? null,
-    draftTopics: meta?.draftTopics ?? [],
+    coverage: known?.coverage ?? null,
+    draftTopics: known?.draftTopics ?? [],
     done: !!meta?.done || t.asked >= MAX_SCOPING_QUESTIONS,
     awaitingAnswer: last?.role === "assistant" && meta?.kind === "question" && t.msgs[t.msgs.length - 1]?.id === last.id,
     topics,
@@ -48,7 +57,14 @@ export async function nextScopingTurn(projectId: string) {
   const p = (await getProject(projectId));
   const t = (await transcript(projectId));
   if (t.asked >= MAX_SCOPING_QUESTIONS) {
-    (await addMessage(projectId, "assistant", "Thanks — that's enough to build your search topics.", { kind: "done", done: true }));
+    // No model call for the closing turn, so file the last answer under the field its question asked about.
+    const known = lastCoverage(t.msgs);
+    const lastQ = [...t.msgs].reverse().find((m) => m.role === "assistant" && (m.meta as TurnMeta)?.kind === "question");
+    const target = (lastQ?.meta as TurnMeta)?.target;
+    const lastAnswer = t.msgs[t.msgs.length - 1]?.role === "user" ? t.msgs[t.msgs.length - 1].text : null;
+    const coverage = { ...(known?.coverage ?? {}) };
+    if (target && lastAnswer && !coverage[target]) coverage[target] = lastAnswer;
+    (await addMessage(projectId, "assistant", "Thanks — that's enough to build your search topics.", { kind: "done", done: true, coverage, draftTopics: known?.draftTopics ?? [] }));
     return (await scopingState(projectId));
   }
   const { data } = await structuredCall({
