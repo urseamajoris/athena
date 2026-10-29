@@ -9,6 +9,7 @@ import { selectedPaperIds } from "./jobs/appraisal";
 import { describeView, type ViewPrefs } from "./shared/categories";
 import { noveltyVerdict } from "./shared/novelty";
 import { reportHtmlPage } from "./report-html";
+import { partsLabel } from "./quotes";
 
 const ids = (a: string[]) => a.concat(["-"]);
 
@@ -168,7 +169,7 @@ export async function markdownReport(projectId: string): Promise<string> {
     L.push(`### ${pp.title} (${pp.year ?? "n.d."})\n\n${ref(pp)}\n\n**Text source: ${a.textSource === "full_text" ? "FULL TEXT" : "ABSTRACT ONLY"}.** ${a.textNote}\n\nTemplate: ${a.templateType}. Status: ${a.status}${a.error ? ` (${a.error})` : ""}.\n`);
     const cs = claims.filter((c) => c.appraisalId === a.id);
     for (const c of cs.filter((x) => x.field !== "checklist")) {
-      L.push(`- **${c.field}** ${c.notReported ? "— not reported" : `— ${c.statement}\n  > "${c.quote}" (${c.location}) — ${c.verified ? "✅ found word for word" : c.userAccepted ? "⚠️ not found, accepted by user" : c.userRejected ? "❌ not found, rejected by user" : "⚠️ NOT FOUND, not decided (left out of the synthesis)"}`}`);
+      L.push(`- **${c.field}** ${c.notReported ? "— not reported" : `— ${c.statement}\n  > "${c.quote}" (${c.location}) — ${c.verified ? `✅ found word for word${partsLabel(c.quote)}` : c.userAccepted ? "⚠️ not found, accepted by user" : c.userRejected ? "❌ not found, rejected by user" : "⚠️ NOT FOUND, not decided (left out of the synthesis)"}`}`);
     }
     if (a.checklist.length) {
       L.push(`\nQuality checklist:\n`);

@@ -4,6 +4,7 @@ import { Popover } from "radix-ui";
 import { Badge, cx } from "../ui";
 import { canvasStore, useSession } from "../session/SessionContext";
 import { shortCite } from "@/lib/shared/stages";
+import { partsLabel } from "@/lib/quotes";
 
 export interface ClaimRef { id: string; paperId: string; field: string; statement: string; quote: string; location: string; verified: boolean; userAccepted: boolean; userRejected?: boolean; ordinal?: number; ofField?: number }
 export interface PaperRef { id: string; title: string; year: number | null; authors: string[]; studyType?: string | null }
@@ -13,9 +14,16 @@ const I = { className: "h-3 w-3", strokeWidth: 2, "aria-hidden": true } as const
 /** What "found" means, in one line: shown wherever the verdict badges are explained. */
 export const FOUND_MEANS = "Found means the words are in the paper, not that they prove the answer.";
 
+/** ", in two parts" for a verified quote joined from separate passages with "…" (counted as the check counts them). */
+export function partsSuffix(c: { verified: boolean; quote?: string }) {
+  return c.verified && c.quote ? partsLabel(c.quote) : "";
+}
+
 /** The quote check's verdict, always visible and never colour-only (icon + text). */
-export function QuoteVerdict({ c, stale }: { c: { verified: boolean; userAccepted: boolean; userRejected?: boolean }; stale?: boolean }) {
+export function QuoteVerdict({ c, stale }: { c: { verified: boolean; userAccepted: boolean; userRejected?: boolean; quote?: string }; stale?: boolean }) {
   if (stale) return <Badge state tone="warn" icon={<AlertTriangle {...I} />}>stale</Badge>;
+  const parts = partsSuffix(c);
+  if (c.verified && parts) return <Badge state tone="ok" icon={<Check {...I} />} title={`The quote joins separate passages with "…", and each part is in the paper word for word. The highlighted passage is the first part. ${FOUND_MEANS}`}>found word for word{parts}</Badge>;
   if (c.verified) return <Badge state tone="ok" icon={<Check {...I} />} title={`The quote is in the paper word for word. ${FOUND_MEANS}`}>found word for word</Badge>;
   if (c.userAccepted) return <Badge state tone="warn" icon={<Check {...I} />} title="Not found word for word; you said the paper does say this">not found · accepted by you</Badge>;
   if (c.userRejected) return <Badge state icon={<X {...I} />} title="Left out of the synthesis">rejected by you</Badge>;
@@ -42,7 +50,7 @@ export function ClaimChip({ id, claims, papers, stale }: { id: string; claims: R
           "inline-flex min-h-11 items-center gap-1 rounded-sm border px-2 text-12 font-medium md:min-h-6",
           stale ? "border-warn-line text-warn" : c.verified ? "border-ok-line text-ok" : "border-warn-line text-warn",
         )}
-        aria-label={`Evidence: ${label}. ${stale ? "Stale" : c.verified ? "Quote found word for word in the paper" : "Quote not found, accepted by you"}. Show the quote.`}
+        aria-label={`Evidence: ${label}. ${stale ? "Stale" : c.verified ? `Quote found word for word in the paper${partsSuffix(c)}` : "Quote not found, accepted by you"}. Show the quote.`}
       >
         {icon}
         {label}

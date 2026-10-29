@@ -6,6 +6,7 @@ import { hardFilterPubmed } from "./filters";
 import { dropEmptyGroups } from "./syntax";
 import type { Criteria } from "../db/schema";
 import { decodeEntities, normalizeDoi, stripTags, chunk } from "../util";
+import { usableAbstract } from "./abstract";
 
 /*
  * PubMed E-utilities (https://www.ncbi.nlm.nih.gov/books/NBK25497/):
@@ -99,7 +100,7 @@ export function parsePubmedXml(xml: string): SourceRecord[] {
       authors,
       year: yearStr ? Number(String(yearStr).slice(0, 4)) : null,
       journal,
-      abstract: abs || null,
+      abstract: usableAbstract(abs),
       language: lang,
       publicationTypes: pubTypes,
       citationCount: null,
