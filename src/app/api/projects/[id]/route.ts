@@ -10,7 +10,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(_req: Request, ctx: Ctx) {
   try {
-    return NextResponse.json(projectView((await ctx.params).id));
+    return NextResponse.json((await projectView((await ctx.params).id)));
   } catch (e) {
     return errorResponse(e);
   }
@@ -19,8 +19,8 @@ export async function GET(_req: Request, ctx: Ctx) {
 export async function DELETE(_req: Request, ctx: Ctx) {
   try {
     const { id } = await ctx.params;
-    getProject(id);
-    db.delete(schema.projects).where(eq(schema.projects.id, id)).run();
+    (await getProject(id));
+    (await db.delete(schema.projects).where(eq(schema.projects.id, id)).run());
     return NextResponse.json({ ok: true });
   } catch (e) {
     return errorResponse(e);

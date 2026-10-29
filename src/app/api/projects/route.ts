@@ -9,7 +9,7 @@ import { projectsList } from "@/lib/preload";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return NextResponse.json(projectsList());
+  return NextResponse.json((await projectsList()));
 }
 
 export async function POST(req: Request) {
@@ -17,8 +17,8 @@ export async function POST(req: Request) {
     const body = z.object({ idea: z.string().trim().min(10, "Please write at least a sentence about your idea.").max(4000) }).safeParse(await req.json().catch(() => ({})));
     if (!body.success) return NextResponse.json({ error: body.error.issues[0].message }, { status: 400 });
     const id = newId("prj");
-    db.insert(schema.projects).values({ id, idea: body.data.idea, title: body.data.idea.slice(0, 90), stageStates: initialStageStates() }).run();
-    logDecision(id, 1, "project_created", null, { idea: body.data.idea });
+    (await db.insert(schema.projects).values({ id, idea: body.data.idea, title: body.data.idea.slice(0, 90), stageStates: initialStageStates() }).run());
+    (await logDecision(id, 1, "project_created", null, { idea: body.data.idea }));
     return NextResponse.json({ id });
   } catch (e) {
     return errorResponse(e);
