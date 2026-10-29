@@ -235,7 +235,7 @@ export function IdeaPanel() {
                   {ghost && (
                     <span className="flex gap-1 pr-1">
                       <button className="btn-ghost btn-sm" onClick={() => canvasStore.getState().openPanel(`topic:${t.id}`)} aria-label={`Edit the topic ${t.name}`}>Edit</button>
-                      <button className="btn-secondary btn-sm" onClick={() => run({ type: "acceptTopic", topicId: t.id })} aria-label={`Keep the topic ${t.name}`}>Keep</button>
+                      <button className="btn-ghost btn-sm" onClick={() => run({ type: "acceptTopic", topicId: t.id })} aria-label={`Keep the topic ${t.name}`}>Keep</button>
                       <button className="btn-ghost btn-sm" onClick={() => { setDeleted(t); run({ type: "dismissTopic", topicId: t.id }); }} aria-label={`Delete the topic ${t.name}`}>Delete</button>
                     </span>
                   )}

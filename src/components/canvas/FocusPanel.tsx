@@ -227,8 +227,8 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
           <p className="mt-2 text-fg-1">{task.help}</p>
           {task.next && <p className="mt-1 text-12 text-fg-2">{task.next}</p>}
           {mobile && (
-            <div className="mt-2 flex gap-0.5" aria-hidden>
-              {STAGES.map((s) => <span key={s.n} className={cx("h-1 flex-1 rounded-full", s.n === task.step ? "bg-fg-0" : states[String(s.n)] === "approved" ? "bg-ok" : states[String(s.n)] === "stale" ? "bg-warn" : "bg-bg-3")} />)}
+            <div className="mt-2 flex h-2 gap-0.5" aria-hidden>
+              {STAGES.map((s) => <span key={s.n} className={cx("flex-1 self-center rounded-full", s.n === task.step ? "h-2" : "h-1", states[String(s.n)] === "approved" ? "bg-ok" : states[String(s.n)] === "stale" ? "bg-warn" : s.n === task.step ? "bg-fg-0" : "bg-bg-3")} />)}
             </div>
           )}
         </div>
