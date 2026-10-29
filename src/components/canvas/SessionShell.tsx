@@ -2,7 +2,6 @@
 import { LogoMark } from "../Logo";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { TransitionLink } from "../vt";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence } from "motion/react";
@@ -12,6 +11,7 @@ import { ErrorState, Kbd, Loading, cx } from "../ui";
 import { MotionRoot } from "../motion";
 import { useHydrated } from "../hydrated";
 import { AppMenu } from "../AppMenu";
+import { SessionUnavailable } from "../session/SessionUnavailable";
 import { SessionProvider, canvasStore, useCanvas, useSession } from "../session/SessionContext";
 import { StageRail } from "./StageRail";
 import { canvasCommands, focusNode } from "./focus";
@@ -51,7 +51,7 @@ export function SessionShell({ projectId }: { projectId: string }) {
         projectId={projectId}
         fallback={(s) =>
           s ? (
-            <main id="main" className="mx-auto max-w-xl p-8"><ErrorState error={s.error} onRetry={s.retry} title="Could not open this session" /><Link href="/sessions" className="btn-secondary mt-4">All sessions</Link></main>
+            <SessionUnavailable error={s.error} retry={s.retry} />
           ) : (
             <main id="main" className="p-8"><Loading label="Opening your session…" /></main>
           )

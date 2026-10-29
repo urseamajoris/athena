@@ -3,9 +3,10 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { TransitionLink } from "../vt";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { ErrorState, Loading } from "../ui";
+import { Loading } from "../ui";
 import { AppMenu } from "../AppMenu";
 import { ActionButton } from "../panels/common";
+import { SessionUnavailable } from "./SessionUnavailable";
 import { SessionProvider, useSession } from "./SessionContext";
 import { nextAction } from "@/lib/canvas/actions";
 import { frontierNodeId, frontierStage } from "@/lib/canvas/graph";
@@ -20,7 +21,7 @@ export function SessionPage({ projectId, node, title, children, showAction = tru
   return (
     <SessionProvider
       projectId={projectId}
-      fallback={(s) => (s ? <main id="main" className="mx-auto max-w-xl p-8"><ErrorState error={s.error} onRetry={s.retry} title="Could not open this session" /></main> : <main id="main" className="p-8"><Loading /></main>)}
+      fallback={(s) => (s ? <SessionUnavailable error={s.error} retry={s.retry} /> : <main id="main" className="p-8"><Loading /></main>)}
     >
       <Frame node={node} title={title} showAction={showAction}>{children}</Frame>
     </SessionProvider>

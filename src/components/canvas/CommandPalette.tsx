@@ -42,7 +42,7 @@ export default function CommandPalette({ open, onClose, onFit, onShortcuts }: { 
     { id: "md", label: "Download the report (Markdown)", group: "Export", run: () => window.location.assign(projectPath(projectId, "export/markdown")) },
     { id: "csv", label: "Download the summary table (CSV)", group: "Export", run: () => window.location.assign(projectPath(projectId, "export/csv")) },
     { id: "bib", label: "Download the selected papers (BibTeX)", group: "Export", run: () => window.location.assign(projectPath(projectId, "export/bibtex")) },
-    { id: "sessions", label: "All sessions", group: "Go to", run: () => router.push("/sessions") },
+    { id: "sessions", label: "My projects", group: "Go to", run: () => router.push("/sessions") },
     { id: "new", label: "New session", group: "Go to", run: () => router.push("/s/new") },
     { id: "settings", label: "Settings", group: "Go to", run: () => router.push("/settings") },
     { id: "dark", label: "Theme: dark", group: "Theme", run: () => applyThemePref("dark") },
