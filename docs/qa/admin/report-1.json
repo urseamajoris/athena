@@ -1,0 +1,166 @@
+{
+ "persona": "admin",
+ "completed": true,
+ "stage_reached": 9,
+ "findings": [
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Admin dashboard (http://localhost:4102/admin), after the AI off/on check",
+   "what_happened": "The dashboard disagrees with itself after a pause. The headline 'AI calls' tile says 56. The 'AI calls per day' chart total, 'Cost by step', 'Cost by model' and 'Cost by prompt version' all add up to 58. The new user's row in Accounts says 4 AI calls. Before AI was turned off the tile and every breakdown agreed at 54. The 2 extra counts are the two attempts that the pause blocked (Sharpen my idea, Try again). Scoping went from 4 to 8 calls although only 2 real calls ran. The 'Validation retries' card does say '2 paused'.",
+   "expected": "One number for AI calls everywhere. The check was to see whether the AI call count moves while AI is off. The headline says no, but the per-day chart, step table and account row say yes. Blocked attempts should either be counted nowhere or labelled 'blocked, not sent' wherever they are counted.",
+   "evidence": "docs/qa/admin/76-top-4102-final.jpg (tile 56), docs/qa/admin/77-cost-4102-after.jpg (calls by model 42+16=58, scoping 8), docs/qa/admin/75-bottom-4102-after.jpg (account row: 4 calls), docs/qa/admin/72-dash-while-off.jpg (tile held at 54 while off)",
+   "suggested_fix": "Count paused or blocked attempts in a separate 'blocked while AI was off' number. Leave them out of calls per day, cost by step, cost by model, cost by prompt version and the per-account AI calls. Show the blocked count in its own small line."
+  },
+  {
+   "severity": "major",
+   "category": "clarity",
+   "page": "Admin dashboard, health verdict, all 7 servers",
+   "what_happened": "Every server says 'Everything is healthy' (green) although every simulated user hit a browser-side 'removeChild' page error at the step 4 to 5 transition. Some hit it again at step 6 to 7: undergrad twice, nonnative twice, chaos twice. The dashboard shows 'Server errors (1 h) 0%', 'Recent errors: No server errors or failed jobs recorded', and 0% failed AI calls. It only watches server requests, so it cannot see client-side crashes. The admin is told all is well while users meet a script error at the same step every time.",
+   "expected": "The top verdict should not claim healthy while a front-end error recurs. Client errors should be reported, or the verdict should say what it does not cover.",
+   "evidence": "docs/qa/admin/03-admin-4101-mid.jpg and docs/qa/admin/05-admin-4101-bottom.jpg (Recent errors empty); docs/qa/admin/10-admin-4102-top.jpg, 20-admin-4103-top.jpg, 30-admin-4104-top.jpg, 40-admin-4105-top.jpg, 50-admin-4106-top.jpg, 60-admin-4107-top.jpg (all green 'Everything is healthy')",
+   "suggested_fix": "Send front-end page errors to the server and show a 'Browser errors (1 h)' tile and a 'Recent errors' row. Add the line 'Does not include errors in users browsers' next to the verdict until that exists."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Admin dashboard, Users and Projects tiles and funnel",
+   "what_happened": "The 'Users' tile counts the admin account. 4101 shows 2 users but one real user (Mai); 4107 shows 3 users but two real users. The 'Projects per user' chart shows '0 projects: 1 user', which is the admin. The numbers are correct but do not match a person's 'one user did this'.",
+   "expected": "The tile should show users excluding admins, or say '(incl. 1 admin)'.",
+   "evidence": "docs/qa/admin/03-admin-4101-mid.jpg, docs/qa/admin/60-admin-4107-top.jpg",
+   "suggested_fix": "Exclude admin accounts from Users, 'active today' and the sign-up chart. Alternatively show '1 user + 1 admin'."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Admin dashboard, Quality signals (quotes)",
+   "what_happened": "The quote panel shows only 'Unverified N, 0 accepted by users'. It has no count of rejected or undecided quotes. undergrad said they rejected about 10 of 11, phd rejected all 14, clinician rejected 1 and left 13, nonnative tried to reject many and said the counter never changed. The dashboard cannot confirm any of this. 4105 shows 25 unverified and '0 accepted' with no way to see that none were handled.",
+   "expected": "Unverified quotes split into accepted, rejected and still undecided, so the admin can see whether users handle flagged quotes.",
+   "evidence": "docs/qa/admin/06-admin-4101-quality.jpg, 22-admin-4103-quality.jpg, 32-admin-4104-quality.jpg, 42-admin-4105-quality.jpg",
+   "suggested_fix": "Show 'Unverified 14: 0 accepted, 14 rejected, 0 undecided'. Add the same split in the per-account view as counts only."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Admin dashboard, Steps marked stale by an upstream edit (http://localhost:4107)",
+   "what_happened": "chaos said they edited a synonym list on an approved topic and that this 'reopened step 2'. Every row in 'Steps marked stale by an upstream edit (30 days)' shows 0x on all servers, including 4107. The dashboard has nothing that records that an approved step was reopened. It may be right that nothing downstream existed yet, but the admin cannot tell.",
+   "expected": "Reopening an approved step shows up somewhere as a count, or the panel explains what it counts.",
+   "evidence": "docs/qa/admin/63-admin-4107-quality.jpg",
+   "suggested_fix": "Add a 'Steps reopened by the user' count, or a one-line explanation under the panel title of what makes a step 'stale'."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Admin dashboard, AI usage on http://localhost:4105",
+   "what_happened": "nonnative ranked once and opened the synthesis once, but 4105 shows ranking 29 calls and synthesis 6 calls. Servers with a similar paper count show ranking 15 to 16 (4101 with 115 papers, 4104 with 96) and synthesis 3 to 5. The 'Background jobs' table shows 1 run of each. The dashboard does not explain the extra calls (a re-run, a double trigger or bigger batches).",
+   "expected": "Call counts the admin can reconcile with runs and papers.",
+   "evidence": "docs/qa/admin/43-admin-4105-cost.jpg, docs/qa/admin/06-admin-4101-quality.jpg",
+   "suggested_fix": "Show calls per job run. Show retries and re-runs separately so extra calls can be explained."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Admin dashboard, stat tiles row",
+   "what_happened": "At 1366 px width the tile subtitles are cut off with an ellipsis: 'Users: 2 active today \u00b7 2 this we...' and 'Jobs now: 0 queued \u00b7 0 paused \u00b7 0 ...'. The cut part of 'Jobs now' is the 'stuck' count, which matters.",
+   "expected": "Full text, or text that wraps.",
+   "evidence": "docs/qa/admin/03-admin-4101-mid.jpg (tile row at the top of docs/qa/admin/10-admin-4102-top.jpg)",
+   "suggested_fix": "Let the tile subtitle wrap to two lines, or shorten it ('2 today \u00b7 2 this week')."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Admin dashboard, Models panel and Cost by model",
+   "what_happened": "The header says 'Mock mode'. The Models panel says 'mock \u00b7 mock \u00b7 mock', but 'Cost by model' lists 'grok-4.3' and 'grok-4.20-0309-reasoning' with call counts, which reads as if real models answered. The 'Models' panel says that no paid calls were made. 'Cost by step' and 'Cost by model' rows read '$0.000 \u00b7 1 calls' (grammar). The prompt version column reads 'ranking vv1' and 'synthesis vv3' (double v).",
+   "expected": "Mock calls labelled as mock in the cost tables. 'vN' once, '1 call'.",
+   "evidence": "docs/qa/admin/04-admin-4101-mid.jpg, docs/qa/admin/80-models.jpg",
+   "suggested_fix": "Show 'grok-4.3 (mock)' in mock mode. Fix the 'v' prefix and the pluralisation."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Admin dashboard, Accounts table and Audit log (privacy)",
+   "what_happened": "Privacy holds for ideas, papers, notes and keys: nothing of that appears and the URL stays /admin. Emails are shown in full in the Accounts table, and in the audit log as the actor ('by mai.undergrad.qa@example.com'). The same audit row masks the address in its 'email: m\u2022\u2022\u2022@example.com' field, so the masking is pointless.",
+   "expected": "The same treatment for emails everywhere on the page, and a short statement of what the page does show.",
+   "evidence": "docs/qa/admin/05-admin-4101-bottom.jpg, docs/qa/admin/75-bottom-4102-after.jpg",
+   "suggested_fix": "Either mask emails in the audit log actor, or drop the masked 'email:' field. Say 'Counts only' with 'account emails are shown for support' near Accounts."
+  },
+  {
+   "severity": "major",
+   "category": "clarity",
+   "page": "Project page while AI is off (http://localhost:4102/s/prj_acb566aca05548da?node=idea)",
+   "what_happened": "A new user on a server with AI off sees a calm amber banner (good) saying 'AI is paused by the administrator. Your work is saved.' When they click 'Sharpen my idea' the panel shows a red 'That step failed' box with the same paused text and a 'Try again' button. The bottom of the panel still shows the spinner 'Preparing the first question...', and a greyed 'Waiting for the next question...' answer box. Step 3 and up cannot be opened. The browser logs a 503 for scoping/start. Trying again just gives the same result, so the user has nothing to do and no sign of when it will work. After the admin turned AI back on, the panel did not recover on its own: I reloaded the page and then the first question appeared.",
+   "expected": "A paused state, not a failure. No spinner, no red error, no useless 'Try again' (or one that explains). Recovery without reload.",
+   "evidence": "docs/qa/admin-check-user/04-sharpen-while-paused.jpg, docs/qa/admin-check-user/05-try-again-paused.jpg, docs/qa/admin-check-user/07-after-ai-on.jpg",
+   "suggested_fix": "Replace 'That step failed' with a neutral 'Paused by the administrator' card. Remove the spinner and the 'Try again' button, or make 'Try again' check the state first. Poll the pause state so the step continues by itself when AI comes back."
+  },
+  {
+   "severity": "polish",
+   "category": "copy",
+   "page": "Project page while AI is off",
+   "what_happened": "The paused banner says 'You can still read, edit and approve, and searches still run'. For a project at step 2 there is nothing the user can read, edit or approve, so the sentence promises more than the page offers.",
+   "expected": "A message that matches what is possible at that step, for example 'Your idea is saved. Come back when AI is back on.'",
+   "evidence": "docs/qa/admin-check-user/03-after-start.jpg, docs/qa/admin-check-user/06-step3-paused.jpg",
+   "suggested_fix": "Use step-specific text, or tell the user which steps are blocked."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Admin dashboard, needs-attention verdict while AI is off",
+   "what_happened": "While AI was off the top of the page changed correctly to an amber 'Needs your attention: AI is switched off', with a bright 'Turn AI back on' button. That works. The dashboard did not show how many users were blocked, and the blocked attempts appear only as '2 paused' in a small card far down the page. The stuck user is also invisible in 'Where people stop' (it needs 7 days of inactivity).",
+   "expected": "The attention panel says who is affected, for example 'AI off: 1 user blocked in the last hour'.",
+   "evidence": "docs/qa/admin/71-ai-off-state.jpg, docs/qa/admin/72-dash-while-off.jpg",
+   "suggested_fix": "Add a count of blocked attempts and affected users under 'Needs your attention' while AI is off."
+  },
+  {
+   "severity": "polish",
+   "category": "bug",
+   "page": "Admin dashboard, refresh",
+   "what_happened": "On reload, and on the 10-second refresh, some values briefly show '--' ('AI for everyone', 'AI spend'). The values come back a moment later.",
+   "expected": "Keep the old value until the new one arrives.",
+   "evidence": "docs/qa/admin/80-models.jpg (look output shows 'AI for everyone: --'), 76-top-4102-final.jpg shows the settled state",
+   "suggested_fix": "Do not blank tiles during a refresh. Show a skeleton on first load only."
+  }
+ ],
+ "three_second_test": [
+  {
+   "page": "Login (/login on each server)",
+   "understood_in_3s": true,
+   "note": "Plain 'Log in to continue your review'. I had no hint where an admin finds the dashboard. The Account and settings menu has an 'Admin dashboard' link, which I found with one click."
+  },
+  {
+   "page": "Admin dashboard top, http://localhost:4101 and the 5 other single-user servers",
+   "understood_in_3s": true,
+   "note": "'Is Athena healthy?' with a green 'Everything is healthy. Mock mode: nothing is spent.' answers the question at once. Six stat tiles follow. Some tile subtitles are cut off."
+  },
+  {
+   "page": "Admin dashboard top, http://localhost:4107 (two users)",
+   "understood_in_3s": true,
+   "note": "Same verdict. Users 3, Projects 2 (1 finished), AI calls 47. The funnel shows Idea 2, then 1 at every later step, so the unfinished second project is easy to see."
+  },
+  {
+   "page": "AI & API key panel",
+   "understood_in_3s": true,
+   "note": "AI on/off, key status showing only the last 4 characters, spend bar and limit are laid out side by side and clear. The 'Turn AI off for everyone?' dialog explains what happens to users."
+  },
+  {
+   "page": "AI off state of the dashboard",
+   "understood_in_3s": true,
+   "note": "The verdict turns amber with 'Needs your attention: AI is switched off', the AI card says Off and the main button is 'Turn AI back on'."
+  },
+  {
+   "page": "Step 1 (idea) for the new user",
+   "understood_in_3s": true,
+   "note": "One text box, three examples and a start button. The text 'Write at least a sentence to start' explains the disabled button."
+  },
+  {
+   "page": "Project canvas with AI paused (step 1 and the scoping panel)",
+   "understood_in_3s": false,
+   "note": "The banner is clear, but the scoping panel shows 'That step failed' in red, a spinner saying 'Preparing the first question...' and a disabled box at once. I could not tell if it was working, failed or waiting."
+  }
+ ],
+ "categories_and_colours": "The admin chart 'Study types found (AI-derived from abstracts)' uses the same shape and colour pairs as the user app: Trial blue circle, Cohort / case-control orange square, Cross-sectional green triangle, Qualitative / mixed methods amber diamond, Systematic / scoping review pink star, Other design green cross, Not reported grey ring. Shape plus text label means colour is never the only cue. The segments sum to the paper counts users reported on each server: 115 (4101), 127 (4102), 111 (4103), 96 (4104), 118 (4105), 44 (4106), 73 (4107). Two things worth noting: 'Other design' is the largest or second largest bucket on 4101, 4102, 4103 and 4105, so the main category tells the admin little. Two greens (triangle for cross-sectional, cross for other design) look similar at a glance. Long labels are cut off ('Qualitative / mixed met...', 'Systematic / scoping r...'). In 'Quality signals', blue circle means verified and red triangle means unverified. 'What appraisals were based on' uses blue for full text and amber for abstract only, so blue and amber carry different meanings in two adjacent panels; the labels keep this readable. I did not use the paper table or map for study and article type filtering; that was outside the admin task.",
+ "validity_assessment": "Counts match what users said on all 7 servers, with the exceptions below. Users and projects: 2 on each of 4101 to 4106 (admin plus one user), 3 on 4107 (admin, chaos and the second account someone.else@example.org). Projects: 1 on each of 4101 to 4106, all 'Finished'. 4107 has 2 projects: 1 finished and 1 at 'Furthest step 1 of 9' (someone.else), AI calls 0, which matches 'idea only, nothing run'. Funnel: 1 project at every step on the single-project servers; on 4107 Idea shows 2 and all later steps 1. Appraised papers (full text plus abstract only): 10 (4101), 11 (4102), 15 (4103), 14 (4104), 14 (4105), 13 (4106), 10 (4107), matching what each user said, except that 4101 said 4 full text and the dashboard shows 4 full text and 6 abstract only, which also matches. Quotes: the verified and unverified counts match the users. 4102 shows 117 and 12, 4103 shows 139 and 14, 4104 shows 14 unverified (1 rejected plus 13 left), 4101 shows 11 (about 10 rejected plus 1 left). Summary batches: 12 calls on 4101 (12/12 batches), 10 on 4104 (10 of 10), 4 on 4106 (4 batches). Scoping calls fit the 2 to 4 questions answered. Server errors 0% on every server. This fits the users' reports of no failed network requests, since 4xx responses are not counted as errors. Mismatches: (1) the AI call total after the pause test (tile 56, breakdowns 58, account row 4), see the first finding; (2) the dashboard shows no client-side errors and stays green although every user hit 'removeChild'; (3) 4105 has ranking 29 calls and synthesis 6 calls against 15 to 19 and 3 to 5 elsewhere; (4) rejections and undecided quotes are not shown, and 0x stale on 4107 cannot be checked against the reopened step 2. AI off/on: when off, the dashboard went amber, the user saw 'AI is paused by the administrator. Your work is saved.' (plain, not faked, not mock text), the server answered 503 and nothing was spent. The headline AI call tile stayed at 54 while off. After turning AI on again, the user continued after a page reload (56 on the tile). Privacy: no ideas, papers, notes, passwords or keys are shown. The key is shown only as '\u2022\u2022\u2022\u2022RWBq' with 'From the server environment'. Emails appear in the Accounts table and audit log, never in a URL (the URL stays /admin). I did not paste, test, replace or clear a key, and did not change the spend limit.",
+ "would_have_quit_at": "Did not quit. The nearest thing to a blocker was the new user on the paused server: they cannot get past scoping and are shown a red 'That step failed' with a useless 'Try again' and no sign of when it will work.",
+ "activity": "Logged into each server (4101 to 4107) as admin@example.org with the normal login page and opened Account and settings, then Admin dashboard. Screenshots are in docs/qa/admin/. No console errors or failed requests on any admin page. Per server (tiles, funnel, quality, accounts and audit checked against the user's account): 4101, Users 2 (admin plus mai.undergrad.qa), Projects 1 finished, AI calls 47, spend $0.00, funnel 1 at each of the 9 steps, appraisal 4 full text + 6 abstract only, quotes 94 verified, 11 unverified (0 accepted), study types sum 115. Matches the user (115 papers, 12 summary calls, 10 appraised, 11 flagged), though rejections are not visible; the client removeChild errors do not appear. 4102, Users 2, Projects 1 finished, AI calls 54, quotes 117 verified, 12 unverified, appraisal 5 + 6 = 11, study types sum 127. Matches daniel.masters.qa (127 papers, 11 appraised, 117 quotes and 12 not found). The 8-character password rejection is not shown as a failed login, which is expected. 4103, Users 2, Projects 1 finished, AI calls 53, quotes 139 and 14 unverified, appraisal 4 + 11 = 15, study types sum 111. Matches aisha.phd.qa. 4104, Users 2, Projects 1 finished, AI calls 50, quotes 140 and 14 unverified, appraisal 6 + 8 = 14, study types sum 96, summaries 10 calls. Matches okafor.clinician (96 papers, 14 appraised, 10 batches). 4105, Users 2, Projects 1 finished, AI calls 69 (ranking 29, synthesis 6, unexplained), quotes 132 and 25 unverified, appraisal 3 + 11 = 14, study types sum 118. Matches somchai.pharm24 on papers and appraisal; the extra ranking and synthesis calls are unexplained. 4106, Users 2, Projects 1 finished, AI calls 42, quotes 118 and 13 unverified, appraisal 6 + 7 = 13, study types sum 44, summaries 4 calls. Matches ruth.lecturer.qa1 (44 papers, 4 batches, 13 appraised). 4107, Users 3 (admin, leo.chaos, someone.else), Projects 2 (1 finished, 1 'Furthest step 1 of 9'), AI calls 47, funnel Idea 2 then 1, quotes 101 and 11 unverified, appraisal 2 + 8 = 10, study types sum 73. Matches leo.chaos (73 papers) and someone.else (idea only, 0 AI calls). The stale-step counts are 0x on all servers, which could not be checked against chaos reopening step 2. All 7 servers said 'Everything is healthy'. AI on/off test on 4102: turned AI off through the confirmation dialog (amber verdict, 'Changed just now by admin@example.org'). In a second browser (admin-check-user) I created admin.check.user@example.com and a project (prj_acb566aca05548da, 'Does yoga reduce lower back pain in office workers?'). The user saw the paused banner, then 'That step failed' with 'Try again' (twice), got HTTP 503 on scoping/start, nothing was faked, steps 3 and up were locked, and the dashboard AI calls stayed at 54. I turned AI back on (green, 'Everything is healthy'). The user reloaded, got the first question, answered one, and the tile went to 56 while 'Cost by step' and the per-day chart showed 58 and the account row showed 4 (the 2 blocked attempts counted in the breakdowns). The audit log recorded 'ai disabled' and 'ai enabled' by admin. No key was pasted, tested, replaced or cleared and the spend limit was not changed. Both browsers are stopped. After finishing I read docs/ux-intent.md only for the Admin row ('Is Athena healthy, and what needs my attention?' read the verdict, act on the first reason) and the colour rules: the dashboard follows that intent.",
+ "narrative": "I started on the 4101 landing page, logged in and looked for the dashboard. The Account and settings menu has an 'Admin dashboard' link, so that took one click. The top of the dashboard answers in about three seconds: 'Is Athena healthy?' with a green verdict and six tiles. I then went through each server and checked the numbers against what each user told me. They matched closely: user and project counts, the funnel, appraised papers, verified and unverified quotes, and study-type totals that add up to the paper counts each user reported. The places where I could not confirm a claim were rejected quotes, the reopened step on 4107, and extra ranking and synthesis calls on 4105. What bothered me most was the green 'Everything is healthy' on every server even though every user had hit the same browser error, because the dashboard cannot see browser errors. For the pause test on 4102 I turned AI off through a clear dialog and the top of the page turned amber. In the second browser the new user saw a calm banner, but the scoping panel then showed a red 'That step failed', a spinner and a useless 'Try again', and nothing moved on. The headline call count stayed at 54, which was good, but after I turned AI back on the tile said 56 while the charts and tables said 58 and the user's row said 4. Two paused attempts are counted in some places and not in others. The user needed a reload to continue. Privacy looked fine: counts only, a masked key, no ideas or papers, no emails in URLs, though full emails show in Accounts and the audit log actor."
+}

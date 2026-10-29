@@ -1,0 +1,256 @@
+{
+ "persona": "undergrad",
+ "completed": true,
+ "stage_reached": 9,
+ "findings": [
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 3 Search builder (query for topic 'Sleep')",
+   "what_happened": "The PubMed query for my 'Sleep' topic is 'telemedicine OR sleep' AND 'Southeast Asia'; the OpenAlex one is 'telemedicine/telehealth' AND 'sleep' AND 'Southeast Asia'. Nothing about university students, grades or the UK appears. The page is titled 'Check the searches before they run', so I am invited to approve searches that plainly do not match what I typed.",
+   "expected": "Search blocks should reflect my answers (students, grades, UK). In demo mode, a note on this very step should say the searches are canned, not just a banner at the top.",
+   "evidence": "docs/qa/undergrad/10-searches.jpg",
+   "suggested_fix": "In demo mode, label the query box 'Example search (demo): not built from your idea'. In real mode, assert that every group maps to a kept topic or scoping answer and warn if one does not."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 9 Research question and Export report",
+   "what_happens": "",
+   "what_happened": "All three candidate questions are about telemedicine in rural Southeast Asia ('What sleep factors shape telemedicine implementation in rural Southeast Asia?'). Candidate 2 reads 'What grades factors shape...'. The question has a '(mock)' prefix baked in. It is carried unchanged into the export header and report, so the report I would hand my tutor has a nonsense question and 'Population: Patients and providers', which contradicts my 'university students'.",
+   "expected": "The chosen question should be about my topic, or the exported file should be clearly stamped as a demo output that must not be handed in.",
+   "evidence": "docs/qa/undergrad/22-step9.jpg, docs/qa/undergrad/25-preview.jpg",
+   "suggested_fix": "In demo mode, stamp the exported report with a visible 'DEMO: sample data, not a real review' banner in the first lines. Ideally let demo mode echo the user's own words."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Export report preview",
+   "what_happened": "The report intro says 'Every paper below comes from a database API record... AI-extracted claims carry verbatim quotes that were checked against the retrieved text.' It never says the papers are recorded samples unrelated to my topic, and it does not say some quotes were rejected or are unverified. The page-level demo banner does not travel with the downloaded file. It also leaks an internal id: 'Gap: ... [Lotfi et al. 2026, c_fda84bbbedb940fe]'.",
+   "expected": "A downloaded file is read on its own. It should carry the demo disclosure and human-readable citations only.",
+   "evidence": "docs/qa/undergrad/25b-preview.jpg",
+   "suggested_fix": "Add a demo-mode line to the report header and replace internal claim ids with the paper reference."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 6 Ranking",
+   "what_happened": "A paper I opened under Sleep (rank 2, 66/100, 'Enablers and Barriers of Telemedicine in Indonesia') shows 'Topic fit 1/5: 0 topic terms appear in title/abstract', yet it is auto-selected for a closer read. Rank 1 is a type 2 diabetes app trial. High design/recency scores outweigh zero topical relevance, and nothing warns that none of the selected papers mention sleep.",
+   "expected": "A paper with no topic match should not be pre-selected, or the page should warn 'none of the selected papers mention your topic'.",
+   "evidence": "docs/qa/undergrad/15d-sleep-rank.jpg",
+   "suggested_fix": "Gate selection on a minimum topic-fit score, and show a warning banner when the selected set has near-zero topic overlap."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 7 Appraisal",
+   "what_happened": "Quotes labelled 'verified' do not answer the question they sit under. For example 'Clearly focused question: AI Unclear' is backed by the paper's title and first sentence, marked 'verified'. 'verified' only means the words exist in the text, not that they support the answer. A novice will read the green tick as 'the claim is true'.",
+   "expected": "Make clear that the tick means 'quote found in the paper', not 'claim confirmed'. Show quotes relevant to each question.",
+   "evidence": "docs/qa/undergrad/18-step7.jpg",
+   "suggested_fix": "Rename the badge 'quote found in text' and add a line 'Found means the words are in the paper, not that they prove the answer.'"
+  },
+  {
+   "severity": "major",
+   "category": "bug",
+   "page": "Step 7 Appraisal (counters and reject)",
+   "what_happened": "After I rejected unverified quotes, the panel kept saying '11 unverified quotes to decide' and 'Decide every quote the check could not find (11 left)' and never ticked its checklist, while the canvas card dropped from 11 to 10 to 2 to 1. The rejected quote simply vanishes with no confirmation or undo. Paper 7 had two unverified quotes. 'Summarise the evidence' was allowed even though the card still said one unresolved. The paper list still labels papers '1 unverified' after rejecting, so I could not tell what was done.",
+   "expected": "Counters update immediately and agree everywhere. A rejected quote stays visible as 'Rejected' with Undo. Moving on warns if quotes remain undecided.",
+   "evidence": "docs/qa/undergrad/18d-rejected.jpg, docs/qa/undergrad/20-paper10.jpg, docs/qa/undergrad/20d.jpg",
+   "suggested_fix": "Drive all counters from one store, show rejected state in place with Undo, and block or confirm 'Summarise' when undecided quotes remain."
+  },
+  {
+   "severity": "major",
+   "category": "bug",
+   "page": "Step 6 to 7 transition (Appraise selected papers)",
+   "what_happened": "After clicking 'Appraise selected papers' the console reported a page error ('Failed to execute removeChild on Node'). The page kept showing the Step 6 content and the primary button vanished while the header said 'Now: step 7/9'. There was no progress or 'working' message. I waited ~10 s then had to reload and go back to the overview to find step 7. The same error appeared when moving from step 4 to 5, though that page recovered.",
+   "expected": "The page moves to step 7 or shows 'appraising, safe to close' progress, with no console error.",
+   "evidence": "docs/qa/undergrad/16-appraise.jpg, docs/qa/undergrad/16b-appraise-wait.jpg",
+   "suggested_fix": "Fix the 3D chart teardown (removeChild on an already-removed canvas). On run, show the running state with a spinner and auto-navigate to step 7 when done."
+  },
+  {
+   "severity": "major",
+   "category": "clarity",
+   "page": "Step 9 Research question",
+   "what_happened": "The page says 'Pick one; you can edit it' and 'then choose one; you can edit it after', but after 'Choose this question' I found no edit control. A student whose candidate is nonsense (all three were) has no visible way to fix it.",
+   "expected": "An 'Edit this question' field after choosing, or a way to write my own.",
+   "evidence": "docs/qa/undergrad/23-chosen.jpg",
+   "suggested_fix": "Add an inline 'Edit question' button on the chosen card, or remove the promise."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Step 8 Synthesis",
+   "what_happened": "The 'Known' statement is just '(mock) 6 key findings were extracted for this topic.' and the conflict is '(mock) Placeholder contradiction... generated to demo highlighting', while its quote chips (e.g. a quote about technologies optimizing workflows) do not contradict anything. It is labelled mock, but it looks like a real 'conflict' card with green verified chips. Context and setting silently disappears from the topic tabs.",
+   "expected": "A synthesis statement says something specific, and a conflict shows two opposing quotes. Dropped topics should be explained.",
+   "evidence": "docs/qa/undergrad/21-step8.jpg, docs/qa/undergrad/21b-chip.jpg",
+   "suggested_fix": "In demo mode make placeholder conflicts visibly distinct (e.g. 'sample'). In real mode require each conflict to quote one claim per side. Say why a topic has no statements."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 6 Ranking",
+   "what_happened": "The topic 'Context and setting' shows '0 selected' and, when clicked, 'Showing all 0 ... No papers match these filters. Reset filters' although I set no filters. The checklist still says 'Keep 3-5 papers per topic', which is impossible here. I did not know whether I had broken something.",
+   "expected": "A message such as 'No papers were matched to this topic. Remove the topic or add a search' with a link back to step 2 or 3.",
+   "evidence": "docs/qa/undergrad/15b-topic-rank.jpg",
+   "suggested_fix": "Special-case an empty topic with an explanation and actions, and warn before appraisal if a topic has no papers."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 7 Appraisal",
+   "what_happened": "The canvas card shows '10 papers' though 12 papers were selected in step 6, with no explanation. The card badge '\u2713 94 \u2715 11' has no label (the list view labels it '94 verified'), and I did not know what the numbers counted.",
+   "expected": "Explain why 2 papers dropped out, and label the badge ('94 quotes found, 11 not found').",
+   "evidence": "docs/qa/undergrad/17b-overview.jpg",
+   "suggested_fix": "Add text labels to the badge and a 'why 10 of 12' note."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 5 Summary table and Step 6 Ranking",
+   "what_happened": "Choosing 'Trial' and 'Review article' filters together gives 'Showing 0 of 115: trial; review article', since groups combine with AND. The chip counts (5 and 14) suggest I would see 19.",
+   "expected": "Say that different groups narrow each other (study type AND article type). Show live counts or disable chips that would give zero.",
+   "evidence": "docs/qa/undergrad/14c-trial-review.jpg",
+   "suggested_fix": "Add a hint under the chips ('Choosing from both rows shows papers matching both') and update chip counts to match the other filter."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Retrieval, Summary table, Ranking (categories and colours)",
+   "what_happened": "The study-type colours, shapes and legend are clear, clicking a legend item isolates it, and the 'Showing X of Y' wording is honest. But on the retrieval page I could not filter article type at all (only a bar chart), and the 'Colour by' menu has no Article type, so the article-type view lives only in the table. In the first chart the legend label 'Systematic / scoping revi...' is cut off. The 3D chart is small, the year axis shows only '2026' and 'Height has no meaning yet', so it adds little for a first-time user.",
+   "expected": "I can find papers by article type and study type at every list. Axis ticks and labels are readable.",
+   "evidence": "docs/qa/undergrad/12-corpus.jpg, docs/qa/undergrad/12b-corpus-chart.jpg, docs/qa/undergrad/14-table.jpg",
+   "suggested_fix": "Show the article-type chips on the retrieval page as well, add year ticks, widen the legend label."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Sign up",
+   "what_happened": "The password hint ('At least 10 characters, not containing the name part of your email.') is drawn on top of the bottom of the password input box, so the box looks cut and the hint overlaps its border. The helper also reported the Create account button as 'looks disabled' while it was an enabled blue button.",
+   "expected": "The hint sits below the field without overlap.",
+   "evidence": "docs/qa/undergrad/02-signup.jpg",
+   "suggested_fix": "Give the hint its own line below the input (margin or grid row)."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Steps 1 and 2 (idea and scoping)",
+   "what_happened": "After I typed my idea on /s/new, the canvas shows a card 'Tell us what you want to research' with 'Open step 1' and 'Sharpen my idea' (two buttons for the same thing), then step 1 asks for the same idea again. The scoping questions then double up: one answer fills both 'Who' and 'Where', and 'years' and 'kinds of studies' got the same text. The counter says '3 of 5 questions' after four answers, and the panel says '3 questions' while 'What we know so far' says '6 of 6 answered'.",
+   "expected": "One obvious next action, and answers mapped to the right fields. Counters that agree.",
+   "evidence": "docs/qa/undergrad/04-questions.jpg, docs/qa/undergrad/05-step1.jpg, docs/qa/undergrad/06c-q4.jpg",
+   "suggested_fix": "Skip step 1 if the idea was already entered, or prefill it with a single 'Continue'. Ask one thing per question."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Steps 2 to 4 side panel",
+   "what_happened": "After approving, the panel stays on the previous node (e.g. 'Viewing step 2 of 9 - Edit this search topic' while the strip says step 3) and shows a 'Go to step 2: Scoping' or 'Go to step 4: Retrieval' button; I had to click through before I saw the real next step. The word 'Query' and 'PubMed - OpenAlex -' show dashes for four of the queries after retrieval has finished.",
+   "expected": "After I approve, the panel moves to the next step automatically. Dashes should say 'not counted'.",
+   "evidence": "docs/qa/undergrad/09-after-use-topics.jpg, docs/qa/undergrad/11-retrieval.jpg",
+   "suggested_fix": "Auto-open the next step panel on approval and replace dashes with 'not counted'."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Export",
+   "what_happened": "The report is a Markdown file described as 'opens in Word, Google Docs or any text editor'. A first-year will open it in Word and see raw # symbols. After clicking Download there was no visible confirmation. The preview shows only 200 of 664 lines in a small scroll box, and the appraisal and synthesis sections cannot be seen before downloading.",
+   "expected": "A .docx or PDF option, or honest wording about what Word will show, and a 'Downloaded' confirmation.",
+   "evidence": "docs/qa/undergrad/25-preview.jpg, docs/qa/undergrad/26-download.jpg",
+   "suggested_fix": "Offer Word or PDF, change the copy to 'plain text with simple formatting', and show a toast on download."
+  },
+  {
+   "severity": "polish",
+   "category": "clarity",
+   "page": "All step panels",
+   "what_happened": "The 'What happens in this step - 8 s' row is cryptic: I read '8 s' as 8 seconds of what. Jargon appears undefined at first sight: '0 MeSH' on topic cards, 'PICo' and 'PECO' on candidates, 'index term', 'Controlled vocabulary'. MeSH is explained only inside the topic editor.",
+   "expected": "'8 s' becomes 'Watch a 8-second preview'. Jargon gets a one-line plain explanation or a tooltip where it first appears.",
+   "evidence": "docs/qa/undergrad/05-step1.jpg, docs/qa/undergrad/08-after-keep.jpg, docs/qa/undergrad/22-step9.jpg",
+   "suggested_fix": "Rename the row, and add tooltips for MeSH, PICo and PECO."
+  },
+  {
+   "severity": "polish",
+   "category": "clarity",
+   "page": "Table page header",
+   "what_happened": "On the table pages, the left link 'Overview' did not seem to take me anywhere (the URL stayed on /table after I clicked it); I got to the overview only by opening the project address directly. The checklist box sits to the right of a large empty gap under the title on desktop.",
+   "expected": "Overview opens the canvas for the review.",
+   "evidence": "docs/qa/undergrad/17-overview.jpg, docs/qa/undergrad/14-table.jpg",
+   "suggested_fix": "Check the Overview link target on the table route, and rebalance the header layout."
+  }
+ ],
+ "three_second_test": [
+  {
+   "page": "Landing",
+   "understood_in_3s": true,
+   "note": "Understood: a tool that turns a rough idea into a research question backed by real papers. First: click 'Start a review'. Next: sign up. The headline, 9-step and 3-stage cards and the 'what Athena will not do' box are reassuring. It does not say up front that this is a demo, and the auto-playing demo shows a health-systems example."
+  },
+  {
+   "page": "Sign up",
+   "understood_in_3s": true,
+   "note": "Create an account with name, email and password, then press Create account. Standard, but the password hint overlaps the box."
+  },
+  {
+   "page": "New review (step 1)",
+   "understood_in_3s": true,
+   "note": "Type my idea in a box, click 'Start my review'. The example chips and 'Next: up to five short questions' make it feel safe."
+  },
+  {
+   "page": "Review canvas (first view)",
+   "understood_in_3s": false,
+   "note": "I saw a dark dotted canvas with one card and a demo banner. I guessed it showed my idea and that I should click 'Open step 1', but 'Sharpen my idea' on the card did the same thing and I was unsure which to pick. The step strip with numbers 1-9 helped."
+  },
+  {
+   "page": "Step 2 scoping chat",
+   "understood_in_3s": true,
+   "note": "Answer the question in the box and click Send answer. 'Skip the rest' is visible. The side summary ('What we know so far') is clear."
+  },
+  {
+   "page": "Step 2 topics",
+   "understood_in_3s": true,
+   "note": "Keep or delete the suggested topics, then press 'Keep 4 suggested topics'. The topic names ('Measurement and outcomes') felt vague, though."
+  },
+  {
+   "page": "Step 3 Search builder",
+   "understood_in_3s": false,
+   "note": "I understood I should check the searches and press 'Run all 8 searches', but the groups (telemedicine, Southeast Asia) made no sense for sleep and grades, and AND/any-of logic is hard for a beginner. I did not know whether to edit or trust it."
+  },
+  {
+   "page": "Step 4 Retrieval",
+   "understood_in_3s": true,
+   "note": "See how many papers were found (115, 50 duplicates removed) and press 'Summarise the papers'. The 'What kinds of papers you are getting' bars and the legend are easy to read."
+  },
+  {
+   "page": "Step 5 Summary table",
+   "understood_in_3s": true,
+   "note": "A table of papers with filter chips for study type and article type; the 'Do these 3 things' checklist told me what to do; 'Rank the papers' is the next step. The chart colours and shapes are readable from the legend."
+  },
+  {
+   "page": "Step 6 Ranking",
+   "understood_in_3s": true,
+   "note": "Pick a topic, check the selected papers, press 'Appraise selected papers'. The 'How papers are scored' box is very reassuring, though one topic had zero papers and I was not told why."
+  },
+  {
+   "page": "Step 7 Appraisal",
+   "understood_in_3s": true,
+   "note": "Go paper by paper, decide on quotes marked unverified, then 'Summarise the evidence'. The checklist is clear, but the stale counters ('11 left') were confusing."
+  },
+  {
+   "page": "Step 8 Synthesis",
+   "understood_in_3s": true,
+   "note": "Read known, contested and unknown for each topic, then press 'Suggest research questions'. The content itself is placeholder text."
+  },
+  {
+   "page": "Step 9 Research question",
+   "understood_in_3s": true,
+   "note": "Compare three candidates and click 'Choose this question', then 'Finish and export'. Gap, feasibility and weakness per card are good, and the novelty caveat is there, but the question text itself is nonsense for my topic."
+  },
+  {
+   "page": "Export",
+   "understood_in_3s": true,
+   "note": "'Your literature review is ready': pick a format and download. Three format cards and the preview make it clear."
+  }
+ ],
+ "categories_and_colours": "I could find and filter by both study type and article type, but in different places. Step 5 and 6 tables have two rows of filter chips with counts: study type (Trial, Cohort / case-control, Cross-sectional, Qualitative / mixed methods, Systematic / scoping review, Other design, Not reported) and article type (Journal article, Review article, Preprint, Editorial / letter / comment). On the retrieval page there are bar charts for both, but I could only filter by study type via the chart legend; the 'Colour by' menu offers Study type, Topic, Source database (and Ranking score on the ranking step), not Article type. The study-type legend uses colour plus shape: blue circle = Trial, orange square = Cohort / case-control, green triangle = Cross-sectional, amber diamond = Qualitative / mixed methods, pink star = Systematic / scoping review, green cross = Other design, grey ring = Not reported. I understood them without being told, because each legend entry has a label and a shape, and clicking one showed only that category ('Showing only one category (5 papers). Click it again to show all.'). Counts add up (retrieval: 5+2+9+99 = 115; table: 5+2+18+20+9+42+19 = 115; article types 85+14+6+10 = 115). The counts change between retrieval (99 not reported) and the table (19 not reported) because the AI reads the abstracts, which the page says. Misleading bits: 'Other design' (cross) and 'Cross-sectional' (triangle) are both green and easy to confuse; the 3D chart is small, depth means topic and height means nothing; combining a study-type chip with an article-type chip gives 0 results without explanation; the legend label 'Systematic / scoping revi...' is truncated on the retrieval page.",
+ "validity_assessment": "The workflow design is trustworthy: demo mode is announced in a dismissible banner, AI text is marked '(mock)', every quote is checked word for word, unverified quotes are flagged red with the closest passage shown, rankings show a transparent score breakdown, abstract-only versus full text is stated per paper, and the novelty check carries the caveat that finding none does not prove novelty. Weaknesses: (1) in demo mode the searches, the 115 papers, the synthesis and all three candidate questions are about telemedicine in Southeast Asia, so the final 'review' is unusable for sleep and grades, and the '(mock)' prefix stays in the exported question; (2) the exported report does not repeat the demo disclosure, and its header sentence 'Every paper below comes from a database API record... quotes were checked' reads as a real assurance; (3) 'verified' means the quote exists, not that it supports the answer; (4) papers with no topic match (Topic fit 1/5, 0 terms) are still pre-selected; (5) the synthesis conflict is an invented 'placeholder contradiction'. I did not see anything fabricated beyond the clearly labelled mock content, and the one deliberately altered quote was caught and flagged. For a real run I could trace statements to papers via the chip popovers (quote text, 'Open paper'), DOIs and PMIDs in the report.",
+ "would_have_quit_at": "Step 3 (Search builder), when the searches for my 'Sleep' topic were about telemedicine in Southeast Asia and I had no idea whether I should fix them. The demo banner kept me going. A real student would very likely stop at step 9 on seeing 'What sleep factors shape telemedicine implementation in rural Southeast Asia?', with no way to edit it, or at step 6 where papers with zero topic match were pre-selected.",
+ "activity": "Created one account (mai.undergrad.qa@example.com, name Mai) and one project, 'I'm interested in sleep and grades' (prj_5d910500288d4f6a). Answered 4 scoping questions, kept all 4 AI-suggested topics, counted one PubMed query (979 matches) and ran all 8 searches (165 results, 50 duplicates removed, 115 papers). Summarised 115 papers (12/12 batches), tried study- and article-type filters (including a 0-result combination), ranked and appraised 12 selected papers (10 appraised, 4 full text). Rejected about 10 unverified quotes (11 flagged) and left roughly one undecided, ran the synthesis (9 statements, 3 placeholder conflicts), chose candidate 1 of 3 research questions and reached the export page; opened the larger preview and clicked 'Download the report (Markdown)' (no visible confirmation, so I could not verify the file). Also viewed the List view and checked keyboard focus once. Errors seen: a console page error 'Failed to execute removeChild on Node' when summarising papers (step 4 to 5) and when starting appraisal (step 6 to 7); no failed network requests. About 115 helper commands used. Browser stopped at the end.",
+ "narrative": "I felt reassured on the landing page: plain headline, nine steps, and a clear list of what Athena will not do. Sign-up was easy, though the password hint sat on top of the box. I typed my vague idea, and the demo banner told me straight away that papers would be about telemedicine, which stopped me panicking later. Scoping questions were friendly and let me say I was not sure about years. The topics were vague ('Measurement and outcomes'), and at step 3 the searches talked about telemedicine and Southeast Asia, which made no sense to me, so I trusted the banner and pressed on. Retrieval was my favourite part: 165 results, 50 duplicates, 115 papers, and shapes plus labels I could understand. The table checklist told me exactly what to do. The ranking page's score breakdown felt honest, but it showed a paper with zero topic match being selected, and one topic had no papers with a confusing 'No papers match these filters' message. After I clicked 'Appraise selected papers' the page just sat there on step 6; I only found step 7 by reloading. In appraisal, the red flagged quote with its closest passage was a great feature, but counters kept saying 11 left after I rejected things, and green 'verified' ticks on irrelevant quotes confused me. The synthesis felt empty. The three questions were all about telemedicine, I could not edit mine, and the report I would show my tutor says '(mock)' in the question. I was proud of finishing but I could not hand it in."
+}
