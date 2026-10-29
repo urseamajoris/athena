@@ -88,8 +88,8 @@ export function SynthesisPanel() {
         <Checklist
           title="Do these things"
           items={[
-            { label: `Read each topic${conflicts ? `, and its ${conflicts} conflict${conflicts === 1 ? "" : "s"}` : ""}`, done: seen.includes("read-synthesis"), hint: "Use the topic tabs. Conflicts are where papers disagree." },
-            { label: "Fix any statement that says more than its quotes", done: edited || seen.includes("checked-statements"), hint: "Click a quote chip to see the exact words; edit the statement if needed." },
+            { label: `Read each topic${conflicts ? `, and the ${conflicts} place${conflicts === 1 ? "" : "s"} where papers disagree` : ""}`, done: seen.includes("read-synthesis"), hint: "Use the topic tabs. A scale icon marks a topic where papers disagree." },
+            { label: "Fix any statement that says more than its quotes", done: edited || seen.includes("checked-statements"), hint: "Click a quote under a statement to see the exact words; edit the statement if needed." },
             { label: "Then suggest research questions", done: states["8"] === "approved" },
           ]}
         />
@@ -109,12 +109,12 @@ export function SynthesisPanel() {
         <EmptyState title="No synthesis yet">It is built from the appraisal quotes found in the papers (or accepted by you).</EmptyState>
       ) : (
         <>
-        <p className="text-12 text-fg-1">Each chip under a statement is a quote from a paper (<span className="text-ok">✓ found word for word</span>, or accepted by you). Found means the words are in the paper, not that they prove the statement. Click a chip to read the quote.</p>
+        <p className="text-12 text-fg-1">Each small button under a statement is a quote from a paper (<span className="text-ok">✓ found word for word</span>, or accepted by you). Found means the words are in the paper, not that they prove the statement. Click one to read the quote.</p>
         <Tabs.Root defaultValue={topics[0].id} onValueChange={() => canvasStore.getState().markSeen(projectId, "read-synthesis")}>
           <Tabs.List aria-label="Topics" className="-mx-1 flex gap-1 overflow-x-auto border-b border-line px-1">
             {topics.map((t) => (
               <Tabs.Trigger key={t.id} value={t.id} className="min-h-11 shrink-0 border-b-2 border-transparent px-3 py-2 text-fg-1 data-[state=active]:border-fg-0 data-[state=active]:font-medium data-[state=active]:text-fg-0">
-                {t.name}{t.contradictions.length > 0 && <span className="ml-1 text-12 text-[var(--cat-7)]">· <Scale className="inline h-3 w-3 align-[-2px]" aria-hidden /> {t.contradictions.length} conflict{t.contradictions.length === 1 ? "" : "s"}</span>}
+                {t.name}{t.contradictions.length > 0 && <span className="ml-1 text-12 text-[var(--cat-7)]">· <Scale className="inline h-3 w-3 align-[-2px]" aria-hidden /> {t.contradictions.length} disagree{t.contradictions.length === 1 ? "ment" : "ments"}</span>}
               </Tabs.Trigger>
             ))}
           </Tabs.List>
