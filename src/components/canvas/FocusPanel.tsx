@@ -5,8 +5,8 @@ import { m } from "motion/react";
 import { api, projectPath } from "../api";
 import { CloseButton, Loading, cx } from "../ui";
 import { MoreMenu, type MenuItem } from "../overlays";
-import { canvasStore, useSession } from "../session/SessionContext";
-import { PanelFooterSlot, useJobMenu } from "../panels/common";
+import { SearchWritingStatus, canvasStore, useSession } from "../session/SessionContext";
+import { ActionButton, PanelFooterSlot, useJobMenu } from "../panels/common";
 import { KindIcon } from "./icons";
 import { focusWithRing, revealInPanel, usingKeyboard } from "./focus";
 import { useUnsavedCriteria } from "../panels/criteria-draft";
@@ -106,14 +106,24 @@ function useNodeMenu(node: GNode): MenuItem[] {
 
 /**
  * When this panel has no next action of its own (its step is done, or waiting on an earlier one), its footer
- * still offers the way forward: go to the step that needs the user now.
+ * still offers the way forward: go to the step that needs the user now. A panel of the current step (a second
+ * topic's searches in step 3, a kept topic in step 2) offers that step's action itself: it never says "Go to"
+ * the step the user is already on.
  */
-function WayForward({ node }: { node: GNode }) {
+function WayForward({ node, step }: { node: GNode; step: number | null }) {
   const { graph, input, states } = useSession();
   const f = frontierStage(states);
   const target = frontierNodeId(graph, states);
   if (target === node.id) return null;
   const action = stageAction(f, input);
+  if (f !== null && step === f) {
+    if (!action) return null;
+    return (
+      <div data-panel-footer-fallback className="flex flex-wrap items-center justify-end gap-2 px-4 py-3">
+        <ActionButton action={action} primary showReason />
+      </div>
+    );
+  }
   const title = f ? `step ${f}: ${STAGES[f - 1].title.toLowerCase()}` : "your report";
   return (
     <div data-panel-footer-fallback className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
@@ -126,7 +136,7 @@ function WayForward({ node }: { node: GNode }) {
 }
 
 export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: boolean; top?: number }) {
-  const { costs, input, states } = useSession();
+  const { costs, input, states, writingSince } = useSession();
   const task = taskFor(node, input);
   const viewing = task.step && task.step !== frontierStage(states);
   // A node can hold a later step's work (before any search exists, step 3 opens on the first topic): the
@@ -248,8 +258,10 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
           <Body node={node} />
         </PanelFooterSlot.Provider>
       </div>
+      {/* Writing the searches is one long request, not a job: say what is happening next to the button that started it. */}
+      {writingSince && <div className="border-t border-line bg-bg-1 px-4 py-3"><SearchWritingStatus /></div>}
       <div ref={setSlot} data-panel-footer className="border-t border-line bg-bg-1 empty:hidden short:sticky short:bottom-0" />
-      {!slotUsed && <div className="border-t border-line bg-bg-1 short:sticky short:bottom-0"><WayForward node={node} /></div>}
+      {!slotUsed && <div className="border-t border-line bg-bg-1 empty:hidden short:sticky short:bottom-0"><WayForward node={node} step={task.step} /></div>}
     </m.aside>
   );
 }

@@ -28,6 +28,17 @@ test("AI-suggested topics are ghosts until accepted; accepted ones are not", () 
   assert.equal(t1.ghost, true);
   assert.equal(t2.ghost, false);
   assert.deepEqual(t1.parents, ["idea"]);
+  // A kept topic reads as done, not "Your turn"; step 2's remaining action stays on the Idea card.
+  assert.equal(t1.status, "review");
+  assert.equal(t2.status, "done");
+  assert.equal(g.nodes.find((n) => n.id === "idea")!.status, "review");
+});
+
+test("kept topics follow step 2 once it is out of date", () => {
+  const g = buildGraph(input({ states: { ...states(2), "2": "stale" }, client: { acceptedTopics: ["t1", "t2"], pinnedQuotes: [] } }));
+  const topics = g.nodes.filter((n) => n.kind === "topic");
+  assert.equal(topics.length, 2);
+  assert.ok(topics.every((n) => n.status === "stale"));
 });
 
 test("once topics are approved on the server, nothing is a ghost (even with no browser state)", () => {

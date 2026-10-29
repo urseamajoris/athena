@@ -11,6 +11,7 @@ import { nextAction } from "@/lib/canvas/actions";
 import { isUndecided } from "@/lib/shared/canvas";
 import { fmtInt } from "@/lib/shared/format";
 import { Checklist } from "../guide/Checklist";
+import { appraisalChecks } from "../guide/checklist-rules";
 import { WhatHappens } from "../guide/WhatHappens";
 import { usingKeyboard } from "../canvas/focus";
 
@@ -55,6 +56,8 @@ export function AppraisalPanel() {
   const action = node ? nextAction(node, graph, input) : null;
   // Every "to decide" count here comes from the server's per-paper counts (the same rule as the canvas card).
   const totals = list.reduce((a, x) => ({ ft: a.ft + (x.textSource === "full_text" ? 1 : 0), left: a.left + x.counts.undecided, decided: a.decided + x.counts.accepted + x.counts.rejected }), { ft: 0, left: 0, decided: 0 });
+  // Ticked only once every paper's appraisal has finished (while they run, "0 of 11 looked at, 0 left" is not done).
+  const checks = appraisalChecks({ running: states["7"] === "running", appraisals: list, reviewed: ui.reviewed, undecided: totals.left });
   const leftOut = `${totals.left} quote${totals.left === 1 ? "" : "s"} you have not decided will be left out of the synthesis.`;
 
   if (isLoading) return <Loading />;
@@ -81,8 +84,8 @@ export function AppraisalPanel() {
           <Checklist
             title="Do these things"
             items={[
-              { label: `Look at each paper (${reviewed} of ${list.length} looked at)`, done: reviewed >= list.filter((a) => a.status === "done").length, hint: "“Next paper” moves on and marks this one as looked at." },
-              { label: `Decide every quote the check could not find (${totals.decided} decided, ${totals.left} left)`, done: totals.left === 0, hint: "Accept it if the paper does say this, reject it if not. Rejected and undecided quotes are left out of the synthesis." },
+              { label: `Look at each paper (${reviewed} of ${list.length} looked at)`, done: checks.looked, hint: "“Next paper” moves on and marks this one as looked at." },
+              { label: `Decide every quote the check could not find (${totals.decided} decided, ${totals.left} left)`, done: checks.decided, hint: "Accept it if the paper does say this, reject it if not. Rejected and undecided quotes are left out of the synthesis." },
               { label: "Then summarise the evidence", done: states["7"] === "approved" },
             ]}
           />

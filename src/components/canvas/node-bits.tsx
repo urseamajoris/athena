@@ -10,6 +10,8 @@ export const STATUS_TONE: Record<NodeStatus, string> = { idle: "text-fg-2", runn
 export function statusText(n: GNode) {
   if (n.ghost) return "Suggested";
   if (n.paused) return "Paused";
+  // A kept topic is done, but step 2 may not be: "Kept" says which.
+  if (n.kind === "topic" && n.status === "done") return "Kept";
   return STATUS_LABEL[n.status];
 }
 
