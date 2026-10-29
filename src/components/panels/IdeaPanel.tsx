@@ -43,6 +43,9 @@ export function IdeaPanel() {
   const { data, error, isLoading, mutate } = useApi<ScopingData>(projectPath(projectId, "scoping"));
   const [idea, setIdea] = useState(project.idea);
   const [answer, setAnswer] = useState("");
+  // What a filled-but-waiting button says when clicked (cleared as soon as the user types).
+  const [hint, setHint] = useState<string | null>(null);
+  useEffect(() => setHint(null), [answer, idea]);
   const [local, setLocal] = useState<string | null>(null);
   const [err, setErr] = useState<unknown>(null);
   const started = useRef(false);
@@ -265,7 +268,7 @@ export function IdeaPanel() {
       {err ? <ErrorState error={err} title="That step failed" onRetry={() => (data.messages.length ? undefined : call("start", "scoping/start"))} /> : null}
 
       {action && (
-        <PanelFooter note={chatOpen && data.awaitingAnswer ? "Up to five short questions. “Skip the rest” goes straight to your search topics." : undefined}>
+        <PanelFooter note={hint ? <span role="alert" className="text-err">{hint}</span> : chatOpen && data.awaitingAnswer ? "Up to five short questions. “Skip the rest” goes straight to your search topics." : undefined}>
           {!ideaApproved ? (
             <button
               className="btn-primary"
@@ -273,7 +276,8 @@ export function IdeaPanel() {
               data-action="approve"
               aria-disabled={idea.trim().length < 10 || !!busy || undefined}
               onClick={async () => {
-                if (idea.trim().length < 10 || busy) return;
+                if (busy) return;
+                if (idea.trim().length < 10) return setHint("Write your idea in at least a sentence (10 characters or more).");
                 if (await saveIdea()) await run({ type: "approve", stage: 1 });
               }}
             >
@@ -282,7 +286,7 @@ export function IdeaPanel() {
           ) : action.cmd.type === "answer" ? (
             <>
             <button type="button" className="btn-ghost" disabled={!!local} onClick={() => call("skip", "scoping/skip")}>Skip the rest</button>
-            <button type="submit" form="scoping-answer-form" className="btn-primary" data-await-input aria-disabled={!answer.trim() || !!local || undefined} onClick={(e) => { if (!answer.trim() || local) e.preventDefault(); }}>
+            <button type="submit" form="scoping-answer-form" className="btn-primary" data-await-input aria-disabled={!answer.trim() || !!local || undefined} onClick={(e) => { if (!answer.trim() || local) e.preventDefault(); if (!answer.trim() && !local) setHint(data.awaitingAnswer ? "Type an answer first, or use “Skip the rest”." : "Wait for the next question to appear."); }}>
               {local === "answer" && <Spinner />} Send answer
             </button>
             </>

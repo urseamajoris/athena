@@ -366,7 +366,7 @@ function Facets({ rows, filters, toggle, topics, ranked }: { rows: Row[]; filter
         {cats.map((x) => {
           const on = filters[dim]?.includes(x.key) ?? false;
           return (
-            <button key={x.key} aria-pressed={on} title={x.hint} onClick={() => toggle(dim, x.key)} className={cx("inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-12", on ? "border-fg-1 bg-bg-3 text-fg-0" : "border-line text-fg-1 hover:border-line-strong hover:text-fg-0")}>
+            <button key={x.key} aria-pressed={on} title={x.hint} onClick={() => toggle(dim, x.key)} className={cx("inline-flex min-h-9 items-center gap-2 rounded-full border px-3 text-12", on ? "border-fg-1 bg-bg-3 text-fg-0" : "border-line text-fg-1 hover:border-line-strong hover:text-fg-0")}>
               {on && <CheckCircle2 className="h-3 w-3" strokeWidth={2} aria-hidden />}
               {hasHues(dim) && <ShapeIcon shape={x.shape} color={categoryVar(dim, x.key, topics)} />}
               {x.label}

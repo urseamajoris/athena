@@ -23,6 +23,14 @@ interface ProjectRow {
   updatedAt: string;
 }
 
+/** Why later steps are out of date: "Step 2 changed, so 7 later steps need updating" when the current step is
+ * the one that changed (it waits for re-approval); otherwise just the count. */
+function staleText(p: ProjectRow, f: number | null, stale: number): string {
+  const after = f ? Object.entries(p.stageStates).filter(([n, s]) => Number(n) > f && s === "stale").length : 0;
+  if (f && p.stageStates[String(f)] !== "stale" && after > 0) return `Step ${f} changed, so ${after} later step${after === 1 ? "" : "s"} need${after === 1 ? "s" : ""} updating`;
+  return `${stale} step${stale === 1 ? "" : "s"} out of date`;
+}
+
 /** What waits for the user on a project, in plain words. */
 function nextLine(p: ProjectRow): string {
   const f = frontier(p);
@@ -125,7 +133,7 @@ export function SessionsList() {
                     </span>
                     <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-12 text-fg-1">
                       <span className="inline-flex items-center gap-1"><StateIcon state={state} className="h-3 w-3" />{nextLine(p)}</span>
-                      {stale > 0 && <span className="inline-flex items-center gap-1 text-warn"><AlertTriangle className="h-3 w-3" strokeWidth={2} aria-hidden />{f ? `Step ${f.n} changed, so ${stale} later step${stale === 1 ? "" : "s"} need${stale === 1 ? "s" : ""} updating` : `${stale} step${stale === 1 ? "" : "s"} out of date`}</span>}
+                      {stale > 0 && <span className="inline-flex items-center gap-1 text-warn"><AlertTriangle className="h-3 w-3" strokeWidth={2} aria-hidden />{staleText(p, f?.n ?? null, stale)}</span>}
                     </span>
                   </span>
                 </TransitionLink>

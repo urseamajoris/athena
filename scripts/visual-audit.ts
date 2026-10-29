@@ -218,11 +218,11 @@ async function seed(): Promise<{ F: Fixtures; ids: Record<string, string>; pins:
 }
 
 // ---------------------------------------------------------------- views
-interface View { name: string; path: string; ready: string; noPrimary?: boolean; pins?: string; list?: string; canvasOnly?: boolean }
+interface View { name: string; path: string; ready: string; anon?: boolean; noPrimary?: boolean; pins?: string; list?: string; canvasOnly?: boolean }
 function views(F: Fixtures, ids: Record<string, string>): View[] {
   const s = (k: string, q = "") => `/s/${F[k]}${q}`;
   return [
-    { name: "landing", path: "/", ready: "h1" },
+    { name: "landing", path: "/", ready: "h1", anon: true },
     { name: "sessions", path: "/sessions", ready: "h1" },
     { name: "settings", path: "/settings", ready: "#run-title", noPrimary: true },
     { name: "canvas-empty", path: "/s/new", ready: "#idea" },
@@ -663,7 +663,7 @@ async function bundleSize(browser: Any, path_: string) {
 function lighthouse(url: string, name: string) {
   const out = path.join(tmp, `lh-${name}.json`);
   try {
-    execFileSync(path.join(ROOT, "node_modules/.bin/lighthouse"), [url, "--quiet", "--output=json", `--output-path=${out}`, "--only-categories=performance,accessibility", "--chrome-flags=--headless=new --no-sandbox --disable-gpu", `--extra-headers=${JSON.stringify({ Cookie: COOKIE })}`], { env: { ...process.env, CHROME_PATH: CHROME }, stdio: "ignore", timeout: 180000 });
+    execFileSync(path.join(ROOT, "node_modules/.bin/lighthouse"), [url, "--quiet", "--output=json", `--output-path=${out}`, "--only-categories=performance,accessibility", "--chrome-flags=--headless=new --no-sandbox --disable-gpu", ...(new URL(url).pathname === "/" ? [] : [`--extra-headers=${JSON.stringify({ Cookie: COOKIE })}`])], { env: { ...process.env, CHROME_PATH: CHROME }, stdio: "ignore", timeout: 180000 });
     const r = JSON.parse(fs.readFileSync(out, "utf8"));
     fs.mkdirSync(path.join(ROOT, "qa/lh"), { recursive: true });
     fs.copyFileSync(out, path.join(ROOT, `qa/lh/${ROUND}-${name}.json`));
@@ -686,11 +686,14 @@ function shifts(r: Any): string[] {
 
 /** esbuild (via tsx) wraps named functions in __name(); define it in every page so page.evaluate works. */
 const NAME_SHIM = "window.__name = window.__name || ((f) => f);";
-async function newContext(browser: Any, opts: Any) {
+async function newContext(browser: Any, opts: Any, anon = false) {
   const ctx = await browser.newContext(opts);
   await ctx.addInitScript(NAME_SHIM);
-  await ctx.addCookies([{ name: "athena_session", value: COOKIE.split("=")[1], domain: "localhost", path: "/", httpOnly: true, sameSite: "Lax" }]);
+  if (!anon) await ctx.addCookies([sessionCookie()]);
   return ctx;
+}
+function sessionCookie() {
+  return { name: "athena_session", value: COOKIE.slice(COOKIE.indexOf("=") + 1), domain: "localhost", path: "/", httpOnly: true, sameSite: "Lax" as const };
 }
 
 async function main() {
@@ -715,6 +718,9 @@ async function main() {
     await ctx.addInitScript((t: string) => localStorage.setItem("athena-theme", t), vr.theme);
     for (const v of V) {
       const tag = `${v.name} ${vr.size === "d" ? "1440" : "390"} ${vr.theme} motion-${vr.motion}`;
+      // The landing page is for visitors: a signed-in browser is sent on to /sessions.
+      if (v.anon) await ctx.clearCookies();
+      else await ctx.addCookies([sessionCookie()]);
       const page = await ctx.newPage();
       await page.addInitScript((s: string) => localStorage.setItem("athena-canvas", s), clientState(pins, v));
       page.on("console", (m: Any) => m.type() === "error" && consoleErrors.push(`${tag}: ${m.text().slice(0, 160)}`));

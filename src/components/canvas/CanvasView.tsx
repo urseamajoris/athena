@@ -107,7 +107,7 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
     const next = new Map<string, { key: string; node: FlowNode }>();
     const out = graph.nodes.map((n) => {
       const action = nextAction(n, graph, input);
-      const data: NodeData = { node: n, action, primary: !!action && !panel && n.id === frontier && !n.ghost, selected: n.id === selected, tabbable: n.id === tabbable, readOnly, spawn: born.current.get(n.id) ?? null };
+      const data: NodeData = { node: n, action, primary: false /* the floating "Your next step" bar holds the one primary action */, selected: n.id === selected, tabbable: n.id === tabbable, readOnly, spawn: born.current.get(n.id) ?? null };
       const pos = positions[n.id] ?? { x: 0, y: 0 };
       const key = JSON.stringify([n, action, data.primary, data.selected, data.tabbable, readOnly, pos.x, pos.y]);
       const prev = cache.current.get(n.id);

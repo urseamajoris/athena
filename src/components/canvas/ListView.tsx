@@ -63,7 +63,7 @@ function ListItem({ it, depth, c }: { it: TreeItem; depth: number; c: ItemCtx })
         </button>
         <span className="flex items-center gap-3">
           <NodeStatusBadge node={n} />
-          <TrustBadges node={n} />
+          <TrustBadges node={n} verbose />
         </span>
         {n.ghost ? (
           <ActionButton action={{ cmd: { type: "acceptTopic", topicId: n.topicId! }, label: "Keep" }} />

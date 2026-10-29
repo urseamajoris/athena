@@ -24,6 +24,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -46,7 +47,7 @@ async function client() {
   if (port && !(await alive(port))) port = 0;
   if (!port) {
     if (cmd === "stop") return console.log("not running");
-    const child = spawn(process.execPath, [new URL(import.meta.url).pathname, persona, "__daemon", ...rest.filter((a) => a.startsWith("--"))], { detached: true, stdio: "ignore" });
+    const child = spawn(process.execPath, [fileURLToPath(import.meta.url), persona, "__daemon", ...rest.filter((a) => a.startsWith("--"))], { detached: true, stdio: "ignore" });
     child.unref();
     for (let i = 0; i < 100 && !port; i++) {
       await new Promise((r) => setTimeout(r, 200));
@@ -92,8 +93,9 @@ async function daemon() {
     await page.waitForLoadState("domcontentloaded").catch(() => {});
     await page.waitForTimeout(700);
   };
+  const esc = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const byName = (text) => {
-    const re = new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    const re = new RegExp(esc(text), "i");
     return [page.getByRole("button", { name: re }), page.getByRole("link", { name: re }), page.getByRole("tab", { name: re }), page.getByRole("menuitem", { name: re }), page.getByRole("radio", { name: re }), page.getByText(re)];
   };
   async function firstVisible(locs) {
@@ -103,7 +105,7 @@ async function daemon() {
     }
     return null;
   }
-  const field = async (label) => firstVisible([page.getByLabel(label, { exact: false }), page.getByPlaceholder(label, { exact: false }), page.getByRole("textbox", { name: new RegExp(label, "i") })]);
+  const field = async (label) => firstVisible([page.getByLabel(label, { exact: false }), page.getByPlaceholder(label, { exact: false }), page.getByRole("textbox", { name: new RegExp(esc(label), "i") })]);
 
   async function look() {
     return page.evaluate(() => {
@@ -149,14 +151,14 @@ async function daemon() {
     async type([text = ""]) { await page.keyboard.type(text, { delay: 15 }); return "typed"; },
     async press([key]) { await page.keyboard.press(key); await page.waitForTimeout(300); return `pressed ${key}`; },
     async select([label, option]) {
-      const el = await firstVisible([page.getByLabel(label, { exact: false }), page.getByRole("combobox", { name: new RegExp(label, "i") })]);
+      const el = await firstVisible([page.getByLabel(label, { exact: false }), page.getByRole("combobox", { name: new RegExp(esc(label), "i") })]);
       if (!el) throw new Error(`no visible select labelled "${label}"`);
       await el.selectOption({ label: option }).catch(() => el.selectOption(option));
       await settle();
       return `selected "${option}"`;
     },
     async check([label]) {
-      const el = await firstVisible([page.getByRole("checkbox", { name: new RegExp(label, "i") }), page.getByRole("radio", { name: new RegExp(label, "i") }), page.getByLabel(label, { exact: false })]);
+      const el = await firstVisible([page.getByRole("checkbox", { name: new RegExp(esc(label), "i") }), page.getByRole("radio", { name: new RegExp(esc(label), "i") }), page.getByLabel(label, { exact: false })]);
       if (!el) throw new Error(`no visible checkbox or radio labelled "${label}"`);
       await el.click();
       await settle();

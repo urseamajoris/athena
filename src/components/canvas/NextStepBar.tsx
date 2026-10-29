@@ -8,8 +8,8 @@ import { nextAction } from "@/lib/canvas/actions";
 import { taskFor } from "@/lib/canvas/tasks";
 
 /**
- * "Your next step": the task that needs the user now. A step that asks the user to check something opens first
- * (the check happens in its panel); its run action stays beside it for when the check is done.
+ * "Your next step": the task that needs the user now, with the view's one primary button. A step that asks the
+ * user to check something opens first (the check happens in its panel, whose footer then offers the run action).
  */
 export function NextStepBar({ floating = false }: { floating?: boolean }) {
   const { graph, input, states } = useSession();
