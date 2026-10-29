@@ -5,6 +5,7 @@ import { structuredCall, unknownIds, isAiStop, repairId } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { Synthesis } from "../stages/ai-schemas";
 import { STUDY_TYPE_LABEL, type StudyType } from "../shared/stages";
+import { applyEvidenceRules } from "../shared/synthesis-rules";
 import { errMsg, newId } from "../util";
 import { getProject, logDecision } from "../project";
 import type { JobContext } from "./runner";
@@ -50,7 +51,7 @@ export async function synthesisJob(ctx: JobContext) {
         }
         const claimIds = claims.map((c) => c.id);
         const paperIds = papers.map((x) => x.id);
-        const { data } = await structuredCall({
+        const { data: answer } = await structuredCall({
           prompt: "synthesis",
           role: "reasoning",
           schema: Synthesis,
@@ -98,6 +99,9 @@ export async function synthesisJob(ctx: JobContext) {
             return null;
           },
         });
+        // Indirect evidence says so in its wording; a difference in significance only is mixed, not contested.
+        const { data, mixed, dropped } = applyEvidenceRules(answer, Object.fromEntries(claims.map((c) => [c.id, c])));
+        if (mixed || dropped) (await ctx.log(`"${t.name}": ${mixed} contested statement${mixed === 1 ? "" : "s"} moved to known as mixed results, ${dropped} contradiction${dropped === 1 ? "" : "s"} left out (they differ only in size or statistical significance).`));
         const byId = new Map(claims.map((c) => [c.id, c.paperId]));
         {
     const stmts: BatchItem<"sqlite">[] = [];
