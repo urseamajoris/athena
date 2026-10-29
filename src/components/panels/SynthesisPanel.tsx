@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Pencil, Scale } from "lucide-react";
+import { FileText, Pencil, Scale } from "lucide-react";
 import { Tabs } from "radix-ui";
 import { api, projectPath, useApi } from "../api";
 import { Badge, EmptyState, ErrorState, Loading, cx } from "../ui";
@@ -15,6 +15,7 @@ import { Checklist } from "../guide/Checklist";
 import { WhatHappens } from "../guide/WhatHappens";
 import { canvasStore, useCanvas } from "../session/SessionContext";
 import { sessionOf } from "@/lib/canvas/store";
+import { paperCount, paperCountLabel } from "@/lib/shared/evidence-count";
 
 const EvidenceNetwork = dynamic(() => import("../viz/EvidenceNetwork").then((m) => m.EvidenceNetwork), { ssr: false, loading: () => <Loading /> });
 
@@ -28,7 +29,8 @@ export interface SynData {
 }
 
 const KIND_LABEL = { known: "Known", contested: "Contested", unknown: "Unknown" } as const;
-const KIND_HELP = { known: "What the papers agree on", contested: "Where the papers disagree", unknown: "What has not been studied yet: the gaps your question can fill" } as const;
+// "Known" does not claim agreement: a statement may rest on one paper, which its paper count then says.
+const KIND_HELP = { known: "What the papers report. A finding from 1 paper is one study, not agreement: check the paper count", contested: "Where the papers disagree", unknown: "What has not been studied yet: the gaps your question can fill" } as const;
 // "Contested" and the contradictions box share one categorical hue and the balance icon; amber stays reserved for
 // "Your turn" and "Out of date", red for errors.
 const KIND_ICON = { known: CheckCircle2, contested: Scale, unknown: HelpCircle } as const;
@@ -133,6 +135,8 @@ export function SynthesisPanel() {
               )}
               {(["known", "contested", "unknown"] as const).map((kind) => {
                 const Icon = KIND_ICON[kind];
+                // Papers this topic's synthesis drew on, so an empty section says how many were compared.
+                const compared = new Set([...t.cells.map((c) => c.paperId), ...t.items.flatMap((i) => i.claimIds.map((id) => data.claims[id]?.paperId))].filter(Boolean)).size;
                 return (
                 <section key={kind} aria-label={KIND_LABEL[kind]} className="rounded-md border border-line p-3">
                   <h3 className={cx("flex items-center gap-2 font-semibold", KIND_TONE[kind])}><Icon className="h-4 w-4" strokeWidth={2} aria-hidden />{KIND_LABEL[kind]}</h3>
@@ -148,10 +152,10 @@ export function SynthesisPanel() {
                             <button className="btn-ghost btn-sm min-h-8 align-middle" onClick={() => { canvasStore.getState().markSeen(projectId, "checked-statements"); setEditing(i.id); }} aria-label={`Edit statement: ${i.statement.slice(0, 60)}`}><Pencil className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Edit</button>
                           </p>
                         )}
-                        <div className="mt-1 flex flex-wrap gap-1">{i.claimIds.map((id) => <ClaimChip key={id} id={id} claims={data.claims} papers={data.papers} stale={stale} />)}</div>
+                        <div className="mt-1 flex flex-wrap items-center gap-1"><PaperCount claimIds={i.claimIds} kind={kind} claims={data.claims} />{i.claimIds.map((id) => <ClaimChip key={id} id={id} claims={data.claims} papers={data.papers} stale={stale} />)}</div>
                       </li>
                     ))}
-                    {!t.items.some((i) => i.kind === kind) && <li className="italic text-fg-2">Nothing identified.</li>}
+                    {!t.items.some((i) => i.kind === kind) && <li className="italic text-fg-2">None found among the {compared === 1 ? "1 paper" : `${compared} papers`} compared.</li>}
                   </ul>
                 </section>
                 );
@@ -175,6 +179,13 @@ export function SynthesisPanel() {
       )}
     </div>
   );
+}
+
+/** How many different papers a statement's quotes come from, in words with an icon (no hue). */
+function PaperCount({ claimIds, kind, claims }: { claimIds: string[]; kind: string; claims: SynData["claims"] }) {
+  const l = paperCountLabel(paperCount(claimIds, claims), kind);
+  if (!l) return null;
+  return <Badge title={l.title} icon={<FileText className="h-3 w-3" strokeWidth={1.5} aria-hidden />}>{l.text}<span className="sr-only">: {l.title}</span></Badge>;
 }
 
 function Matrix({ t, data, stale }: { t: SynData["topics"][number]; data: SynData; stale: boolean }) {
