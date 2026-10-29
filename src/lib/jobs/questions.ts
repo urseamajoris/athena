@@ -7,6 +7,7 @@ import { wrapData } from "../ai/prompts";
 import { ResearchQuestions } from "../stages/ai-schemas";
 import { adapters } from "../sources";
 import { SEARCH_DATABASES } from "../sources/types";
+import { dropEmptyGroups } from "../sources/syntax";
 import { errMsg, newId, normalizeTitle, forEachSeq } from "../util";
 import { getProject, logDecision } from "../project";
 import type { JobContext } from "./runner";
@@ -72,7 +73,7 @@ export async function questionsJob(ctx: JobContext) {
             gap: q.gap,
             feasibility: q.feasibility,
             weakness: q.weakness,
-            noveltyQueries: SEARCH_DATABASES.map((d) => ({ database: d, query: q.noveltyQueries[d], count: null, error: null })),
+            noveltyQueries: SEARCH_DATABASES.map((d) => ({ database: d, query: dropEmptyGroups(q.noveltyQueries[d]), count: null, error: null })),
             order: i,
           }).run());
     // Link the gap to its claims, including claims behind the cited synthesis statements.

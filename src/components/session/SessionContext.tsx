@@ -3,17 +3,23 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { useSWRConfig } from "swr";
+import { useRouter } from "next/navigation";
 import { api, projectPath, useApi } from "../api";
+import { Spinner, cx } from "../ui";
+import { criteriaDrafts } from "../panels/criteria-draft";
+import { topicUndo } from "../panels/topic-undo";
 import dynamic from "next/dynamic";
-import { STAGES, STATE_LABEL, type StageState } from "@/lib/shared/stages";
+import { STAGES, STATE_LABEL, thinTopics, type StageState } from "@/lib/shared/stages";
 import type { CanvasSummary, ClaimLite, JobLite } from "@/lib/shared/canvas";
-import { buildGraph, nodeForStage, type Graph, type GraphInput } from "@/lib/canvas/graph";
+import { buildGraph, nodeForStage, type Graph, type GraphInput, type NodeKind } from "@/lib/canvas/graph";
 import { cascadeStep, type Cmd } from "@/lib/canvas/actions";
 import { createCanvasStore, sessionOf, type SessionUi } from "@/lib/canvas/store";
 import type { Pos } from "@/lib/canvas/layout";
 const PaperDialog = dynamic(() => import("./PaperDialog").then((m) => m.PaperDialog), { ssr: false });
 const ConfirmEditDialog = dynamic(() => import("./SessionDialogs").then((m) => m.ConfirmEditDialog), { ssr: false });
+const ConfirmLeaveOutDialog = dynamic(() => import("./SessionDialogs").then((m) => m.ConfirmLeaveOutDialog), { ssr: false });
 const AddTopicDialog = dynamic(() => import("./SessionDialogs").then((m) => m.AddTopicDialog), { ssr: false });
+const ThinTopicsDialog = dynamic(() => import("./SessionDialogs").then((m) => m.ThinTopicsDialog), { ssr: false });
 
 export type Job = JobLite;
 export interface Project {
@@ -41,7 +47,10 @@ export interface LiveData {
   costs: Record<string, Cost>;
   retrieval: unknown;
   canvas: CanvasSummary;
+  ai?: AiState;
 }
+/** Whether AI steps can run right now (admin switch and server budget). */
+export interface AiState { enabled: boolean; budgetReached: boolean }
 
 /** One canvas store per browser tab; layout and choices persist per session. */
 export const canvasStore = createCanvasStore();
@@ -56,6 +65,7 @@ interface Ctx {
   staleReasons: Record<string, string>;
   jobs: Record<string, Job | null>;
   costs: Record<string, Cost>;
+  ai: AiState;
   summary: CanvasSummary | null;
   claims: ClaimLite[] | null;
   graph: Graph;
@@ -71,6 +81,8 @@ interface Ctx {
   /** Run a node command (next action, add-child option, palette command). */
   run: (cmd: Cmd, opts?: { flowAt?: Pos; from?: string }) => Promise<void>;
   busy: string | null;
+  /** When the searches started being written (one long AI request, not a job), or null. */
+  writingSince: number | null;
   error: unknown;
   clearError: () => void;
   announce: (msg: string) => void;
@@ -123,6 +135,26 @@ export function useJobRefresh(stage: number, mutate: () => unknown) {
 
 export const cmdKey = (c: Cmd) => JSON.stringify(c);
 
+/** While the searches are being written: the same kind of status the job steps show, so a minute-long wait does
+ *  not look stuck. The request finishes and saves on the server even if the page is closed. */
+export function SearchWritingStatus({ className }: { className?: string }) {
+  const { writingSince, summary } = useSession();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (!writingSince) return null;
+  const n = summary?.topics.length ?? 0;
+  const secs = Math.max(0, Math.round((now - writingSince) / 1000));
+  return (
+    <div role="status" className={cx("rounded-md border border-run-line bg-bg-1 p-3", className)}>
+      <p className="flex items-center gap-2 font-medium text-fg-0"><Spinner className="text-run" label="Running" /> Writing the searches{n ? ` for ${n} topic${n === 1 ? "" : "s"}` : ""}…</p>
+      <p className="mt-1 text-12 text-fg-2">This can take a minute. It runs on the server, so it is safe to close this page.<span aria-hidden className="tabular-nums"> {secs} s</span></p>
+    </div>
+  );
+}
+
 export function SessionProvider({ projectId, children, fallback }: { projectId: string; children: ReactNode; fallback: (s: { error: unknown; retry: () => void } | null) => ReactNode }) {
   const { data: fetched, error, mutate } = useApi<ProjectViewData>(projectPath(projectId));
   const data = useStable(fetched);
@@ -133,12 +165,20 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const { data: claims, mutate: mutateClaims } = useApi<ClaimLite[]>(ui.pinnedQuotes.length ? projectPath(projectId, "claims") : null);
   const [paperId, setPaperId] = useState<string | null>(null);
   const [guard, setGuard] = useState<{ stage: number; downstream: number[]; resolve: (b: boolean) => void } | null>(null);
+  const [thin, setThin] = useState<{ topics: CanvasSummary["ranking"]; resolve: (choice: "appraise" | "back" | "edit") => void } | null>(null);
   const confirmed = useRef(new Set<number>());
+  const [leaveOut, setLeaveOut] = useState<{ count: number; resolve: (b: boolean) => void } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [writingSince, setWritingSince] = useState<number | null>(null);
+  const panelOpen = useCanvas((s) => !!s.panel);
   const [err, setErr] = useState<unknown>(null);
   const [message, setMessage] = useState("");
   const [addTopic, setAddTopic] = useState<{ flowAt?: Pos } | null>(null);
-  const pendingStage = useRef<{ stage: number; panel: boolean } | null>(null);
+  // State, not a ref: the next stage's node is often in the graph already when the approval returns (a fast job
+  // finished while refresh() was in flight), and the effect below must still run for it.
+  // `wait`: open only once a node of that kind exists (new searches reach the graph a moment after the request).
+  const [pendingStage, setPendingStage] = useState<{ stage: number; panel: boolean; wait?: NodeKind } | null>(null);
+  const router = useRouter();
 
   const announce = useCallback((msg: string) => {
     setMessage("");
@@ -163,6 +203,8 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const jobs = useStable(live?.jobs ?? data?.jobs ?? {});
   const costs = useStable(live?.costs ?? data?.costs ?? {});
   const liveRetrieval = useStable(live?.retrieval ?? null);
+  const { data: status } = useApi<{ ai?: AiState }>("/api/status");
+  const ai = useStable(live?.ai ?? status?.ai ?? { enabled: true, budgetReached: false });
 
   // Announce run-state changes to screen readers, and refresh the project when stages move.
   const prevStates = useRef<Record<string, StageState> | null>(null);
@@ -209,23 +251,24 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const { mutate: mutateAll } = useSWRConfig();
   const refresh = useCallback(() => mutateAll((key) => typeof key === "string" && key.startsWith(projectPath(projectId))), [mutateAll, projectId]);
 
-  const focusStage = useCallback((stage: number, panel: boolean) => {
-    pendingStage.current = { stage, panel };
+  const focusStage = useCallback((stage: number, panel: boolean, wait?: NodeKind) => {
+    setPendingStage({ stage, panel, wait });
   }, []);
   // After an approval the next stage's node may only appear once the server state arrives.
   useEffect(() => {
-    const p = pendingStage.current;
+    const p = pendingStage;
     if (!p) return;
+    if (p.wait && !graph.nodes.some((n) => n.kind === p.wait)) return;
     // Stage 10 = the finished review: wait for the Export node itself.
     const id = p.stage > 9 ? (graph.nodes.some((n) => n.id === "export") ? "export" : null) : nodeForStage(graph, p.stage);
     if (!id) return;
     const kindReady = p.stage < 4 || p.stage > 9 || graph.nodes.some((n) => n.stages.includes(p.stage));
     if (!kindReady) return;
-    pendingStage.current = null;
+    setPendingStage(null);
     const st = canvasStore.getState();
     if (p.panel) st.openPanel(id);
     else st.select(id);
-  }, [graph]);
+  }, [graph, pendingStage]);
 
   const goTo = useCallback(
     (n: number) => {
@@ -276,8 +319,36 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
         }
       };
       switch (cmd.type) {
-        case "approve":
+        case "approve": {
+          // Running the searches from the canvas while criteria edits are unsaved would ignore them: show them first.
+          if (cmd.stage === 3 && criteriaDrafts.hasUnsaved(projectId)) {
+            const q = graph.nodes.find((n) => n.kind === "query");
+            if (q) store.openPanel(q.id);
+            announce("Your changes to dates and criteria are not saved yet. Save or undo them, then run the searches.");
+            return;
+          }
+          // Appraising with too few papers in a topic is allowed, but never silent.
+          const few = cmd.stage === 6 ? thinTopics(summary?.ranking ?? []) : [];
+          if (few.length) {
+            const choice = await new Promise<"appraise" | "back" | "edit">((resolve) => setThin({ topics: few, resolve }));
+            if (choice === "edit") {
+              // Step 3 lives on the canvas: open its panel there (from the table page, go to the canvas first).
+              // The searches of the (first) thin topic, not simply the first topic's.
+              const id = graph.nodes.find((n) => n.id === `query:${few[0].topicId}`)?.id ?? nodeForStage(graph, 3);
+              if (id && window.location.pathname === `/s/${projectId}`) store.openPanel(id);
+              else if (id) router.push(`/s/${projectId}?node=${encodeURIComponent(id)}`);
+            }
+            if (choice !== "appraise") return;
+          }
+          // Summarising the evidence leaves undecided quotes out: say so and ask first.
+          // Read the count fresh: the live summary lags a decision made a moment ago.
+          const left = cmd.stage === 7 ? ((await api<CanvasSummary>(projectPath(projectId, "canvas")).catch(() => summary))?.appraisal.pending ?? 0) : 0;
+          if (left && !(await new Promise<boolean>((resolve) => setLeaveOut({ count: left, resolve })))) {
+            store.openPanel("appraisal");
+            return;
+          }
           return step(() => approve(cmd.stage));
+        }
         case "run":
           return step(async () => {
             await api(projectPath(projectId, `stages/${cmd.stage}/run`), { body: { force: true } });
@@ -314,11 +385,16 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
         case "dismissTopic":
           return step(async () => {
             if (!(await confirmEdit(2))) return;
+            // Any topic change reopens an approved step 2 on the server: say so, it is not visible from here.
+            const reopens = states["2"] === "approved";
+            const name = summary?.topics.find((t) => t.id === cmd.topicId)?.name ?? "";
             await api(projectPath(projectId, `topics/${cmd.topicId}`), { method: "DELETE" });
             if (store.selected === `topic:${cmd.topicId}`) store.select("idea");
-            if (store.panel === `topic:${cmd.topicId}`) store.closePanel();
+            // Deleted from its own editor: show the topic list instead, where Undo appears.
+            if (store.panel === `topic:${cmd.topicId}`) store.openPanel("idea");
             await refresh();
-            announce("Subtopic dismissed.");
+            topicUndo.getState().show({ projectId, id: cmd.topicId, name });
+            announce(`${reopens ? "Topic deleted. Step 2 is open again: approve the topics again with “Use these topics” to continue." : "Topic deleted."} Undo is on screen for a few seconds.`);
           });
         case "addTopic":
           setAddTopic({ flowAt: opts.flowAt });
@@ -326,10 +402,18 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
         case "buildQueries":
           return step(async () => {
             if (summary?.queries.length && !(await confirmEdit(3))) return;
-            await api(projectPath(projectId, "search/build"), { body: {} });
-            await refresh();
-            announce("Queries built: one per database for each topic.");
-            focusStage(3, store.panel !== null);
+            // Shown only during the request itself (not while the confirmation above is open).
+            setWritingSince(Date.now());
+            try {
+              await api(projectPath(projectId, "search/build"), { body: {} });
+              await refresh();
+            } finally {
+              setWritingSince(null);
+            }
+            announce("Searches written: one per database for each topic. The first topic's searches are open to check.");
+            // Open the searches to check, not the topic: before the query nodes arrive (the live summary lags the
+            // request), step 3 would resolve to the first topic's editor.
+            focusStage(3, true, "query");
           });
         case "rerunDownstream":
           store.setCascade(projectId, true);
@@ -343,7 +427,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
           return;
       }
     },
-    [approve, projectId, refresh, announce, confirmEdit, summary, focusStage],
+    [approve, projectId, refresh, announce, confirmEdit, summary, focusStage, graph, router, states],
   );
 
   const runRef = useRef(run);
@@ -390,6 +474,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
             staleReasons: input.staleReasons,
             jobs: input.jobs,
             costs,
+            ai,
             summary,
             claims: claims ?? null,
             graph,
@@ -402,12 +487,13 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
             approve,
             run,
             busy,
+            writingSince,
             error: err,
             clearError: () => setErr(null),
             announce,
           }
         : null,
-    [data, projectId, states, input, costs, summary, claims, graph, ui, goTo, refresh, confirmEdit, approve, run, busy, err, announce],
+    [data, projectId, states, input, costs, ai, summary, claims, graph, ui, goTo, refresh, confirmEdit, approve, run, busy, writingSince, err, announce],
   );
 
   // Data, not SWR's isLoading: that stays true while server-provided (fallback) data revalidates.
@@ -420,6 +506,8 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
       <ActionsCtx.Provider value={actions}>
       {children}
       <div aria-live="polite" role="status" className="sr-only">{message}</div>
+      {/* With a Focus panel open, the panel shows it above its footer instead (next to the button that started it). */}
+      {writingSince && !panelOpen && <div className="pointer-events-none fixed inset-x-0 bottom-20 z-40 mx-auto w-fit max-w-[calc(100%-32px)]"><SearchWritingStatus className="pointer-events-auto shadow-lg" /></div>}
       {paperId && <PaperDialog paperId={paperId} onClose={() => setPaperId(null)} />}
       {guard && (
         <ConfirmEditDialog
@@ -435,7 +523,37 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
           }}
         />
       )}
+      {leaveOut && (
+        <ConfirmLeaveOutDialog
+          count={leaveOut.count}
+          onCancel={() => {
+            leaveOut.resolve(false);
+            setLeaveOut(null);
+          }}
+          onConfirm={() => {
+            leaveOut.resolve(true);
+            setLeaveOut(null);
+          }}
+        />
+      )}
       {addTopic && <AddTopicDialog state={addTopic} onClose={() => setAddTopic(null)} />}
+      {thin && (
+        <ThinTopicsDialog
+          topics={thin.topics}
+          onCancel={() => {
+            thin.resolve("back");
+            setThin(null);
+          }}
+          onEditSearches={() => {
+            thin.resolve("edit");
+            setThin(null);
+          }}
+          onConfirm={() => {
+            thin.resolve("appraise");
+            setThin(null);
+          }}
+        />
+      )}
       </ActionsCtx.Provider>
       </RetrievalCtx.Provider>
     </SessionCtx.Provider>

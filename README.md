@@ -12,6 +12,8 @@ Athena is a working prototype of a web app that takes a student from a rough res
 8. **Synthesis**: an evidence matrix, flagged contradictions, and "known / contested / unknown" statements. Every statement links to the claims behind it.
 9. **Research question**: three structured candidates (PICO or equivalent), each with the gap it addresses, feasibility notes, its main weakness, and a novelty search. The student picks one, edits it, and exports the result.
 
+Each person has their own account and sees only their own reviews. An administrator has a dashboard at `/admin` with the server's health, usage and AI spend, a switch that turns all AI calls off and on, and a place to set the xAI key (stored encrypted). See **Accounts, admin and the AI switch** below.
+
 The rules the app is built around:
 
 - **AI proposes, the user confirms.** Every AI output appears in an editable checkpoint before the next stage runs.
@@ -47,7 +49,7 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 
 - The responders build schema-valid output from the real input records, so grounding checks, quote verification, deduplication and the whole UI behave as they do in real mode.
 - Free-text mock output is prefixed `(mock)`.
-- Each mock appraisal includes one deliberately altered quote, so you can see the "unverified" path.
+- In one or two appraised papers per review, one quote is altered on purpose, so you can see the "unverified" path.
 - With the test idea and the mock scoping answers, queries match the recorded fixtures exactly. For other queries a fixture recorded for the same endpoint is served.
 - Full text that came from open PDFs is not in the fixtures, because PDFs and PDF text are never recorded. Those papers fall back to abstract-only in mock mode.
 
@@ -63,7 +65,7 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 | `NCBI_API_KEY` | Optional. Raises PubMed from 3 to 10 requests per second. |
 | `XAI_MODEL_FAST`, `XAI_MODEL_SUMMARY`, `XAI_MODEL_REASONING` | Model IDs for each role (see below). |
 | `XAI_FAST_REASONING_EFFORT` | `reasoning_effort` for the fast models (default `low`). Dropped automatically if a model rejects it. |
-| `XAI_BUDGET_USD` | Hard cap on recorded xAI spend in this database. AI calls are refused once it is reached. |
+| `XAI_BUDGET_USD` | Hard cap on recorded xAI spend in this database (default 5). AI calls are refused once it is reached. An admin can lower it in the dashboard; raising it above this value needs an explicit confirmation. |
 | `AI_CONCURRENCY` | Concurrency limit for per-paper model calls (default 4). |
 | `MAX_RESULTS_PER_QUERY` | Pagination cap per query (default 40). |
 | `APPRAISAL_MAX_CHARS` | Characters of full text sent to the model per appraisal (default 60,000). Truncation is shown in the UI and the report. |
@@ -73,6 +75,19 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 | `SIMULATE_SOURCE_FAILURE` | Comma list such as `openalex`. Forces that source to fail, to test failure handling. |
 | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Turso (libSQL) database for production. When the URL is empty the app uses the local file at `DATABASE_PATH`. |
 | `DATABASE_PATH` | Local SQLite file (default `data/athena.db`), used when `TURSO_DATABASE_URL` is empty. |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | The first administrator, created at server start if no account has this email (an existing account with it becomes an admin only if ADMIN_PASSWORD is its password, which is not changed; the address cannot be used to sign up). Projects created before accounts existed are assigned to this admin. |
+| `ALLOW_SIGNUP` | `false` closes the sign-up page, so only an admin can create accounts. Open by default. |
+| `SETTINGS_ENCRYPTION_KEY` | 32+ characters (e.g. `openssl rand -base64 32`). Encrypts an xAI key set from the dashboard (AES-256-GCM). Without it the dashboard refuses to store a key. |
+
+### Accounts, admin and the AI switch
+
+- **Accounts.** Sign up, log in, log out, change password, download your data, delete your account (with its projects). Passwords are hashed with scrypt; sessions are HTTP-only, SameSite=Lax cookies backed by the `sessions` table; logins are rate-limited per email and per IP; state-changing requests must come from the same origin.
+- **Isolation.** Every project route, the live-progress stream and the exports check that the project belongs to the signed-in user, and every paper, quote, appraisal or question ID is checked against that project. Another user's project answers 404, for admins too: the dashboard shows counts and metadata, never research ideas, papers or notes.
+- **Admin dashboard (`/admin`).** A green/amber/red verdict with its reasons; health (uptime, memory, database size, job runner, error rate); users, sign-ups and how far projects get through the nine steps; AI calls, tokens, cost by day, step and model, latency and failures; data-source requests, errors, 429s and latency; jobs; quality signals; recent errors and an audit log. Admins can disable, delete or reset the password of a user and change roles; every action is logged.
+- **AI switch.** Turning AI off stops every model call at once, with no restart: running jobs pause at their next call ("AI is paused by the administrator. Your work is saved.") and resume when it is back on. Nothing falls back to mock output, and searching PubMed and OpenAlex keeps working.
+- **xAI key.** An admin can paste, test, replace and clear a key. It is encrypted at rest, never sent back to the browser (only its last 4 characters, who set it and when, and the last test result), and never written to logs, the decision log, `ai_calls`, errors or exports. A key set in the dashboard takes precedence over `XAI_API_KEY`; clearing it falls back to the environment.
+- **Budget.** Spend against the limit, by step, model and day, with a projection; a warning at 80%, and a hard stop at the limit that users see as "AI budget reached".
+- **Upgrading an existing database.** `drizzle/0001_accounts_admin.sql` only adds tables and columns. At the first start with `ADMIN_EMAIL`/`ADMIN_PASSWORD` set, the admin is created and every project without an owner is assigned to it.
 
 ---
 
@@ -265,6 +280,13 @@ node scripts/api-flow.mjs                         # drive all nine stages throug
 node scripts/e2e.mjs http://localhost:3000        # drive all nine stages through the canvas in a browser (Playwright), with checks
 npm run qa -- --round=N                           # visual audit: builds fixtures, screenshots every view, scores the 12-item checklist
 npm run demo:render                               # re-render the landing page's canvas demo video (Remotion, build time only)
+npm run explainers:render                         # re-render the nine "What happens in this step" explainers (Remotion → public/explainers/)
+ADMIN_EMAIL=… ADMIN_PASSWORD=… BASE=http://localhost:3000 npm run test:security
+                                                  # 47 checks: isolation between users on every route, login rate limits, same-origin,
+                                                  # admin-only routes (403), the AI switch pausing and resuming a job, the key never
+                                                  # appearing in any response, log or export, budget changes, the audit log
+node scripts/ux-shots.mjs http://localhost:3000 N # screenshots of every page and state at 375/768/1366 px → docs/screenshots/ux/<page>/vN/
+node scripts/qa-browser.mjs <persona> <command>   # a persistent browser driven from the shell (used by the simulated-user QA agents)
 ```
 
 `scripts/e2e.mjs` checks the acceptance criteria directly. It uses the test idea throughout: *"What is the knowledge gap in implementing telemedicine in Southeast Asia?"*
@@ -385,7 +407,7 @@ Approximate AI cost by stage in that run:
 
 ## Known limitations
 
-- **Single user, local only.** There is no authentication, and the job runner lives in the one Node process. A restarted server resumes interrupted jobs: retrieval continues from the unfinished queries, summaries and appraisals continue with the remaining papers, and ranking, synthesis and questions restart.
+- **Accounts are basic.** Email and password only: no email verification and no self-service password reset (an admin resets it and the user must choose a new one). The job runner lives in the one Node process. A restarted server resumes interrupted jobs: retrieval continues from the unfinished queries, summaries and appraisals continue with the remaining papers, and ranking, synthesis and questions restart.
 - **Retrieval depth.** By default only the first 40 records per query, in database relevance order, are fetched (`MAX_RESULTS_PER_QUERY`). Ranking scores at most 60 papers per topic. This is a scoping aid, not an exhaustive systematic search.
 - **No formal title/abstract screening stage.** Ranking stands in for it. Study types and inclusion/exclusion statements are recorded and shown to the AI, but are not hard filters.
 - **Deduplication** uses DOI, then PMID, then OpenAlex ID, then exact normalised title. A preprint and its published version with a different title stay separate.

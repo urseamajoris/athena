@@ -9,6 +9,8 @@ import { toXaiSchema, zodErrorText } from "./schema";
 import { limiter, newId, errMsg } from "../util";
 import { mockRespond } from "./mock";
 import { resolvedModel } from "./models";
+import { aiEnabled, budgetLimit, effectiveXaiKey } from "../settings";
+import { fingerprint, redactSecrets } from "../auth/secrets";
 export { repairId } from "../grounding";
 
 export class AiValidationError extends Error {
@@ -17,15 +19,33 @@ export class AiValidationError extends Error {
   }
 }
 export class BudgetError extends Error {}
-
-const g = globalThis as unknown as { __xai?: OpenAI; __aiLimit?: ReturnType<typeof limiter>; __noEffort?: Set<string> };
-function client() {
-  if (!g.__xai) {
-    if (!config.xaiApiKey) throw new Error("XAI_API_KEY is not set. Add it to .env or run with MOCK_MODE=true.");
-    // The SDK retries 429/5xx with exponential backoff; we raise the retry count for xAI rate limits.
-    g.__xai = new OpenAI({ apiKey: config.xaiApiKey, baseURL: config.xaiBaseUrl, maxRetries: 5, timeout: 600_000 });
+/** The administrator switched AI off. Nothing was sent and nothing was spent; the work is kept. */
+export class AiPausedError extends Error {
+  constructor() {
+    super("AI is paused by the administrator. Your work is saved.");
   }
-  return g.__xai;
+}
+/** Errors that must stop a whole job (not just one batch): it pauses or fails cleanly and can be resumed. */
+export const isAiStop = (e: unknown) => e instanceof BudgetError || e instanceof AiPausedError;
+
+const g = globalThis as unknown as { __xai?: { client: OpenAI; fp: string }; __aiLimit?: ReturnType<typeof limiter>; __noEffort?: Set<string> };
+/** The SDK client for the key in force (admin-set or environment); rebuilt when the key changes. */
+async function client(): Promise<{ client: OpenAI; key: string }> {
+  const { key } = await effectiveXaiKey();
+  if (!key) throw new Error("No xAI API key is configured. An administrator can set one in the dashboard, or set XAI_API_KEY.");
+  const fp = fingerprint(key);
+  if (!g.__xai || g.__xai.fp !== fp) {
+    // The SDK retries 429/5xx with exponential backoff; we raise the retry count for xAI rate limits.
+    g.__xai = { client: new OpenAI({ apiKey: key, baseURL: config.xaiBaseUrl, maxRetries: 5, timeout: 600_000 }), fp };
+  }
+  return { client: g.__xai.client, key };
+}
+
+/** Refuses the call (and logs the refusal) when AI is switched off. No model call, no cost, no mock fallback. */
+async function assertAiOn(log: (row: Partial<typeof schema.aiCalls.$inferInsert>) => Promise<unknown>) {
+  if (await aiEnabled()) return;
+  await log({ status: "paused", error: "AI switched off by an administrator" });
+  throw new AiPausedError();
 }
 export const aiLimit = (g.__aiLimit ??= limiter(config.aiConcurrency));
 const noEffort = (g.__noEffort ??= new Set());
@@ -100,6 +120,7 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
     return { ok: true, data };
   };
 
+  await assertAiOn(log);
   if (config.mockAi) {
     const out = await mockRespond(opts.prompt, opts.vars, opts.mockInput);
     const raw = JSON.stringify(out);
@@ -118,16 +139,19 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
   let lastError = "";
   let lastRaw = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
+    if (attempt > 1) await assertAiOn(log); // switched off between the attempt and its retry
     const spent = (await totalSpend());
-    if (spent >= config.budgetUsd) {
-      (await log({ status: "refused", error: `budget reached ($${spent.toFixed(2)} of $${config.budgetUsd})` }));
-      throw new BudgetError(`xAI budget cap reached ($${spent.toFixed(2)} of $${config.budgetUsd}). Raise XAI_BUDGET_USD to continue.`);
+    const limit = await budgetLimit();
+    if (spent >= limit) {
+      (await log({ status: "refused", error: `budget reached ($${spent.toFixed(2)} of $${limit})` }));
+      throw new BudgetError(`AI budget reached ($${spent.toFixed(2)} of $${limit.toFixed(2)}). Your work is saved; the administrator can raise the limit.`);
     }
+    const { client: xai, key } = await client();
     const started = Date.now();
     const useEffort = (opts.role === "fast" || opts.role === "summary") && config.fastReasoningEffort && !noEffort.has(model);
     try {
       const res = await aiLimit(() =>
-        client().chat.completions.create({
+        xai.chat.completions.create({
           model,
           messages,
           response_format: { type: "json_schema", json_schema: { name: prompt.name.replace(/[^a-zA-Z0-9_-]/g, "_"), strict: true, schema: jsonSchema } },
@@ -160,14 +184,14 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
       messages.push({ role: "assistant", content: raw });
       messages.push({ role: "user", content: `Your previous response failed validation: ${v.error}\nReturn a corrected JSON response that fixes these problems. Use only the provided records and IDs.` });
     } catch (e) {
-      const msg = errMsg(e);
+      const msg = redactSecrets(errMsg(e), [key, config.xaiApiKey]);
       if (useEffort && /reasoningEffort|reasoning_effort/i.test(msg)) {
         noEffort.add(model);
         attempt--; // not a validation attempt; retry without the parameter
         continue;
       }
       (await log({ status: "error", error: msg.slice(0, 500), attempt, durationMs: Date.now() - started }));
-      throw e;
+      throw new Error(msg); // never rethrow the SDK error itself: it can carry request headers
     }
   }
   throw new AiValidationError(`The AI response did not pass validation after one retry: ${lastError}`, lastRaw);

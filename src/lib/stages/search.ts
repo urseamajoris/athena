@@ -9,6 +9,7 @@ import { getProject, HttpError, logDecision, markDownstreamStale, setStageState 
 import { newId, nowIso, errMsg } from "../util";
 import { adapters } from "../sources";
 import { SEARCH_DATABASES, type SearchDatabase } from "../sources/types";
+import { dropEmptyGroups } from "../sources/syntax";
 
 export async function searchState(projectId: string) {
   const p = (await getProject(projectId));
@@ -57,7 +58,8 @@ export async function buildQueries(projectId: string) {
           const k = `${q.topicId}/${q.database}`;
           if (seen.has(k)) continue; // one query per database per topic
           seen.add(k);
-          stmts.push(db.insert(schema.queries).values({ id: newId("q"), projectId, topicId: q.topicId, database: q.database, queryString: q.query, aiQueryString: q.query, rationale: q.rationale }));
+          const query = dropEmptyGroups(q.query); // never show or run "AND ()"
+          stmts.push(db.insert(schema.queries).values({ id: newId("q"), projectId, topicId: q.topicId, database: q.database, queryString: query, aiQueryString: query, rationale: q.rationale }));
         }
         stmts.push(db.update(schema.projects).set({ criteria: data.criteria, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)));
         await batchWrite(stmts);
@@ -80,8 +82,13 @@ export async function updateQuery(projectId: string, queryId: string, queryStrin
 export async function updateCriteria(projectId: string, criteria: Criteria) {
   const p = (await getProject(projectId));
   (await db.update(schema.projects).set({ criteria, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run());
-  (await db.update(schema.queries).set({ dryRunCount: null, dryRunAt: null }).where(eq(schema.queries.projectId, projectId)).run());
+  // Counts depend only on years, languages and the hard filter: other criteria (inclusion, exclusion, study types) keep them.
+  const counted = (c: Criteria | null) => JSON.stringify([c?.yearFrom ?? null, c?.yearTo ?? null, c?.languages ?? [], c?.hardFilter ?? []]);
+  if (counted(p.criteria) !== counted(criteria)) (await db.update(schema.queries).set({ dryRunCount: null, dryRunAt: null }).where(eq(schema.queries.projectId, projectId)).run());
   (await logDecision(projectId, 3, "criteria_edited", p.criteria, criteria));
+  const was = (p.criteria?.hardFilter ?? []).join(",");
+  const now = (criteria.hardFilter ?? []).join(",");
+  if (was !== now) (await logDecision(projectId, 3, now ? "hard_retrieval_filter_set" : "hard_retrieval_filter_removed", was || null, now || null));
   (await markDownstreamStale(projectId, 3, "Inclusion/exclusion criteria were edited"));
 }
 

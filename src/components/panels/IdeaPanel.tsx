@@ -1,11 +1,18 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, projectPath, useApi } from "../api";
-import { Badge, ErrorState, Loading, Spinner, cx } from "../ui";
+import { Badge, ErrorState, Loading, Spinner, aiStopKind, cx } from "../ui";
 import { Disclosure } from "../disclosure";
 import { canvasStore, cmdKey, useSession } from "../session/SessionContext";
 import { ActionButton, PanelFooter, SectionTitle } from "./common";
 import { ConceptMap } from "./ConceptMap";
+import { WhatHappens } from "../guide/WhatHappens";
+import dynamic from "next/dynamic";
+import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import { focusWithRing, revealInPanel } from "../canvas/focus";
+import { TopicUndo } from "./topic-undo";
+
+const TopicConstellation = dynamic(() => import("../viz/TopicConstellation").then((m) => m.TopicConstellation), { ssr: false, loading: () => <Loading label="Drawing your topics…" /> });
 import { stageAction } from "@/lib/canvas/actions";
 import { frontierStage, isGhostTopic } from "@/lib/canvas/graph";
 
@@ -23,7 +30,15 @@ export interface ScopingData {
   summary: Record<string, string> | null;
 }
 
-const COVERAGE_LABEL: Record<string, string> = { population: "Population", setting: "Setting", phenomenon: "Intervention / phenomenon", outcome: "Outcome", timeframe: "Time frame", studyTypes: "Study types" };
+/** The scope, in plain words (the PICO-style fields: population, setting, phenomenon, outcome…). */
+const COVERAGE_LABEL: Record<string, [string, string]> = {
+  population: ["Who", "the people or group you want to study"],
+  setting: ["Where", "the place or setting"],
+  phenomenon: ["What is studied", "the exposure, intervention or topic"],
+  outcome: ["What you want to know", "the result or outcome that matters"],
+  timeframe: ["Which years", "how recent the papers should be"],
+  studyTypes: ["Which kinds of studies", "e.g. trials, surveys, interviews, reviews"],
+};
 
 /** Idea node: the idea itself, then the scoping chat whose answers fill the scope (PICO-style) fields. */
 export function IdeaPanel() {
@@ -31,10 +46,15 @@ export function IdeaPanel() {
   const { data, error, isLoading, mutate } = useApi<ScopingData>(projectPath(projectId, "scoping"));
   const [idea, setIdea] = useState(project.idea);
   const [answer, setAnswer] = useState("");
+  // The answer just sent, shown as the user's message until the server returns the conversation with it.
+  const [sent, setSent] = useState<string | null>(null);
+  // What a filled-but-waiting button says when clicked (cleared as soon as the user types).
+  const [hint, setHint] = useState<string | null>(null);
+  useEffect(() => setHint(null), [answer, idea]);
   const [local, setLocal] = useState<string | null>(null);
   const [err, setErr] = useState<unknown>(null);
   const started = useRef(false);
-  const chatEnd = useRef<HTMLDivElement>(null);
+  const chatList = useRef<HTMLDivElement>(null);
   const answerRef = useRef<HTMLTextAreaElement>(null);
   const s1 = states["1"];
   const ideaApproved = s1 === "approved";
@@ -63,11 +83,48 @@ export function IdeaPanel() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, ideaApproved]);
+  // A new question puts the cursor in the answer box, once the request that brought it has finished (`local`).
+  // The conversation scrolls inside its own box; the panel scrolls to the answer box (not to the last message,
+  // which left the box behind the pinned footer on short screens).
   useEffect(() => {
-    chatEnd.current?.scrollIntoView({ block: "nearest" });
-    if (data?.awaitingAnswer) answerRef.current?.focus({ preventScroll: true });
-  }, [data?.messages.length, data?.awaitingAnswer]);
+    const list = chatList.current;
+    if (list) list.scrollTop = list.scrollHeight;
+    if (data?.awaitingAnswer && !local) {
+      answerRef.current?.focus({ preventScroll: true });
+      revealInPanel(answerRef.current);
+    }
+  }, [data?.messages.length, data?.awaitingAnswer, local]);
 
+  // When the questions end (the last answer, or "Skip the rest") the answer box goes away. Say so where the
+  // cursor was, and keep anything typed after the last answer was sent: it is shown, never silently dropped.
+  const chatOpenNow = !!data && ideaApproved && !data.done && !data.topics.length;
+  const wasOpen = useRef(chatOpenNow);
+  const [ended, setEnded] = useState<{ unsent: string; focus: boolean } | null>(null);
+  const endedRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (chatOpenNow) setEnded(null);
+    else if (wasOpen.current) {
+      const a = document.activeElement;
+      // Focus was in the box or on a button that went away (or already sent to the panel heading by FocusPanel).
+      setEnded({ unsent: answer.trim(), focus: !a || a === document.body || !a.isConnected || a.matches("[data-panel] h2") });
+    }
+    wasOpen.current = chatOpenNow;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatOpenNow]);
+  // Before the panel's own focus recovery, which would put the cursor on the heading, where typing goes nowhere.
+  useLayoutEffect(() => {
+    if (ended?.focus) focusWithRing(endedRef.current);
+  }, [ended]);
+
+  // Before step 1 is approved the idea saves itself shortly after typing stops, so every "Sharpen my idea" button
+  // (the panel's and the canvas card's) uses what is on screen.
+  useEffect(() => {
+    // Above the early returns (hooks always run); only once the data has loaded, when saveIdea can run.
+    if (!data || ideaApproved || idea.trim() === project.idea.trim() || idea.trim().length < 10) return;
+    const t = setTimeout(() => void saveIdea(), 800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idea, ideaApproved]);
   if (isLoading) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (!data) return null;
@@ -88,16 +145,31 @@ export function IdeaPanel() {
   async function send(e: React.FormEvent) {
     e.preventDefault();
     if (!answer.trim()) return;
+    // Typing while the next question is on its way is kept in the box; it is sent once that question is there.
+    if (local) return setHint("Wait for the next question to appear. What you typed stays in the box.");
     const text = answer;
     setAnswer("");
+    setSent(text);
     const d = await call("answer", "scoping/answer", { text });
-    if (!d) setAnswer(text);
+    setSent(null);
+    if (!d) setAnswer((typed) => (typed.trim() ? `${text} ${typed.trim()}` : text)); // keep what was typed while sending
   }
 
   const isFrontier = frontierStage(states) === 1 || frontierStage(states) === 2;
   const action = isFrontier ? stageAction(frontierStage(states), input) : null;
   const ghosts = (summary?.topics ?? []).filter((t) => isGhostTopic(t, states, input.client.acceptedTopics));
   const chatOpen = ideaApproved && !data.done && !data.topics.length;
+  const answered = Object.keys(COVERAGE_LABEL).filter((k) => data.coverage?.[k]).length;
+  const knownList = (onlyAnswered = false) => (
+    <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+      {Object.entries(COVERAGE_LABEL).filter(([k]) => !onlyAnswered || data.coverage?.[k]).map(([k, [label, hint]]) => (
+        <div key={k}>
+          <dt className="text-12 text-fg-1"><span className="font-medium">{label}</span> <span className="text-fg-2">· {hint}</span></dt>
+          <dd className={data.coverage?.[k] ? "text-fg-0" : "text-fg-2"}>{data.coverage?.[k]?.replace(/[\s;,.]+$/, "") || "not answered yet"}</dd>
+        </div>
+      ))}
+    </dl>
+  );
 
   return (
     <div className="space-y-4">
@@ -105,36 +177,23 @@ export function IdeaPanel() {
         <div>
           <label htmlFor="idea-edit" className="label">Your research idea</label>
           <textarea id="idea-edit" className="input min-h-36 leading-relaxed" value={idea} placeholder="e.g. What is the knowledge gap in implementing telemedicine in Southeast Asia?" onChange={(e) => setIdea(e.target.value)} />
-          <p className="mt-2 text-12 text-fg-2">Explain it the way you would to a supervisor. It does not need to be a polished question yet.</p>
+          <p className="mt-2 text-12 text-fg-2">{!dirty ? "Saved." : idea.trim().length < 10 ? "Write at least a sentence (10 characters) and it saves itself." : "Saving…"} It does not need to be a polished question yet.</p>
         </div>
-      ) : (
-        <p className="text-fg-1">{project.idea}</p>
-      )}
+      ) : null}
 
-      {ideaApproved && (
-        <section aria-label="Scope">
-          <SectionTitle right={<span className="text-12 tabular-nums text-fg-2">question {Math.min(data.asked, data.maxQuestions)} of at most {data.maxQuestions}</span>}>Scope</SectionTitle>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
-            {Object.entries(COVERAGE_LABEL).map(([k, label]) => (
-              <div key={k}>
-                <dt className="text-12 text-fg-2">{label}</dt>
-                <dd className={data.coverage?.[k] ? "text-fg-0" : "italic text-fg-2"}>{data.coverage?.[k] ?? "not yet covered"}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      )}
+      {!ideaApproved && <WhatHappens stage={1} />}
+      {ideaApproved && <WhatHappens stage={2} />}
 
       {ideaApproved && (chatOpen ? (
         <section aria-label="Scoping conversation" className="rounded-md border border-line">
-          <div className="max-h-80 space-y-3 overflow-y-auto px-3 py-3" aria-live="polite">
+          <div ref={chatList} className="max-h-80 space-y-3 overflow-y-auto px-3 py-3" aria-live="polite">
             {data.messages.map((m) => (
               <div key={m.id} data-role={m.role} className={cx("max-w-[90%] rounded-md px-3 py-2 leading-relaxed", m.role === "assistant" ? "bg-bg-2 text-fg-0" : "ml-auto bg-bg-3 text-fg-0")}>
                 {m.text}
               </div>
             ))}
+            {sent && local === "answer" && <div data-role="user" className="ml-auto max-w-[90%] rounded-md bg-bg-3 px-3 py-2 leading-relaxed text-fg-0">{sent}</div>}
             {local === "start" || local === "answer" ? <p className="flex items-center gap-2 text-fg-2"><Spinner /> Thinking about the next question…</p> : null}
-            <div ref={chatEnd} />
           </div>
           <form id="scoping-answer-form" onSubmit={send} className="border-t border-line p-3">
             <label htmlFor="answer" className="sr-only">Your answer</label>
@@ -142,9 +201,11 @@ export function IdeaPanel() {
               id="answer"
               ref={answerRef}
               className="input min-h-16"
-              placeholder={data.awaitingAnswer ? "Type your answer (Enter to send, Shift+Enter for a new line)" : "Waiting for a question…"}
+              placeholder={data.awaitingAnswer ? "Type your answer in your own words (Enter sends)" : "Waiting for the next question…"}
               value={answer}
-              disabled={!data.awaitingAnswer || !!local}
+              // Not disabled while an answer is being sent: a disabled box would drop what is typed meanwhile.
+              disabled={!data.awaitingAnswer || (!!local && local !== "answer")}
+              aria-busy={local === "answer" || undefined}
               onChange={(e) => setAnswer(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
@@ -167,6 +228,21 @@ export function IdeaPanel() {
         )
       ))}
 
+      {ended && !chatOpen && (!data.topics.length || ended.unsent || ended.focus) && (
+        <div ref={endedRef} tabIndex={-1} role="status" className="flex items-start gap-2 rounded-md border border-line px-3 py-2 text-fg-0">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-ok" strokeWidth={1.5} aria-hidden />
+          <div className="min-w-0 flex-1 space-y-1">
+            <p><strong className="font-semibold">The questions are done.</strong>{action && !data.topics.length ? ` Next: “${action.label}”, below.` : ""}</p>
+            {ended.unsent && (
+              <>
+                <p className="text-fg-1">You typed this after the last question, so it was not sent. Add it to a topic or to the idea if you need it:</p>
+                <blockquote className="whitespace-pre-wrap border-l-2 border-line-control pl-2 text-fg-1">{ended.unsent}</blockquote>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {data.topics.length > 0 && (
         <section aria-label="Topics">
           <SectionTitle right={<span className="text-12 text-fg-2">{data.topics.length} topic{data.topics.length === 1 ? "" : "s"}{data.topics.length < 4 || data.topics.length > 8 ? " · aim for 4–8" : ""}</span>}>Topics</SectionTitle>
@@ -174,30 +250,63 @@ export function IdeaPanel() {
             {data.topics.map((t) => {
               const ghost = !!summary && isGhostTopic({ ...t, synonyms: 0, controlledTerms: 0 }, states, input.client.acceptedTopics);
               return (
-                <li key={t.id}>
-                  <button className="flex min-h-11 w-full items-center gap-2 rounded-sm px-2 py-2 text-left hover:bg-bg-3" onClick={() => canvasStore.getState().openPanel(`topic:${t.id}`)}>
-                    <span className="min-w-0 flex-1 truncate">{t.name}</span>
+                <li key={t.id} className="flex flex-wrap items-center gap-1 rounded-sm hover:bg-bg-2">
+                  <button data-topic-row={t.id} className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2 py-2 text-left" onClick={() => canvasStore.getState().openPanel(`topic:${t.id}`)} title="Open to edit its name and keywords">
+                    <span className="min-w-0 flex-1">{t.name}</span>
                     {ghost ? <Badge tone="warn">suggested</Badge> : t.origin !== "ai" ? <Badge>{t.origin === "user" ? "added by you" : "merged"}</Badge> : null}
                   </button>
+                  {ghost && (
+                    <span className="flex gap-1 pr-1">
+                      <button className="btn-ghost btn-sm" onClick={() => canvasStore.getState().openPanel(`topic:${t.id}`)} aria-label={`Edit the topic ${t.name}`}>Edit</button>
+                      <button className="btn-ghost btn-sm" onClick={() => run({ type: "acceptTopic", topicId: t.id })} aria-label={`Keep the topic ${t.name}`}>Keep</button>
+                      <button className="btn-ghost btn-sm" onClick={() => run({ type: "dismissTopic", topicId: t.id })} aria-label={`Delete topic: ${t.name}`}>Delete</button>
+                    </span>
+                  )}
                 </li>
               );
             })}
           </ul>
-          {ghosts.length > 0 && <p className="mt-2 text-12 text-fg-2">Suggested subtopics stay dashed on the canvas until you accept (Enter) or dismiss (Esc) them.</p>}
+          {ghosts.length > 0 && <p className="mt-2 text-12 text-fg-2">Suggested topics stay dashed until you keep or delete them. Keep the ones that are part of your question; you can edit any topic afterwards.</p>}
+        </section>
+      )}
+      <TopicUndo />
+
+      {ideaApproved && !data.topics.length && (
+        <section aria-label="What we know so far">
+          <SectionTitle right={<span className="text-12 tabular-nums text-fg-2">{chatOpen ? `question ${Math.max(1, Math.min(data.asked, data.maxQuestions))} of up to ${data.maxQuestions}` : "questions done"}</span>}>What we know so far</SectionTitle>
+          {chatOpen ? (
+            <>
+              {answered > 0 && knownList(true)}
+              <p className="mt-1 text-12 text-fg-2">{answered ? `${Object.keys(COVERAGE_LABEL).length - answered} more to cover` : "Filled in as you answer"}: {Object.entries(COVERAGE_LABEL).filter(([k]) => !data.coverage?.[k]).map(([, [label]]) => label.toLowerCase()).join(", ")}.</p>
+            </>
+          ) : (
+            knownList()
+          )}
         </section>
       )}
 
       {data.topics.length === 0 && data.draftTopics.length > 0 && (
         <section aria-label="Draft topics">
-          <SectionTitle>Draft topics, building as you answer</SectionTitle>
+          <SectionTitle>Search topics taking shape</SectionTitle>
           <ul className="flex flex-wrap gap-2">{data.draftTopics.map((t) => <li key={t}><Badge>{t}</Badge></li>)}</ul>
         </section>
       )}
 
+      {data.topics.length > 0 && (
+        <Disclosure title="What we know so far" meta={`${answered} of ${Object.keys(COVERAGE_LABEL).length} answered`}>
+          {knownList()}
+        </Disclosure>
+      )}
       {data.topics.length > 0 && <ManageTopics topics={data.topics} onChange={(d) => mutate(d, { revalidate: false })} />}
-      {data.conceptMap && (
-        <Disclosure title="Concept map">
-          <ConceptMap map={data.conceptMap} />
+      {data.topics.length > 0 && (
+        <Disclosure title="See how your topics connect" meta="map">
+          <TopicConstellation idea={project.idea} topics={data.topics} />
+          {data.conceptMap && (
+            <div className="mt-3">
+              <p className="mb-1 text-12 text-fg-2">How the AI linked the main ideas:</p>
+              <ConceptMap map={data.conceptMap} />
+            </div>
+          )}
         </Disclosure>
       )}
       {ideaApproved && (
@@ -220,28 +329,33 @@ export function IdeaPanel() {
         </Disclosure>
       )}
 
-      {err ? <ErrorState error={err} title="That step failed" onRetry={() => (data.messages.length ? undefined : call("start", "scoping/start"))} /> : null}
+      {err ? <ErrorState error={err} title="That step failed" onRetry={data.messages.length ? undefined : () => call("start", "scoping/start")} /> : null}
 
       {action && (
-        <PanelFooter note={chatOpen && data.awaitingAnswer ? "Up to five short questions; skip any time from ⋯." : undefined}>
+        <PanelFooter note={hint ? <span role="alert" className="text-err">{hint}</span> : chatOpen && data.awaitingAnswer ? "Up to five short questions. “Skip the rest” goes straight to your search topics." : undefined}>
           {!ideaApproved ? (
             <button
               className="btn-primary"
+              data-await-input
               data-action="approve"
               aria-disabled={idea.trim().length < 10 || !!busy || undefined}
               onClick={async () => {
-                if (idea.trim().length < 10 || busy) return;
+                if (busy) return;
+                if (idea.trim().length < 10) return setHint("Write your idea in at least a sentence (10 characters or more).");
                 if (await saveIdea()) await run({ type: "approve", stage: 1 });
               }}
             >
-              {busy === cmdKey({ type: "approve", stage: 1 }) && <Spinner />} Start scoping
+              {busy === cmdKey({ type: "approve", stage: 1 }) && <Spinner />} Sharpen my idea
             </button>
           ) : action.cmd.type === "answer" ? (
-            <button type="submit" form="scoping-answer-form" className="btn-primary" aria-disabled={!answer.trim() || !!local || undefined} onClick={(e) => { if (!answer.trim() || local) e.preventDefault(); }}>
+            <>
+            <button type="button" className="btn-ghost" disabled={!!local} onClick={() => call("skip", "scoping/skip")}>Skip the rest</button>
+            <button type="submit" form="scoping-answer-form" className="btn-primary" data-await-input aria-disabled={!answer.trim() || !!local || undefined} onClick={(e) => { if (!answer.trim() || local) e.preventDefault(); if (!answer.trim() && !local) setHint(data.awaitingAnswer ? "Type an answer first, or use “Skip the rest”." : "Wait for the next question to appear."); }}>
               {local === "answer" && <Spinner />} Send answer
             </button>
+            </>
           ) : action.cmd.type === "openScoping" ? (
-            <p className="flex items-center gap-2 text-fg-2"><Spinner /> Preparing the first question…</p>
+            aiStopKind(err) ? <p className="text-fg-2">The first question appears when AI is available again.</p> : <p className="flex items-center gap-2 text-fg-2"><Spinner /> Preparing the first question…</p>
           ) : (
             <ActionButton action={action} primary showReason />
           )}
@@ -311,19 +425,27 @@ function ManageTopics({ topics, onChange }: { topics: Topic[]; onChange: (d: Sco
 
 /** Topic node: edit one topic (name, synonyms, MeSH), or accept / dismiss it while it is a suggestion. */
 export function TopicPanel({ topicId }: { topicId: string }) {
-  const { projectId, confirmEdit, refresh, states, input, run, graph } = useSession();
+  const { projectId, confirmEdit, refresh, states, input, run, graph, announce } = useSession();
   const { data, mutate } = useApi<ScopingData>(projectPath(projectId, "scoping"));
   const [err, setErr] = useState<unknown>(null);
+  // Set when an edit here reopened the approved step 2 (any topic change does, on the server): said, not silent.
+  const [reopened, setReopened] = useState(false);
   const t = data?.topics.find((x) => x.id === topicId);
   if (!data) return <Loading />;
   if (!t) return <p className="text-fg-2">This topic no longer exists.</p>;
   const ghost = isGhostTopic({ ...t, synonyms: 0, controlledTerms: 0 }, states, input.client.acceptedTopics);
+  const approved2 = states["2"] === "approved";
   async function patch(body: Record<string, unknown>) {
     if (!(await confirmEdit(2))) return;
+    const reopens = states["2"] === "approved";
     setErr(null);
     try {
       mutate(await api<ScopingData>(projectPath(projectId, `topics/${topicId}`), { method: "PATCH", body }), { revalidate: false });
       await refresh();
+      if (reopens) {
+        setReopened(true);
+        announce("You changed a topic, so step 2 is open again. Approve the topics again with “Use these topics” to continue.");
+      }
     } catch (e) {
       setErr(e);
     }
@@ -333,7 +455,21 @@ export function TopicPanel({ topicId }: { topicId: string }) {
   const isFrontierNode = node && frontier && (frontierStage(states) === 3 && graph.nodes.find((n) => n.kind === "topic" && !n.ghost)?.id === node.id);
   return (
     <div className="space-y-4">
-      {ghost && <p className="rounded-md border border-dashed border-line-control px-3 py-2 text-fg-1">Suggested by the AI from your scoping answers. Accept it to keep it, or dismiss it.</p>}
+      {ghost && <p className="rounded-md border border-dashed border-line-control px-3 py-2 text-fg-1">Suggested by the AI from your scoping answers. Keep it, or delete it if it does not fit.</p>}
+      {approved2 && !ghost && (
+        <p className="flex items-start gap-2 text-12 text-fg-1">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden />
+          <span>Your topics are approved (step 2). Changing a topic reopens step 2: you then approve the topics again with “Use these topics” to continue.</span>
+        </p>
+      )}
+      {reopened && !approved2 && (
+        <div role="status" className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-fg-0">
+          <p className="flex items-start gap-2">
+            <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden />
+            <span><strong className="font-semibold">Step 2 is open again.</strong> You changed a topic, so the topics need approving again. Check the topics, then press “Use these topics” below to continue.</span>
+          </p>
+        </div>
+      )}
       <div>
         <label htmlFor={`tn-${t.id}`} className="label">Topic name</label>
         <input id={`tn-${t.id}`} key={`n-${t.name}`} className="input font-medium" defaultValue={t.name} onBlur={(e) => e.target.value.trim() && e.target.value !== t.name && patch({ name: e.target.value })} />
@@ -351,8 +487,9 @@ export function TopicPanel({ topicId }: { topicId: string }) {
         <PanelFooter>
           {ghost ? (
             <>
-              <button className="btn-ghost" onClick={() => run({ type: "dismissTopic", topicId })}>Dismiss</button>
-              <button className="btn-primary" onClick={() => run({ type: "acceptTopic", topicId })}>Accept subtopic</button>
+              {/* The primary action comes first in tab order; Delete (Undo shows after it) follows it. */}
+              <button className="btn-primary" onClick={() => run({ type: "acceptTopic", topicId })}>Keep this topic</button>
+              <button className="btn-ghost" onClick={() => run({ type: "dismissTopic", topicId })} aria-label={`Delete topic: ${t.name}`}>Delete</button>
             </>
           ) : (
             frontier && <ActionButton action={frontier} primary showReason />

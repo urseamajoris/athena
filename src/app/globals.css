@@ -29,6 +29,22 @@
   --focus: #f5f5f7;
   --mark: rgb(245 181 71 / 0.16);
   --mark-active: rgb(245 181 71 / 0.3);
+  /* Category palette (src/lib/shared/categories.ts; validated for colour-blind separation and 3:1 contrast). */
+  --cat-1: #3987e5;
+  --cat-2: #d95926;
+  --cat-3: #199e70;
+  --cat-4: #c98500;
+  --cat-5: #d55181;
+  --cat-6: #2a9a2a;
+  --cat-7: #9085e9;
+  --cat-8: #e66767;
+  --cat-none: #8a8a94;
+  /* Sequential ramp (ranking score), low → high. */
+  --seq-1: #184f95;
+  --seq-2: #256abf;
+  --seq-3: #3987e5;
+  --seq-4: #6da7ec;
+  --seq-5: #9ec5f4;
 }
 
 :root[data-theme="light"] {
@@ -53,6 +69,20 @@
   --focus: #111113;
   --mark: rgb(245 181 71 / 0.35);
   --mark-active: rgb(245 181 71 / 0.7);
+  --cat-1: #2a78d6;
+  --cat-2: #d95926;
+  --cat-3: #13936a;
+  --cat-4: #b97f00;
+  --cat-5: #d4558a;
+  --cat-6: #008300;
+  --cat-7: #6250d6;
+  --cat-8: #e34948;
+  --cat-none: #6e6e78;
+  --seq-1: #86b6ef;
+  --seq-2: #5598e7;
+  --seq-3: #2a78d6;
+  --seq-4: #1c5cab;
+  --seq-5: #104281;
 }
 
 @theme inline {
@@ -77,6 +107,15 @@
   --color-err: var(--err);
   --color-run: var(--run);
   --color-focus: var(--focus);
+  --color-cat-1: var(--cat-1);
+  --color-cat-2: var(--cat-2);
+  --color-cat-3: var(--cat-3);
+  --color-cat-4: var(--cat-4);
+  --color-cat-5: var(--cat-5);
+  --color-cat-6: var(--cat-6);
+  --color-cat-7: var(--cat-7);
+  --color-cat-8: var(--cat-8);
+  --color-cat-none: var(--cat-none);
   /* Tinted fills and borders for status (low salience: they must never compete with the accent). */
   --color-ok-soft: color-mix(in oklab, var(--ok) 12%, transparent);
   --color-warn-soft: color-mix(in oklab, var(--warn) 12%, transparent);
@@ -123,6 +162,9 @@
   --default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
   --animate-spin: spin 0.9s linear infinite;
 }
+
+/* Short viewports (e.g. a laptop at 200% zoom, ~450 CSS px tall): fixed headers give way to the content. */
+@custom-variant short (@media (max-height: 640px));
 
 :root {
   --dur-hover: 120ms;
@@ -202,13 +244,28 @@ kbd,
     cursor: not-allowed;
   }
 }
-/* The one accent-filled button per view. */
+/* The one accent-filled button per view. Disabled, it becomes an outline (a dimmed fill reads as "enabled but
+   faint", and testers could not tell the two apart); the reason is said next to it. */
 @utility btn-primary {
   @apply btn;
   background: var(--accent);
   color: var(--accent-fg);
-  &:not(:disabled):hover {
+  font-weight: 600;
+  &:not(:disabled):not([aria-disabled="true"]):hover {
     background: var(--accent-hover);
+  }
+  &:disabled,
+  &[aria-disabled="true"] {
+    opacity: 1;
+    background: transparent;
+    color: var(--fg-2);
+    border: 1px dashed var(--line-control);
+  }
+  /* Waiting only for the user's input (an empty form): it stays filled, because clicking it says what is missing. */
+  &[data-await-input][aria-disabled="true"] {
+    background: var(--accent);
+    color: var(--accent-fg);
+    border: 0;
   }
 }
 @utility btn-secondary {
@@ -396,9 +453,15 @@ svg.lucide {
   }
 }
 
-/* Headings that receive focus programmatically (tabindex=-1, not reachable by Tab) need no ring. */
+/* Headings that receive focus programmatically (tabindex=-1, not reachable by Tab) need no ring... */
 [tabindex="-1"]:focus {
   outline: none;
+}
+/* ...unless focus was moved there for a keyboard user (focusWithRing in components/canvas/focus.ts). */
+[tabindex="-1"][data-focus-ring]:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* Touch: every control is at least 44 × 44 px on small screens. */
@@ -414,6 +477,29 @@ svg.lucide {
   }
   .btn-sm {
     min-width: 44px;
+  }
+}
+/* Short viewports: the side panel's pinned footer stays compact (the note beside the buttons, less padding), so it
+   does not take a third of a zoomed screen. Focused controls are scrolled clear of it (revealInPanel in focus.ts). */
+@media (max-height: 640px) {
+  [data-panel-footer] > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+  [data-panel-footer] > div > p {
+    flex: 1 1 12rem;
+    margin-bottom: 0;
+  }
+  [data-panel-footer] > div > div {
+    margin-left: auto;
+  }
+  [data-panel-footer-fallback] {
+    padding-top: 6px;
+    padding-bottom: 6px;
   }
 }
 /* Promote the viewport to its own layer only while panning/zooming (crisp text the rest of the time). */

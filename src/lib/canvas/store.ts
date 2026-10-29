@@ -19,9 +19,11 @@ export interface SessionUi {
   /** "Re-run downstream" is in progress: re-run each stale step after the previous one is approved. */
   cascade: boolean;
   viewport: { x: number; y: number; zoom: number } | null;
+  /** Guided-checklist steps the user has done on this device (e.g. "opened-paper", "used-filter"). */
+  seen: string[];
 }
 
-export const DEFAULT_SESSION: SessionUi = { pinned: {}, acceptedTopics: [], pinnedQuotes: [], reviewed: [], view: null, minimap: false, cascade: false, viewport: null };
+export const DEFAULT_SESSION: SessionUi = { pinned: {}, acceptedTopics: [], pinnedQuotes: [], reviewed: [], view: null, minimap: false, cascade: false, viewport: null, seen: [] };
 
 export interface AddMenuState {
   nodeId: string;
@@ -61,9 +63,10 @@ export interface CanvasState {
   toggleMinimap(sid: string): void;
   setCascade(sid: string, on: boolean): void;
   setViewport(sid: string, vp: SessionUi["viewport"]): void;
+  markSeen(sid: string, flag: string): void;
 }
 
-export const sessionOf = (s: Pick<CanvasState, "sessions">, sid: string): SessionUi => s.sessions[sid] ?? DEFAULT_SESSION;
+export const sessionOf = (s: Pick<CanvasState, "sessions">, sid: string): SessionUi => ({ ...DEFAULT_SESSION, ...s.sessions[sid] });
 
 const uniq = (a: string[]) => [...new Set(a)];
 
@@ -130,6 +133,7 @@ export function createCanvasStore(storage?: StateStorage) {
           toggleMinimap: (sid) => patch(sid, (s) => ({ minimap: !s.minimap })),
           setCascade: (sid, cascade) => patch(sid, () => ({ cascade })),
           setViewport: (sid, viewport) => patch(sid, () => ({ viewport })),
+          markSeen: (sid, flag) => patch(sid, (s) => (s.seen.includes(flag) ? {} : { seen: [...s.seen, flag] })),
         };
       },
       {

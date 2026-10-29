@@ -4,7 +4,7 @@ import { api, projectPath, useApi } from "../api";
 import { ErrorState, Loading, Spinner } from "../ui";
 import { Disclosure } from "../disclosure";
 import { canvasStore, useSession } from "../session/SessionContext";
-import { QuoteVerdict, SourcePassage } from "./evidence";
+import { FOUND_MEANS, QuoteVerdict, SourcePassage, partsSuffix } from "./evidence";
 import type { AppraisalDetailData } from "./AppraisalPanel";
 
 /** Quote node: does the quote match its source? Quote beside the highlighted passage, and the verdict. */
@@ -45,13 +45,17 @@ export function QuotePanel({ claimId }: { claimId: string }) {
         <section aria-label="Source passage">
           <h3 className="label">Source passage</h3>
           {c.verified && text && c.matchStart !== null && c.matchEnd !== null ? (
-            <SourcePassage text={text} start={c.matchStart} end={c.matchEnd} />
+            <>
+              <SourcePassage text={text} start={c.matchStart} end={c.matchEnd} />
+              {partsSuffix(c) && c.verificationNote && <p className="mt-1 text-12 text-fg-2">{c.verificationNote} The passage above is the first part.</p>}
+            </>
           ) : (
-            <p className="rounded-sm border border-err-line px-3 py-2 text-fg-1">Not found in the retrieved text. {c.verificationNote}</p>
+            <p className="rounded-sm border border-err-line px-3 py-2 text-fg-1">Not found word for word in the retrieved text. {c.verificationNote?.replace(/^(UNVERIFIED:\s*)?(Quote not found in the retrieved source text\.\s*)?/, "")}</p>
           )}
         </section>
       </div>
-      <p className="text-12 text-fg-2">Verified means the quoted words exist in the retrieved text. It does not prove the paraphrase above is faithful to them.</p>
+      <p className="text-12 text-fg-2">{FOUND_MEANS} Nor does it prove the sentence above says the same as the quote.</p>
+      {!c.verified && c.userRejected && <p className="text-12 text-fg-2">Rejected: left out of the synthesis.</p>}
       <div className="flex flex-wrap gap-2">
         {busy && <Spinner />}
         {!c.verified && !c.userAccepted && <button className="btn-secondary" onClick={() => decide("accept")}>Accept anyway</button>}
@@ -60,7 +64,7 @@ export function QuotePanel({ claimId }: { claimId: string }) {
         <button className="btn-ghost" onClick={() => openPaper(c.paperId)}>Open paper</button>
         <button className="btn-ghost" onClick={() => { canvasStore.getState().unpinQuote(projectId, claimId); canvasStore.getState().closePanel(); }}>Unpin</button>
       </div>
-      <Disclosure title="Full retrieved text" meta={data.sourceText?.source}>
+      <Disclosure title={data.sourceText?.kind === "abstract" ? "The abstract that was read" : "Full retrieved text"} meta={data.sourceText?.source}>
         <p className="max-h-80 overflow-y-auto whitespace-pre-wrap font-serif text-14 leading-relaxed text-fg-1">{text ?? "No source text stored."}</p>
       </Disclosure>
     </div>

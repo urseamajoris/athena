@@ -5,7 +5,8 @@ import { Disclosure } from "../disclosure";
 import { useSession } from "../session/SessionContext";
 import { ActionButton, JobLog, JobStatus, PanelFooter, SectionTitle, Stat, StaleNotice } from "./common";
 import { nextAction } from "@/lib/canvas/actions";
-import { RUBRIC } from "@/lib/shared/stages";
+import { MIN_TOPIC_FIT, PER_TOPIC, RUBRIC } from "@/lib/shared/stages";
+import { topicCoverage } from "@/lib/scoring";
 import { fmtInt } from "@/lib/shared/format";
 
 /** Table node (stages 5–6): summary rows, then ranking; the full table opens on its own page. */
@@ -16,6 +17,7 @@ export function TablePanel() {
   const t = summary?.table;
   const ranking = summary?.ranking ?? [];
   const activeStage = states["5"] === "approved" ? 6 : 5;
+  const { short, few } = topicCoverage(ranking);
   return (
     <div className="space-y-4">
       <StaleNotice stage={5} also={[6]} />
@@ -27,7 +29,7 @@ export function TablePanel() {
       <Link href={`/s/${projectId}/table`} className="btn-secondary w-full">
         <Table2 className="h-4 w-4" strokeWidth={1.5} aria-hidden /> Open the full table
       </Link>
-      {states["6"] !== "not_started" && ranking.some((r) => r.scored) && (
+      {states["6"] !== "not_started" && states["6"] !== "running" && ranking.some((r) => r.scored) && (
         <section aria-label="Selected papers per topic">
           <SectionTitle>Selected for appraisal, by topic importance</SectionTitle>
           <ul className="divide-y divide-line rounded-md border border-line">
@@ -39,7 +41,11 @@ export function TablePanel() {
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-12 text-fg-2">Aim for 3–5 papers per topic. Pick and swap papers in the full table.</p>
+          <p className="mt-2 text-12 text-fg-2">
+            Aim for 3–5 papers per topic. Pick and swap papers in the full table.
+            {short.length > 0 && ` Fewer than ${PER_TOPIC.min} are selected in ${short.length === 1 ? "1 topic" : `${short.length} topics`} although more papers match.`}
+            {few.length > 0 && ` Fewer than ${PER_TOPIC.min} papers match ${few.length === 1 ? "1 topic" : `${few.length} topics`} (${few.map((r) => r.name).join(", ")}): papers that do not match a topic are not selected for it.`}
+          </p>
         </section>
       )}
       <Disclosure title="How papers are scored">
@@ -48,7 +54,7 @@ export function TablePanel() {
             <li key={r.key}><strong className="font-medium">{r.label}</strong> <span className="tabular-nums text-fg-2">{Math.round(r.weight * 100)}%</span> · {r.by === "AI" ? "scored by the AI from title and abstract" : "a fixed formula"}</li>
           ))}
         </ul>
-        <p className="mt-2 text-12 text-fg-2">Total = weighted sum out of 100. The top 4 per topic are pre-selected.</p>
+        <p className="mt-2 text-12 text-fg-2">Total = weighted sum out of 100. The 4 best-scoring papers per topic are pre-selected, but only papers that match the topic (topic fit {MIN_TOPIC_FIT}/5 or more).</p>
       </Disclosure>
       <JobLog stage={activeStage} />
       {action && (

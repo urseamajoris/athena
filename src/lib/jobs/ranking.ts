@@ -2,16 +2,16 @@ import "server-only";
 import { asc, eq, inArray } from "drizzle-orm";
 import { db, schema } from "../db";
 import type { RubricScores } from "../db/schema";
-import { structuredCall, unknownIds, BudgetError } from "../ai/client";
+import { structuredCall, unknownIds, isAiStop } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { RankingBatch, TopicImportance } from "../stages/ai-schemas";
+import { PER_TOPIC } from "../shared/stages";
 import { chunk, errMsg, newId, forEachSeq } from "../util";
 import { getProject, logDecision } from "../project";
 import type { JobContext } from "./runner";
-import { citationScore, recencyScore, weightedTotal } from "../scoring";
+import { citationScore, defaultSelection, recencyScore, weightedTotal } from "../scoring";
 
 const BATCH = 10;
-export const DEFAULT_SELECT = 4;
 /** Max papers scored per topic (highest database relevance first) to bound cost. */
 const MAX_PER_TOPIC = 60;
 
@@ -20,7 +20,10 @@ export async function rankingJob(ctx: JobContext) {
   const p = (await getProject(projectId));
   const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
   const topicIds = topics.map((t) => t.id);
-  (await db.delete(schema.scores).where(inArray(schema.scores.topicId, topicIds.concat(["-"]))).run());
+  // A resumed job (after AI was paused) keeps the scores it already has and scores only the rest.
+  const resumed = !!ctx.params.resumed;
+  if (!resumed) (await db.delete(schema.scores).where(inArray(schema.scores.topicId, topicIds.concat(["-"]))).run());
+  const scored = new Set(resumed ? (await db.select({ p: schema.scores.paperId, t: schema.scores.topicId }).from(schema.scores).where(inArray(schema.scores.topicId, topicIds.concat(["-"]))).all()).map((r) => `${r.t}:${r.p}`) : []);
 
   const links = (await db.select().from(schema.paperTopics).where(inArray(schema.paperTopics.topicId, topicIds.concat(["-"]))).all());
   const papers = (await db.select().from(schema.papers).where(eq(schema.papers.projectId, projectId)).all());
@@ -39,7 +42,7 @@ export async function rankingJob(ctx: JobContext) {
       .sort((a, b) => (bestRank.get(a.id) ?? 0) - (bestRank.get(b.id) ?? 0))
       .slice(0, MAX_PER_TOPIC);
     if (links.filter((l) => l.topicId === t.id).length > MAX_PER_TOPIC) (await ctx.log(`Topic "${t.name}": scoring the ${MAX_PER_TOPIC} highest-relevance papers of ${links.filter((l) => l.topicId === t.id).length}.`));
-    for (const b of chunk(ps, BATCH)) jobs.push({ topic: t, batch: b });
+    for (const b of chunk(ps.filter((x) => !scored.has(`${t.id}:${x.id}`)), BATCH)) jobs.push({ topic: t, batch: b });
   }
   let finished = 0;
   (await ctx.progress(0, jobs.length + 1, `Scoring ${jobs.length} batches across ${topics.length} topics`));
@@ -89,7 +92,7 @@ export async function rankingJob(ctx: JobContext) {
                       }).onConflictDoNothing().run());
         }
       } catch (e) {
-        if (e instanceof BudgetError) throw e;
+        if (isAiStop(e)) throw e;
         (await ctx.log(`Scoring batch for "${topic.name}" failed: ${errMsg(e)}`));
       } finally {
         finished++;
@@ -98,11 +101,12 @@ export async function rankingJob(ctx: JobContext) {
     }),
   );
 
-  // Select top N per topic.
+  // Select the top papers per topic that match it (possibly fewer than the default, or none).
   const all = (await db.select().from(schema.scores).where(inArray(schema.scores.topicId, topicIds.concat(["-"]))).all());
   for (const t of topics) {
-    const top = all.filter((s) => s.topicId === t.id).sort((a, b) => b.total - a.total).slice(0, DEFAULT_SELECT);
+    const top = defaultSelection(all.filter((s) => s.topicId === t.id));
     for (const s of top) (await db.update(schema.scores).set({ selected: true }).where(eq(schema.scores.id, s.id)).run());
+    if (top.length < PER_TOPIC.min) (await ctx.log(`Topic "${t.name}": ${top.length} paper${top.length === 1 ? "" : "s"} selected; papers that do not match the topic are not selected.`));
   }
 
   // Order topics by importance.
@@ -131,7 +135,7 @@ export async function rankingJob(ctx: JobContext) {
     const sorted = [...data.order].sort((a, b) => a.rank - b.rank);
     await forEachSeq(sorted, async (o, i) => (await db.update(schema.topics).set({ importanceRank: i + 1, importanceJustification: o.justification }).where(eq(schema.topics.id, o.topicId)).run()));
   } catch (e) {
-    if (e instanceof BudgetError) throw e;
+    if (isAiStop(e)) throw e;
     (await ctx.log(`Topic ordering failed; keeping the original order: ${errMsg(e)}`));
     await forEachSeq(topics, async (t, i) => (await db.update(schema.topics).set({ importanceRank: i + 1, importanceJustification: "Original order (AI ordering failed)" }).where(eq(schema.topics.id, t.id)).run()));
   }

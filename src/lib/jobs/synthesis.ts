@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db, schema, batchWrite, type BatchItem } from "../db";
-import { structuredCall, unknownIds, BudgetError, repairId } from "../ai/client";
+import { structuredCall, unknownIds, isAiStop, repairId } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { Synthesis } from "../stages/ai-schemas";
 import { STUDY_TYPE_LABEL, type StudyType } from "../shared/stages";
@@ -65,7 +65,8 @@ export async function synthesisJob(ctx: JobContext) {
                 .map((x) => {
                   const a = apps.find((y) => y.paperId === x.id);
                   const s = sums.find((y) => y.paperId === x.id);
-                  return `${x.id} — ${x.title} — ${x.year ?? "n/a"} — ${STUDY_TYPE_LABEL[(s?.studyType ?? "not_reported") as StudyType] ?? s?.studyType} — ${a?.textSource === "full_text" ? "full text" : "abstract only"}`;
+                  // First author and journal let the model tell a preprint and its journal version apart as one study.
+                  return `${x.id} — ${x.title} — ${x.authors[0] ?? "n/a"} — ${x.journal ?? "n/a"} — ${x.year ?? "n/a"} — ${STUDY_TYPE_LABEL[(s?.studyType ?? "not_reported") as StudyType] ?? s?.studyType} — ${a?.textSource === "full_text" ? "full text" : "abstract only"}`;
                 })
                 .join("\n"),
             ),
@@ -120,7 +121,7 @@ export async function synthesisJob(ctx: JobContext) {
         ok++;
         (await ctx.log(`✓ "${t.name}": ${data.themes.length} themes, ${data.contradictions.length} contradictions`));
       } catch (e) {
-        if (e instanceof BudgetError) throw e;
+        if (isAiStop(e)) throw e;
         (await ctx.log(`✗ synthesis failed for "${t.name}": ${errMsg(e)}`));
       } finally {
         finished++;

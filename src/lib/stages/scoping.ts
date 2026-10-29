@@ -1,5 +1,5 @@
 import "server-only";
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db, schema, batchWrite, type BatchItem } from "../db";
 import { structuredCall } from "../ai/client";
 import { wrapData } from "../ai/prompts";
@@ -18,18 +18,27 @@ async function transcript(projectId: string) {
   };
 }
 
+type TurnMeta = { kind?: string; target?: string | null; coverage?: Record<string, string | null>; draftTopics?: string[]; done?: boolean } | null;
+
+/** The latest assistant turn that carried a coverage summary. "Skip the rest" and the closing turn carry none of their own. */
+function lastCoverage(msgs: { role: string; meta: unknown }[]) {
+  const m = [...msgs].reverse().find((x) => x.role === "assistant" && (x.meta as TurnMeta)?.coverage);
+  return (m?.meta ?? null) as TurnMeta;
+}
+
 export async function scopingState(projectId: string) {
   const t = (await transcript(projectId));
   const last = [...t.msgs].reverse().find((m) => m.role === "assistant");
-  const meta = (last?.meta ?? null) as { kind?: string; coverage?: Record<string, string | null>; draftTopics?: string[]; done?: boolean } | null;
+  const meta = (last?.meta ?? null) as TurnMeta;
+  const known = lastCoverage(t.msgs);
   const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
   const p = (await getProject(projectId));
   return {
     messages: t.msgs,
     asked: t.asked,
     maxQuestions: MAX_SCOPING_QUESTIONS,
-    coverage: meta?.coverage ?? null,
-    draftTopics: meta?.draftTopics ?? [],
+    coverage: known?.coverage ?? null,
+    draftTopics: known?.draftTopics ?? [],
     done: !!meta?.done || t.asked >= MAX_SCOPING_QUESTIONS,
     awaitingAnswer: last?.role === "assistant" && meta?.kind === "question" && t.msgs[t.msgs.length - 1]?.id === last.id,
     topics,
@@ -48,7 +57,14 @@ export async function nextScopingTurn(projectId: string) {
   const p = (await getProject(projectId));
   const t = (await transcript(projectId));
   if (t.asked >= MAX_SCOPING_QUESTIONS) {
-    (await addMessage(projectId, "assistant", "Thanks — that's enough to build your search topics.", { kind: "done", done: true }));
+    // No model call for the closing turn, so file the last answer under the field its question asked about.
+    const known = lastCoverage(t.msgs);
+    const lastQ = [...t.msgs].reverse().find((m) => m.role === "assistant" && (m.meta as TurnMeta)?.kind === "question");
+    const target = (lastQ?.meta as TurnMeta)?.target;
+    const lastAnswer = t.msgs[t.msgs.length - 1]?.role === "user" ? t.msgs[t.msgs.length - 1].text : null;
+    const coverage = { ...(known?.coverage ?? {}) };
+    if (target && lastAnswer && !coverage[target]) coverage[target] = lastAnswer;
+    (await addMessage(projectId, "assistant", "Thanks — that's enough to build your search topics.", { kind: "done", done: true, coverage, draftTopics: known?.draftTopics ?? [] }));
     return (await scopingState(projectId));
   }
   const { data } = await structuredCall({
@@ -58,7 +74,7 @@ export async function nextScopingTurn(projectId: string) {
     projectId,
     stage: 2,
     vars: { idea: wrapData("research idea", p.idea), transcript: wrapData("conversation", t.text), asked: String(t.asked), maxQuestions: String(MAX_SCOPING_QUESTIONS) },
-    mockInput: { idea: p.idea, asked: t.asked },
+    mockInput: { idea: p.idea, asked: t.asked, answers: t.msgs.filter((m) => m.role === "user").map((m) => m.text) },
     check: (o) => (!o.done && !o.nextQuestion ? "nextQuestion is required when done=false" : null),
   });
   if (data.done || !data.nextQuestion) {
@@ -96,7 +112,7 @@ export async function generateTopics(projectId: string) {
     projectId,
     stage: 2,
     vars: { idea: wrapData("research idea", p.idea), transcript: wrapData("conversation", t.text) },
-    mockInput: { idea: p.idea },
+    mockInput: { idea: p.idea, answers: t.msgs.filter((m) => m.role === "user").map((m) => m.text) },
     check: (o) => {
       const ids = new Set(o.conceptMap.nodes.map((n) => n.id));
       const bad = o.conceptMap.edges.filter((e) => !ids.has(e.from) || !ids.has(e.to));
@@ -154,6 +170,22 @@ export async function deleteTopic(projectId: string, topicId: string) {
   (await db.delete(schema.topics).where(eq(schema.topics.id, topicId)).run());
   (await logDecision(projectId, 2, "topic_deleted", before, null));
   (await touchTopics(projectId, `Topic "${before.name}" was deleted`));
+}
+
+/**
+ * Undo a delete: the topic comes back exactly as it was (same id, so a suggestion is still a suggestion and a kept
+ * one still kept; same origin, keywords and place in the list), from the record its deletion logged.
+ */
+export async function restoreTopic(projectId: string, topicId: string) {
+  const logs = (await db.select({ before: schema.decisionLog.before }).from(schema.decisionLog).where(and(eq(schema.decisionLog.projectId, projectId), eq(schema.decisionLog.action, "topic_deleted"))).orderBy(desc(schema.decisionLog.createdAt)).all());
+  const row = logs.map((l) => l.before as typeof schema.topics.$inferSelect | null).find((b) => b?.id === topicId && b.projectId === projectId);
+  if (!row) throw new HttpError(404, "Topic not found");
+  const current = (await db.select({ id: schema.topics.id }).from(schema.topics).where(eq(schema.topics.projectId, projectId)).all());
+  if (current.some((t) => t.id === topicId)) throw new HttpError(409, "This topic is already back.");
+  if (current.length >= 8) throw new HttpError(400, "A review can have at most 8 topics. Merge or delete one first.");
+  (await db.insert(schema.topics).values({ ...row }).run());
+  (await logDecision(projectId, 2, "topic_restored", null, row));
+  (await touchTopics(projectId, `Topic "${row.name}" was brought back`));
 }
 
 export async function mergeTopics(projectId: string, ids: string[], name: string) {

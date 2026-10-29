@@ -26,7 +26,7 @@ export default function CommandPalette({ open, onClose, onFit, onShortcuts }: { 
   const next = stageAction(frontierStage(states), input);
   const cmds: Cmd[] = [
     ...(next ? [{ id: "next", label: next.label, group: "Next step", hint: "⌘↵", run: () => run(next.cmd), disabled: next.disabledReason }] : []),
-    ...(anyStale(states) ? [{ id: "rerun", label: "Re-run downstream", group: "Next step", run: () => run({ type: "rerunDownstream" }) }] : []),
+    ...(anyStale(states) ? [{ id: "rerun", label: "Bring later steps up to date", group: "Next step", run: () => run({ type: "rerunDownstream" }) }] : []),
     ...STAGES.map((s) => ({ id: `stage-${s.n}`, label: `Go to ${s.n}. ${s.title}`, group: "Stages", hint: String(s.n), run: () => { const id = nodeForStage(graph, s.n); if (id) go(id); } })),
     ...graph.nodes.map((n) => ({ id: `node-${n.id}`, label: `Open ${KIND_LABEL[n.kind]}: ${n.title.slice(0, 80)}`, group: "Nodes", run: () => go(n.id) })),
     { id: "fit", label: "Fit the view", group: "View", hint: "F", run: onFit },
@@ -42,7 +42,7 @@ export default function CommandPalette({ open, onClose, onFit, onShortcuts }: { 
     { id: "md", label: "Download the report (Markdown)", group: "Export", run: () => window.location.assign(projectPath(projectId, "export/markdown")) },
     { id: "csv", label: "Download the summary table (CSV)", group: "Export", run: () => window.location.assign(projectPath(projectId, "export/csv")) },
     { id: "bib", label: "Download the selected papers (BibTeX)", group: "Export", run: () => window.location.assign(projectPath(projectId, "export/bibtex")) },
-    { id: "sessions", label: "All sessions", group: "Go to", run: () => router.push("/sessions") },
+    { id: "sessions", label: "My projects", group: "Go to", run: () => router.push("/sessions") },
     { id: "new", label: "New session", group: "Go to", run: () => router.push("/s/new") },
     { id: "settings", label: "Settings", group: "Go to", run: () => router.push("/settings") },
     { id: "dark", label: "Theme: dark", group: "Theme", run: () => applyThemePref("dark") },

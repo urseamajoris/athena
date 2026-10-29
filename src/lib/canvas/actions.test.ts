@@ -11,7 +11,7 @@ test("exactly one node has a next action: the frontier", () => {
   const g = buildGraph(inp);
   const withAction = g.nodes.filter((n) => nextAction(n, g, inp));
   assert.deepEqual(withAction.map((n) => n.id), ["query:t1"]);
-  assert.equal(nextAction(withAction[0], g, inp)!.label, "Run search");
+  assert.equal(nextAction(withAction[0], g, inp)!.label, "Run all 4 searches");
 });
 
 test("ghost topics offer Accept; the Idea offers to accept them all before approval", () => {
@@ -19,29 +19,29 @@ test("ghost topics offer Accept; the Idea offers to accept them all before appro
   const g = buildGraph(inp);
   assert.deepEqual(nextAction(node(g, "topic:t1"), g, inp)!.cmd, { type: "acceptTopic", topicId: "t1" });
   const a = nextAction(node(g, "idea"), g, inp)!;
-  assert.equal(a.label, "Accept 2 subtopics");
+  assert.equal(a.label, "Keep 2 suggested topics");
   const accepted = input({ states: states(1), client: { acceptedTopics: ["t1", "t2"], pinnedQuotes: [] } });
-  assert.equal(nextAction(node(buildGraph(accepted), "idea"), buildGraph(accepted), accepted)!.label, "Approve topics");
+  assert.equal(nextAction(node(buildGraph(accepted), "idea"), buildGraph(accepted), accepted)!.label, "Use these topics");
 });
 
 test("the Idea's action follows the scoping conversation", () => {
   const label = (over: Parameters<typeof summary>[0], st = states(1)) => stageAction(2, input({ states: st, summary: summary(over) }))!.label;
-  assert.equal(label({ topics: [], scoping: { messages: 0, asked: 0, maxQuestions: 5, done: false, awaitingAnswer: false } }), "Start scoping");
+  assert.equal(label({ topics: [], scoping: { messages: 0, asked: 0, maxQuestions: 5, done: false, awaitingAnswer: false } }), "Sharpen my idea");
   assert.equal(label({ topics: [], scoping: { messages: 2, asked: 1, maxQuestions: 5, done: false, awaitingAnswer: true } }), "Answer the scoping question");
-  assert.equal(label({ topics: [] }), "Branch subtopics");
+  assert.equal(label({ topics: [] }), "Suggest search topics");
   assert.equal(stageAction(1, input({ idea: "short" }))!.disabledReason, "Write at least a sentence about your idea");
 });
 
 test("each stage's next action", () => {
   const at = (n: number, extra = {}) => stageAction(n + 1, finished({ states: states(n), ...extra }))!.label;
-  assert.equal(at(3), "Build table");
-  assert.equal(at(4), "Rank papers");
-  assert.equal(at(5), "Appraise selected");
-  assert.equal(at(6), "Synthesize");
-  assert.equal(at(7), "Generate RQs");
-  assert.equal(at(8), "Export");
+  assert.equal(at(3), "Summarise the papers");
+  assert.equal(at(4), "Rank the papers");
+  assert.equal(at(5), "Appraise selected papers");
+  assert.equal(at(6), "Summarise the evidence");
+  assert.equal(at(7), "Suggest research questions");
+  assert.equal(at(8), "Finish and export");
   assert.equal(stageAction(null, finished())!.label, "Download report");
-  assert.equal(stageAction(3, input({ states: states(2) }))!.label, "Build queries");
+  assert.equal(stageAction(3, input({ states: states(2) }))!.label, "Write the searches");
 });
 
 test("running stages have no button; failed job stages offer a retry", () => {
@@ -59,7 +59,7 @@ test("Export is locked until a research question is chosen, and says why", () =>
 test("a stale frontier offers the single Re-run downstream action", () => {
   const inp = finished({ states: states(2, { 3: "stale", 4: "stale", 5: "stale" }) });
   const g = buildGraph(inp);
-  assert.equal(nextAction(node(g, "query:t1"), g, inp)!.label, "Re-run downstream");
+  assert.equal(nextAction(node(g, "query:t1"), g, inp)!.label, "Bring later steps up to date");
   assert.equal(nextAction(node(g, "corpus"), g, inp), null, "later stale nodes do not repeat it");
 });
 

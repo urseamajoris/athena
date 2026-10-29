@@ -15,6 +15,8 @@ import { loadElk } from "./elk";
 
 const nodeTypes = { athena: NodeCard };
 const AddMenu = dynamic(() => import("./AddMenu").then((m) => m.AddMenu), { ssr: false });
+import { NextStepBar } from "./NextStepBar";
+import { TopicUndo } from "../panels/topic-undo";
 export const PANEL_W = { md: 480, xl: 560 };
 /** Below this zoom the canvas switches to the simplified overview (see globals.css `[data-zoom="far"]`). */
 const FAR_ZOOM = 0.5;
@@ -106,7 +108,7 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
     const next = new Map<string, { key: string; node: FlowNode }>();
     const out = graph.nodes.map((n) => {
       const action = nextAction(n, graph, input);
-      const data: NodeData = { node: n, action, primary: !!action && !panel && n.id === frontier && !n.ghost, selected: n.id === selected, tabbable: n.id === tabbable, readOnly, spawn: born.current.get(n.id) ?? null };
+      const data: NodeData = { node: n, action, primary: false /* the floating "Your next step" bar holds the one primary action */, selected: n.id === selected, tabbable: n.id === tabbable, readOnly, spawn: born.current.get(n.id) ?? null };
       const pos = positions[n.id] ?? { x: 0, y: 0 };
       const key = JSON.stringify([n, action, data.primary, data.selected, data.tabbable, readOnly, pos.x, pos.y]);
       const prev = cache.current.get(n.id);
@@ -243,6 +245,14 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
   const firstFit = useRef(false);
   const autoFit = useRef(false);
   const onInit = useCallback(() => setRfReady(true), []);
+  // First view: the whole review when it is small; otherwise the step that needs the user, with its
+  // neighbours, at a readable size (fitting 15+ cards made every label tiny).
+  const firstView = useCallback(() => {
+    if (graph.nodes.length <= 8) return rf.fitView({ padding: 0.2, maxZoom: 1, duration: 0 });
+    const f = frontierNodeId(graph, states);
+    const near = graph.nodes.filter((n) => n.id === f || n.parents.includes(f) || graph.nodes.find((x) => x.id === f)?.parents.includes(n.id)).map((n) => ({ id: n.id }));
+    return rf.fitView({ nodes: near, padding: 0.35, maxZoom: 1, minZoom: 0.7, duration: 0 });
+  }, [graph, states, rf]);
   useEffect(() => {
     if (!rfReady || firstFit.current) return;
     if (!summary || (ui.pinnedQuotes.length && claims === null)) return; // wait for topics, queries and quotes
@@ -252,14 +262,14 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
     if (saved) rf.setViewport(saved);
     else {
       autoFit.current = true;
-      requestAnimationFrame(() => rf.fitView({ padding: 0.2, maxZoom: 1, duration: 0 }));
+      requestAnimationFrame(() => void firstView());
     }
   }, [rfReady, summary, claims, ui.pinnedQuotes.length, rf, projectId]);
   useEffect(() => {
     if (!autoFit.current || canvasStore.getState().panel) return;
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => rf.fitView({ padding: 0.2, maxZoom: 1, duration: 0 })));
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => void firstView()));
     return () => cancelAnimationFrame(id);
-  }, [positions, rf]);
+  }, [positions, rf, firstView]);
 
   return (
     <div className="absolute inset-0" onKeyDown={onKeyDown} data-moving={moving || undefined} data-zoom={far ? "far" : "near"}>
@@ -304,6 +314,10 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
         {ui.minimap && <MiniMap pannable zoomable nodeClassName={(n) => `mm-${(n.data as NodeData).node.status}`} ariaLabel="Minimap" />}
       </ReactFlow>
       <CanvasControls />
+      <div className="pointer-events-none absolute inset-x-0 top-3 z-10 mx-auto w-fit max-w-[calc(100%-24px)]"><NextStepBar floating /></div>
+      {/* Undo after deleting a topic, above the zoom controls (the side panel never covers the left edge). The
+          topic list shows its own Undo, so not while it is open. */}
+      {panel !== "idea" && <div className="pointer-events-none absolute bottom-20 left-4 z-10 max-w-[min(480px,calc(100%-32px))]"><TopicUndo className="pointer-events-auto shadow-lg" /></div>}
       {addMenuOpen && <AddMenu />}
     </div>
   );

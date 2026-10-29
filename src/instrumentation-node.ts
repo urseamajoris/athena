@@ -3,6 +3,7 @@ import { startupProblem } from "./lib/paid-guard";
 import { checkModels } from "./lib/ai/models";
 import { resumeJobs } from "./lib/jobs";
 import { ready } from "./lib/db";
+import { ensureAdminFromEnv } from "./lib/auth/server";
 
 // Refuse to start in a configuration that would spend money outside production.
 const problem = startupProblem(config);
@@ -29,8 +30,19 @@ for (let attempt = 1; attempt <= 3 && !dbReady; attempt++) {
 }
 
 // Server start: confirm model IDs with xAI and resume jobs interrupted by a restart.
-await checkModels();
+try {
+  await checkModels();
+} catch (e) {
+  // It reads the key settings from the database, which may be the very thing that is down.
+  console.error("[athena] could not check the model IDs:", e);
+}
 if (dbReady) {
+  try {
+    // First admin from ADMIN_EMAIL / ADMIN_PASSWORD; projects from before accounts go to that admin.
+    await ensureAdminFromEnv();
+  } catch (e) {
+    console.error("[athena] could not set up the admin account:", e);
+  }
   try {
     await resumeJobs();
   } catch (e) {

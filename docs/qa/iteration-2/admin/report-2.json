@@ -1,0 +1,88 @@
+{
+ "persona": "admin",
+ "completed": true,
+ "stage_reached": 9,
+ "findings": [
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Admin dashboard, scoping step while AI is off (user view, 4102)",
+   "what_happened": "With AI off, the scoping panel still says 'Answer in your own words, or skip any time'. The answer box is disabled ('Waiting for the next question...') and there is no visible Skip button. The Idea card keeps the orange 'Your turn' badge and '0 of 5 questions' even though nothing can be done. The only guidance is the amber note and 'The first question appears when AI is available again'.",
+   "expected": "While AI is paused the step shows 'Waiting', not 'Your turn'. The 'skip any time' promise is either removed or the Skip control stays usable. The panel offers one clear thing to do (wait, or come back later).",
+   "evidence": "docs/qa/iteration-2/admin-check-user/04-sharpen-while-off.jpg and 05-skip-attempt.jpg",
+   "suggested_fix": "When paused, change the badge to 'Waiting for AI'. Hide or reword the 'skip any time' sentence. Tell the user they can close the tab and the step will continue by itself."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Admin dashboard, AI & API key panel and Models row",
+   "what_happened": "In mock mode the key panel shows a masked key ending \u2022\u2022\u2022\u2022RWBq 'From the server environment (XAI_API_KEY)', with active Test key and Set a key buttons. The same key tail is shown on all 7 servers. The Models row says 'mock \u00b7 mock \u00b7 mock' but the cost-by-model table lists 'grok-4.3' and 'grok-4.20-0309-reasoning' with call counts. An admin cannot tell whether a real key is present or whether any paid model was used.",
+   "expected": "Mock mode states plainly 'No key is used in demo mode', or the cost table labels these rows 'mock (stands in for grok-4.3)'.",
+   "evidence": "docs/qa/iteration-2/admin/05-dash-4101-top.jpg, docs/qa/iteration-2/admin/11-models.jpg and the Cost by model text on every server",
+   "suggested_fix": "Label mock calls as 'mock' in cost-by-model and cost-by-prompt tables. In mock mode say 'Key not used in demo mode' next to the masked tail."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Admin dashboard, top verdict banner",
+   "what_happened": "The green banner repeats itself: heading 'Everything is healthy' and then 'Everything is healthy. Mock mode: nothing is spent.' The reason line adds nothing beyond the mock-mode note. On every healthy server the top 3 seconds say the same thing, which is good, but the repeated words look like a template glitch.",
+   "expected": "One verdict plus one distinct reason line, for example 'Everything is healthy' then 'Demo mode: AI is scripted and nothing is spent. 0 errors in the last hour.'",
+   "evidence": "docs/qa/iteration-2/admin/05-dash-4101-top.jpg",
+   "suggested_fix": "Drop the duplicated 'Everything is healthy.' from the reason sentence."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Admin dashboard, AI calls tile and Validation retries tile",
+   "what_happened": "After the AI-off test the AI calls tile says '1 blocked, not sent' while the Validation retries line says '1 paused'. The same event appears under two different names. The blocked count is correct: AI calls stayed at 48 while AI was off, and rose to 50 only after AI was switched back on. The tile's added line makes the card taller than its neighbours.",
+   "expected": "One name for one event, 'blocked (AI off)', in both places.",
+   "evidence": "docs/qa/iteration-2/admin/15-ai-back-on.jpg and the 'AI usage' text on 4102",
+   "suggested_fix": "Use the same word in both places and keep the tiles the same height."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Admin dashboard, Accounts table versus Audit log",
+   "what_happened": "The Audit log masks emails (p\u2022\u2022\u2022@example.com) but the Accounts table directly above shows full emails. The 'Where people stop' and Users and progress sections correctly show counts only, with no ideas, papers, notes or keys. No email appears in any URL (the page is just /admin). A full email in a table for an admin is probably acceptable, but the masking is inconsistent.",
+   "expected": "Either mask emails consistently or say on the page why admins see them in Accounts (needed to disable or reset an account).",
+   "evidence": "docs/qa/iteration-2/admin/16-dash-4102-bottom-after.jpg",
+   "suggested_fix": "Add a one-line note under Accounts ('Emails are shown so you can manage accounts; they are masked in the log'), or show a short form with the full email on hover or in the actions menu."
+  },
+  {
+   "severity": "polish",
+   "category": "a11y",
+   "page": "Admin dashboard, account actions menu",
+   "what_happened": "The row-actions menu for the first account opens below the row and overlaps the next two rows and their action buttons, which hides which account it belongs to. The trigger is only '...', although its accessible name is 'Actions for <email>'. I opened it and closed it without acting.",
+   "expected": "The menu is anchored next to its own row, or its header names the account.",
+   "evidence": "docs/qa/iteration-2/admin/17-actions-menu.jpg",
+   "suggested_fix": "Show the account email at the top of the menu and anchor it to the trigger."
+  },
+  {
+   "severity": "polish",
+   "category": "validity",
+   "page": "Admin dashboard, security and audit coverage (4107)",
+   "what_happened": "The chaos user reported a rejected weak-password signup, a non-admin visit to /admin and a visit to another user's project URL, which gave three 404s. None of these show in the audit log, which only lists signup, login ok, admin bootstrapped and the AI on/off changes. It says '0 failed logins in the last 24 h', which is true. Server errors read 0%, which is also true because these are 4xx responses.",
+   "expected": "An admin might want a line for 'blocked access to another user's project' or 'non-admin tried /admin' in the security log, or a count of 4xx responses.",
+   "evidence": "docs/qa/iteration-2/admin/1x-dash-4107-bottom.jpg",
+   "suggested_fix": "Log forbidden and not-found access to other users' projects and non-admin /admin attempts as 'security' events, and show a '4xx (client)' count beside Server errors."
+  },
+  {
+   "severity": "polish",
+   "category": "bug",
+   "page": "Login across servers on localhost",
+   "what_happened": "I logged in to 4101, 4102, 4103, 4104, 4105, 4106 and 4107 in one browser. After logging in on 4107, my 4102 session was gone and I was sent to the login page, so the session cookie is shared across localhost ports. This also appeared when I opened the same /admin path later. The redirect to /login?next=/admin worked and returned me to /admin after login.",
+   "expected": "Sessions on different servers do not log each other out. This may only be a localhost demo artefact.",
+   "evidence": "docs/qa/iteration-2/admin/11-state.jpg (login page shown when returning to 4102)",
+   "suggested_fix": "Name the session cookie per instance (for example include the port) or document that only one instance per host should be used in a browser."
+  },
+  {
+   "severity": "polish",
+   "category": "clarity",
+   "page": "Admin dashboard, Where people stop",
+   "what_happened": "The section only counts projects with no activity for 7 days that are unfinished. All servers show 0 in every step, including 4107, where someone.else@example.org started a project and did nothing, and 4102, where Pat is sitting at scoping. This is correct by definition, but a freshly stalled project is invisible for a week and the section reads as a clean bill of health.",
+   "expected": "A way to see 'unfinished now' next to 'abandoned', or a hint saying that nothing counts until 7 days have passed.",
+   "evidence": "docs/qa/iteration-2/admin/1x-dash-4107-top.jpg and the funnel text on 4107 and 4102",
+   "suggested_fix": "Add 'in progress now' per step, or a note 'Projects count here after 7 days without activity'."
+  }
+ ]
+}

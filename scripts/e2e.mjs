@@ -34,7 +34,8 @@ page.on("console", (m) => m.type() === "error" && consoleErrors.push(m.text().sl
 page.on("pageerror", (e) => consoleErrors.push(String(e).slice(0, 200)));
 const shot = (name) => page.screenshot({ path: `${out}/${name}.png` });
 let pid;
-const api = async (path) => (await fetch(`${base}/api/projects/${pid}${path}`)).json();
+// API reads go through the browser context, so they carry the signed-in user's session cookie.
+const api = async (path) => (await ctx.request.get(`${base}/api/projects/${pid}${path}`)).json();
 const states = async () => (await api("")).project.stageStates;
 const panel = () => page.locator("[data-panel]");
 const node = (id) => page.locator(`[data-node-id="${id}"]`);
@@ -66,24 +67,31 @@ async function menu(label) {
 }
 
 try {
+  // 0. Accounts: a new user signs up through the UI (the landing's call to action), then lands on the empty canvas.
+  await page.goto(`${base}/`);
+  await page.getByRole("link", { name: "Start a review" }).click();
+  await page.getByLabel("Email").fill(`e2e-${Date.now()}@example.org`);
+  await page.getByLabel("Password").fill("e2e-password-123");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.waitForURL(/\/s\/new/);
+
   // 1. Idea: the empty canvas.
-  await page.goto(`${base}/s/new`);
-  await page.getByLabel("What do you want to understand?").fill(IDEA);
+  await page.getByLabel("Describe your research idea").fill(IDEA);
   await page.keyboard.press("Enter");
   await page.waitForURL(/\/s\/prj_/);
   pid = page.url().match(/\/s\/(prj_[a-z0-9]+)/)[1];
   log("project", pid);
   await node("idea").waitFor();
   await shot("1-idea");
-  await node("idea").getByRole("button", { name: "Start scoping" }).click();
+  await node("idea").getByRole("button", { name: "Sharpen my idea" }).click();
   await waitApproved(1);
 
   // 2. Scoping chat (in the Idea panel), then subtopics.
   await panel().waitFor();
   for (let i = 0; i < 6; i++) {
     const box = page.getByLabel("Your answer");
-    const branch = footer().getByRole("button", { name: "Branch subtopics" });
-    await Promise.race([box.and(page.locator(":enabled")).waitFor({ timeout: 120_000 }), branch.waitFor({ timeout: 120_000 })]);
+    const branch = footer().getByRole("button", { name: "Suggest search topics" });
+    await Promise.race([box.and(page.locator(":enabled:not([aria-busy=true])")).waitFor({ timeout: 120_000 }), branch.waitFor({ timeout: 120_000 })]);
     if (await branch.isVisible()) break;
     const q = await panel().locator('[data-role="assistant"]').last().innerText();
     log(`Q${i + 1}:`, q.replace(/\s+/g, " ").slice(0, 140));
@@ -93,7 +101,7 @@ try {
   }
   const sc = await api("/scoping");
   check("scoping asked at most 5 questions", sc.asked <= 5, `asked ${sc.asked}`);
-  await footer().getByRole("button", { name: "Branch subtopics" }).click();
+  await footer().getByRole("button", { name: "Suggest search topics" }).click();
   await page.locator('[data-kind="topic"][data-status="ghost"]').first().waitFor({ timeout: 180_000 });
   const topics = (await api("/scoping")).topics;
   check("4–8 topics generated", topics.length >= 4 && topics.length <= 8, topics.map((t) => t.name).join(" | "));
@@ -116,25 +124,25 @@ try {
   await ghost.focus();
   await page.keyboard.press("Enter");
   await openNode("idea");
-  await footer().getByRole("button", { name: /^Accept \d+ subtopics?$/ }).click();
-  await footer().getByRole("button", { name: "Approve topics" }).click();
+  await footer().getByRole("button", { name: /^Keep \d+ suggested topics?$/ }).click();
+  await footer().getByRole("button", { name: "Use these topics" }).click();
   await waitApproved(2);
 
   // 3. Search builder: build the queries from a topic, dry-run them, run the search.
   await page.keyboard.press("Escape");
   const firstTopic = page.locator('[data-kind="topic"]').first();
-  await firstTopic.getByRole("button", { name: "Build queries" }).click();
+  await firstTopic.getByRole("button", { name: "Write the searches" }).click();
   await page.locator('[data-kind="query"]').first().waitFor({ timeout: 180_000 });
   await openNode(await page.locator('[data-kind="query"]').first().getAttribute("data-node-id"));
-  await menu("Dry-run all queries");
-  await panel().getByText(/records$/).first().waitFor({ timeout: 180_000 });
+  await menu("Count matches for every search");
+  await panel().getByText(/papers? match\./).first().waitFor({ timeout: 180_000 });
   await page.waitForTimeout(800);
   const search = await api("/search");
   const qs = search.topics.flatMap((t) => t.queries);
   check("one query per database per topic", search.topics.every((t) => t.queries.length === 2), `${qs.length} queries`);
   check("dry-run counts shown", qs.every((q) => q.dryRunAt), qs.map((q) => q.dryRunCount ?? `ERR ${q.dryRunError}`).join(", "));
   await shot("3-search");
-  await footer().getByRole("button", { name: "Run search" }).click();
+  await footer().getByRole("button", { name: /^Run (all \d+ searches|the search)$/ }).click();
   await waitApproved(3);
 
   // 4. Retrieval (background job + SSE)
@@ -149,7 +157,7 @@ try {
   check("papers deduplicated", ret.uniquePapers > 0 && ret.uniquePapers <= ret.runs.reduce((a, r) => a + r.fetchedCount, 0), `${ret.uniquePapers} unique of ${ret.runs.reduce((a, r) => a + r.fetchedCount, 0)} fetched`);
   await openNode("corpus");
   await shot("4-retrieval");
-  await footer().getByRole("button", { name: "Build table" }).click();
+  await footer().getByRole("button", { name: "Summarise the papers" }).click();
   await waitApproved(4);
 
   // 5. Summary table
@@ -169,7 +177,7 @@ try {
   await page.getByRole("dialog", { name: "Paper details" }).getByText("Found by these queries").waitFor();
   await shot("5-drawer");
   await page.keyboard.press("Escape");
-  await page.getByRole("banner").getByRole("button", { name: "Rank papers" }).click();
+  await page.getByRole("banner").getByRole("button", { name: "Rank the papers" }).click();
   await waitApproved(5);
 
   // 6. Ranking (same table, per-topic tabs)
@@ -178,7 +186,8 @@ try {
   await page.reload();
   await page.getByRole("group", { name: "Topic" }).getByRole("button").nth(1).waitFor();
   const rank = await api("/ranking");
-  check("3–5 papers selected per topic", rank.topics.every((t) => { const n = t.scores.filter((s) => s.selected).length; return n >= 3 && n <= 5; }), rank.topics.map((t) => t.scores.filter((s) => s.selected).length).join(","));
+  // Up to 4 per topic, and only papers that match the topic (topic fit 2/5 or more), so a topic may have fewer.
+  check("at most 5 papers selected per topic, none without a topic match", rank.topics.every((t) => { const sel = t.scores.filter((s) => s.selected); return sel.length <= 5 && sel.every((s) => s.topicFit >= 2); }), rank.topics.map((t) => t.scores.filter((s) => s.selected).length).join(","));
   check("topics ordered by importance with justification", rank.topics.every((t) => t.importanceRank && t.importanceJustification));
   // swap one selection: open a selected row's details and swap it for another paper
   await page.getByRole("group", { name: "Topic" }).getByRole("button").nth(1).click();
@@ -191,7 +200,12 @@ try {
   const rank2 = await api("/ranking");
   check("user can swap a selected paper", rank2.topics.some((t) => t.scores.some((s) => s.userChanged)));
   await shot("6-ranking");
-  await page.getByRole("banner").getByRole("button", { name: "Appraise selected" }).click();
+  await page.getByRole("banner").getByRole("button", { name: "Appraise selected papers" }).click();
+  // A topic with fewer than 3 papers asks first.
+  // Wait for whichever comes first: the dialog (its code may still be loading) or the approval itself.
+  const anyway = page.getByRole("button", { name: "Appraise anyway" });
+  const asked = await Promise.race([anyway.waitFor({ timeout: 30000 }).then(() => true, () => false), waitApproved(6).then(() => false, () => false)]);
+  if (asked) await anyway.click();
   await waitApproved(6);
 
   // 7. Appraisal (back on the canvas)
@@ -229,7 +243,15 @@ try {
     await page.waitForTimeout(300);
   }
   await page.keyboard.press("Escape");
-  await node("appraisal").getByRole("button", { name: "Synthesize" }).click();
+  const undecided = (await api("/canvas")).appraisal.pending;
+  await node("appraisal").getByRole("button", { name: "Summarise the evidence" }).click();
+  if (undecided > 0) {
+    // Undecided quotes are left out of the synthesis; the app asks before summarising without them.
+    const dialog = page.getByRole("dialog", { name: /not decided yet/ });
+    await dialog.waitFor({ timeout: 10_000 });
+    check("summarising asks before leaving undecided quotes out", (await dialog.textContent()).includes("left out of the synthesis"), `${undecided} undecided`);
+    await dialog.getByRole("button", { name: "Summarise without them" }).click();
+  }
   await waitApproved(7);
 
   // 8. Synthesis
@@ -242,7 +264,7 @@ try {
   check("synthesis only cites verified or user-accepted claims", cited.every((c) => c && (c.verified || c.userAccepted)));
   await openNode("synthesis");
   await shot("8-synthesis");
-  await footer().getByRole("button", { name: "Generate RQs" }).click();
+  await footer().getByRole("button", { name: "Suggest research questions" }).click();
   await waitApproved(8);
 
   // 9. Research questions
@@ -256,19 +278,19 @@ try {
   if (!(await page.locator('[data-panel="questions"]').isVisible().catch(() => false))) await openNode("questions");
   await shot("9-questions");
   await panel().getByRole("button", { name: "Choose this question" }).first().click();
-  await panel().getByRole("button", { name: "Refine the chosen question" }).click();
+  await panel().getByRole("button", { name: "Edit this question" }).click();
   const qbox = page.getByLabel("Question", { exact: true });
   await qbox.fill((await qbox.inputValue()).replace(/\?$/, "") + " between 2015 and 2025?");
   await panel().getByRole("button", { name: "Save edits" }).click();
   await page.waitForTimeout(800);
-  await footer().getByRole("button", { name: "Export" }).click();
+  await footer().getByRole("button", { name: "Finish and export" }).click();
   await waitApproved(9);
   await page.locator('[data-panel="export"]').waitFor({ timeout: 30_000 });
   await shot("9-final");
   check("question chosen and edited", (await api("/questions")).questions.some((q) => q.chosen && q.edited));
 
   // Exports (from the Export node)
-  for (const [format, ext] of [["Report", "md"], ["Summary table", "csv"], ["Selected papers", "bib"]]) {
+  for (const [format, ext] of [["Report", "md"], ["Spreadsheet of all papers", "csv"], ["Reference list", "bib"]]) {
     await panel().getByRole("radio", { name: new RegExp(`^${format}`) }).click();
     const [dl] = await Promise.all([page.waitForEvent("download"), footer().getByRole("link", { name: /^Download/ }).click()]);
     const path = `${out}/export.${ext}`;
@@ -287,17 +309,18 @@ try {
   const st = await states();
   check("editing topics marks stages 3–9 stale", [3, 4, 5, 6, 7, 8, 9].every((n) => st[String(n)] === "stale"), JSON.stringify(st));
   await page.goto(`${base}/s/${pid}?node=summary`);
-  await panel().getByText("Stale.").first().waitFor();
+  await panel().getByText("Out of date.").first().waitFor();
   await shot("stale-banner");
 } catch (e) {
   check("run completed without error", false, String(e.message ?? e));
   await shot("error").catch(() => {});
 } finally {
   check("no browser console errors", consoleErrors.length === 0, consoleErrors.slice(0, 5).join(" | "));
-  const status = await (await fetch(`${base}/api/status`)).json();
+  const status = await (await ctx.request.get(`${base}/api/status`)).json();
   const view = pid ? await api("") : null;
   const total = view ? Object.values(view.costs).reduce((a, c) => a + c.cost, 0) : 0;
-  log(`AI cost this project: $${total.toFixed(4)} · total recorded spend $${status.spendUsd.toFixed(4)} · paid API calls attempted: ${status.paidCalls?.attempted ?? "?"}`);
+  // Server-wide spend and paid-call counts are admin-only; this run is an ordinary user.
+  log(`AI cost this project: $${total.toFixed(4)}${status.spendUsd !== undefined ? ` · total recorded spend $${status.spendUsd.toFixed(4)} · paid API calls attempted: ${status.paidCalls?.attempted ?? "?"}` : ""}`);
   fs.writeFileSync(`${out}/results.json`, JSON.stringify({ project: pid, mode: status.mockMode ? "mock" : status.mockAi ? "mock-ai" : "real", costs: view?.costs, paidCalls: status.paidCalls, checks }, null, 2));
   const failed = checks.filter((c) => !c.ok);
   log(failed.length ? `${failed.length} CHECK(S) FAILED` : `ALL ${checks.length} CHECKS PASSED`);

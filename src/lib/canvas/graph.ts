@@ -1,7 +1,7 @@
 // The canvas graph is derived, not stored: server state (stages, topics, queries, counts) plus a little
 // per-browser state (accepted ghost topics, pinned quotes) → nodes and edges. Pure; unit-tested.
 import { STAGES, type StageState } from "../shared/stages";
-import type { CanvasSummary, ClaimLite, JobLite, StageStates } from "../shared/canvas";
+import { isUndecided, type CanvasSummary, type ClaimLite, type JobLite, type StageStates } from "../shared/canvas";
 import { fmtInt } from "../shared/format";
 
 export type NodeKind = "idea" | "topic" | "query" | "corpus" | "table" | "appraisal" | "synthesis" | "questions" | "export" | "quote";
@@ -23,10 +23,10 @@ export const KIND_LABEL: Record<NodeKind, string> = {
 export const STATUS_LABEL: Record<NodeStatus, string> = {
   idle: "Not started",
   running: "Running",
-  review: "Needs review",
+  review: "Your turn",
   done: "Done",
-  stale: "Stale",
-  error: "Error",
+  stale: "Out of date",
+  error: "Failed",
 };
 
 /** Layout column per kind (left → right follows the review). */
@@ -53,6 +53,8 @@ export interface GNode {
   topicId?: string;
   claimId?: string;
   progress?: { done: number; total: number };
+  /** Its job is paused (AI switched off or budget reached): work is kept and resumes later. */
+  paused?: boolean;
   trust?: Trust;
   staleReason?: string;
 }
@@ -146,7 +148,8 @@ export function buildGraph(input: GraphInput): Graph {
       kind: "topic",
       stages: [2],
       title: t.name,
-      status: ghost ? "review" : toStatus(s2),
+      // A kept topic is done: what step 2 still needs ("Use these topics") is on the Idea card, not on every topic.
+      status: ghost ? "review" : s2 === "needs_review" || s2 === "not_started" ? "done" : toStatus(s2),
       key: ghost ? "Suggested subtopic" : `${plural(t.synonyms, "synonym")} · ${t.controlledTerms} MeSH`,
       parents: ["idea"],
       ghost,
@@ -163,8 +166,11 @@ export function buildGraph(input: GraphInput): Graph {
     if (!qs.length) continue;
     const id = `query:${t.id}`;
     queryIds.push(id);
-    const counts = qs.map((q) => `${DB_LABEL[q.database] ?? q.database} ${q.dryRunError ? "failed" : q.dryRunCount === null ? "–" : fmt(q.dryRunCount)}`);
-    add({ id, kind: "query", stages: [3], title: t.name, status: toStatus(s3), key: counts.join(" · "), parents: [`topic:${t.id}`], topicId: t.id, staleReason: s3 === "stale" ? reason(3) : undefined });
+    // After retrieval: what each search matched when it ran. Before: the dry-run counts, in words when missing.
+    // "Ran:" only when every search of the topic has a current run; otherwise each run count says so itself.
+    const ran = qs.every((q) => q.run);
+    const counts = qs.map((q) => `${DB_LABEL[q.database] ?? q.database} ${q.run ? (q.run.failed ? "failed" : q.run.count === null ? "done" : `${fmt(q.run.count)}${ran ? "" : " (ran)"}`) : q.dryRunError ? "failed" : q.dryRunCount === null ? "not counted" : fmt(q.dryRunCount)}`);
+    add({ id, kind: "query", stages: [3], title: t.name, status: toStatus(s3), key: `${ran ? "Ran: " : ""}${counts.join(" · ")}`, parents: [`topic:${t.id}`], topicId: t.id, staleReason: s3 === "stale" ? reason(3) : undefined });
   }
 
   // 4. Corpus: every query merges into one retrieval.
@@ -182,9 +188,10 @@ export function buildGraph(input: GraphInput): Graph {
   const s6 = st(states, 6);
   if (s5 !== "not_started" && nodes.some((n) => n.id === "corpus")) {
     const tableState: StageState = s5 !== "approved" ? s5 : s6 === "not_started" ? "needs_review" : s6;
-    const selected = (s?.ranking ?? []).reduce((a, t) => a + t.selected, 0);
+    // Different papers (a paper selected in two topics is appraised once), not the sum of the topics' counts.
     const t = s?.table;
-    const key = !t ? "Summary table" : s5 === "running" ? `${fmt(t.summarised)} of ${fmt(t.papers)} summarised` : s6 === "not_started" || s6 === "running" ? `${plural(t.papers, "row")}${s6 === "running" ? " · ranking" : ""}` : `${plural(t.papers, "row")} · ${fmt(selected)} selected`;
+    const selected = t?.selectedPapers ?? (s?.ranking ?? []).reduce((a, x) => a + x.selected, 0);
+    const key = !t ? "Summary table" : s5 === "running" ? `${fmt(t.summarised)} of ${fmt(t.papers)} summarised` : s6 === "not_started" || s6 === "running" ? `${plural(t.papers, "row")}${s6 === "running" ? " · ranking" : ""}` : `${plural(t.papers, "row")} · ${plural(selected, "paper")} selected`;
     add({ id: "table", kind: "table", stages: [5, 6], title: "Summary & ranking", status: toStatus(tableState), key, parents: ["corpus"], progress: jobProgress(input.jobs, s5 === "approved" ? 6 : 5), staleReason: tableState === "stale" ? reason(s5 === "stale" ? 5 : 6) : undefined });
   }
 
@@ -248,7 +255,7 @@ export function buildGraph(input: GraphInput): Graph {
     for (const cid of client.pinnedQuotes) {
       const c = byId.get(cid);
       if (!c) continue;
-      const verdict = c.verified ? "Verified" : c.userAccepted ? "Accepted by you" : c.userRejected ? "Rejected by you" : "Unverified";
+      const verdict = c.verified ? "Found word for word" : c.userAccepted ? "Not found, accepted by you" : c.userRejected ? "Rejected by you" : "Not found, you decide";
       add({
         id: `quote:${c.id}`,
         kind: "quote",
@@ -258,12 +265,13 @@ export function buildGraph(input: GraphInput): Graph {
         key: `${verdict} · ${c.paperTitle}`,
         parents: ["appraisal"],
         claimId: c.id,
-        trust: { verified: c.verified ? 1 : 0, unverified: !c.verified && !c.userAccepted && !c.userRejected ? 1 : 0, accepted: !c.verified && c.userAccepted ? 1 : 0, stale: s7 === "stale" },
+        trust: { verified: c.verified ? 1 : 0, unverified: isUndecided(c) ? 1 : 0, accepted: !c.verified && c.userAccepted ? 1 : 0, stale: s7 === "stale" },
         staleReason: s7 === "stale" ? reason(7) : undefined,
       });
     }
   }
 
+  for (const n of nodes) if (n.status === "running" && n.stages.some((st) => input.jobs[String(st)]?.status === "paused")) n.paused = true;
   return { nodes, edges };
 }
 

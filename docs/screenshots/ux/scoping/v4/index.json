@@ -1,0 +1,20 @@
+{
+  "topics-375": {
+    "what": "Scoping: proposed search topics to accept or edit",
+    "url": "/s/<project>?node=idea",
+    "width": 375,
+    "theme": "dark"
+  },
+  "topics-768": {
+    "what": "Scoping: proposed search topics to accept or edit",
+    "url": "/s/<project>?node=idea",
+    "width": 768,
+    "theme": "dark"
+  },
+  "topics-1366": {
+    "what": "Scoping: proposed search topics to accept or edit",
+    "url": "/s/<project>?node=idea",
+    "width": 1366,
+    "theme": "dark"
+  }
+}

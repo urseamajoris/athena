@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, PauseCircle } from "lucide-react";
 import { api, projectPath } from "../api";
 import { ErrorState, ProgressBar, Spinner, cx } from "../ui";
 import { Disclosure } from "../disclosure";
@@ -48,9 +48,49 @@ export function JobStatus({ stage }: { stage: number }) {
       </div>
     );
   }
+  if (j?.status === "paused") return <PausedJob stage={stage} />;
   if (j?.status === "failed") return <ErrorState error={j.error ?? "The job failed."} title="This step failed" />;
   if (j?.status === "done") return <p className="text-12 text-fg-2">Finished {j.endedAt ? new Date(j.endedAt).toLocaleTimeString() : ""}. {j.progress.message}</p>;
   return <p className="text-12 text-fg-2">{(states[String(stage)] ?? "not_started") === "not_started" ? "This step has not run yet." : "No job information."}</p>;
+}
+
+/** A job stopped because AI was switched off or the budget ran out: nothing is lost, and it can continue. */
+function PausedJob({ stage }: { stage: number }) {
+  const { jobs, ai, projectId, refresh } = useSession();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>(null);
+  const j = jobs[String(stage)]!;
+  const canResume = ai.enabled && !ai.budgetReached;
+  return (
+    <div className="rounded-md border border-warn-line bg-warn-soft p-3" role="status">
+      <p className="flex items-center gap-2 font-medium text-fg-0"><PauseCircle className="h-4 w-4 text-warn" strokeWidth={2} aria-hidden /> {ai.budgetReached ? "AI budget reached" : !ai.enabled ? "AI is paused by the administrator" : "Paused"}</p>
+      <p className="mt-1 text-fg-1">
+        Your work is saved: {j.progress.done} of {j.progress.total} done.{" "}
+        {canResume ? "AI is available again, so you can continue." : "This step continues automatically when the administrator turns AI back on or raises the budget."}
+      </p>
+      {canResume && (
+        <button
+          className="btn-secondary btn-sm mt-2"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setErr(null);
+            try {
+              await api(projectPath(projectId, `stages/${stage}/run`), { body: {} });
+              await refresh();
+            } catch (e) {
+              setErr(e);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy && <Spinner className="h-3 w-3" />} Resume
+        </button>
+      )}
+      {err ? <div className="mt-2"><ErrorState error={err} /></div> : null}
+    </div>
+  );
 }
 
 export function JobLog({ stage }: { stage: number }) {
@@ -68,7 +108,7 @@ export function JobLog({ stage }: { stage: number }) {
 export function useJobMenu(stage: number) {
   const { jobs, projectId, refresh, states } = useSession();
   const j = jobs[String(stage)];
-  const running = j && (j.status === "running" || j.status === "queued");
+  const running = j && (j.status === "running" || j.status === "queued" || j.status === "paused");
   const blocked = STAGES.some((x) => x.n < stage && states[String(x.n)] !== "approved");
   return [
     running
@@ -79,7 +119,7 @@ export function useJobMenu(stage: number) {
 
 /** Stale results: say why, and offer to keep them (Re-run downstream is the node's next action). */
 export function StaleNotice({ stage, also = [] }: { stage: number; also?: number[] }) {
-  const { projectId, refresh, states, staleReasons } = useSession();
+  const { projectId, refresh, states, staleReasons, goTo } = useSession();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
   // A node holding several stages (the Table: 5 and 6) shows one notice, for its first stale stage.
@@ -91,10 +131,13 @@ export function StaleNotice({ stage, also = [] }: { stage: number; also?: number
     <div role="status" className="rounded-md border border-warn-line bg-warn-soft px-3 py-3">
       <p className="flex items-start gap-2 text-fg-0">
         <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden />
-        <span><strong className="font-semibold">Stale.</strong> {reason ? `${reason} after these results were produced.` : "An earlier step changed after these results were produced."} You can still read them.</span>
+        <span><strong className="font-semibold">Out of date.</strong> {reason ? `${reason} after these results were made.` : "An earlier step changed after these results were made."} You can still read them; nothing changes until you choose.</span>
       </p>
       {blocker ? (
-        <p className="mt-2 text-12 text-fg-1">Step {blocker.n} ({blocker.title}) needs approval first.</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <p className="text-12 text-fg-1">First approve step {blocker.n} ({blocker.title}) again.</p>
+          <button className="btn-secondary btn-sm" onClick={() => goTo(blocker.n)}>Go to step {blocker.n}</button>
+        </div>
       ) : (
         <div className="mt-2">
           <button
@@ -126,7 +169,7 @@ export function Stat({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-md border border-line bg-bg-1 px-3 py-2">
       <p className="text-12 text-fg-2">{label}</p>
-      <p className="text-16 font-semibold tabular-nums text-fg-0">{value}</p>
+      <p className="text-20 font-semibold tabular-nums text-fg-0">{value}</p>
     </div>
   );
 }

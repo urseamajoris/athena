@@ -28,6 +28,17 @@ test("AI-suggested topics are ghosts until accepted; accepted ones are not", () 
   assert.equal(t1.ghost, true);
   assert.equal(t2.ghost, false);
   assert.deepEqual(t1.parents, ["idea"]);
+  // A kept topic reads as done, not "Your turn"; step 2's remaining action stays on the Idea card.
+  assert.equal(t1.status, "review");
+  assert.equal(t2.status, "done");
+  assert.equal(g.nodes.find((n) => n.id === "idea")!.status, "review");
+});
+
+test("kept topics follow step 2 once it is out of date", () => {
+  const g = buildGraph(input({ states: { ...states(2), "2": "stale" }, client: { acceptedTopics: ["t1", "t2"], pinnedQuotes: [] } }));
+  const topics = g.nodes.filter((n) => n.kind === "topic");
+  assert.equal(topics.length, 2);
+  assert.ok(topics.every((n) => n.status === "stale"));
 });
 
 test("once topics are approved on the server, nothing is a ghost (even with no browser state)", () => {
@@ -45,7 +56,14 @@ test("one Query node per topic, showing dry-run counts per database", () => {
   const q1 = g.nodes.find((n) => n.id === "query:t1")!;
   assert.equal(q1.key, "PubMed 979 · OpenAlex 1,630");
   assert.deepEqual(q1.parents, ["topic:t1"]);
-  assert.equal(g.nodes.find((n) => n.id === "query:t2")!.key, "PubMed – · OpenAlex failed");
+  assert.equal(g.nodes.find((n) => n.id === "query:t2")!.key, "PubMed not counted · OpenAlex failed");
+});
+
+test("after retrieval, a Query node shows what each search matched when it ran", () => {
+  const ran = QUERIES.map((q) => ({ ...q, run: q.topicId === "t2" ? { count: q.database === "pubmed" ? 2207 : null, failed: q.database === "openalex" } : null }));
+  const g = buildGraph(input({ states: states(3), summary: summary({ queries: ran }) }));
+  assert.equal(g.nodes.find((n) => n.id === "query:t2")!.key, "Ran: PubMed 2,207 · OpenAlex failed");
+  assert.equal(g.nodes.find((n) => n.id === "query:t1")!.key, "PubMed 979 · OpenAlex 1,630");
 });
 
 test("all queries merge into one Corpus; its incoming edges animate while retrieval runs", () => {
@@ -85,7 +103,7 @@ test("pinned quotes become Quote nodes under the Appraisal, with their verdict",
   const g = buildGraph(finished({ claims, client: { acceptedTopics: [], pinnedQuotes: ["c1", "c2", "gone"] } }));
   const quotes = g.nodes.filter((n) => n.kind === "quote");
   assert.deepEqual(quotes.map((q) => q.id), ["quote:c1", "quote:c2"], "unknown claim ids are ignored");
-  assert.equal(quotes[0].key, "Verified · Paper one");
+  assert.equal(quotes[0].key, "Found word for word · Paper one");
   assert.equal(quotes[1].status, "review");
   assert.deepEqual(quotes[1].parents, ["appraisal"]);
 });
@@ -114,4 +132,14 @@ test("query chips: terms keep their field tag, parentheses drop, operators stay"
     { type: "term", text: "Indonesia", field: undefined },
   ]);
   assert.deepEqual(queryChips("AND ( )"), []);
+});
+
+import { queryBlocks } from "./query-chips";
+test("query blocks: top-level AND splits concepts; OR terms stay together", () => {
+  const b = queryBlocks('(telemedicine[mh] OR "telehealth"[tiab]) AND ("Southeast Asia"[tiab] OR Thailand[tiab])');
+  assert.equal(b.length, 2);
+  assert.deepEqual(b[0].terms.map((t) => t.text), ["telemedicine", "telehealth"]);
+  assert.equal(b[0].terms[0].field, "mh");
+  assert.equal(b[1].join, "AND");
+  assert.equal(queryBlocks("sleep AND grades NOT children").map((x) => x.join).join(","), ",AND,NOT");
 });

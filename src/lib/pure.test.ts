@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { z } from "zod";
 import { toXaiSchema } from "./ai/schema";
 import { normalizeDoi, normalizeTitle } from "./util";
-import { citationScore, recencyScore, weightedTotal } from "./scoring";
-import { surname, scrubIds } from "./shared/stages";
+import { citationScore, defaultSelection, recencyScore, topicCoverage, weightedTotal } from "./scoring";
+import { surname, scrubIds, thinTopics } from "./shared/stages";
 
 test("xAI schema strips unsupported keywords but keeps structure", () => {
   const s = toXaiSchema(z.object({ a: z.string().min(2).max(5), b: z.array(z.number()).min(1).max(3), c: z.enum(["x", "y"]).nullable() }));
@@ -31,6 +31,23 @@ test("recency and citation formulas", () => {
 test("weighted total is 100 for all-5 scores", () => {
   assert.equal(weightedTotal({ topicFit: 5, designStrength: 5, settingMatch: 5, recency: 5, citationImpact: 5 }), 100);
 });
+test("ranking pre-selects the best papers that match the topic, never one with no topic match", () => {
+  const sc = (id: string, total: number, topicFit: number) => ({ id, total, subScores: { topicFit } });
+  // b scores highest on design, setting and recency but found no topic terms (fit 1): it is skipped, not swapped in.
+  const picked = defaultSelection([sc("a", 60, 4), sc("b", 66, 1), sc("c", 40, 2), sc("d", 70, 0), sc("e", 55, 3), sc("f", 50, 5), sc("g", 30, 2)]);
+  assert.deepEqual(picked.map((s) => s.id), ["a", "e", "f", "c"]);
+  // A topic where nothing matches gets no selection at all, and one with two matches gets two.
+  assert.deepEqual(defaultSelection([sc("x", 80, 1), sc("y", 70, 0)]), []);
+  assert.deepEqual(defaultSelection([sc("x", 80, 1), sc("y", 20, 2), sc("z", 30, 3)]).map((s) => s.id), ["z", "y"]);
+  // Those topics are then flagged as having fewer than 3 papers.
+  assert.deepEqual(thinTopics([{ name: "A", selected: 4 }, { name: "B", selected: 0 }, { name: "C", selected: 2 }, { name: "D", selected: 3 }]).map((t) => t.name), ["B", "C"]);
+  // The 3–5 rule: a thin topic with matching papers left is "short" (tick more); one whose every matching paper is
+  // already selected is "few" (only new searches help), which meets the rule; more than 5 breaks it.
+  const cov = topicCoverage([{ name: "A", selected: 4, spare: 3 }, { name: "B", selected: 0, spare: 0 }, { name: "C", selected: 1, spare: 2 }, { name: "D", selected: 2, spare: 0 }, { name: "E", selected: 6, spare: 0 }]);
+  assert.deepEqual(cov.short.map((t) => t.name), ["C"]);
+  assert.deepEqual(cov.few.map((t) => t.name), ["B", "D"]);
+  assert.deepEqual(cov.over.map((t) => t.name), ["E"]);
+});
 test("surname handles PubMed and OpenAlex name styles", () => {
   assert.equal(surname("Lee SWH"), "Lee");
   assert.equal(surname("Carl Froilan D. Leochico"), "Leochico");
@@ -48,4 +65,15 @@ test("repairId fixes only unambiguous formatting slips", () => {
   assert.equal(repairId(" [c_6fb22aabb004ae4c] ", allowed), "c_6fb22aabb004ae4c");
   assert.equal(repairId("c_deadbeefdeadbeef", allowed), "c_deadbeefdeadbeef"); // unknown stays unknown → rejected later
   assert.equal(repairId("c_6fb22aab", allowed), "c_6fb22aab"); // truncated: not repaired
+});
+
+import { hardFilterPubmed, openalexTypes } from "./sources/filters";
+test("hard retrieval filter: off by default, explicit when set", () => {
+  assert.equal(hardFilterPubmed(undefined), null);
+  assert.equal(hardFilterPubmed(["journal_article", "review", "preprint"]), null);
+  assert.match(hardFilterPubmed(["review"])!, /review\[pt\]/);
+  assert.match(hardFilterPubmed(["journal_article"])!, /NOT/);
+  assert.equal(openalexTypes(undefined), "article|review|preprint");
+  assert.equal(openalexTypes(["review"]), "review");
+  assert.equal(openalexTypes(["journal_article", "preprint"]), "article|preprint");
 });

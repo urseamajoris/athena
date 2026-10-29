@@ -1,0 +1,300 @@
+{
+ "persona": "phd",
+ "completed": true,
+ "stage_reached": 9,
+ "would_have_quit_at": "I would have kept clicking to the end. I would have stopped trusting the tool at step 9, where it handed me \"What long covid factors shape telemedicine implementation in rural Southeast Asia?\" for a long-COVID return-to-work idea. I would not put that report in front of my committee. I would also have been unsure at step 3, where my MeSH term vanished from the generated queries and the match counts moved for no reason I could see.",
+ "activity": "Created account \"Aisha Rahman\" (aisha.phd.qa@example.com). Created one project, prj_63ef82d7eefa4643, with the idea \"Association between long COVID and return-to-work outcomes in healthcare workers\". Answered 3 of 5 scoping questions. Edited one suggested topic (Long COVID, with 5 synonyms and the MeSH term Post-Acute COVID-19 Syndrome). Deleted 3 suggested topics and added 2 of my own, ending with 5 topics. Rewrote the PubMed and OpenAlex query text for the Long COVID query. Set the start year to 2020 and saved inclusion/exclusion criteria. Counted matches for PubMed and OpenAlex. Ran all 10 searches (111 unique papers, 24 duplicates, 135 fetched). Ran AI summarisation of all 111 papers. Filtered by study type and article type. Corrected one AI key-finding cell. Opened a paper's score breakdown and swapped one selected paper. Ran the AI appraisal (15 papers, 4 with full text, 139 quotes verified, 14 not found). Used \"Show source\" on one quote. Rejected all 14 unverified quotes. Ran synthesis and opened one quote chip. Ran research-question generation and opened the novelty check. Chose candidate 1. Reached the export page, previewed the report, and clicked \"Download the report (Markdown)\". Console error seen once: page error \"Failed to execute 'removeChild' on 'Node'\" at the transition to step 5. No failed network requests.",
+ "categories_and_colours": "I found the colour and shape system without being told. Study-type chips have a colour, a shape and a count: blue circle for Trial, orange square for Cohort/case-control, green triangle for Cross-sectional, amber diamond for Qualitative/mixed methods, pink star for Systematic/scoping review, green cross for Other design, grey ring for Not reported. The same encoding appears in the retrieval mix bars, the 3D plot key, the table cells and the ranking table. Zero-count categories are dimmed. The key says \"hover to highlight, click to show only that category\". Clicking chips filtered correctly, and the page said \"Showing 5 of 111: review article; systematic / scoping review. 106 papers are hidden by your filters (still in the review)\" with Reset filters. Study type and article type are separate chip rows, so I could filter on each. Article type is plain grey with no hue, which is consistent and avoids colour doing two jobs. Problems: (1) the retrieval-step \"Colour by\" dropdown offered only Study type, Topic and Source database, with no Article type and no evidence status or score, so I could not colour by article type or by evidence quality. (2) At retrieval, 96 of 111 papers were \"Not reported\", and the same page later showed Other design 51 and Not reported 19 after AI summarising. The retrieval page says the AI reads abstracts next, which helps, but a first-time user could read the early numbers as final. (3) The 3D scatter has an axis labelled \"Height has no meaning yet\", which is honest but leaves a depth dimension that carries nothing. (4) \"Other design\" is a 51-paper catch-all that mixes narrative reviews, protocols and commentaries.",
+ "validity_assessment": "TRACEABILITY IS STRONG. The search syntax is visible and editable (PubMed [mh]/[tiab] and OpenAlex boolean text), with \"Reset to AI version\". There is a per-query table of hits, fetched, new and total, and a per-query cap of 40 is disclosed. Every paper carries a DOI/PMID. The 5-criterion scoring rubric is explained per paper, and \"Why this score\" shows each criterion. Swaps and edits are labelled \"changed by you\" / \"edited by you\". Full text versus abstract-only is marked on every appraisal. \"Show source\" highlights the quote in context. The app planted a deliberately altered quote (\"clearly proves the intervention works everywhere\"), flagged it as unverified, and made me accept or reject it. I rejected all of them, and the report shows 139 verified and 14 not. The novelty check shows its queries and counts and says \"Finding none does not prove a question is new\". The app does not overclaim novelty. Demo mode is announced at the top of every page, and AI text carries \"(mock)\".\n\nMETHODOLOGICAL AND HONESTY PROBLEMS:\n1. In demo mode the outputs ignored my inputs and nothing at the point of use said so. Generated queries dropped my MeSH term and substituted telemedicine plus Southeast Asia. Dates 2020 to now were not applied: the selected set includes a 2019 paper, and the synthesis cites Lee 2015 and Clough 2019. My rewritten inclusion/exclusion criteria did not affect scoring, which rewards \"Mentions a Southeast Asian setting\". The final research question is about telemedicine in rural Southeast Asia. The banner explains this globally, but the exported report does not mention demo mode or the sample-paper caveat at the top.\n2. Match counts are not credible. The same edited PubMed query showed 183 matches, then 9,245 after I only moved the start year later, which cannot be right. The 183 reappeared as the count for a different topic's query. The counts look keyed to the query slot, not the query text.\n3. Advice that is wrong for a systematic review. \"9,245 papers match. Broad: only the 40 most relevant are collected, so that is fine\" tells a reviewer that truncating 9,245 records to 40 is fine. There is no PRISMA-style flow of identified, screened, eligible and included, no title/abstract screening stage, and no dual screening. Papers are selected by an AI score plus \"top 3 to 5 per topic\", not by eligibility criteria.\n4. The ranking does not flag irrelevance. The top Long COVID paper scored 54/100 although its own breakdown says \"Topic fit 1/5: 0 topic terms appear in title/abstract\", and it was still pre-selected. Zero hits across all my long-COVID papers triggered no \"no relevant papers found\" warning.\n5. \"Verified\" is overstated. The check confirms that the quote exists in the text, not that it supports the answer. \"Aim clearly stated: AI Unclear\" is backed by a verified quote that is just the paper title. The report header says \"AI-extracted claims carry verbatim quotes that were checked against the retrieved text\", which reads as if the claims were checked too. A synthesis \"contradiction\" is a placeholder with green verified chips, and its quote is a background sentence, not a finding.\n6. The AI summary table has obvious extraction errors, for example a \"key finding\" that is just a postal address (\"Sutami 36A, Surakarta 57126, Central Java, Indonesia\"). The rubric includes citation impact, which penalises new long-COVID literature, and the missing-citation case scores 0/5.\n7. The report is partly invalid as a deliverable. Its OpenAlex queries for other topics contain an empty group, `AND () AND`. The Long COVID topic rationale still reads \"(mock) Key concept from your idea: association\" after I renamed the topic. The research question cannot be edited, although the page says \"you can edit it\".\n\nVERDICT: the traceability machinery is the right shape and would help a real reviewer. In this run the content was off-topic and partly invalid, and the app does not warn when topic fit is zero. As a rigorous review it is not defensible: it is a good scaffold for reasoning, not a methodologically sound review.",
+ "narrative": "I arrived sceptical. The landing page told me within a few seconds what Athena is for and offered \"Start a review\". After signing up I typed my topic and answered Athena's scoping questions in detail. The first thing I noticed was that \"long\" and \"covid\" were split into two separate topics, which a methodologist would never do. I could rescue that by editing a topic, adding my own synonyms and a MeSH term, deleting the others and adding two topics. I liked that. The search builder showed the real PubMed and OpenAlex syntax and let me rewrite it, which is exactly what I wanted. Then I noticed the generated queries contained telemedicine and Southeast Asia and had dropped my MeSH term. The demo banner explained this, but it meant I could not test whether my edits would have been honoured in a real run. I rewrote the queries and the criteria, and I lost a first edit of the criteria silently because it needed a separate Save. The counts jumped from 183 to 9,245 for a narrower query, and the app said 9,245 records truncated to 40 was \"fine\". I did not believe either. The colour and shape key, the filters and the \"hidden by your filters\" warning were clear and honest. I swapped a paper and opened the score breakdown. The top paper had zero topic terms and was still selected. In appraisal I was impressed that a fabricated quote was flagged and that \"Show source\" highlighted the quote in context. But \"verified\" only means the quote exists. Synthesis contained placeholder contradictions. The three research questions were about telemedicine in Southeast Asia, I could not find where to edit the chosen question, and the report preview mixed my edits with stale mock text. I would not defend this to my committee, but the audit trail is the most promising part.",
+ "three_second_test": [
+  {
+   "page": "Landing /",
+   "understood_in_3s": true,
+   "note": "(a) Tool that turns a rough idea into a research question using real papers. (b) Read the headline, then press Start a review. (c) Sign up. The 9-steps/3-stages cards and the 'What Athena will not do' list build trust. The demo animation lower down is distracting but harmless."
+  },
+  {
+   "page": "Sign up",
+   "understood_in_3s": true,
+   "note": "(a) Create a private account. (b) Fill email and password. (c) Press Create account. The password hint text overlaps the password box and looks cramped."
+  },
+  {
+   "page": "New review (step 1)",
+   "understood_in_3s": true,
+   "note": "(a) Describe my idea. (b) Type a sentence or click an example. (c) Start my review. Very clear."
+  },
+  {
+   "page": "Overview canvas, one Idea node",
+   "understood_in_3s": false,
+   "note": "(a) Probably a map of my review. (b) Click the node. (c) Unsure. There are two competing actions ('Open step 1' in the top card and 'Sharpen my idea' on the node), and the card says 'Tell us what you want to research' although I had just done that. The step 1 pill also says Approved while the node still says Your turn."
+  },
+  {
+   "page": "Scoping questions (step 2)",
+   "understood_in_3s": true,
+   "note": "(a) Answer a few questions. (b) Type an answer. (c) Send answer or Skip the rest. Clear. The 'What we know so far' panel truncated my answers mid-word ('wi', 'at')."
+  },
+  {
+   "page": "Topic list (step 2)",
+   "understood_in_3s": true,
+   "note": "(a) Keep the search topics I want. (b) Edit or Delete the odd ones ('Long', 'Covid'). (c) Keep suggested topics. After editing, a topic showed 'Your turn' with no Keep or Delete and no clear sign that it was accepted."
+  },
+  {
+   "page": "Search builder (step 3)",
+   "understood_in_3s": true,
+   "note": "(a) Check the database searches before they run. (b) Read the concept blocks, then Count matches. (c) Run all searches. The chips are readable, and 'Edit the search text' gives the raw syntax."
+  },
+  {
+   "page": "Retrieval (step 4)",
+   "understood_in_3s": true,
+   "note": "(a) See what was found. (b) Read '135 fetched, 24 duplicates, 111 remain'. (c) Summarise the papers. Counts, duplicates and mix bars are clear."
+  },
+  {
+   "page": "Summary table (step 5)",
+   "understood_in_3s": true,
+   "note": "(a) Skim papers and fix wrong AI cells. (b) Click a study-type chip or open a paper. (c) Rank the papers. The 3-item checklist helps."
+  },
+  {
+   "page": "Ranking (step 6)",
+   "understood_in_3s": true,
+   "note": "(a) Check which papers go forward. (b) Pick a topic. (c) Appraise selected papers. After clicking Appraise, the header said step 7 but the page still showed step 6 with no progress and no obvious primary action."
+  },
+  {
+   "page": "Appraisal (step 7)",
+   "understood_in_3s": true,
+   "note": "(a) Check each paper's appraisal and decide unverified quotes. (b) Tick 'Show only quotes I need to decide'. (c) Next paper, then Summarise. Good. The counters 'N left' and 'N unverified quotes to decide' stayed at 14 after I had rejected all 14."
+  },
+  {
+   "page": "Synthesis (step 8)",
+   "understood_in_3s": true,
+   "note": "(a) Read known, contested and unknown. (b) Click quote chips. (c) Suggest research questions. The content was placeholder text, but the layout is understandable."
+  },
+  {
+   "page": "Research question (step 9)",
+   "understood_in_3s": true,
+   "note": "(a) Compare three candidate questions. (b) Read gap, feasibility, weakness. (c) Choose this question. Layout clear, content off-topic."
+  },
+  {
+   "page": "Export",
+   "understood_in_3s": true,
+   "note": "(a) Download the review. (b) Pick Report, Spreadsheet or Reference list. (c) Download. Clear. The preview sits in a small inner scroll box that is awkward to read."
+  }
+ ],
+ "findings": [
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Search builder (step 3)",
+   "what_happened": "The generated PubMed and OpenAlex queries ignored my edited topic. My MeSH term 'Post-Acute COVID-19 Syndrome' was replaced by 'telemedicine[mh]', and a Southeast Asia block was added. Years default to 2015 to now, not the 2020 I asked for. The inclusion and exclusion criteria were pre-filled with Southeast Asian telemedicine text. Only a '(mock)' label in small text hints at this.",
+   "expected": "Queries that reflect my topic's synonyms and MeSH terms, and criteria derived from my scoping answers, or an explicit statement at the point of use that demo mode does not use my input.",
+   "evidence": "docs/qa/iteration-1/phd/09-searches.jpg, docs/qa/iteration-1/phd/09c-edit-text.jpg, docs/qa/iteration-1/phd/09e-dates.jpg",
+   "suggested_fix": "When demo mode is on, put a visible banner on the query panel itself ('these queries are scripted and do not use your topics'). In real mode, build the query from the topic's synonyms and MeSH and never overwrite user-entered MeSH."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Search builder (step 3)",
+   "what_happened": "Match counts look arbitrary. The same PubMed query showed 183 matches and then 9,245 after I only moved the start year later. A different topic's query later showed the same 183. The app also said 9,245 records truncated to 40 'is fine'.",
+   "expected": "Narrowing a query can never increase the count. A count must come from the query text, or be clearly marked as simulated. Truncating thousands of records to 40 should be a warning, not 'fine'.",
+   "evidence": "docs/qa/iteration-1/phd/09g-counts.jpg, docs/qa/iteration-1/phd/09l-count2.jpg, docs/qa/iteration-1/phd/10f-sbs-head.jpg",
+   "suggested_fix": "Mark simulated counts as sample numbers next to the count. Replace 'so that is fine' with a warning that a systematic review needs the full result set or a justified cap. Let the user raise the cap."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Ranking (step 6)",
+   "what_happened": "The top-ranked, pre-selected paper for my Long COVID topic scored 54/100 although its own breakdown says 'Topic fit 1/5: 0 topic terms appear in title/abstract'. Every selected paper was off-topic (telemedicine, stroke, diabetes). The app forces 3 to 5 papers per topic and gave no warning that nothing matched. Setting match rewarded 'Mentions a Southeast Asian setting', not my criteria.",
+   "expected": "A warning when the best paper has near-zero topic fit, a minimum relevance threshold, and scoring that uses the criteria I entered.",
+   "evidence": "docs/qa/iteration-1/phd/13b-topic-rank.jpg, docs/qa/iteration-1/phd/13c-why.jpg",
+   "suggested_fix": "Show a banner when the top paper for a topic has topic fit of 1/5 or less ('none of these papers appear to match this topic'). Allow selecting fewer than 3 papers or none. Feed saved criteria into the Setting match criterion."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Appraisal (step 7) and report header",
+   "what_happened": "'Verified' means only that the quote text exists in the source, not that it supports the answer. 'Aim clearly stated: AI Unclear' is backed by a verified quote that is just the paper title. A synthesis 'contradiction' that is plainly a placeholder carries green verified chips. The report header says 'AI-extracted claims carry verbatim quotes that were checked', which reads as claim-level assurance.",
+   "expected": "A distinction between 'quote found in text' and 'quote supports the claim', and wording that does not imply the claim itself was validated.",
+   "evidence": "docs/qa/iteration-1/phd/15-appraisal-panel.jpg, docs/qa/iteration-1/phd/15b-source.jpg, docs/qa/iteration-1/phd/16-synthesis.jpg, docs/qa/iteration-1/phd/16b-chip.jpg, docs/qa/iteration-1/phd/20-report.jpg",
+   "suggested_fix": "Rename the badge to 'quote found in source'. Add a user control 'quote supports this answer: yes/no'. Reword the report header to say that only the existence of quotes was checked, not their interpretation."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 9 and export",
+   "what_happened": "The three candidate questions and the final report are about telemedicine in rural Southeast Asia. Candidate 2 is labelled 'effect of an exposure' with a PECO structure but is not an effect question. All three share the same one-line feasibility and weakness. The exported report has no demo-mode or off-topic caveat at the top. The page says 'you can edit it', but I could not find any way to edit the chosen question.",
+   "expected": "A question related to my idea, or a clear caveat in the export that this review used sample data. A working edit control after choosing.",
+   "evidence": "docs/qa/iteration-1/phd/17-questions.jpg, docs/qa/iteration-1/phd/18-chosen.jpg, docs/qa/iteration-1/phd/20-report.jpg",
+   "suggested_fix": "Add an 'Edit question' field on the chosen card. Add a prominent demo-data line at the top of the report when demo mode is on."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Search builder and Report",
+   "what_happened": "The other topics' generated OpenAlex queries contain an empty group, for example `(\"telemedicine\" OR \"telehealth\") AND () AND (\"Southeast Asia\"...)`. This is invalid boolean syntax and would fail or return garbage in a real search. The 'Healthcare workers' and 'Work ability' topics, which have no synonyms, produced it. The Long COVID topic's rationale still reads '(mock) Key concept from your idea: association' after I renamed the topic.",
+   "expected": "No empty groups. A topic with no synonyms should fall back to its own name. Rationale text should update, or be cleared, when I edit a topic.",
+   "evidence": "docs/qa/iteration-1/phd/21b-prev.jpg, docs/qa/iteration-1/phd/21c-prev.jpg, docs/qa/iteration-1/phd/06c-after-edit.jpg",
+   "suggested_fix": "Validate generated queries before display and omit empty groups. Seed a topic with its own name as a synonym. Clear or regenerate the rationale on edit."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Search builder and Ranking",
+   "what_happened": "The year filter I set to 2020 and saved did not stop 2015 and 2019 papers appearing. 'Going global' (2019) was selected and 'Lee et al. 2015' and 'Clough et al. 2019' are cited in the synthesis. This is demo data, but nothing says dates were not applied.",
+   "expected": "Date limits applied, or a visible statement that recorded sample papers ignore them.",
+   "evidence": "docs/qa/iteration-1/phd/09k-year.jpg, docs/qa/iteration-1/phd/13b-topic-rank.jpg, docs/qa/iteration-1/phd/16-synthesis.jpg",
+   "suggested_fix": "Filter by year after retrieval as a safety net, or show 'dates not applied in demo mode'."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Retrieval, ranking and report",
+   "what_happened": "There is no PRISMA-style flow and no title/abstract screening step. Selection is an AI score plus 'top 3 to 5 per topic'. No eligibility decision is recorded per paper and no second reviewer is possible. The only deduplication information is '24 duplicates merged'. The per-query cap of 40 is disclosed but the effect on completeness is not discussed.",
+   "expected": "For a review I would defend: identified, screened, excluded-with-reason and included counts, per-paper inclusion or exclusion with a reason, and an explicit statement that this is a rapid scoping exercise and not a systematic review.",
+   "evidence": "docs/qa/iteration-1/phd/10c-papers.jpg, docs/qa/iteration-1/phd/10e-sbs.jpg, docs/qa/iteration-1/phd/13-rank.jpg",
+   "suggested_fix": "Add a flow diagram to the report. Add an include/exclude with reason column. Label the output as a 'guided rapid review' unless full screening exists."
+  },
+  {
+   "severity": "major",
+   "category": "bug",
+   "page": "Search builder, criteria panel",
+   "what_happened": "I typed new inclusion and exclusion criteria, clicked 'Count matches', and my text silently reverted to the mock text. A separate Save criteria button had appeared lower down, below the fold. Another place on the same page says 'Changes save when you leave a field'. I lost my first edit.",
+   "expected": "Edits saved on blur, or a clear unsaved-changes warning before anything discards them.",
+   "evidence": "docs/qa/iteration-1/phd/09h-bottom.jpg, docs/qa/iteration-1/phd/09i-criteria2.jpg",
+   "suggested_fix": "Autosave on blur like the other fields, or disable other actions and show 'unsaved changes' until Save or Undo."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Appraisal (step 7)",
+   "what_happened": "After I rejected all 14 unverified quotes the canvas count went from 14 to 0, but the panel text still read '14 left' in the checklist and '14 unverified quotes to decide' under the paper header. The last paper (15 of 15) could not be marked reviewed: 'Next paper' was disabled, so the counter stayed at 14/15 reviewed.",
+   "expected": "Counters that update, and a way to mark the final paper as reviewed.",
+   "evidence": "docs/qa/iteration-1/phd/15f-end.jpg",
+   "suggested_fix": "Derive the counters from current decisions. On the last paper, change the button to 'Mark reviewed'."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Ranking to Appraisal transition",
+   "what_happened": "After clicking 'Appraise selected papers' the header said 'Now: step 7/9 Appraisal' but the page still showed the step 6 table and checklist. The primary button disappeared and there was no progress or confirmation. I only found the result by going back to Overview.",
+   "expected": "A progress state or automatic navigation to the appraisal step.",
+   "evidence": "docs/qa/iteration-1/phd/14-appraisal.jpg, docs/qa/iteration-1/phd/14b-overview.jpg",
+   "suggested_fix": "Show 'Appraising 15 papers...' with progress and then navigate, or keep a visible 'Go to step 7' button."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Summary table to step 6",
+   "what_happened": "My search text 'Meta-Analysis' from step 5 carried over into the ranking step and showed '1 of 111'. A 'Keep 3 to 5 papers per topic' item was already ticked on arrival.",
+   "expected": "Filters reset between steps, or a visible reminder. Checklist items that are ticked only when I do them.",
+   "evidence": "docs/qa/iteration-1/phd/13-rank.jpg",
+   "suggested_fix": "Reset the search and filters when the step changes. Mark the checklist item only after the user has seen the selection."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Whole app (step 4 to 5 transition)",
+   "what_happened": "The browser reported a page error: \"Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.\" It appeared when the app moved to step 5 and left the 3D papers view. The page kept working.",
+   "expected": "No console errors.",
+   "evidence": "docs/qa/iteration-1/phd/11-summaries.jpg",
+   "suggested_fix": "Guard the 3D viewer's unmount so the DOM node is removed only if it is still attached."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Overview canvas (first arrival)",
+   "what_happened": "The first canvas screen has a single Idea node marked 'Your turn' while the step strip already shows step 1 as 'Approved'. Two buttons compete: 'Open step 1' and 'Sharpen my idea'. The top card says 'Tell us what you want to research' although I had already typed it.",
+   "expected": "One obvious next action, and wording that reflects what I already did.",
+   "evidence": "docs/qa/iteration-1/phd/04-clarify.jpg",
+   "suggested_fix": "After the idea is entered, say 'Next: answer a few questions' and offer one button. Mark step 1 done."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Scoping (step 2)",
+   "what_happened": "The scoping answers shown under 'What we know so far' are truncated to roughly 80 characters ('allied health) wi', 'sustained employment at'). Two separate questions copied my single combined answer into both 'Which years' and 'Which kinds of studies'. 'Where' stayed 'not answered yet' although I had said 'any country'.",
+   "expected": "Full answers, or a clear ellipsis. Answers mapped to the right fields.",
+   "evidence": "docs/qa/iteration-1/phd/05c-q4.jpg",
+   "suggested_fix": "Show full text with an expand toggle, and add an ellipsis. Parse answers per question."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Scoping topic suggestions",
+   "what_happened": "The AI suggested 'Association', 'Long' and 'Covid' as separate search topics, splitting the phrase 'long COVID'. 'Long' alone as a search topic would return noise. The topic list also showed a 'Context and setting' topic, which disappeared when I clicked its name.",
+   "expected": "Multi-word concepts kept together, and clicking a name should not delete it.",
+   "evidence": "docs/qa/iteration-1/phd/05c-q4.jpg, docs/qa/iteration-1/phd/06-topics.jpg, docs/qa/iteration-1/phd/06f-context.jpg",
+   "suggested_fix": "Tokenise on concepts (noun phrases) instead of single words. Check why clicking the topic name removed it, and add Undo on Delete."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Scoping topic edit panel",
+   "what_happened": "After I edited a suggested topic, its state became 'Your turn' with no Keep or Delete. The only button was 'Go to step 2: Scoping' while I was already on step 2. It was unclear whether the topic was accepted. Deleting topics happened instantly with no confirmation or undo.",
+   "expected": "A clear accepted state, a sensible button label, and a way to undo a delete.",
+   "evidence": "docs/qa/iteration-1/phd/06c-after-edit.jpg, docs/qa/iteration-1/phd/06d-list.jpg, docs/qa/iteration-1/phd/06e-delete.jpg",
+   "suggested_fix": "Keep 'Keep this topic' visible after editing. Show an 'Undo' toast on delete."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Summary table (step 5)",
+   "what_happened": "AI-drafted 'key finding' cells included clearly wrong extracts, such as a postal address and a background sentence. After I edited the key finding, an 'edited by you' badge also appeared under Study type, which I had not changed. Pressing Enter in the edit box did not commit (Tab did), and the hint did not say so.",
+   "expected": "A badge only on the cell I edited, a hint about how to save, and extractions that give a result.",
+   "evidence": "docs/qa/iteration-1/phd/12c-detail.jpg, docs/qa/iteration-1/phd/12d-edit-cell.jpg, docs/qa/iteration-1/phd/12f-edited2.jpg",
+   "suggested_fix": "Show the badge per cell. Add 'Press Tab or click away to save, Esc to cancel'. Flag key findings that look like addresses or boilerplate."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Retrieval (step 4)",
+   "what_happened": "After the run the per-topic query cards still read 'PubMed \u2013 OpenAlex \u2013' for four of the five queries, although the search table below shows hits for them. The 'Colour by' menu had no Article type, evidence status or score option, although I was asked to filter by article type.",
+   "expected": "Counts on the query cards after a run, and article type available as a view.",
+   "evidence": "docs/qa/iteration-1/phd/10b-retrieved.jpg, docs/qa/iteration-1/phd/10c-papers.jpg",
+   "suggested_fix": "Refresh the query cards with run counts. Add Article type as a colour-by or group-by option in the 3D and 2D views."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Search builder, edit-search-text",
+   "what_happened": "The PubMed and OpenAlex query textareas have no accessible name. When focused, the focus helper reported an empty name, and the helper could not find them by their visible labels 'PubMed' and 'OpenAlex'. A screen-reader user would hear only 'edit text'.",
+   "expected": "Each textarea labelled 'PubMed search text' and 'OpenAlex search text'.",
+   "evidence": "docs/qa/iteration-1/phd/09c-edit-text.jpg",
+   "suggested_fix": "Add a label or aria-labelledby to each textarea, tied to the visible 'PubMed' and 'OpenAlex' headings."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Export",
+   "what_happened": "The report preview sits in a small inner scroll box (about 12 lines tall). It is hard to read a 914-line report and to find the search strategy or limitations. The panel metric 'Quotes verified / not: 139 / 14' does not say that I rejected the 14.",
+   "expected": "A full-height preview or a table of contents, and a count of how many unverified quotes I rejected.",
+   "evidence": "docs/qa/iteration-1/phd/20b-report2.jpg, docs/qa/iteration-1/phd/21-files.jpg",
+   "suggested_fix": "Make the preview taller with a section index, and show 'unverified: 14 (rejected by you)'."
+  },
+  {
+   "severity": "polish",
+   "category": "copy",
+   "page": "Sign up",
+   "what_happened": "The password hint ('At least 10 characters, not containing the name part of your email') overlaps the bottom edge of the password input and looks cramped.",
+   "expected": "Hint text below the field with spacing.",
+   "evidence": "docs/qa/iteration-1/phd/02-signup.jpg",
+   "suggested_fix": "Move the hint below the input with margin."
+  },
+  {
+   "severity": "polish",
+   "category": "copy",
+   "page": "Appraisal (step 7)",
+   "what_happened": "The checklist heading reads 'Quality questions for a other study' with the wrong article. The reasoning panel says 'Quality questions for a cross-sectional study' elsewhere.",
+   "expected": "'an other study' or 'an unclassified study'.",
+   "evidence": "docs/qa/iteration-1/phd/15-appraisal-panel.jpg",
+   "suggested_fix": "Use a/an agreement or rephrase to 'Quality questions (study type: other)'."
+  },
+  {
+   "severity": "polish",
+   "category": "clarity",
+   "page": "Landing page",
+   "what_happened": "The landing page does not mention demo mode, the one-paper-per-topic cap or the fact that this is a prototype. Those appear only after sign-in. The animated demo near the bottom autoplays (there is a pause button).",
+   "expected": "A short note on the landing page that this is a demo build with recorded samples, so first-time users are not surprised.",
+   "evidence": "docs/qa/iteration-1/phd/01-landing.jpg, docs/qa/iteration-1/phd/01b-landing-bottom.jpg",
+   "suggested_fix": "Add one line under the CTA: 'Demo build: uses recorded sample papers.' Keep the pause control."
+  }
+ ]
+}

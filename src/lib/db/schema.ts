@@ -20,11 +20,17 @@ export interface Criteria {
   studyTypes: string[];
   inclusion: string[];
   exclusion: string[];
+  /**
+   * Optional HARD retrieval filter: only these article types are fetched from the databases
+   * ("journal_article" | "review" | "preprint"). Off by default, because it silently drops papers the databases
+   * mislabel; the UI warns about that and the choice is logged.
+   */
+  hardFilter?: string[];
 }
 
 export const projects = sqliteTable("projects", {
   id: id(),
-  ownerId: text("owner_id"), // future multi-user
+  ownerId: text("owner_id"), // users.id; enforced on every project route (src/lib/auth/access.ts)
   title: text("title").notNull().default(""),
   idea: text("idea").notNull(),
   currentStage: integer("current_stage").notNull().default(1),
@@ -35,9 +41,11 @@ export const projects = sqliteTable("projects", {
   conceptMap: text("concept_map", { mode: "json" }).$type<{ nodes: { id: string; label: string; kind: string }[]; edges: { from: string; to: string; label: string }[] } | null>(),
   criteria: text("criteria", { mode: "json" }).$type<Criteria | null>(),
   finalReport: text("final_report"),
+  /** Category view choices (filters, group-by, colour-by) saved per project and listed in the report. */
+  viewPrefs: text("view_prefs", { mode: "json" }).$type<Record<string, unknown> | null>(),
   createdAt: createdAt(),
   updatedAt: text("updated_at").notNull().$defaultFn(now),
-});
+}, (t) => [index("projects_owner_idx").on(t.ownerId)]);
 
 export const scopingMessages = sqliteTable("scoping_messages", {
   id: id(),
@@ -322,6 +330,8 @@ export const jobs = sqliteTable("jobs", {
   startedAt: text("started_at"),
   endedAt: text("ended_at"),
   heartbeatAt: text("heartbeat_at"),
+  /** Times this job was picked up again after a server restart. */
+  resumeCount: integer("resume_count").notNull().default(0),
 }, (t) => [index("jobs_project_idx").on(t.projectId)]);
 
 export const httpCache = sqliteTable("http_cache", {
@@ -353,3 +363,75 @@ export const aiCalls = sqliteTable("ai_calls", {
   durationMs: integer("duration_ms").notNull().default(0),
   createdAt: createdAt(),
 }, (t) => [index("ai_calls_project_idx").on(t.projectId, t.stage)]);
+
+// ---------- accounts, admin and telemetry ----------
+
+export type Role = "user" | "admin";
+
+export const users = sqliteTable("users", {
+  id: id(),
+  email: text("email").notNull(), // stored lower-cased
+  name: text("name").notNull().default(""),
+  passwordHash: text("password_hash").notNull(), // scrypt; see src/lib/auth/password.ts
+  role: text("role").$type<Role>().notNull().default("user"),
+  disabled: integer("disabled", { mode: "boolean" }).notNull().default(false),
+  /** Set when an admin resets the password: the next login must choose a new one. */
+  mustChangePassword: integer("must_change_password", { mode: "boolean" }).notNull().default(false),
+  createdAt: createdAt(),
+  lastLoginAt: text("last_login_at"),
+  lastActiveAt: text("last_active_at"),
+}, (t) => [uniqueIndex("users_email_uq").on(t.email)]);
+
+export const sessions = sqliteTable("sessions", {
+  id: text("id").primaryKey(), // sha256 of the cookie token; the token itself is never stored
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: createdAt(),
+  expiresAt: text("expires_at").notNull(),
+  lastSeenAt: text("last_seen_at").notNull(),
+}, (t) => [index("sessions_user_idx").on(t.userId)]);
+
+/** Security events (logins, sign-ups, password changes) and admin actions. Never holds secrets or project content. */
+export const auditEvents = sqliteTable("audit_events", {
+  id: id(),
+  category: text("category").$type<"security" | "admin">().notNull(),
+  action: text("action").notNull(),
+  actorId: text("actor_id"),
+  targetId: text("target_id"),
+  /** sha256 of the lower-cased email / client IP, for rate limiting without storing either in the clear. */
+  emailHash: text("email_hash"),
+  ipHash: text("ip_hash"),
+  detail: text("detail", { mode: "json" }).$type<Record<string, unknown> | null>(),
+  createdAt: createdAt(),
+}, (t) => [index("audit_cat_idx").on(t.category, t.createdAt), index("audit_email_idx").on(t.emailHash, t.createdAt), index("audit_ip_idx").on(t.ipHash, t.createdAt)]);
+
+/** Runtime settings an admin can change (AI on/off, the encrypted xAI key, the budget). */
+export const appSettings = sqliteTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value", { mode: "json" }).$type<unknown>().notNull(),
+  updatedAt: text("updated_at").notNull().$defaultFn(now),
+  updatedBy: text("updated_by"),
+});
+
+/** One row per API request (route pattern, not the URL; no bodies). Pruned after RETENTION_DAYS. */
+export const requestMetrics = sqliteTable("request_metrics", {
+  id: id(),
+  route: text("route").notNull(),
+  method: text("method").notNull(),
+  status: integer("status").notNull(),
+  durationMs: integer("duration_ms").notNull(),
+  userId: text("user_id"),
+  error: text("error"),
+  createdAt: createdAt(),
+}, (t) => [index("reqm_created_idx").on(t.createdAt)]);
+
+/** One row per outbound literature-API request (including cache hits and simulated failures). */
+export const sourceRequests = sqliteTable("source_requests", {
+  id: id(),
+  source: text("source").notNull(),
+  status: integer("status").notNull().default(0), // HTTP status, 0 = network error / not sent
+  ok: integer("ok", { mode: "boolean" }).notNull(),
+  cached: integer("cached", { mode: "boolean" }).notNull().default(false),
+  simulated: integer("simulated", { mode: "boolean" }).notNull().default(false),
+  durationMs: integer("duration_ms").notNull().default(0),
+  createdAt: createdAt(),
+}, (t) => [index("srcreq_created_idx").on(t.createdAt)]);

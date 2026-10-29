@@ -1,7 +1,7 @@
 import "server-only";
 import { eq, inArray } from "drizzle-orm";
 import { db, schema } from "../db";
-import { structuredCall, unknownIds, AiValidationError, BudgetError } from "../ai/client";
+import { structuredCall, unknownIds, AiValidationError, isAiStop } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { SummaryRows } from "../stages/ai-schemas";
 import { chunk, errMsg } from "../util";
@@ -64,7 +64,7 @@ export async function summariesJob(ctx: JobContext) {
                         .run());
         }
       } catch (e) {
-        if (e instanceof BudgetError) throw e;
+        if (isAiStop(e)) throw e;
         failed += batch.length;
         (await ctx.log(`Batch failed (${e instanceof AiValidationError ? "validation" : "error"}): ${errMsg(e)}`));
       } finally {

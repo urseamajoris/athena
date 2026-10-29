@@ -1,18 +1,34 @@
 "use client";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { Dialog, DropdownMenu } from "radix-ui";
 import { MoreHorizontal } from "lucide-react";
 import { cx } from "./ui";
 
 // Radix overlays live apart from ./ui so the views that never open one do not load them.
 
+/**
+ * Focus return for a Radix Dialog opened from code (no Dialog.Trigger): Radix would focus its missing
+ * trigger and drop focus to the page body, so remember what had focus when it opened and go back there.
+ */
+export function useReturnFocus() {
+  const opener = useRef<HTMLElement | null>(null);
+  return {
+    onOpenAutoFocus: () => { opener.current = document.activeElement as HTMLElement | null; },
+    onCloseAutoFocus: (e: Event) => {
+      e.preventDefault();
+      if (opener.current?.isConnected) opener.current.focus();
+    },
+  };
+}
+
 /** Accessible modal (Radix Dialog: focus trap, Escape, focus return). */
 export function Modal({ open, onClose, title, children, footer }: { open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode }) {
+  const returnFocus = useReturnFocus();
   return (
     <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-scrim" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,520px)] -translate-x-1/2 -translate-y-1/2 rounded-md border border-line-strong bg-bg-1 p-0">
+        <Dialog.Content {...returnFocus} className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,520px)] -translate-x-1/2 -translate-y-1/2 rounded-md border border-line-strong bg-bg-1 p-0">
           <div className="p-6">
             <Dialog.Title className="text-16 font-semibold text-fg-0">{title}</Dialog.Title>
             <Dialog.Description asChild>

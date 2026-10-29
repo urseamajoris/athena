@@ -34,7 +34,7 @@ export function upstreamBlocker(states: StageStates, n: number): string | undefi
 }
 
 function rerun(): Action {
-  return { cmd: { type: "rerunDownstream" }, label: "Re-run downstream" };
+  return { cmd: { type: "rerunDownstream" }, label: "Bring later steps up to date" };
 }
 
 /** The next action for the session's frontier stage. */
@@ -48,31 +48,31 @@ export function stageAction(stage: number | null, input: GraphInput): Action | n
   if (job && (state === "failed" || state === "not_started")) return { cmd: { type: "run", stage }, label: state === "failed" ? `Retry ${STAGES[stage - 1].title.toLowerCase()}` : `Run ${STAGES[stage - 1].title.toLowerCase()}` };
   switch (stage) {
     case 1:
-      return { cmd: { type: "approve", stage: 1 }, label: "Start scoping", disabledReason: input.idea.trim().length < 10 ? "Write at least a sentence about your idea" : undefined };
+      return { cmd: { type: "approve", stage: 1 }, label: "Sharpen my idea", disabledReason: input.idea.trim().length < 10 ? "Write at least a sentence about your idea" : undefined };
     case 2: {
       const topics = s?.topics ?? [];
-      if (!s || s.scoping.messages === 0) return { cmd: { type: "openScoping" }, label: "Start scoping" };
+      if (!s || s.scoping.messages === 0) return { cmd: { type: "openScoping" }, label: "Sharpen my idea" };
       if (!s.scoping.done && !topics.length) return { cmd: { type: "answer" }, label: "Answer the scoping question" };
-      if (!topics.length) return { cmd: { type: "branch" }, label: "Branch subtopics" };
+      if (!topics.length) return { cmd: { type: "branch" }, label: "Suggest search topics" };
       const ghosts = topics.filter((t) => isGhostTopic(t, states, input.client.acceptedTopics));
-      if (ghosts.length) return { cmd: { type: "acceptGhosts", topicIds: ghosts.map((g) => g.id) }, label: `Accept ${ghosts.length} subtopic${ghosts.length === 1 ? "" : "s"}` };
-      return { cmd: { type: "approve", stage: 2 }, label: "Approve topics", disabledReason: topics.length > 8 ? "Keep at most 8 topics (merge or delete some)" : undefined };
+      if (ghosts.length) return { cmd: { type: "acceptGhosts", topicIds: ghosts.map((g) => g.id) }, label: `Keep ${ghosts.length} suggested topic${ghosts.length === 1 ? "" : "s"}` };
+      return { cmd: { type: "approve", stage: 2 }, label: "Use these topics", disabledReason: topics.length > 8 ? "Keep at most 8 topics (merge or delete some)" : undefined };
     }
     case 3:
-      if (!s?.queries.length) return { cmd: { type: "buildQueries" }, label: "Build queries" };
-      return { cmd: { type: "approve", stage: 3 }, label: "Run search" };
+      if (!s?.queries.length) return { cmd: { type: "buildQueries" }, label: "Write the searches" };
+      return { cmd: { type: "approve", stage: 3 }, label: s.queries.length > 1 ? `Run all ${s.queries.length} searches` : "Run the search" };
     case 4:
-      return { cmd: { type: "approve", stage: 4 }, label: "Build table" };
+      return { cmd: { type: "approve", stage: 4 }, label: "Summarise the papers" };
     case 5:
-      return { cmd: { type: "approve", stage: 5 }, label: "Rank papers" };
+      return { cmd: { type: "approve", stage: 5 }, label: "Rank the papers" };
     case 6:
-      return { cmd: { type: "approve", stage: 6 }, label: "Appraise selected" };
+      return { cmd: { type: "approve", stage: 6 }, label: "Appraise selected papers" };
     case 7:
-      return { cmd: { type: "approve", stage: 7 }, label: "Synthesize" };
+      return { cmd: { type: "approve", stage: 7 }, label: "Summarise the evidence" };
     case 8:
-      return { cmd: { type: "approve", stage: 8 }, label: "Generate RQs" };
+      return { cmd: { type: "approve", stage: 8 }, label: "Suggest research questions" };
     case 9:
-      return { cmd: { type: "approve", stage: 9 }, label: "Export", disabledReason: s?.questions.chosenId ? undefined : "Choose one research question first" };
+      return { cmd: { type: "approve", stage: 9 }, label: "Finish and export", disabledReason: s?.questions.chosenId ? undefined : "Choose one research question first" };
     default:
       return null;
   }
@@ -83,7 +83,7 @@ export function stageAction(stage: number | null, input: GraphInput): Action | n
  * one; ghost topics offer "Accept". Every other node is calm: done, or waiting on an earlier step.
  */
 export function nextAction(node: GNode, graph: Graph, input: GraphInput): Action | null {
-  if (node.ghost && node.topicId) return { cmd: { type: "acceptTopic", topicId: node.topicId }, label: "Accept" };
+  if (node.ghost && node.topicId) return { cmd: { type: "acceptTopic", topicId: node.topicId }, label: "Keep" };
   if (node.id !== frontierNodeId(graph, input.states)) return null;
   return stageAction(frontierStage(input.states), input);
 }

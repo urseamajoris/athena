@@ -2,6 +2,7 @@ import "server-only";
 import { config } from "../config";
 import { httpJson } from "./http";
 import { normalizeDoi, normalizeTitle, stripTags } from "../util";
+import { usableAbstract } from "./abstract";
 
 /*
  * Crossref REST API (https://api.crossref.org): polite pool via mailto=, used only to fill DOI/metadata gaps.
@@ -35,7 +36,7 @@ function map(i: CRItem): CrossrefMeta {
     journal: i["container-title"]?.[0] ?? null,
     year: i.issued?.["date-parts"]?.[0]?.[0] ?? null,
     authors: (i.author ?? []).map((a) => a.name ?? [a.family, a.given?.[0]].filter(Boolean).join(" ")).filter(Boolean),
-    abstract: i.abstract ? stripTags(i.abstract) : null,
+    abstract: i.abstract ? usableAbstract(stripTags(i.abstract)) : null,
     citationCount: i["is-referenced-by-count"] ?? null,
   };
 }

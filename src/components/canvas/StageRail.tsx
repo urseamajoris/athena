@@ -1,57 +1,62 @@
 "use client";
-import { AlertTriangle, Check, Circle, CircleDot, Loader2, X } from "lucide-react";
+import { AlertTriangle, Check, Loader2, X } from "lucide-react";
 import { cx } from "../ui";
 import { canvasStore, useSession } from "../session/SessionContext";
-import { focusNode } from "./focus";
 import { STAGES, STATE_LABEL, type StageState } from "@/lib/shared/stages";
 import { frontierStage, nodeForStage } from "@/lib/canvas/graph";
 
-const ICON: Record<StageState, typeof Check> = { not_started: Circle, running: Loader2, needs_review: CircleDot, approved: Check, stale: AlertTriangle, failed: X };
-const TONE: Record<StageState, string> = { not_started: "text-fg-2", running: "text-run", needs_review: "text-warn", approved: "text-ok", stale: "text-warn", failed: "text-err" };
+const TONE: Record<StageState, string> = { not_started: "border-line-strong text-fg-2", running: "border-run-line text-run", needs_review: "border-warn text-fg-0", approved: "border-ok-line text-ok", stale: "border-warn-line text-warn", failed: "border-err-line text-err" };
 
-/** Thin progress strip: stages 1–9, the current one ringed; each jumps to its node. */
+/** Where am I: "Step 7 of 9 · Appraisal", the nine steps (numbered, never colour alone), and what comes next. */
 export function StageRail({ compact }: { compact: boolean }) {
-  const { states, graph } = useSession();
+  const { states, graph, ai } = useSession();
   const f = frontierStage(states);
+  const cur = f ? STAGES[f - 1] : null;
   const stale = STAGES.filter((s) => states[String(s.n)] === "stale").length;
+  const done = STAGES.filter((s) => states[String(s.n)] === "approved").length;
+  const label = cur ? `Current step: ${cur.n} of 9, ${cur.title}` : "All 9 steps done";
+  const next = cur && cur.n < 9 ? `Next: ${STAGES[cur.n].title}` : cur ? "Next: download your review" : null;
   if (compact) {
-    const cur = f ? STAGES[f - 1] : null;
     return (
-      <p className="min-w-0 truncate text-12 text-fg-1" aria-label={cur ? `Step ${cur.n} of 9: ${cur.title}` : "Review finished"}>
-        {cur ? <>Step <span className="tabular-nums">{cur.n}/9</span> · {cur.title}</> : "Finished"}
-        {stale > 0 && <span className="text-warn"> · {stale} stale</span>}
-      </p>
+      <div className="min-w-0" aria-label={`${label}. ${done} of 9 done.${stale ? ` ${stale} out of date.` : ""}`}>
+        <p className="truncate text-12 font-medium text-fg-0">{cur ? <>Now: step <span className="tabular-nums">{cur.n}</span>/9 · {cur.title}</> : "Review finished"}{stale > 0 && <span className="text-warn"> · <AlertTriangle className="inline h-3 w-3 align-[-2px]" strokeWidth={2.5} aria-hidden /> {stale} out of date</span>}</p>
+        <div className="mt-1 flex gap-0.5" aria-hidden>
+          {STAGES.map((s) => <span key={s.n} className={cx("h-1 flex-1 rounded-full", states[String(s.n)] === "approved" ? "bg-ok" : s.n === f ? "bg-fg-1" : states[String(s.n)] === "stale" ? "bg-warn" : "bg-bg-3")} />)}
+        </div>
+      </div>
     );
   }
   return (
-    <nav aria-label="Stages" className="flex items-center gap-2">
-      <ol className="flex items-center">
-        {STAGES.map((s, i) => {
+    <nav aria-label="Steps" className="flex min-w-0 items-center gap-3">
+      <ol className="flex shrink-0 items-center gap-1">
+        {STAGES.map((s) => {
           const state = (states[String(s.n)] ?? "not_started") as StageState;
-          const Icon = ICON[state];
           const current = s.n === f;
+          const paused = state === "running" && ai && (!ai.enabled || ai.budgetReached);
           return (
-            <li key={s.n} className="flex items-center">
-              {i > 0 && <span aria-hidden className={cx("h-px w-3", states[String(s.n - 1)] === "approved" ? "bg-fg-2" : "bg-line-strong")} />}
+            <li key={s.n}>
               <button
-                className={cx("group relative inline-flex h-8 w-8 items-center justify-center rounded-full", current ? "bg-bg-3 outline-2 outline-offset-2 outline-fg-1 outline" : "hover:bg-bg-3")}
-                aria-label={`Stage ${s.n}, ${s.title}: ${STATE_LABEL[state]}`}
+                className={cx("relative inline-flex h-7 min-w-7 items-center justify-center rounded-full border text-12 font-semibold tabular-nums", TONE[state], current && "outline-2 outline-offset-2 outline-fg-1 outline")}
+                aria-label={`Step ${s.n}, ${s.title}: ${paused ? "paused" : STATE_LABEL[state]}`}
                 aria-current={current ? "step" : undefined}
-                title={`${s.n}. ${s.title} — ${STATE_LABEL[state]}`}
+                title={`Step ${s.n}: ${s.title} (${STATE_LABEL[state]})`}
                 onClick={() => {
                   const id = nodeForStage(graph, s.n);
                   if (!id) return;
-                  canvasStore.getState().select(id);
-                  focusNode(id);
+                  canvasStore.getState().openPanel(id);
                 }}
               >
-                <Icon className={cx("h-4 w-4", TONE[state], state === "running" && "motion-safe:animate-spin")} strokeWidth={2} aria-hidden />
+                {state === "approved" ? <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden /> : state === "running" ? <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" strokeWidth={2.5} aria-hidden /> : state === "stale" ? <>{s.n}<AlertTriangle className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-bg-0 text-warn" strokeWidth={2.5} aria-hidden /></> : state === "failed" ? <X className="h-3.5 w-3.5" strokeWidth={3} aria-hidden /> : s.n}
               </button>
             </li>
           );
         })}
       </ol>
-      {stale > 0 && <span className="text-12 text-warn">{stale} stale</span>}
+      <p className="hidden min-w-0 truncate text-fg-0 lg:block">
+        <span className="font-medium">{label}</span>
+        {next && <span className="hidden text-fg-2 2xl:inline"> · {next}</span>}
+        {stale > 0 && <span className="text-warn"> · {stale} out of date</span>}
+      </p>
     </nav>
   );
 }

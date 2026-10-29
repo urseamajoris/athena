@@ -68,10 +68,10 @@ function NodeCardImpl({ id, data }: NodeProps<FlowNode>) {
       {node.ghost ? (
         <div className="mt-auto flex gap-2">
           <button tabIndex={tabbable ? 0 : -1} className="btn-secondary btn-sm flex-1" onClick={(e) => { e.stopPropagation(); run({ type: "acceptTopic", topicId: node.topicId! }); }}>
-            <Check className="h-3 w-3" strokeWidth={2} aria-hidden /> Accept
+            <Check className="h-3 w-3" strokeWidth={2} aria-hidden /> Keep
           </button>
-          <button tabIndex={tabbable ? 0 : -1} className="btn-ghost btn-sm" aria-label={`Dismiss ${node.title}`} onClick={(e) => { e.stopPropagation(); run({ type: "dismissTopic", topicId: node.topicId! }); }}>
-            <X className="h-3 w-3" strokeWidth={2} aria-hidden /> Dismiss
+          <button tabIndex={tabbable ? 0 : -1} className="btn-ghost btn-sm" aria-label={`Delete topic: ${node.title}`} onClick={(e) => { e.stopPropagation(); run({ type: "dismissTopic", topicId: node.topicId! }); }}>
+            <X className="h-3 w-3" strokeWidth={2} aria-hidden /> Delete
           </button>
         </div>
       ) : action && !readOnly ? (
