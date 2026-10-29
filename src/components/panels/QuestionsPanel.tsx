@@ -107,6 +107,10 @@ export function QuestionsPanel() {
           <ul className="space-y-3" aria-label="Candidate research questions">
             {data.questions.map((q, i) => {
               const fw = frameworkOf(q);
+              const v = noveltyVerdict(q, { demo });
+              // Top records whose titles look like this very question: warned about on the card itself, not only in
+              // the reasoning. Not in demo mode, where the records are recorded samples unrelated to the question.
+              const same = demo ? [] : q.noveltyMatches.filter((_, j) => v.close[j]);
               return (
               <li key={q.id} className={cx("rounded-md border p-3", q.chosen ? "border-fg-1" : "border-line")} aria-label={`Candidate ${i + 1}`}>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -124,8 +128,19 @@ export function QuestionsPanel() {
                   <dt className="text-fg-2">Feasibility</dt><dd className="line-clamp-2 text-fg-1">{q.feasibility}</dd>
                   <dt className="text-fg-2">Weakness</dt><dd className="line-clamp-2 text-fg-1">{q.weakness}</dd>
                   <dt className="text-fg-2">Structure</dt><dd className="text-fg-1">{fw}{FRAMEWORK[fw] ? ` (${FRAMEWORK[fw]})` : ""}</dd>
-                  <dt className="text-fg-2">Novelty check</dt><dd className="text-fg-1">{noveltyVerdict(q, { demo }).headline}{demo && <span className="text-fg-2"> (demo: sample records)</span>}</dd>
+                  <dt className="text-fg-2">Novelty check</dt><dd className="text-fg-1">{v.headline}{demo && <span className="text-fg-2"> (demo: sample records)</span>}</dd>
                 </dl>
+                {same.length > 0 && (
+                  <div role="note" className="mt-2 rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-12">
+                    <p className="flex items-start gap-2 text-fg-0">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden />
+                      <span><strong className="font-semibold">May already be studied:</strong> {same.length === 1 ? "this record looks" : `these ${same.length} records look`} like the same question. Read {same.length === 1 ? "it" : "them"} before you choose this one.</span>
+                    </p>
+                    <ul className="mt-1 space-y-1 pl-6">
+                      {same.map((m, j) => <li key={j} className="text-fg-1">{m.title} <span className="text-fg-2">({m.year ?? "n.d."})</span> <MatchLink m={m} /></li>)}
+                    </ul>
+                  </div>
+                )}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button className={cx("btn-secondary", q.chosen && "border-fg-0")} onClick={() => choose(q.id)} disabled={q.chosen || finished || !!busy} aria-pressed={q.chosen}>
                     {busy === q.id ? <Spinner /> : q.chosen ? <Check className="h-4 w-4" strokeWidth={1.5} aria-hidden /> : null}
@@ -171,6 +186,13 @@ export function QuestionsPanel() {
   );
 }
 
+/** Where to read a novelty record: its DOI, else PubMed, else its OpenAlex ID. */
+function MatchLink({ m }: { m: Match }) {
+  if (m.doi) return <a className="link" href={`https://doi.org/${m.doi}`} target="_blank" rel="noreferrer">DOI {m.doi}</a>;
+  if (m.pmid) return <a className="link" href={`https://pubmed.ncbi.nlm.nih.gov/${m.pmid}/`} target="_blank" rel="noreferrer">PMID {m.pmid}</a>;
+  return m.openalexId ? <>OpenAlex {m.openalexId}</> : null;
+}
+
 function Novelty({ q, demo, onRerun }: { q: RQ; demo: boolean; onRerun: (d: QData) => void }) {
   const { projectId } = useSession();
   const [busy, setBusy] = useState(false);
@@ -195,7 +217,7 @@ function Novelty({ q, demo, onRerun }: { q: RQ; demo: boolean; onRerun: (d: QDat
           <li key={i} className="text-fg-1">
             {m.title} <span className="text-fg-2">({m.year ?? "n.d."})</span>
             <span className="block text-fg-2">
-              {m.doi ? <a className="link" href={`https://doi.org/${m.doi}`} target="_blank" rel="noreferrer">DOI {m.doi}</a> : m.pmid ? <a className="link" href={`https://pubmed.ncbi.nlm.nih.gov/${m.pmid}/`} target="_blank" rel="noreferrer">PMID {m.pmid}</a> : m.openalexId ? `OpenAlex ${m.openalexId}` : ""} · {m.similarityNote}
+<MatchLink m={m} /> · {m.similarityNote}
             </span>
             {v.close[i] && <span className="mt-0.5 flex items-center gap-1 font-medium text-fg-0"><AlertTriangle className="h-3 w-3 shrink-0 text-warn" strokeWidth={2} aria-hidden /> Looks like the same question</span>}
           </li>
