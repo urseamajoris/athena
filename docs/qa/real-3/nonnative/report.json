@@ -1,0 +1,255 @@
+{
+  "persona": "nonnative",
+  "completed": true,
+  "stage_reached": 9,
+  "validity_assessment": "Mixed. Strong parts: every paper I opened was a real PubMed/OpenAlex record with DOI/PMID. Abstracts matched the AI's study type, setting and key finding for the Thai trials I checked (Watcharanat 2025, Poonprapai 2022). The app flagged stitched quotes honestly ('not found, you decide', with the closest passage shown). It showed '1 paper only' badges, a novelty caveat ('Finding no similar study does not prove a question is new') and a scoping-aid disclaimer in the report. No invented papers or quotes seen.\n\nWeak parts:\n1. Topic drift. Only 14 of 225 papers mention Thailand. The report says each search was the topic AND the main concept of the idea, so the Thailand constraint is dropped in topics 2-4. 4 of the 10 appraised papers were off-topic or not Thai: a Singapore trial (TRIPOD, Duke-NUS), a clinical-trial data-collection platform, a mobile health CLINIC (van) narrative review, and an SMS-only paper that was nearly selected.\n2. The synthesis presents the mobile-clinic review as 'Known' evidence for an app question. It also uses a quote about telemedicine adoption to support 'unclear whether mobile diabetes apps are equally effective/acceptable for older Thai adults'. That stretches the quote.\n3. Appraisal answers of 'No' are given for items an abstract simply does not report. Example: allocation concealment 'No' backed by a quote that says 'open-label ... randomised'. The same quote is reused for three different questions. Another quote ('extremely encouraging') backs 'Limitations acknowledged: No' and 'Sources of data: Yes'. 'Found word for word' is shown in green and looks like confirmation, even though the small print says it is not.\n4. Research-question novelty check. All three candidates were flagged as 'may already be studied', but candidates 1 and 2 show an identical generic 4-paper list, including an office-worker 'sit less' trial that is not the same question. Candidate 3 lists about 10 papers, one of them Indonesian. The flags are the safe direction, but they look auto-generated rather than question-specific.\n5. The chosen question is Thailand-specific, but little of the appraised evidence is Thai.\nNo claim of 'novel' without a caveat was found.",
+  "activity": "Signed up as Somchai (somchai.pharm24@example.com). Created 1 project (prj_cea02fb2d9c94d97) with the idea typed exactly, typos included. Answered 2 scoping questions ('last 5 year'; 'maybe clinical trial and review, i dont know exactly'). Kept 4 suggested topics, wrote 8 searches (PubMed and OpenAlex), ran them (225 unique papers, 72 duplicates removed), summarised all 225 (27 batches), ranked (25 batches), appraised 10 papers (3 full text), accepted 2 unverified quotes ('Accept anyway'), synthesised 4 topics (21 statements, 1 conflict), generated 3 candidate questions, chose candidate 3, and reached the Export page (638-line report). Clicked 'Download the report (Markdown)': download started. 'Open printable report' opens a new tab that my helper cannot follow, so I did not read it. AI steps run once each, none repeated. 0 console errors and 0 failed requests at every check. Screenshots 01-64 in docs/qa/real-3/nonnative/. About 130 helper commands.",
+  "narrative": "I opened the landing page and understood it within 3 seconds: put in a rough idea, get a research question with real papers. I clicked Start a review, signed up, and typed my sentence with its typos. Athena asked only 2 questions: which years, then which study designs. 'Qualitative' was a new word for me, but I just typed 'clinical trial and review'. The topic cards worked, but 'MeSH' and 'Suggested subtopic' confused me. Writing the searches was slow, but a spinner said 'safe to close this page', which reassured me. I liked the plain-language search groups and the 'index term / title/abstract' labels. Retrieval was clear: 297 fetched, 72 duplicates, 225 papers. The article-type bars and study-type legend with shapes were understandable, and filtering by clicking worked. The 3D chart did not tell me what it shows, and it was clipped on the left edge at tablet width. In the table I searched 'Thailand' and found only 14 of 225 papers were about Thailand, which worried me. Ranking showed scary warnings while still scoring. Then top papers included a Singapore trial and a 'mobile health clinic' (van) paper that is not about apps. Appraisal was the best part: 'not found, you decide' with the closest passage shown made me trust the app. But green 'found word for word' beside a 'No' answer that the quote does not support confused me. Synthesis was readable, with '1 paper only' tags. The three research questions all carried an 'already studied' warning, which was honest but made me unsure which to pick. I chose candidate 3, reached Export, and downloaded the report. The report title repeats my typo-filled sentence.",
+  "would_have_quit_at": "I would not have quit; the flow was completable. The most likely drop-off would be the scoping-to-searches wait (about 15 s per question plus about 40 s for writing searches). The next would be ranking: 2 minutes of scoring with red/amber 'no papers match' warnings showing early. A real user who noticed that most selected papers are not from Thailand might stop trusting the result at step 6 or 7.",
+  "categories_and_colours": "Study-type colours and shapes are shown consistently in the retrieval mix bars, the table facet chips, the map key and the paper list: blue circle = Trial, orange square = Cohort/case-control, green triangle = Cross-sectional, amber diamond = Qualitative/mixed methods, pink star = Systematic/scoping review, green cross = Other design, grey ring = Not reported. I could filter by study type (e.g. 'Trial 55' gave 'Showing 55 of 225: trial', with a hidden-papers warning and Reset filters). I could filter by article type (Journal article 166, Review article 48, Preprint 5, Editorial/letter/comment 6). The legend explains click-to-isolate and hover. Counts add up (166+48+5+6=225; 40+17+7+161=225), and 'Colour by' offers topic and source database. Problems:\n- The legend never says what 'Other design' (the biggest class, 74) means; the intent doc says narrative reviews, protocols etc. A paper that the detail panel calls 'Narrative review' shows as 'Other design' in the row. Wording differs between row and detail.\n- 'Review article 48' (article type) and 'Systematic / scoping review 44' (study type) sit side by side and look overlapping.\n- In the 3D chart the size of points varies with no legend, 'Height has no meaning' and 'Depth: topic' are not labelled on the axes, and at 768 px the left side is clipped on the retrieval step.\n- The facet counts stay at 55/10/9... when a text search is active, so they do not match the rows shown.\n- Green = Cross-sectional triangle and green = Other design cross are close hues, distinguishable only by shape.\n- Study-type counts change between retrieval (40 trials, 161 not reported) and the table (55 trials, 18 not reported). This is explained by 'AI reads every abstract', but it is not flagged as a change.",
+  "three_second_test": [
+    {
+      "page": "Landing /",
+      "understood_in_3s": true,
+      "note": "Headline says: turn a rough idea into a research question backed by real papers. First action: click 'Start a review'. Next: sign up."
+    },
+    {
+      "page": "Sign up",
+      "understood_in_3s": true,
+      "note": "Plain form; the password rule is stated. The email field has focus instead of name, which is a tiny surprise."
+    },
+    {
+      "page": "New review /s/new (step 1)",
+      "understood_in_3s": true,
+      "note": "Type your idea, click 'Start my review'. Example chips help. The button looks active even though the helper called it disabled."
+    },
+    {
+      "page": "Idea list view after Start (step 1 workspace)",
+      "understood_in_3s": false,
+      "note": "Mostly empty screen with one row, a 'K' button and Canvas/List toggles. I guessed 'Sharpen my idea' from the top-right button, but the row 'Draft idea / Your turn' and 'Check your idea, then start' were not obvious at first."
+    },
+    {
+      "page": "Scoping chat (step 2)",
+      "understood_in_3s": true,
+      "note": "Answer the question in the box and click Send answer. 'What we know so far' filling in is clear. The first question about years was a slightly odd opener."
+    },
+    {
+      "page": "Topic approval",
+      "understood_in_3s": true,
+      "note": "Keep, Edit or Delete each topic, then 'Keep 4 suggested topics'. 'Suggested subtopic' and 'MeSH' were unclear."
+    },
+    {
+      "page": "Search builder (step 3)",
+      "understood_in_3s": false,
+      "note": "Topic fields with comma-separated MeSH such as 'Asia, Southeastern' were confusing; once the searches are written the page is clear. 'Count matches' versus 'Run all 8 searches' was not obvious."
+    },
+    {
+      "page": "Retrieval (step 4)",
+      "understood_in_3s": true,
+      "note": "Big numbers (225 papers, 72 duplicates), then 'Summarise the papers'. The 3D chart is not self-explanatory."
+    },
+    {
+      "page": "Summary table (step 5)",
+      "understood_in_3s": true,
+      "note": "The checklist 'Do these 3 things' makes the task clear. The key action 'Rank the papers' is in the top bar."
+    },
+    {
+      "page": "Ranking (step 6)",
+      "understood_in_3s": false,
+      "note": "While scoring ran, amber warnings said no papers matched and 0 selected, which looked like a failure. After scoring finished it was clear."
+    },
+    {
+      "page": "Appraisal (step 7)",
+      "understood_in_3s": false,
+      "note": "A lot of text: 5 states and quotes. The explanation paragraph is good, but I needed the 'All appraised papers' list with '1 to decide' badges to find which papers needed my decision."
+    },
+    {
+      "page": "Synthesis (step 8)",
+      "understood_in_3s": true,
+      "note": "Known / Contested / Unknown cards with quote chips. The 'Suggest research questions' button is easy to find."
+    },
+    {
+      "page": "Research question (step 9)",
+      "understood_in_3s": true,
+      "note": "Three candidate cards; choose one. All three carry an amber 'may already be studied' warning, which is confusing but honest. The Gap/Feasibility/Weakness rows are truncated with '...' until you open Full reasoning."
+    },
+    {
+      "page": "Export",
+      "understood_in_3s": true,
+      "note": "'Your literature review is ready': pick Report, Spreadsheet or Reference list and Download. The Markdown format was explained to me, but I do not know what Markdown is."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "major",
+      "category": "validity",
+      "page": "Ranking / Appraisal (steps 6-7)",
+      "what_happened": "The Thailand constraint is lost in topics 2-4: only 14 of 225 retrieved papers mention Thailand. The 10 appraised papers include a Singapore trial (TRIPOD, Duke-NUS), a clinical-trial data-collection platform, and a mobile health CLINIC narrative review (score 82, selected) that is not about apps. The report says each search is 'the topic AND the main concept of the idea', which silently omits the country.",
+      "expected": "Setting match (Thailand) should be a hard requirement, or at least strongly visible, when picking papers; off-setting or off-topic papers should be clearly flagged before appraisal.",
+      "evidence": "docs/qa/real-3/nonnative/27-search-thai.jpg; docs/qa/real-3/nonnative/34-rank-table.jpg; docs/qa/real-3/nonnative/35-clinics.jpg; docs/qa/real-3/nonnative/42-appraisal-p1.jpg; docs/qa/real-3/nonnative/44-p10.jpg",
+      "suggested_fix": "Add the place/setting to every topic's search by default, or show a 'Setting: not Thailand' badge on selected papers. Let the topic-fit check reject 'mobile clinic' meaning vans versus 'mobile app'. Warn when fewer than half of selected papers match the idea's setting."
+    },
+    {
+      "severity": "major",
+      "category": "validity",
+      "page": "Appraisal (step 7)",
+      "what_happened": "Quality answers are often 'No' where an abstract simply does not say. Allocation concealment is 'No' with a quote about open-label randomised design. The same quote is reused for three different questions. In the clinical-trial platform paper, 'Limitations acknowledged: No' and 'Sources of data: Yes' are both backed by 'preliminary tests ... extremely encouraging'. A green 'found word for word' badge makes these look verified.",
+      "expected": "Absence from an abstract should be 'Not reported'. Each quote should support its own answer, and a verbatim quote should not look like confirmation of the answer.",
+      "evidence": "docs/qa/real-3/nonnative/42-appraisal-p1.jpg; docs/qa/real-3/nonnative/44-p10.jpg",
+      "suggested_fix": "For abstract-only papers force 'Not reported' instead of 'No' unless the text explicitly denies it. Do not allow one quote to back several questions. Rename the badge to 'quote is in the paper' and add a second check or label 'does the quote support this answer?'."
+    },
+    {
+      "severity": "major",
+      "category": "validity",
+      "page": "Synthesis (step 8)",
+      "what_happened": "Statements stretch their quotes. 'Mobile outreach clinics ... identified many previously undiagnosed diabetes cases' (a mobile-clinic review) is listed as Known for an app question. The Unknown statement about older Thai adults and diabetes apps is backed by a quote about telemedicine adoption in a Bangkok pilot. The 'Contested' item treats a non-significant between-group difference as a contradiction.",
+      "expected": "Known/Unknown statements should only use quotes about the same intervention (mobile diabetes apps), and should not generalise from telemedicine or vans to apps.",
+      "evidence": "docs/qa/real-3/nonnative/51-thai-tab.jpg; docs/qa/real-3/nonnative/52-unknown.jpg; docs/qa/real-3/nonnative/53-chip.jpg",
+      "suggested_fix": "Add an 'applies to your topic?' check per statement and flag statements whose quotes mention a different intervention (telemedicine, mobile clinics). Mark them 'indirect evidence'. Treat 'not significant' versus 'significant' as 'mixed results', not a contradiction."
+    },
+    {
+      "severity": "minor",
+      "category": "validity",
+      "page": "Research question (step 9)",
+      "what_happened": "Candidates 1 and 2 show an identical generic 4-paper 'may already be studied' list, including an unrelated office-worker 'sit less' trial. Candidate 3 lists about 10 papers (including an Indonesian protocol). All three are warned, so choosing one is hard. The warning text 'look like the same question' is odd for papers on other populations. Candidate 1 is arguably already answered by the review's own Known findings (Thai RCTs).",
+      "expected": "Question-specific, tighter novelty matches that make sense to the reader; a clear indication of which candidate is least covered.",
+      "evidence": "docs/qa/real-3/nonnative/55-rq2.jpg; docs/qa/real-3/nonnative/56-rq-c2.jpg; docs/qa/real-3/nonnative/58-rq-c3.jpg",
+      "suggested_fix": "Show a closeness score per listed paper, sort by it and show the top 3. Make the matching question-specific. Add a one-line 'least overlap' hint across the three candidates."
+    },
+    {
+      "severity": "minor",
+      "category": "clarity",
+      "page": "Research question (step 9)",
+      "what_happened": "Gap it fills, Feasibility and Weakness are cut off with '...' on each card. You must open 'Full reasoning and quotes' to read the main weakness, which the instructions say to compare.",
+      "expected": "The full text of the three comparison rows visible on the card, or clearly expandable per row.",
+      "evidence": "docs/qa/real-3/nonnative/55-rq2.jpg; docs/qa/real-3/nonnative/60-reasoning.jpg",
+      "suggested_fix": "Show 2-3 lines per row with a 'more' control, or put the full text in the card at this width."
+    },
+    {
+      "severity": "minor",
+      "category": "bug",
+      "page": "Retrieval (step 4)",
+      "what_happened": "At 768 px the 3D/2D 'papers found' chart is clipped at the left edge (points and axis cut off). The same chart in the summary-table Map view is not clipped.",
+      "expected": "The chart fits inside the panel width at tablet size.",
+      "evidence": "docs/qa/real-3/nonnative/20-retrieval-chart.jpg; docs/qa/real-3/nonnative/21-chart-more.jpg",
+      "suggested_fix": "Constrain the canvas to the container width and re-fit the camera on resize or panel width change."
+    },
+    {
+      "severity": "minor",
+      "category": "clarity",
+      "page": "Retrieval and Summary table (3D map)",
+      "what_happened": "Without being told, I could not read the map. Only 'Year' is labelled. Point sizes differ with no legend. The note says 'Height has no meaning yet' and 'Depth: topic', but the topic axis is not labelled. 'Other design' (74, the biggest class) is never defined where I look.",
+      "expected": "Colours and shapes understandable without help; sizes either explained or constant.",
+      "evidence": "docs/qa/real-3/nonnative/20-retrieval-chart.jpg; docs/qa/real-3/nonnative/31-map.jpg",
+      "suggested_fix": "Label all axes, make point size constant or add it to the legend, and add one-line meanings (hover or tooltip) for each study type, especially 'Other design' and 'Not reported'."
+    },
+    {
+      "severity": "minor",
+      "category": "clarity",
+      "page": "Summary table / paper detail",
+      "what_happened": "The row says study type 'Other design' (green cross) but the detail panel says 'Narrative review'; the first row for a trial says 'Trial' where detail says 'Non-randomised trial'. 'Review article 48' (article type) and 'Systematic / scoping review 44' (study type) look like overlapping counts.",
+      "expected": "The same vocabulary in the row and the detail, with a short explanation of article type versus study type.",
+      "evidence": "docs/qa/real-3/nonnative/29-paper.jpg; docs/qa/real-3/nonnative/35-clinics.jpg; docs/qa/real-3/nonnative/26-table.jpg",
+      "suggested_fix": "Show the refined type in the row, or map it explicitly ('Other design: narrative review'). Add a short 'article type = how it was published; study type = how the research was done' hint above the facets."
+    },
+    {
+      "severity": "minor",
+      "category": "bug",
+      "page": "Summary table",
+      "what_happened": "When I typed 'Thailand' in the search box, the study type and article type chip counts stayed at 55/10/9... and 166/48/... while only 14 rows were shown.",
+      "expected": "Counts reflect the current search, or are clearly labelled as totals.",
+      "evidence": "docs/qa/real-3/nonnative/27-search-thai.jpg",
+      "suggested_fix": "Recompute the facet counts for the current text search, or label them 'in all 225 papers'."
+    },
+    {
+      "severity": "minor",
+      "category": "clarity",
+      "page": "Ranking (step 6)",
+      "what_happened": "While scoring was still running (1/24 batches), the page showed amber warnings 'Few papers match 3 topics (no papers match)' and '0 selected' on every topic, and I could click topics and see an empty selection. A progress bar and 'Ordering topics by importance' were at the top, but the warnings looked like a failure.",
+      "expected": "No warnings until scoring finishes.",
+      "evidence": "docs/qa/real-3/nonnative/32-ranking.jpg; docs/qa/real-3/nonnative/33-ranked.jpg",
+      "suggested_fix": "Hide or grey out selection warnings and the 'Before you continue' checklist while scoring is running, and show 'Scoring papers, 16 of 24' as the only message."
+    },
+    {
+      "severity": "minor",
+      "category": "clarity",
+      "page": "Search builder (step 3)",
+      "what_happened": "The MeSH field is comma-separated, but a real MeSH heading is 'Asia, Southeastern', so it reads as two separate terms ('Asia', 'Southeastern'). The 'Dates' filter says 2019-now after I asked for 'last 5 years' (2021-2026 would be 5). PubMed has 2 groups, OpenAlex 3 groups for the same topic, unexplained. The topics that came out in step 2 ('Thailand healthcare context for diabetes' etc.) differ from the ones shown 'taking shape' during the questions (mobile apps, blood glucose control, ...) and the 'mobile app' concept has no topic of its own.",
+      "expected": "'Last 5 years' mapped to the correct years; clear MeSH entries; consistent topics.",
+      "evidence": "docs/qa/real-3/nonnative/15-after-topics.jpg; docs/qa/real-3/nonnative/17-searches2.jpg; docs/qa/real-3/nonnative/18-dates.jpg; docs/qa/real-3/nonnative/10-q3.jpg",
+      "suggested_fix": "Show the year range the AI derived ('last 5 years = 2021-2026') for confirmation. Use a separator that does not clash with MeSH commas (semicolon or chips). Explain why PubMed and OpenAlex searches have different structures."
+    },
+    {
+      "severity": "minor",
+      "category": "clarity",
+      "page": "Retrieval (step 4)",
+      "what_happened": "'Hits' (e.g. PubMed 958) versus 'Fetched' (40) is not explained in simple words. A real user would think the app found only 297 of 6,526 papers without understanding that only the top 40 per search are read. The disclosure is in the report, not on this page.",
+      "expected": "A plain sentence at the point of retrieval that only the top 40 per search are collected, and what that means for completeness.",
+      "evidence": "docs/qa/real-3/nonnative/22-sbs.jpg",
+      "suggested_fix": "Add a one-line note above the 'Search by search' table: 'Athena reads the 40 most relevant results per search (the rest are not looked at).'"
+    },
+    {
+      "severity": "minor",
+      "category": "copy",
+      "page": "Appraisal (step 7)",
+      "what_happened": "Technical messages are hard for a second-language reader: 'Each of its two sentences is in the paper word for word, but not next to each other: the quote joins separate passages without marking the gap with \"...\"'. The orange cross chip 'Poonprapai 2022 · finding 2' still shows an x after I accepted it, while the legend says accepted quotes count like found.",
+      "expected": "A short plain-English reason (e.g. 'The quote is in the paper but taken from two places'), and an accepted chip that no longer looks like an error.",
+      "evidence": "docs/qa/real-3/nonnative/46-decide-p5.jpg; docs/qa/real-3/nonnative/48-p7.jpg; docs/qa/real-3/nonnative/51-thai-tab.jpg",
+      "suggested_fix": "Lead with one plain sentence ('Both parts are in the paper, but not together'). Move the closest-passage detail under 'Show detail'. Use a distinct 'accepted by you' icon on chips."
+    },
+    {
+      "severity": "minor",
+      "category": "clarity",
+      "page": "Appraisal (step 7)",
+      "what_happened": "The header says '2 quotes to decide', but on paper 1 the 'Show only quotes I need to decide' filter shows 'Nothing to decide in this checklist'. The two undecided quotes are on papers 5 and 7 (the 'Key findings' and 'Methods' sections). I found them only through 'All appraised papers' badges ('1 to decide'). The checkbox also resets the view to paper 1.",
+      "expected": "A link or a jump to the next paper with something to decide.",
+      "evidence": "docs/qa/real-3/nonnative/43-decide.jpg; docs/qa/real-3/nonnative/45-all-appraised.jpg; docs/qa/real-3/nonnative/46-decide-p5.jpg",
+      "suggested_fix": "Add a 'Go to next quote to decide' button, and keep the current paper when toggling the filter."
+    },
+    {
+      "severity": "minor",
+      "category": "clarity",
+      "page": "Step 1 workspace (after Start my review)",
+      "what_happened": "After submitting the idea, the screen is a mostly empty page: one row 'Idea / Draft idea / Your turn', a '⌘ K' button with no label, and 'Canvas | List'. The next step is only the small bar 'Check your idea, then start' and 'Sharpen my idea'.",
+      "expected": "A clear headline ('Step 1 done: now sharpen your idea') and an obvious single next action.",
+      "evidence": "docs/qa/real-3/nonnative/05-after-start.jpg",
+      "suggested_fix": "Auto-open the Scoping panel or put a large card in the empty area with the next step. Label the K button 'Search / commands'."
+    },
+    {
+      "severity": "minor",
+      "category": "clarity",
+      "page": "Scoping chat and topic cards (step 2)",
+      "what_happened": "Only 2 questions were asked (years, study designs), and the first was publication years instead of what I am studying. 'qualitative' appears in the example without explanation. Topic rows show 'Topic · Suggested subtopic' and 'MeSH' with no explanation in the list. The 'Idea' row still says 'Your turn' / '2 of 5 questions' after the questions were finished.",
+      "expected": "A natural first question and simple words for a second-language user.",
+      "evidence": "docs/qa/real-3/nonnative/07-q1.jpg; docs/qa/real-3/nonnative/12-topics2.jpg; docs/qa/real-3/nonnative/13-kept.jpg",
+      "suggested_fix": "Ask about the outcome or population first; give plain examples ('clinical trial = people get the app or not and are compared'). Replace 'Suggested subtopic' with 'Suggested by Athena' and explain MeSH with a tooltip."
+    },
+    {
+      "severity": "polish",
+      "category": "copy",
+      "page": "Export",
+      "what_happened": "The report title and 'Research idea' repeat my typo-filled sentence ('diabtes pateint'), so the downloaded report starts with spelling mistakes. 'Markdown' is not explained for a non-technical user; the printable report opens in a new tab and I could not check it. The report has 638 lines.",
+      "expected": "A cleaned title from the chosen question, with the original idea kept as a quote.",
+      "evidence": "docs/qa/real-3/nonnative/61-export.jpg; docs/qa/real-3/nonnative/62-preview.jpg",
+      "suggested_fix": "Title the report with the chosen research question (or an AI-cleaned title). Replace 'Markdown' with 'Text file (.md)' and offer a plain 'Download PDF'."
+    },
+    {
+      "severity": "polish",
+      "category": "a11y",
+      "page": "Sign up",
+      "what_happened": "On the sign-up page the Email field has the focus ring on arrival, not the first field (name), so the visual start of the form looks skipped. The 'Create account' button reads as disabled to the helper although it appears filled.",
+      "expected": "Focus on the first field, or on none.",
+      "evidence": "docs/qa/real-3/nonnative/02-signup.jpg",
+      "suggested_fix": "Autofocus the first field or remove autofocus, and expose a clear enabled/disabled state on the primary buttons."
+    },
+    {
+      "severity": "polish",
+      "category": "performance",
+      "page": "Scoping, search builder, summary and ranking",
+      "what_happened": "Waits were long on a real model: about 15 s per scoping question, 15-45 s to write 8 searches, about 2.5 min to summarise 225 papers, about 2.5 min to rank. A 'Summarised 2/27 batches' label sat next to 'Summarised by AI 27' (papers), which made the batch and paper numbers look like the same counter.",
+      "expected": "Progress that is easy to interpret, and a time estimate.",
+      "evidence": "docs/qa/real-3/nonnative/23-summarising.jpg; docs/qa/real-3/nonnative/06-sharpen.jpg",
+      "suggested_fix": "Show 'about 2 minutes left' and papers done (e.g. '27 of 225 papers'). Label batches clearly. Show a short explanation of the wait on the first question ('Preparing the first question...')."
+    }
+  ]
+}
