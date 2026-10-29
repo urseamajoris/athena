@@ -148,7 +148,8 @@ export function buildGraph(input: GraphInput): Graph {
       kind: "topic",
       stages: [2],
       title: t.name,
-      status: ghost ? "review" : toStatus(s2),
+      // A kept topic is done: what step 2 still needs ("Use these topics") is on the Idea card, not on every topic.
+      status: ghost ? "review" : s2 === "needs_review" || s2 === "not_started" ? "done" : toStatus(s2),
       key: ghost ? "Suggested subtopic" : `${plural(t.synonyms, "synonym")} · ${t.controlledTerms} MeSH`,
       parents: ["idea"],
       ghost,

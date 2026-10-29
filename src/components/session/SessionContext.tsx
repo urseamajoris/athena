@@ -5,6 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useSWRConfig } from "swr";
 import { useRouter } from "next/navigation";
 import { api, projectPath, useApi } from "../api";
+import { Spinner, cx } from "../ui";
 import { criteriaDrafts } from "../panels/criteria-draft";
 import { topicUndo } from "../panels/topic-undo";
 import dynamic from "next/dynamic";
@@ -80,6 +81,8 @@ interface Ctx {
   /** Run a node command (next action, add-child option, palette command). */
   run: (cmd: Cmd, opts?: { flowAt?: Pos; from?: string }) => Promise<void>;
   busy: string | null;
+  /** When the searches started being written (one long AI request, not a job), or null. */
+  writingSince: number | null;
   error: unknown;
   clearError: () => void;
   announce: (msg: string) => void;
@@ -132,6 +135,26 @@ export function useJobRefresh(stage: number, mutate: () => unknown) {
 
 export const cmdKey = (c: Cmd) => JSON.stringify(c);
 
+/** While the searches are being written: the same kind of status the job steps show, so a minute-long wait does
+ *  not look stuck. The request finishes and saves on the server even if the page is closed. */
+export function SearchWritingStatus({ className }: { className?: string }) {
+  const { writingSince, summary } = useSession();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (!writingSince) return null;
+  const n = summary?.topics.length ?? 0;
+  const secs = Math.max(0, Math.round((now - writingSince) / 1000));
+  return (
+    <div role="status" className={cx("rounded-md border border-run-line bg-bg-1 p-3", className)}>
+      <p className="flex items-center gap-2 font-medium text-fg-0"><Spinner className="text-run" label="Running" /> Writing the searches{n ? ` for ${n} topic${n === 1 ? "" : "s"}` : ""}…</p>
+      <p className="mt-1 text-12 text-fg-2">This can take a minute. It runs on the server, so it is safe to close this page.<span aria-hidden className="tabular-nums"> {secs} s</span></p>
+    </div>
+  );
+}
+
 export function SessionProvider({ projectId, children, fallback }: { projectId: string; children: ReactNode; fallback: (s: { error: unknown; retry: () => void } | null) => ReactNode }) {
   const { data: fetched, error, mutate } = useApi<ProjectViewData>(projectPath(projectId));
   const data = useStable(fetched);
@@ -146,6 +169,8 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const confirmed = useRef(new Set<number>());
   const [leaveOut, setLeaveOut] = useState<{ count: number; resolve: (b: boolean) => void } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [writingSince, setWritingSince] = useState<number | null>(null);
+  const panelOpen = useCanvas((s) => !!s.panel);
   const [err, setErr] = useState<unknown>(null);
   const [message, setMessage] = useState("");
   const [addTopic, setAddTopic] = useState<{ flowAt?: Pos } | null>(null);
@@ -377,8 +402,14 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
         case "buildQueries":
           return step(async () => {
             if (summary?.queries.length && !(await confirmEdit(3))) return;
-            await api(projectPath(projectId, "search/build"), { body: {} });
-            await refresh();
+            // Shown only during the request itself (not while the confirmation above is open).
+            setWritingSince(Date.now());
+            try {
+              await api(projectPath(projectId, "search/build"), { body: {} });
+              await refresh();
+            } finally {
+              setWritingSince(null);
+            }
             announce("Searches written: one per database for each topic. The first topic's searches are open to check.");
             // Open the searches to check, not the topic: before the query nodes arrive (the live summary lags the
             // request), step 3 would resolve to the first topic's editor.
@@ -456,12 +487,13 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
             approve,
             run,
             busy,
+            writingSince,
             error: err,
             clearError: () => setErr(null),
             announce,
           }
         : null,
-    [data, projectId, states, input, costs, ai, summary, claims, graph, ui, goTo, refresh, confirmEdit, approve, run, busy, err, announce],
+    [data, projectId, states, input, costs, ai, summary, claims, graph, ui, goTo, refresh, confirmEdit, approve, run, busy, writingSince, err, announce],
   );
 
   // Data, not SWR's isLoading: that stays true while server-provided (fallback) data revalidates.
@@ -474,6 +506,8 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
       <ActionsCtx.Provider value={actions}>
       {children}
       <div aria-live="polite" role="status" className="sr-only">{message}</div>
+      {/* With a Focus panel open, the panel shows it above its footer instead (next to the button that started it). */}
+      {writingSince && !panelOpen && <div className="pointer-events-none fixed inset-x-0 bottom-20 z-40 mx-auto w-fit max-w-[calc(100%-32px)]"><SearchWritingStatus className="pointer-events-auto shadow-lg" /></div>}
       {paperId && <PaperDialog paperId={paperId} onClose={() => setPaperId(null)} />}
       {guard && (
         <ConfirmEditDialog

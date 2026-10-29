@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, memo, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type OnChangeFn, type Row as TableRow, type SortingState, type VisibilityState } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Popover } from "radix-ui";
@@ -22,6 +22,8 @@ import { TransitionLink } from "../vt";
 import { ARTICLE_TYPES, DIMENSIONS, hasHues, accessOf, articleTypeOf, categoriesFor, categoryVar, describeFilters, evidenceOf, periodOf, scoreBandOf, sourceOf, studyGroupOf, type ColorBy, type Dimension } from "@/lib/shared/categories";
 import { sessionOf } from "@/lib/canvas/store";
 import type { MapPoint } from "../viz/paper-points";
+import { COL_W, tableMinWidth } from "./columns";
+import { keepRuleDone } from "../guide/checklist-rules";
 
 const PaperMap = dynamic(() => import("../viz/PaperMap").then((m) => m.PaperMap), { ssr: false, loading: () => <Loading label="Loading the map…" /> });
 
@@ -65,9 +67,6 @@ function categorize(p: Paper, kept: boolean): Record<Dimension, string[]> {
 type Field = "setting" | "keyFinding" | "studyType";
 const ch = createColumnHelper<Row>();
 const DEFAULT_HIDDEN: VisibilityState = { authors: false, journal: false, setting: false, citationCount: false, access: false, source: false, article: false };
-/** Fixed column widths: with table-layout fixed, a row's height depends only on its own content, which keeps
- *  the virtualizer's measurements stable (auto layout re-flows every column as rows scroll in and out). */
-const COL_W: Record<string, string> = { expand: "48px", select: "48px", rank: "64px", score: "128px", authors: "160px", year: "72px", journal: "180px", studyType: "180px", article: "170px", setting: "220px", keyFinding: "32%", citationCount: "72px", access: "80px", source: "112px" };
 
 /** Full-screen summary + ranking table: rank and pick papers for appraisal. */
 export function TableView() {
@@ -248,7 +247,9 @@ export function TableView() {
   // The 3–5 rule, and the topics where fewer than 3 papers match at all (done once every matching paper is kept).
   // The checklist item and the warning below both come from this, so they cannot disagree.
   const coverage = topicCoverage(perTopic);
-  const perTopicOk = rt.length > 0 && !coverage.short.length && !coverage.over.length;
+  // Not before the ranking has finished: with no scores yet, no topic is short or over, which is not the rule met.
+  const rankingRunning = states["6"] === "running";
+  const perTopicOk = keepRuleDone({ ranked, running: rankingRunning, topics: rt.length, short: coverage.short.length, over: coverage.over.length });
   const openTopic = perTopic.find((t) => t.id === topic) ?? null;
   // The review has moved past this page (e.g. the appraisal was started here).
   const f = frontierStage(states);
@@ -267,7 +268,7 @@ export function TableView() {
       : [
           { label: "Pick a topic to see its ranked papers", done: topic !== "all", hint: "The buttons above the table: one per topic." },
           { label: "Open a selected paper to see why it scored high", done: seen.includes("opened-score"), hint: "Click the arrow at the start of its row." },
-          coverage.few.length
+          ranked && !rankingRunning && coverage.few.length
             ? { label: "Keep 3–5 papers per topic, or every matching paper where fewer match", done: perTopicOk, hint: perTopicOk ? "Fewer than 3 papers match some topics, and all of them are selected." : "Tick or untick papers in a topic's view, or swap one from its details." }
             : { label: "Keep 3–5 papers per topic", done: perTopicOk, hint: "Tick or untick papers in a topic's view, or swap one from its details." },
         ];
@@ -285,7 +286,7 @@ export function TableView() {
 
   // One page scroll: the task and filters first, then the table (which scrolls its own rows, header kept in view).
   return (
-    <div className="flex h-full flex-col overflow-y-auto">
+    <div className="flex h-full flex-col overflow-y-auto" data-table-page>
       <div className="shrink-0 space-y-3 px-4 pb-1 pt-3">
         <StaleNotice stage={5} also={[6]} />
         {(states["5"] === "running" || states["6"] === "running") && <JobStatus stage={states["6"] === "running" ? 6 : 5} />}
@@ -568,9 +569,26 @@ function PapersTable({ rows, groupBy, topics, columns, sorting, onSortingChange,
   const padTop = items[0]?.start ?? 0;
   const padBottom = virtual.getTotalSize() - (items[items.length - 1]?.end ?? 0);
   const visibleCols = table.getVisibleLeafColumns().length;
+  // Scrolling down over the table moves the page first, until the whole table box is in view, and only then its
+  // rows: otherwise the rows catch the wheel while the box is half off-screen and the page seems stuck.
+  useEffect(() => {
+    const el = scroller.current;
+    const page = el?.closest<HTMLElement>("[data-table-page]");
+    if (!el || !page) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY <= 0 || e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      const hidden = el.getBoundingClientRect().bottom - page.getBoundingClientRect().bottom;
+      if (hidden < 1 || page.scrollTop + page.clientHeight >= page.scrollHeight - 1) return;
+      e.preventDefault();
+      page.scrollBy({ top: Math.min(hidden, e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? page.clientHeight : 1)) });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
   return (
     <div ref={scroller} className="mt-3 min-h-0 w-full flex-1 overflow-auto border-t border-line" tabIndex={-1}>
-      <table className="w-full min-w-[960px] table-fixed border-collapse text-left" aria-rowcount={rows.length + 1}>
+      {/* Title keeps a readable width: when the shown columns do not fit, the table scrolls sideways in this box. */}
+      <table className="w-full table-fixed border-collapse text-left" style={{ minWidth: tableMinWidth(table.getVisibleLeafColumns().map((c) => c.id)) }} aria-rowcount={rows.length + 1}>
         <colgroup>
           {table.getVisibleLeafColumns().map((c) => <col key={c.id} style={{ width: COL_W[c.id] }} />)}
         </colgroup>

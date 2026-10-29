@@ -9,7 +9,8 @@ import { criteriaDrafts } from "./criteria-draft";
 import { ActionButton, PanelFooter, SectionTitle, StaleNotice } from "./common";
 import { FIELD_LABEL, queryBlocks } from "@/lib/canvas/query-chips";
 import { WhatHappens } from "../guide/WhatHappens";
-import { nextAction } from "@/lib/canvas/actions";
+import { nextAction, stageAction } from "@/lib/canvas/actions";
+import { frontierStage } from "@/lib/canvas/graph";
 import { fmtInt } from "@/lib/shared/format";
 
 interface Query { id: string; database: string; queryString: string; aiQueryString: string; rationale: string; dryRunCount: number | null; dryRunAt: string | null; dryRunError: string | null; edited: boolean }
@@ -39,7 +40,9 @@ export function QueryPanel({ topicId }: { topicId: string }) {
   const topic = data?.topics.find((t) => t.id === topicId);
   if (!data || !topic) return <p className="text-fg-2">No queries for this topic yet.</p>;
   const node = graph.nodes.find((n) => n.id === `query:${topicId}`);
-  const action = node ? nextAction(node, graph, input) : null;
+  // Every topic's searches offer step 3's action while step 3 is current, not only the first topic's
+  // (which is the frontier node): checking the second topic must not turn the footer into "Go to step 3".
+  const action = node ? nextAction(node, graph, input) ?? (frontierStage(states) === 3 ? stageAction(3, input) : null) : null;
   const runs = (live ?? fetched)?.runs ?? [];
   const fields = [...new Set(topic.queries.flatMap((q) => queryBlocks(q.queryString).flatMap((b) => b.terms.map((t) => t.field)).filter(Boolean)))] as string[];
   return (
