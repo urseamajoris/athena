@@ -31,7 +31,7 @@ export const config = {
     reasoning: process.env.XAI_MODEL_REASONING || "grok-4.20-0309-reasoning",
   },
   fastReasoningEffort: process.env.XAI_FAST_REASONING_EFFORT ?? "low",
-  budgetUsd: num(process.env.XAI_BUDGET_USD, 15),
+  budgetUsd: num(process.env.XAI_BUDGET_USD, 5),
   aiConcurrency: Math.max(1, num(process.env.AI_CONCURRENCY, 4)),
   maxResultsPerQuery: Math.max(1, num(process.env.MAX_RESULTS_PER_QUERY, 40)),
   appraisalMaxChars: num(process.env.APPRAISAL_MAX_CHARS, 60000),

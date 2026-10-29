@@ -13,6 +13,8 @@ export const signupOpen = () => !["0", "false", "no", "off"].includes((process.e
 export async function signUp(input: { email: string; password: string; name?: string }) {
   if (!signupOpen()) throw new HttpError(403, "Sign-up is closed on this server. Ask the administrator for an account.");
   const email = normEmail(input.email);
+  // The administrator's address is reserved: whoever signed up with it first would otherwise own it.
+  if (process.env.ADMIN_EMAIL && normEmail(process.env.ADMIN_EMAIL) === email) throw new HttpError(403, "This email is reserved for the administrator of this server.");
   const ip = await clientIp();
   const since = new Date(Date.now() - 3600_000).toISOString();
   const recent = await db.select({ n: sql<number>`count(*)` }).from(schema.auditEvents).where(and(eq(schema.auditEvents.action, "signup"), eq(schema.auditEvents.ipHash, hashId(ip)), sql`${schema.auditEvents.createdAt} > ${since}`)).get();

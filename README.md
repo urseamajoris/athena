@@ -65,7 +65,7 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 | `NCBI_API_KEY` | Optional. Raises PubMed from 3 to 10 requests per second. |
 | `XAI_MODEL_FAST`, `XAI_MODEL_SUMMARY`, `XAI_MODEL_REASONING` | Model IDs for each role (see below). |
 | `XAI_FAST_REASONING_EFFORT` | `reasoning_effort` for the fast models (default `low`). Dropped automatically if a model rejects it. |
-| `XAI_BUDGET_USD` | Hard cap on recorded xAI spend in this database (default 15). AI calls are refused once it is reached. An admin can lower it in the dashboard; raising it above this value needs an explicit confirmation. |
+| `XAI_BUDGET_USD` | Hard cap on recorded xAI spend in this database (default 5). AI calls are refused once it is reached. An admin can lower it in the dashboard; raising it above this value needs an explicit confirmation. |
 | `AI_CONCURRENCY` | Concurrency limit for per-paper model calls (default 4). |
 | `MAX_RESULTS_PER_QUERY` | Pagination cap per query (default 40). |
 | `APPRAISAL_MAX_CHARS` | Characters of full text sent to the model per appraisal (default 60,000). Truncation is shown in the UI and the report. |
@@ -75,7 +75,7 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 | `SIMULATE_SOURCE_FAILURE` | Comma list such as `openalex`. Forces that source to fail, to test failure handling. |
 | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Turso (libSQL) database for production. When the URL is empty the app uses the local file at `DATABASE_PATH`. |
 | `DATABASE_PATH` | Local SQLite file (default `data/athena.db`), used when `TURSO_DATABASE_URL` is empty. |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | The first administrator, created at server start if no account has this email (an existing account with it becomes an admin; its password is not changed). Projects created before accounts existed are assigned to this admin. |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | The first administrator, created at server start if no account has this email (an existing account with it becomes an admin only if ADMIN_PASSWORD is its password, which is not changed; the address cannot be used to sign up). Projects created before accounts existed are assigned to this admin. |
 | `ALLOW_SIGNUP` | `false` closes the sign-up page, so only an admin can create accounts. Open by default. |
 | `SETTINGS_ENCRYPTION_KEY` | 32+ characters (e.g. `openssl rand -base64 32`). Encrypts an xAI key set from the dashboard (AES-256-GCM). Without it the dashboard refuses to store a key. |
 

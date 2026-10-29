@@ -30,7 +30,12 @@ for (let attempt = 1; attempt <= 3 && !dbReady; attempt++) {
 }
 
 // Server start: confirm model IDs with xAI and resume jobs interrupted by a restart.
-await checkModels();
+try {
+  await checkModels();
+} catch (e) {
+  // It reads the key settings from the database, which may be the very thing that is down.
+  console.error("[athena] could not check the model IDs:", e);
+}
 if (dbReady) {
   try {
     // First admin from ADMIN_EMAIL / ADMIN_PASSWORD; projects from before accounts go to that admin.

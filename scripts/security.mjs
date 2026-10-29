@@ -135,6 +135,10 @@ const weak = await new Client(base).raw("/api/auth/signup", { body: { email: `se
 check("weak passwords are refused", weak.status === 400, `status ${weak.status}`);
 const dup = await new Client(base).raw("/api/auth/signup", { body: { email: `SEC-A-${stamp}@example.org`, password: "test-password-123" } });
 check("an email can only have one account (case-insensitive)", dup.status === 409, `status ${dup.status}`);
+if (process.env.ADMIN_EMAIL) {
+  const reserved = await new Client(base).raw("/api/auth/signup", { body: { email: process.env.ADMIN_EMAIL.toUpperCase(), password: "someone-else-123" } });
+  check("nobody can sign up with the administrator's email", reserved.status === 403, `status ${reserved.status}`);
+}
 
 // 6. Account deletion removes the user's projects.
 const C = await new Client(base).signup(`sec-c-${stamp}@example.org`);

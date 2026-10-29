@@ -7,7 +7,7 @@ import { and, asc, eq, isNull, gt, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 import { HttpError } from "../project";
 import { newId, nowIso } from "../util";
-import { hashPassword, passwordProblem } from "./password";
+import { hashPassword, passwordProblem, verifyPassword } from "./password";
 import { SESSION_COOKIE, SESSION_DAYS, hashId, maskEmail, normEmail, sameOrigin } from "./policy";
 import type { Role } from "../db/schema";
 
@@ -140,10 +140,11 @@ export async function ownedProject(projectId: string, user: SessionUser) {
 }
 
 /**
- * Startup: create the first admin from ADMIN_EMAIL / ADMIN_PASSWORD if that account does not exist yet
- * (an existing account is promoted to admin; its password is left alone, so a password changed in the app
- * is not overwritten on the next cold start). Projects created before accounts existed are then assigned
- * to the first admin.
+ * Startup: create the first admin from ADMIN_EMAIL / ADMIN_PASSWORD if that account does not exist yet.
+ * An existing account with that email is promoted only if ADMIN_PASSWORD is its password: otherwise anyone who
+ * signed up with the address before it was configured would become admin. Its password is left alone, so a
+ * password changed in the app is not overwritten on the next cold start. Projects created before accounts
+ * existed are then assigned to the first admin.
  */
 export async function ensureAdminFromEnv(): Promise<string | null> {
   const email = process.env.ADMIN_EMAIL ? normEmail(process.env.ADMIN_EMAIL) : "";
@@ -159,6 +160,9 @@ export async function ensureAdminFromEnv(): Promise<string | null> {
         await audit("security", "admin_bootstrapped", { targetId: id, email });
         console.log(`[athena] created the admin account ${maskEmail(email)} from ADMIN_EMAIL.`);
       }
+    } else if (existing.role !== "admin" && !(await verifyPassword(password, existing.passwordHash))) {
+      console.error(`[athena] ${maskEmail(email)} already has an account whose password is not ADMIN_PASSWORD, so it was NOT made an admin. Log in as that user and set ADMIN_PASSWORD to its password, or remove the account.`);
+      await audit("security", "admin_promotion_refused", { targetId: existing.id, email });
     } else if (existing.role !== "admin") {
       await db.update(schema.users).set({ role: "admin" }).where(eq(schema.users.id, existing.id)).run();
       await audit("security", "role_changed", { targetId: existing.id, email, detail: { from: existing.role, to: "admin", by: "ADMIN_EMAIL at startup" } });
