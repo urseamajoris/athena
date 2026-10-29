@@ -153,3 +153,47 @@ After merging, `node scripts/e2e.mjs` caught a React hook-order error (#310). Th
 | 9. Silent reopening of step 2 | Editing a topic after step 2 was approved now says plainly that step 2 has reopened and what to do. |
 | 10–11. Export and report | **Phones:** the printable report is the first choice on narrow screens, and Download shows a visible confirmation. **Report header:** it says the search is a scoping aid, at most 40 records per search, with topics searched one at a time, and is not exhaustive. |
 | 13. Minor | **Step 1:** it reads as a confirmation of the idea already entered, and the idea saves itself. **Topics:** deleting one offers Undo. **Review not found:** a page with a header and plain words, and no pointless retry. **Demo admin panel:** says "Demo mode: no key is used and nothing is spent", and labels mock calls as mock. |
+
+## Iteration 3
+
+The same eight personas ran on fresh servers built from the iteration-2 fixes. Every API key was removed from the servers' environment.
+
+The usage limit stopped six personas partway through. After the reset I restarted the two finished personas' servers with their databases intact, so the admin could still check them. The other five personas started over on fresh servers, and the workflow resumed with the finished two taken from cache.
+
+**Outcome:** all 7 user personas reached step 9 and the export. There were 26 majors (29 in iteration 2, 51 in iteration 1), 75 minor and 17 polish findings. Nobody hit a blocker.
+
+**3-second test:**
+
+| Persona | Iter 1 | Iter 2 | Iter 3 |
+|---|---|---|---|
+| undergrad | 12/14 | 10/14 | 12/16 |
+| masters | 10/16 | 11/16 | 11/14 |
+| phd | 13/14 | 10/14 | 14/15 |
+| clinician | 13/14 | 12/14 | 12/14 |
+| nonnative | 9/15 | 11/14 | 14/17 |
+| keyboard | 12/15 | 12/14 | 14/16 |
+| chaos | 16/19 | 13/15 | 15/17 |
+| admin | 6/7 | – | 6/6 |
+
+The page understood least was the **first canvas view**. Several personas asked why "Sharpen my idea" (on the card) and "Open step 1" (at the top) both appear.
+
+**Isolation held.** Another user's project URL showed "This review could not be opened. The link may be wrong, or the review belongs to another account.", the same as for an invented ID. Signed out, it asked the user to log in.
+
+**Telemetry:** on 6 of 7 servers the admin found that the dashboard matched what the user did: users, projects, the funnel, AI calls and errors. On the chaos user's server the funnel contradicted the "1 finished" tile after the user edited an approved step. The fix for that is listed under "Fixed after iteration 3".
+
+**The AI switch improved.** While AI was off the call count stayed at 46, with "1 blocked, not sent" and then 2. When it was turned back on, the user's step resumed by itself; in iteration 1 the user had to reload.
+
+**Separate check: 3-second test round 4.** Fresh agents were shown only the final v4 screenshots of 32 page states, at 375, 768 and 1366 px. For all 32, they gave the purpose, first action and next action that `docs/ux-intent.md` intends. The results are in `docs/screenshots/ux/round-4-results.json`.
+
+### Findings, merged and ranked
+
+| # | Severity | Personas | Finding |
+|---|---|---|---|
+| 1 | major (clarity) | 4 | After "Write the searches", the panel stayed on the topic editor ("Viewing step 2") while the canvas showed the new searches. |
+| 2 | major (validity) | 2 | An appraisal quoted a **different paper's** text, marked "found word for word". In demo mode this comes from recorded full-text fixtures matched by request. The app never checked that a fetched full text belongs to the paper. |
+| 3 | major (validity) | 6 | Demo artefacts: off-topic sample papers score 60–70 and are pre-selected as "matching". Synthesis and gap quotes come from off-topic papers. "(mock)" appears in the exported question. Each of these is labelled as demo output, but personas still found them confusing. |
+| 4 | major (a11y) | 1 | **Keyboard:** "Reject" sends focus to the heading of a long paper. A fifth scoping answer was typed into nothing after the chat ended. At 200% zoom the focused answer box sits half behind the footer. |
+| 5 | major (validity) | 2 | **Demo questions:** a truncated word ("…hip fract?"), a repeated phrase, and a clause from an answer used as a search synonym. |
+| 6 | major (clarity) | 1 | A paper deselected in one topic still went to appraisal because it is selected in another topic, and the count did not change. |
+| 7 | major (admin) | 1 | The funnel and the "finished" tile disagreed after a user edited an approved step. |
+| 8 | major (bug) | 1 | A topic was deleted with no visible Undo (the Undo was only announced to screen readers). |
