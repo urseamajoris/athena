@@ -9,7 +9,7 @@ import { chunk, errMsg, newId, forEachSeq } from "../util";
 import { getProject, logDecision } from "../project";
 import type { JobContext } from "./runner";
 import { applyRankingRules, citationScore, defaultSelection, recencyScore } from "../scoring";
-import { ideaSetting } from "../shared/scope";
+import { ideaSetting, rankedSetting } from "../shared/scope";
 
 const BATCH = 10;
 /** Max papers scored per topic (highest database relevance first) to bound cost. */
@@ -21,6 +21,7 @@ export async function rankingJob(ctx: JobContext) {
   const setting = ideaSetting(p.scopingSummary);
   const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
   const topicIds = topics.map((t) => t.id);
+  const queries = (await db.select({ topicId: schema.queries.topicId, scope: schema.queries.scope }).from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
   // A resumed job (after AI was paused) keeps the scores it already has and scores only the rest.
   const resumed = !!ctx.params.resumed;
   if (!resumed) (await db.delete(schema.scores).where(inArray(schema.scores.topicId, topicIds.concat(["-"]))).run());
@@ -85,7 +86,7 @@ export async function rankingJob(ctx: JobContext) {
           const rec = recencyScore(paper.year);
           const cit = citationScore(paper.citationCount, paper.year);
           // Off-setting papers and papers that only share words with the idea score low, and say why.
-          const ruled = applyRankingRules(r, { recency: rec.score, citationImpact: cit.score }, setting);
+          const ruled = applyRankingRules(r, { recency: rec.score, citationImpact: cit.score }, rankedSetting(setting, queries.filter((q) => q.topicId === topic.id)));
           (await db.insert(schema.scores).values({
                         id: newId("sc"),
                         paperId: r.paperId,

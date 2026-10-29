@@ -9,7 +9,7 @@ import { describeView, type ViewPrefs } from "./shared/categories";
 import { noveltyVerdict } from "./shared/novelty";
 import { reportHtmlPage } from "./report-html";
 import { partsLabel } from "./quotes";
-import { ideaSetting, settingWords } from "./shared/scope";
+import { ideaSetting, mentionsSetting } from "./shared/scope";
 import { downgradeNote } from "./stages/checklist";
 
 const ids = (a: string[]) => a.concat(["-"]);
@@ -106,8 +106,8 @@ export async function markdownReport(projectId: string): Promise<string> {
   const sumOf = (f: (r: (typeof ret.runs)[number]) => number | null) => ret.runs.reduce((a, r) => a + (f(r) ?? 0), 0);
   // Whether the searches kept the idea's setting (a country, a region): said, so a review that lost it does not read as limited to it.
   const setting = ideaSetting(p.scopingSummary);
-  const words = setting ? settingWords(setting) : [];
-  const unlimited = words.length ? ret.runs.filter((r) => !words.some((w) => r.queryString.toLowerCase().includes(w))).length : 0;
+  // A search names the setting by any of its names ("Thai[tiab]" names Thailand), as whole words.
+  const unlimited = setting ? ret.runs.filter((r) => !mentionsSetting(setting, r.queryString)).length : 0;
   const searchedAs = !setting ? "the topic AND the main concept of the idea" : !unlimited ? `the topic AND the main concept of the idea AND its setting, ${setting}` : `the topic AND the main concept of the idea; ${unlimited} of ${ret.runs.length} searches were not limited to ${setting}, the idea's setting, so they also found papers from elsewhere`;
   const L: string[] = [];
   // The chosen question names the review better than the first rough wording of the idea.

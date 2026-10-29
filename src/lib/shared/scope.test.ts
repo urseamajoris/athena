@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ideaSetting, meshText, settingFit, splitHeadings, yearsFromTimeframe } from "./scope";
-import { blockTerms, withBlock } from "../sources/syntax";
+import { ideaSetting, meshText, mentionsSetting, placeLike, rankedSetting, settingFit, settingTerms, splitHeadings, yearsFromTimeframe } from "./scope";
+import { blockTerms, termsBlock, withBlock } from "../sources/syntax";
 import { queryBlocks } from "../canvas/query-chips";
 import { applyRankingRules, defaultSelection, weightedTotal } from "../scoring";
 
@@ -96,4 +96,73 @@ test("setting fit for the ranking note: the AI's rating first, the paper's own s
   assert.equal(settingFit("Thailand", "Ramathibodi hospital, Thailand", undefined), "match");
   assert.equal(settingFit("rural Kenya", "Nairobi, Kenya", undefined), "match");
   assert.equal(settingFit("Thailand", "Singapore", undefined), "differs");
+});
+
+// Review of run 3: answers that mean "no limit" were taken as a place, and every search was limited to it.
+test("a setting answer that says it has no limit names no setting, wherever the wording is", () => {
+  for (const s of ["not specified (any country)", "No specific setting", "International (any country)", "Not limited", "globally", "Any country"]) assert.equal(ideaSetting({ setting: s }), null, s);
+  // Real run 1 (prj_538d411ba3c44ae0): its ranking halved 104 of 240 scores against this "setting".
+  assert.equal(ideaSetting({ setting: "hospitals and other healthcare settings globally" }), null);
+  // A country stays a setting, with or without a qualifier.
+  assert.equal(ideaSetting({ setting: "Thailand" }), "Thailand");
+  assert.equal(ideaSetting({ setting: "Thailand (any region)" }), "Thailand (any region)");
+  assert.equal(ideaSetting({ setting: "Thailand, not limited to Bangkok" }), "Thailand, not limited to Bangkok");
+});
+
+test("every search is limited to a place, not to a kind of care setting", () => {
+  for (const s of ["Thailand", "primary care in rural Kenya", "Bangkok", "rural Ontario", "UK"]) assert.equal(placeLike(s), true, s);
+  for (const s of ["hospitals", "primary care", "nursing homes", "community pharmacies"]) assert.equal(placeLike(s), false, s);
+});
+
+test("a search builder reply without a setting block gets one from the setting's own words", () => {
+  assert.deepEqual(settingTerms("Thailand"), ["thailand", "thai"]);
+  assert.equal(termsBlock(settingTerms("Thailand"), "[tiab]"), "(thailand[tiab] OR thai[tiab])");
+  assert.equal(termsBlock(settingTerms("United States"), "[tiab]"), '("united states"[tiab] OR usa[tiab] OR america[tiab] OR american[tiab])');
+  assert.equal(termsBlock(settingTerms("Bangkok")), "(bangkok)");
+  assert.equal(termsBlock([]), "");
+  // The block it builds limits the run-3 query that lost the country, and reads as the setting in the report.
+  const limited = withBlock(OPENALEX_ADHERENCE, termsBlock(settingTerms("Thailand")));
+  assert.deepEqual(limited, { query: `${OPENALEX_ADHERENCE} AND (thailand OR thai)`, added: true });
+  assert.equal(mentionsSetting("Thailand", limited.query), true);
+});
+
+test("a topic that compares settings is scored without the setting, so papers from elsewhere keep their score", () => {
+  assert.equal(rankedSetting("Thailand", [{ scope: { comparesSettings: true } }, { scope: { comparesSettings: false } }]), null);
+  assert.equal(rankedSetting("Thailand", [{ scope: { comparesSettings: false } }]), "Thailand");
+  assert.equal(rankedSetting("Thailand", [{ scope: null }]), "Thailand"); // queries built before the flag was kept
+  const sg = { topicFit: 4, topicFitWhy: "", designStrength: 5, settingMatch: 0, settingMatchWhy: "Singapore.", overall: "RCT in Singapore." };
+  const formula = { recency: 5, citationImpact: 2 };
+  const compared = applyRankingRules(sg, formula, rankedSetting("Thailand", [{ scope: { comparesSettings: true } }]));
+  assert.equal(compared.total, weightedTotal(compared.sub));
+  assert.equal(compared.overall, "RCT in Singapore.");
+  // Run 1's "hospitals … globally" is no setting, so nothing is halved there either.
+  const r1 = applyRankingRules(sg, formula, ideaSetting({ setting: "hospitals and other healthcare settings globally" }));
+  assert.equal(r1.total, weightedTotal(r1.sub));
+});
+
+test("setting fit by words: countries by any name and as whole words, care settings by all their words", () => {
+  assert.equal(settingFit("UK", "London, England", undefined), "match");
+  assert.equal(settingFit("UK", "Boston, United States", undefined), "differs");
+  assert.equal(settingFit("USA", "Boston, United States", undefined), "match");
+  assert.equal(settingFit("United States", "Manchester, United Kingdom", undefined), "differs");
+  assert.equal(settingFit("rural India", "rural Kenya", undefined), "differs");
+  assert.equal(settingFit("rural India", "villages in Tamil Nadu, India", undefined), "match");
+  assert.equal(settingFit("primary care", "Primary schools in Kenya", undefined), "differs");
+  assert.equal(settingFit("primary care", "Primary care clinics in Kenya", undefined), "match");
+  assert.equal(settingFit("Thailand", "Two Thai provinces", undefined), "match");
+});
+
+test("the report counts a search that limits by the demonym as limited to the setting", () => {
+  assert.equal(mentionsSetting("Thailand", `${PUBMED_ADHERENCE} AND (Thai[tiab])`), true);
+  assert.equal(mentionsSetting("Thailand", PUBMED_THAI), true);
+  assert.equal(mentionsSetting("Thailand", PUBMED_ADHERENCE), false);
+  assert.equal(mentionsSetting("UK", '(diabetes[tiab]) AND ("United Kingdom"[mh] OR UK[tiab])'), true);
+  // "usability" does not name the USA.
+  assert.equal(mentionsSetting("USA", OPENALEX_ADHERENCE.replace("adherence", "usability")), false);
+});
+
+test("'last N years' wins over a range written next to it", () => {
+  assert.deepEqual(yearsFromTimeframe("last 10 years (2015-2025)", 2026), { yearFrom: 2016, yearTo: null });
+  // Real run 1.
+  assert.deepEqual(yearsFromTimeframe("2020 to present", 2026), { yearFrom: 2020, yearTo: null });
 });

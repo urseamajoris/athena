@@ -94,3 +94,39 @@ test("labels combine without repeating", () => {
   assert.equal(labelled("Indirect evidence, mixed results: a and b.", { indirect: true, mixed: true }), "Indirect evidence, mixed results: a and b.");
   assert.equal(labelled("  Plain.  ", { indirect: false, mixed: false }), "Plain.");
 });
+
+// Review of run 3: a non-significant side result in one quote overruled the model's "opposite effects".
+test("a quote's non-significant side result does not overrule an opposite effect the item describes", () => {
+  const side = { c_side: { statement: "Mean HbA1c was 0.3% higher in the app group at 12 months; body weight showed no significant difference.", quote: "Mean HbA1c was 0.3% higher in the app group at 12 months, while body weight showed no significant difference between groups." } };
+  const out = applyEvidenceRules(
+    base({
+      contradictions: [{ theme: "HbA1c", description: "One trial found HbA1c fell with the app; another found it was higher in the app group.", claimIds: ["c_family", "c_side"], disagreement: "opposite_effects" }],
+      contested: [{ statement: "Trials disagree on the direction of the app's effect on HbA1c.", claimIds: ["c_family", "c_side"], evidence: "direct", disagreement: "opposite_effects" }],
+    }),
+    { ...claims, ...side },
+  );
+  assert.equal(out.data.contradictions.length, 1);
+  assert.equal(out.data.contested.length, 1);
+  assert.equal(out.mixed + out.dropped, 0);
+});
+
+test("both real significance-only contradictions are still caught from their own words", () => {
+  const out = applyEvidenceRules(
+    base({
+      contradictions: [
+        // Run 3 (Thai diabetes apps) and run 2 (sleep and grades), as stored; no quotes needed.
+        { theme: "Impact of mobile apps on glycemic control", description: "Two RCTs found statistically significant HbA1c improvements with mobile-app interventions versus controls in Thai type 2 diabetes patients, but a third RCT reported a greater reduction that did not reach statistical significance between groups.", claimIds: [], disagreement: "opposite_effects" },
+        { theme: "Sleep quality", description: "Subjective sleep quality showed a significant positive association with exam performance in medical students but no significant association in university students assessed via PSQI.", claimIds: [], disagreement: "opposite_effects" },
+      ],
+    }),
+    claims,
+  );
+  assert.equal(out.data.contradictions.length, 0);
+  assert.equal(out.dropped, 2);
+});
+
+test("a statement that already carries labels gets one canonical prefix, its qualifier kept", () => {
+  assert.equal(labelled("Indirect evidence (from SMS): reminders improved adherence.", { indirect: true, mixed: true }), "Indirect evidence (from SMS), mixed results: reminders improved adherence.");
+  assert.equal(labelled("Mixed results: Indirect evidence (from SMS): reminders improved adherence.", { indirect: true, mixed: true }), "Indirect evidence (from SMS), mixed results: reminders improved adherence.");
+  assert.equal(labelled("Indirect evidence (from SMS): reminders improved adherence.", { indirect: false, mixed: true }), "Indirect evidence (from SMS), mixed results: reminders improved adherence.");
+});

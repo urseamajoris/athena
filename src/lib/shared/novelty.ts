@@ -2,6 +2,7 @@
 // novelty.test.ts). Two different things are kept apart: how many records contain the search words (the
 // database count) and whether any of the top records is close to the question (judged from its title).
 import { fmtInt } from "./format";
+import { placesIn } from "./places";
 
 export interface NoveltyInput {
   text: string;
@@ -71,30 +72,6 @@ export function stems(s: string): string[] {
     .filter((w) => w.length >= 3);
 }
 
-// Countries and their adjectives, one place per comma-separated entry, so a study "in Indonesia" is not a near match
-// for a question about Thai adults. Regions ("Asia") are left out: they contain the countries.
-const PLACE = new Map(
-  ("afghanistan afghan, albania albanian, algeria algerian, argentina argentine argentinian, australia australian, " +
-    "austria austrian, bangladesh bangladeshi, belgium belgian, bhutan bhutanese, bolivia bolivian, brazil brazilian, " +
-    "bulgaria bulgarian, cambodia cambodian, cameroon cameroonian, canada canadian, chile chilean, china chinese, " +
-    "colombia colombian, croatia croatian, cuba cuban, czech czechia, denmark danish, ecuador ecuadorian, egypt egyptian, " +
-    "ethiopia ethiopian, finland finnish, france french, germany german, ghana ghanaian, greece greek, hungary hungarian, " +
-    "india indian, indonesia indonesian, iran iranian, iraq iraqi, ireland irish, israel israeli, italy italian, " +
-    "japan japanese, jordan jordanian, kenya kenyan, korea korean, kuwait kuwaiti, laos lao laotian, lebanon lebanese, " +
-    "malawi malawian, malaysia malaysian, mexico mexican, mongolia mongolian, morocco moroccan, myanmar burmese, " +
-    "nepal nepali nepalese, netherlands dutch, zealand, nigeria nigerian, norway norwegian, oman omani, " +
-    "pakistan pakistani, palestine palestinian, peru peruvian, philippines philippine filipino, poland polish, " +
-    "portugal portuguese, qatar qatari, romania romanian, russia russian, rwanda rwandan, saudi, serbia serbian, " +
-    "singapore singaporean, slovenia slovenian, spain spanish, lanka lankan, sudan sudanese, sweden swedish, " +
-    "switzerland swiss, syria syrian, taiwan taiwanese, tanzania tanzanian, thailand thai, tunisia tunisian, " +
-    "turkey turkish, uganda ugandan, ukraine ukrainian, emirates uae, britain british england scotland scottish welsh, " +
-    "usa america american, vietnam vietnamese, yemen yemeni, zambia zambian, zimbabwe zimbabwean")
-    .split(", ")
-    .flatMap((entry, i) => entry.split(" ").flatMap((w) => stems(w).map((st) => [st, i] as const))),
-);
-/** The countries a text names (as PLACE entry numbers). */
-const places = (s: string) => new Set(stems(s).flatMap((w) => (PLACE.has(w) ? [PLACE.get(w)!] : [])));
-
 /** Study-design and age words a title may add without naming another outcome (as stems). */
 const DESIGN = new Set(stems("randomised randomized controlled trial trials systematic meta analysis cohort cross sectional qualitative mixed methods scoping survey pilot prospective retrospective observational evidence older young elderly adult adults patients"));
 
@@ -125,8 +102,9 @@ export function closeness(q: Pick<NoveltyInput, "text" | "structure">, title: st
   const words = new Set(stems(title));
   const ourText = [q.text, ...Object.values(q.structure)].join(" ");
   const ours = new Set([...stems(ourText), ...DESIGN]);
-  const ourPlaces = places(ourText);
-  const theirPlaces = places(title);
+  // A study "in Indonesia" is not a near match for a question about Thai adults (see placesIn).
+  const ourPlaces = placesIn(ourText);
+  const theirPlaces = placesIn(title);
   if (ourPlaces.size && theirPlaces.size && ![...theirPlaces].some((x) => ourPlaces.has(x))) return 0;
   const onTopic = words.size ? [...words].filter((w) => ours.has(w)).length / words.size : 0;
   const parts = elements(q);

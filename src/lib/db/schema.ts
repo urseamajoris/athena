@@ -73,6 +73,11 @@ export const topics = sqliteTable("topics", {
   createdAt: createdAt(),
 }, (t) => [index("topics_project_idx").on(t.projectId)]);
 
+export interface QueryScope {
+  /** The query's topic compares the idea's setting with other settings, so it is not limited to the setting. */
+  comparesSettings: boolean;
+}
+
 export const queries = sqliteTable("queries", {
   id: id(),
   projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
@@ -81,7 +86,8 @@ export const queries = sqliteTable("queries", {
   queryString: text("query_string").notNull(),
   aiQueryString: text("ai_query_string").notNull(),
   rationale: text("rationale").notNull().default(""),
-  criteria: text("criteria", { mode: "json" }).$type<Criteria | null>(),
+  /** How the query relates to the idea's setting (kept in the unused "criteria" column, so no migration). */
+  scope: text("criteria", { mode: "json" }).$type<QueryScope | null>(),
   dryRunCount: integer("dry_run_count"),
   dryRunAt: text("dry_run_at"),
   dryRunError: text("dry_run_error"),

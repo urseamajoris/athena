@@ -151,3 +151,16 @@ test("a top record that is also in the review is listed once, as the review's pa
   assert.deepEqual(withRecord.nearest.map((x) => [x.own, x.match]), [[true, 1]]);
   assert.deepEqual(withRecord.close, [false, true]);
 });
+
+// Review of run 3: "Spanish-speaking" read as Spain, so a US trial was ruled out for a question about US adults.
+test("a language is not a country: a US trial of Spanish-speaking adults is close to a question about US adults", () => {
+  const us = q({
+    text: "Does a culturally tailored text-message programme improve HbA1c in Hispanic American adults with type 2 diabetes?",
+    structure: { Population: "Hispanic American adults with type 2 diabetes", Intervention: "Culturally tailored text-message programme", Outcome: "HbA1c" },
+  });
+  assert.equal(looksLikeSameQuestion(us, "A culturally tailored text-message programme to improve HbA1c in Spanish-speaking Hispanic adults with type 2 diabetes in the US"), true);
+  // Another country is still not a near match.
+  assert.equal(looksLikeSameQuestion(us, "A culturally tailored text-message programme to improve HbA1c in adults with type 2 diabetes in Spain"), false);
+  const india = q({ text: "Does a text-message programme improve HbA1c in Indian adults with type 2 diabetes?", structure: { Population: "Indian adults with type 2 diabetes", Intervention: "Text-message programme", Outcome: "HbA1c" } });
+  assert.equal(looksLikeSameQuestion(india, "A text-message programme to improve HbA1c in adults with type 2 diabetes in Kenya"), false);
+});

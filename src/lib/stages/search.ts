@@ -9,8 +9,8 @@ import { getProject, HttpError, logDecision, markDownstreamStale, setStageState 
 import { newId, nowIso, errMsg } from "../util";
 import { adapters } from "../sources";
 import { SEARCH_DATABASES, type SearchDatabase } from "../sources/types";
-import { dropEmptyGroups, withBlock } from "../sources/syntax";
-import { ideaSetting, yearsFromTimeframe } from "../shared/scope";
+import { dropEmptyGroups, termsBlock, withBlock } from "../sources/syntax";
+import { ideaSetting, placeLike, settingTerms, yearsFromTimeframe } from "../shared/scope";
 
 export async function searchState(projectId: string) {
   const p = (await getProject(projectId));
@@ -29,6 +29,8 @@ export async function buildQueries(projectId: string) {
   if (!topics.length) throw new HttpError(400, "No topics to build queries for.");
   const topicIds = topics.map((t) => t.id);
   const setting = ideaSetting(p.scopingSummary);
+  // Every search is limited to a place (a country, a region, a city); a care setting ("primary care") is left to the AI's queries.
+  const place = setting && placeLike(setting) ? setting : null;
   const { data } = await structuredCall({
     prompt: "search_builder",
     role: "fast",
@@ -49,13 +51,20 @@ export async function buildQueries(projectId: string) {
       if (bad.length) return `Unknown topicId(s): ${bad.join(", ")}. Use only: ${topicIds.join(", ")}`;
       const missing: string[] = [];
       for (const t of topicIds) for (const d of SEARCH_DATABASES) if (!o.queries.some((q) => q.topicId === t && q.database === d)) missing.push(`${t}/${d}`);
-      if (missing.length) return `Missing a query for: ${missing.join(", ")}`;
-      const noBlock = setting ? SEARCH_DATABASES.filter((d) => !o.settingBlocks.some((b) => b.database === d)) : [];
-      return noBlock.length ? `The idea is limited to the setting "${setting}": give a settingBlocks entry for ${noBlock.join(", ")}.` : null;
+      return missing.length ? `Missing a query for: ${missing.join(", ")}` : null;
+    },
+    // Asked for once; a database still without one gets a block built from the setting's own words below.
+    prefer: (o) => {
+      const noBlock = place ? SEARCH_DATABASES.filter((d) => !o.settingBlocks.some((b) => b.database === d && dropEmptyGroups(b.block))) : [];
+      return noBlock.length ? `The idea is limited to the setting "${place}": give a settingBlocks entry for ${noBlock.join(", ")}.` : null;
     },
   });
-  // Every search keeps the idea's setting (unless its topic compares settings), whatever the AI wrote per topic.
-  const blocks = new Map(setting ? data.settingBlocks.map((b) => [b.database, dropEmptyGroups(b.block)]) : []);
+  // Every search keeps the idea's place (unless its topic compares settings), whatever the AI wrote per topic.
+  const given = new Map(data.settingBlocks.map((b) => [b.database, dropEmptyGroups(b.block)]));
+  const blocks = new Map(place ? SEARCH_DATABASES.flatMap((d) => {
+    const b = given.get(d) || termsBlock(settingTerms(place), d === "pubmed" ? "[tiab]" : "");
+    return b ? [[d, b] as const] : [];
+  }) : []);
   // The years come from the scoping answer when it names them ("last 5 years" in 2026 = 2021 to now), not the AI's arithmetic.
   const years = yearsFromTimeframe(p.scopingSummary?.timeframe);
   const criteria = years ? { ...data.criteria, ...years } : data.criteria;
@@ -71,13 +80,13 @@ export async function buildQueries(projectId: string) {
           const block = q.comparesSettings ? undefined : blocks.get(q.database);
           const limited = block ? withBlock(dropEmptyGroups(q.query), block) : { query: dropEmptyGroups(q.query), added: false }; // never show or run "AND ()"
           const query = limited.query;
-          const rationale = limited.added ? `${q.rationale} Also limited to ${setting}, the setting of your idea.` : q.rationale;
-          stmts.push(db.insert(schema.queries).values({ id: newId("q"), projectId, topicId: q.topicId, database: q.database, queryString: query, aiQueryString: query, rationale }));
+          const rationale = limited.added ? `${q.rationale} Also limited to ${place}, the setting of your idea.` : q.rationale;
+          stmts.push(db.insert(schema.queries).values({ id: newId("q"), projectId, topicId: q.topicId, database: q.database, queryString: query, aiQueryString: query, rationale, scope: { comparesSettings: q.comparesSettings } }));
         }
         stmts.push(db.update(schema.projects).set({ criteria, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)));
         await batchWrite(stmts);
   }
-  (await logDecision(projectId, 3, "queries_generated", had.length ? had.map((h) => h.queryString) : null, { ...data, criteria }, "ai"));
+  (await logDecision(projectId, 3, "queries_generated", had.length ? had.map((h) => h.queryString) : null, { ...data, criteria, settingBlocksUsed: Object.fromEntries(blocks) }, "ai"));
   (await setStageState(projectId, 3, "needs_review"));
   if (had.length) (await markDownstreamStale(projectId, 3, "Search queries were regenerated"));
   return (await searchState(projectId));
