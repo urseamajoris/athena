@@ -3,6 +3,8 @@ import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import { getProject, latestJob, stageCosts } from "./project";
 import { STAGES, scrubIds } from "./shared/stages";
+import type { CanvasSummary, ClaimLite } from "./shared/canvas";
+import { scopingState } from "./stages/scoping";
 
 const ids = (a: string[]) => a.concat(["-"]);
 
@@ -78,6 +80,32 @@ export function paperDetail(projectId: string, paperId: string) {
       return { database: r?.database, query: r?.queryString, topic: topics.find((t) => t.id === q?.topicId)?.name, rank: h.rank + 1, wasNew: h.wasNew };
     }),
     scores: scores.map((s) => ({ ...s, topicName: topics.find((t) => t.id === s.topicId)?.name })),
+  };
+}
+
+/** The summary table's rows, with only the fields the browser uses: the table page embeds this in its first
+ *  HTML, so every unused field costs download and parse time on a phone. Exports use papersView. */
+export function papersTableView(projectId: string) {
+  const v = papersView(projectId);
+  return {
+    topics: v.topics,
+    papers: v.papers.map((p) => ({
+      id: p.id, title: p.title, authors: p.authors, year: p.year, journal: p.journal, citationCount: p.citationCount, oaUrl: p.oaUrl,
+      sourceDatabases: p.sourceDatabases, doi: p.doi, pmid: p.pmid, openalexId: p.openalexId, hasAbstract: p.hasAbstract,
+      summary: p.summary && { studyType: p.summary.studyType, setting: p.summary.setting, keyFinding: p.summary.keyFinding, edited: p.summary.edited },
+      topicIds: p.topicIds,
+    })),
+  };
+}
+
+/** The ranking as the table shows it (see papersTableView). The per-criterion scores and rationales, most of
+ *  the ranking's size, load when a row is opened (GET ranking/scores/:id); titles come from the papers. */
+export function rankingTableView(projectId: string) {
+  return {
+    topics: rankingView(projectId).topics.map((t) => ({
+      id: t.id, name: t.name, importanceRank: t.importanceRank, importanceJustification: t.importanceJustification,
+      scores: t.scores.map((s) => ({ id: s.id, paperId: s.paperId, topicId: s.topicId, total: s.total, selected: s.selected, userChanged: s.userChanged, rationale: s.rationale })),
+    })),
   };
 }
 
@@ -163,4 +191,72 @@ export function questionsView(projectId: string) {
 
 export function decisionLogView(projectId: string) {
   return db.select().from(schema.decisionLog).where(eq(schema.decisionLog.projectId, projectId)).orderBy(asc(schema.decisionLog.createdAt)).all();
+}
+
+/** Compact summary for the canvas: one key number per node, cheap enough to stream over SSE. */
+export function canvasView(projectId: string): CanvasSummary {
+  const topics = db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all();
+  const sc = scopingState(projectId);
+  const qs = db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all();
+  const runs = db.select().from(schema.searchRuns).where(eq(schema.searchRuns.projectId, projectId)).all();
+  const paperIds = db.select({ id: schema.papers.id }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all().map((p) => p.id);
+  const sums = db.select({ edited: schema.paperSummaries.edited }).from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, ids(paperIds))).all();
+  const scores = db.select({ topicId: schema.scores.topicId, selected: schema.scores.selected }).from(schema.scores).where(inArray(schema.scores.topicId, ids(topics.map((t) => t.id)))).all();
+  const apps = db.select({ id: schema.appraisals.id, status: schema.appraisals.status, textSource: schema.appraisals.textSource }).from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids(paperIds))).all();
+  const cl = db.select({ verified: schema.claims.verified, notReported: schema.claims.notReported, userAccepted: schema.claims.userAccepted, userRejected: schema.claims.userRejected }).from(schema.claims).where(inArray(schema.claims.appraisalId, ids(apps.map((a) => a.id)))).all();
+  const items = db.select({ kind: schema.synthesisItems.kind }).from(schema.synthesisItems).where(eq(schema.synthesisItems.projectId, projectId)).all();
+  const cxCount = db.select({ id: schema.contradictions.id }).from(schema.contradictions).where(eq(schema.contradictions.projectId, projectId)).all().length;
+  const rqs = db.select({ id: schema.researchQuestions.id, chosen: schema.researchQuestions.chosen, text: schema.researchQuestions.text }).from(schema.researchQuestions).where(eq(schema.researchQuestions.projectId, projectId)).all();
+  const chosen = rqs.find((q) => q.chosen) ?? null;
+  const perSource: CanvasSummary["retrieval"]["perSource"] = {};
+  for (const r of runs) {
+    const s = (perSource[r.database] ??= { fetched: 0, newUnique: 0, failed: 0 });
+    s.fetched += r.fetchedCount;
+    s.newUnique += r.newUniqueCount;
+    if (r.status === "failed") s.failed++;
+  }
+  const extracted = cl.filter((c) => !c.notReported);
+  return {
+    topics: topics.map((t) => ({ id: t.id, name: t.name, origin: t.origin, approved: t.approved, synonyms: t.synonyms.length, controlledTerms: t.controlledTerms.length })),
+    scoping: { messages: sc.messages.length, asked: sc.asked, maxQuestions: sc.maxQuestions, done: sc.done, awaitingAnswer: sc.awaitingAnswer },
+    queries: qs.map((q) => ({ id: q.id, topicId: q.topicId, database: q.database, dryRunCount: q.dryRunCount, dryRunError: q.dryRunError })),
+    retrieval: {
+      runs: runs.length,
+      done: runs.filter((r) => r.status === "done").length,
+      failed: runs.filter((r) => r.status === "failed").length,
+      running: runs.filter((r) => r.status === "running" || r.status === "queued").length,
+      fetched: runs.reduce((a, r) => a + r.fetchedCount, 0),
+      unique: paperIds.length,
+      perSource,
+    },
+    table: { papers: paperIds.length, summarised: sums.length, edited: sums.filter((s) => s.edited).length },
+    ranking: [...topics]
+      .sort((a, b) => (a.importanceRank ?? 99) - (b.importanceRank ?? 99) || a.sortOrder - b.sortOrder)
+      .map((t) => ({ topicId: t.id, name: t.name, importanceRank: t.importanceRank, selected: scores.filter((s) => s.topicId === t.id && s.selected).length, scored: scores.filter((s) => s.topicId === t.id).length })),
+    appraisal: {
+      papers: apps.length,
+      done: apps.filter((a) => a.status === "done").length,
+      failed: apps.filter((a) => a.status === "failed").length,
+      running: apps.filter((a) => a.status === "running" || a.status === "queued").length,
+      fullText: apps.filter((a) => a.textSource === "full_text").length,
+      claims: extracted.length,
+      verified: extracted.filter((c) => c.verified).length,
+      pending: extracted.filter((c) => !c.verified && !c.userAccepted && !c.userRejected).length,
+      accepted: extracted.filter((c) => !c.verified && c.userAccepted).length,
+      rejected: extracted.filter((c) => !c.verified && c.userRejected).length,
+      notReported: cl.length - extracted.length,
+      appraisalIds: apps.map((a) => a.id),
+    },
+    synthesis: { statements: items.length, contradictions: cxCount, known: items.filter((i) => i.kind === "known").length, contested: items.filter((i) => i.kind === "contested").length, unknown: items.filter((i) => i.kind === "unknown").length },
+    questions: { count: rqs.length, chosenId: chosen?.id ?? null, chosenText: chosen ? scrubIds(chosen.text) : null },
+  };
+}
+
+/** Every extracted claim in the project, compact, for pinned Quote nodes. */
+export function claimsView(projectId: string): ClaimLite[] {
+  const papers = db.select({ id: schema.papers.id, title: schema.papers.title }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all();
+  const apps = db.select({ id: schema.appraisals.id }).from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids(papers.map((p) => p.id)))).all();
+  const rows = db.select().from(schema.claims).where(and(inArray(schema.claims.appraisalId, ids(apps.map((a) => a.id))), eq(schema.claims.notReported, false))).orderBy(sql`rowid`).all();
+  const title = new Map(papers.map((p) => [p.id, p.title]));
+  return rows.map((c) => ({ id: c.id, appraisalId: c.appraisalId, paperId: c.paperId, paperTitle: title.get(c.paperId) ?? "", field: c.field, statement: c.statement, quote: c.quote, verified: c.verified, userAccepted: c.userAccepted, userRejected: c.userRejected }));
 }

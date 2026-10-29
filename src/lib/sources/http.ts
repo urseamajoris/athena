@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { eq } from "drizzle-orm";
 import { db, schema } from "../db";
-import { config } from "../config";
+import { config, guardPaid } from "../config";
 import { sha256, sleep, nowIso } from "../util";
 
 /**
@@ -172,6 +172,7 @@ export async function httpFetch(source: SourceName, url: string, opts: FetchOpts
     return { status: hit.status, text: hit.body, contentType: hit.contentType, cached: true };
   }
 
+  if (source === "openalex") guardPaid("openalex", safeUrl);
   const maxRetries = opts.maxRetries ?? 4;
   let lastErr: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {

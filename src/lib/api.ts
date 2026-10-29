@@ -9,7 +9,7 @@ import { AiValidationError, BudgetError } from "./ai/client";
 import { startJob, cancelJob } from "./jobs";
 import { addTopic, answerScoping, approveTopics, deleteTopic, generateTopics, mergeTopics, nextScopingTurn, scopingState, skipScoping, updateTopic } from "./stages/scoping";
 import { buildQueries, dryRun, dryRunAll, searchState, updateCriteria, updateQuery } from "./stages/search";
-import { appraisalDetail, appraisalsView, decisionLogView, paperDetail, papersView, projectView, questionsView, rankingView, retrievalView, synthesisView } from "./views";
+import { appraisalDetail, appraisalsView, canvasView, claimsView, decisionLogView, paperDetail, papersTableView, projectView, questionsView, rankingTableView, retrievalView, synthesisView } from "./views";
 import { markdownReport, selectedBibtex, summaryCsv } from "./export";
 import { runNovelty } from "./jobs/questions";
 import { reverifyProject } from "./jobs/appraisal";
@@ -206,7 +206,7 @@ on("PUT", "criteria", ({ projectId, body }) => {
 on("GET", "retrieval", ({ projectId }) => retrievalView(projectId));
 
 // ---------- stage 5 ----------
-on("GET", "papers", ({ projectId }) => papersView(projectId));
+on("GET", "papers", ({ projectId }) => papersTableView(projectId));
 on("GET", "papers/:pid", ({ projectId, params }) => {
   const d = paperDetail(projectId, params.pid);
   if (!d) throw new HttpError(404, "Paper not found");
@@ -223,7 +223,13 @@ on("PATCH", "papers/:pid/summary", ({ projectId, params, body }) => {
 });
 
 // ---------- stage 6 ----------
-on("GET", "ranking", ({ projectId }) => rankingView(projectId));
+on("GET", "ranking", ({ projectId }) => rankingTableView(projectId));
+on("GET", "ranking/scores/:sid", ({ projectId, params }) => {
+  const s = db.select().from(schema.scores).where(eq(schema.scores.id, params.sid)).get();
+  const t = s && db.select().from(schema.topics).where(and(eq(schema.topics.id, s.topicId), eq(schema.topics.projectId, projectId))).get();
+  if (!s || !t) throw new HttpError(404, "Score not found");
+  return { subScores: s.subScores, rationales: s.rationales };
+});
 on("POST", "ranking/select", ({ projectId, body }) => {
   const { scoreId, selected } = parse(z.object({ scoreId: z.string(), selected: z.boolean() }), body);
   const s = db.select().from(schema.scores).where(eq(schema.scores.id, scoreId)).get();
@@ -231,7 +237,7 @@ on("POST", "ranking/select", ({ projectId, body }) => {
   db.update(schema.scores).set({ selected, userChanged: true }).where(eq(schema.scores.id, scoreId)).run();
   logDecision(projectId, 6, selected ? "paper_selected" : "paper_deselected", { paperId: s.paperId, topicId: s.topicId, selected: s.selected }, { selected });
   markDownstreamStale(projectId, 6, "The selected papers changed");
-  return rankingView(projectId);
+  return rankingTableView(projectId);
 });
 on("POST", "ranking/swap", ({ projectId, body }) => {
   const { outId, inId } = parse(z.object({ outId: z.string(), inId: z.string() }), body);
@@ -242,7 +248,7 @@ on("POST", "ranking/swap", ({ projectId, body }) => {
   db.update(schema.scores).set({ selected: true, userChanged: true }).where(eq(schema.scores.id, inId)).run();
   logDecision(projectId, 6, "papers_swapped", { out: a.paperId }, { in: b.paperId, topicId: a.topicId });
   markDownstreamStale(projectId, 6, "The selected papers changed");
-  return rankingView(projectId);
+  return rankingTableView(projectId);
 });
 
 // ---------- stage 7 ----------
@@ -313,16 +319,33 @@ on("POST", "questions/:qid/novelty", async ({ projectId, params }) => {
   return questionsView(projectId);
 });
 
+// ---------- canvas ----------
+on("GET", "canvas", ({ projectId }) => canvasView(projectId));
+on("GET", "claims", ({ projectId }) => claimsView(projectId));
+
 // ---------- misc ----------
 on("GET", "log", ({ projectId }) => decisionLogView(projectId));
-on("GET", "export/:kind", ({ projectId, params }) => {
+export const PREVIEW_LINES = 200;
+const EXPORTS: Record<string, { make: (projectId: string) => string; type: string; ext: string }> = {
+  markdown: { make: markdownReport, type: "text/markdown", ext: "md" },
+  csv: { make: summaryCsv, type: "text/csv", ext: "csv" },
+  bibtex: { make: selectedBibtex, type: "application/x-bibtex", ext: "bib" },
+};
+
+/** ?preview=1 is the in-app preview, not an export: the first lines as JSON, not logged. */
+export function exportPreview(projectId: string, kind: string) {
+  const e = EXPORTS[kind];
+  if (!e) throw new HttpError(404, "Unknown export");
+  const lines = e.make(projectId).split("\n");
+  return { text: lines.slice(0, PREVIEW_LINES).join("\n"), lines: lines.length };
+}
+
+on("GET", "export/:kind", ({ projectId, params, url }) => {
+  if (url.searchParams.has("preview")) return exportPreview(projectId, params.kind);
+  const e = EXPORTS[params.kind];
+  if (!e) throw new HttpError(404, "Unknown export");
   const p = getProject(projectId);
   const slug = (p.title || "review").toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
-  const send = (body: string, type: string, ext: string) =>
-    new Response(body, { headers: { "Content-Type": `${type}; charset=utf-8`, "Content-Disposition": `attachment; filename="${slug}.${ext}"` } });
   logDecision(projectId, 9, "exported", null, { kind: params.kind }, "user");
-  if (params.kind === "markdown") return send(markdownReport(projectId), "text/markdown", "md");
-  if (params.kind === "csv") return send(summaryCsv(projectId), "text/csv", "csv");
-  if (params.kind === "bibtex") return send(selectedBibtex(projectId), "application/x-bibtex", "bib");
-  throw new HttpError(404, "Unknown export");
+  return new Response(e.make(projectId), { headers: { "Content-Type": `${e.type}; charset=utf-8`, "Content-Disposition": `attachment; filename="${slug}.${e.ext}"` } });
 });

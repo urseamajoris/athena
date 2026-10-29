@@ -47,7 +47,7 @@ function closest(target: string, available: string[]): string | null {
 }
 
 export async function checkModels(): Promise<void> {
-  if (config.mockAi || !config.xaiApiKey) return;
+  if (config.mockAi || !config.xaiApiKey || !config.production) return;
   if (g.__modelsChecked) return g.__modelsChecked;
   g.__modelsChecked = (async () => {
     const res = modelResolutions();

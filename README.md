@@ -1,6 +1,6 @@
 # Athena: a guided literature review for novice researchers
 
-Athena is a working prototype of a web app that takes a student from a rough research idea to a research question grounded in real literature. It has nine stages, and each one ends in a checkpoint the student edits and approves:
+Athena is a working prototype of a web app that takes a student from a rough research idea to a research question grounded in real literature. The interface is a canvas: a session opens to an empty canvas with one prompt, and the review grows outward as connected nodes (idea → topics → queries → corpus → table → appraisal → synthesis → questions → export), with each stage's work done inside its node's Focus panel. There are nine stages, and each one ends in a checkpoint the student edits and approves:
 
 1. **Idea**: free text.
 2. **Scoping**: a short AI chat (at most five questions), then a concept map and 4–8 editable search topics with synonyms and MeSH terms.
@@ -26,17 +26,22 @@ The rules the app is built around:
 
 ```bash
 npm install
-cp .env.example .env      # then fill in keys, or set MOCK_MODE=true
-npm run dev               # http://localhost:3000
+cp .env.example .env      # keys are only needed for production runs
+npm run dev               # http://localhost:3000, mock mode by default
 ```
 
 Requires Node 20 or later (tested on Node 22). The SQLite database is created and migrated automatically at `data/athena.db`.
 
-### Mock mode (no keys needed)
+### Mock mode (the default; no keys needed)
 
-```bash
-MOCK_MODE=true npm run dev
-```
+Mock mode is on everywhere except `ATHENA_ENV=production`, so `npm run dev`, the tests and the QA scripts never spend money.
+
+- Paid APIs (xAI model calls, OpenAlex, which is metered by key) are only called when `ATHENA_ENV=production`.
+- Every attempted paid call is counted in `/api/status` (`paidCalls`); outside production the call throws and is logged.
+- A server started outside production with `MOCK_MODE=false` (or `MOCK_AI=true` alone, which still hits OpenAlex) refuses to start and says why.
+- Keys present in the environment during a mock run are reported in the log and never used.
+
+For a real run: `ATHENA_ENV=production MOCK_MODE=false npm run dev`.
 
 Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, OpenAlex, Europe PMC, Crossref and Unpaywall responses, with keys and email removed) and uses deterministic mock model responders in `src/lib/ai/mock.ts`.
 
@@ -46,7 +51,7 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 - With the test idea and the mock scoping answers, queries match the recorded fixtures exactly. For other queries a fixture recorded for the same endpoint is served.
 - Full text that came from open PDFs is not in the fixtures, because PDFs and PDF text are never recorded. Those papers fall back to abstract-only in mock mode.
 
-`MOCK_AI=true` mocks only the model and calls the real databases. It costs nothing in xAI credit. Combine it with `RECORD_FIXTURES=true` to re-record `fixtures/http/`.
+`MOCK_AI=true` mocks only the model and calls the real databases. It costs nothing in xAI credit, but OpenAlex is metered, so it also needs `ATHENA_ENV=production`. Combine it with `RECORD_FIXTURES=true` to re-record `fixtures/http/`.
 
 ### Keys and configuration (`.env.example`)
 
@@ -63,6 +68,7 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 | `MAX_RESULTS_PER_QUERY` | Pagination cap per query (default 40). |
 | `APPRAISAL_MAX_CHARS` | Characters of full text sent to the model per appraisal (default 60,000). Truncation is shown in the UI and the report. |
 | `HTTP_CACHE_TTL_HOURS` | HTTP cache lifetime (default 168). |
+| `ATHENA_ENV` | `production` allows paid API calls. Anything else (the default) forces mock mode. |
 | `MOCK_MODE`, `MOCK_AI`, `RECORD_FIXTURES` | See above. |
 | `SIMULATE_SOURCE_FAILURE` | Comma list such as `openalex`. Forces that source to fail, to test failure handling. |
 | `DATABASE_PATH` | SQLite file (default `data/athena.db`). |
@@ -78,16 +84,30 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 - **Validation:** zod 4 for every model response and every request body.
 - **Model calls:** the `openai` SDK pointed at `https://api.x.ai/v1`.
 - **Background jobs:** an in-process runner whose state lives in SQLite. Progress streams to the browser over server-sent events.
+- **Interface:** React Flow 12 (canvas) with elkjs layout (lazy-loaded, runs in a Web Worker), Motion (`motion`) with `reducedMotion="user"`, Radix UI primitives, cmdk (⌘K), TanStack Table + Virtual (summary and ranking table), Zustand with persist (canvas state per session), Lucide icons, Inter and JetBrains Mono (self-hosted). The landing demo is a Remotion composition rendered at build time; Remotion is a dev dependency and never ships to the browser. Remotion's licence is free for individuals and small teams, but larger companies need a paid company licence (remotion.dev/license) to keep re-rendering the demo. The rendered video and poster are plain files in `public/demo/` and need no licence to serve.
 
 ```
 prompts/                 one versioned prompt file per AI step (<name>.v<N>.md)
 fixtures/http/           recorded API responses for MOCK_MODE (keys/email stripped)
 drizzle/                 SQL migrations
-scripts/                 e2e.mjs (Playwright UI test), api-flow.mjs (API-only run), screens.mjs
-src/app/                 pages (home, /projects/[id] wizard) and API routes
+remotion/                the landing-page demo composition (rendered by scripts/render-demo.mjs)
+public/demo/             rendered demo video (MP4, WebM) and poster
+scripts/                 e2e.mjs (Playwright UI test), api-flow.mjs (API-only run), visual-audit.ts (QA loop),
+                         render-demo.mjs, screens.mjs
+qa/                      visual-audit reports (qa/report-<round>.md); screenshots in qa/shots/ (git-ignored)
+docs/redesign-map.md     how the canvas redesign maps onto the real routes and components
+src/app/                 /, /sessions, /s/new, /s/[id] (canvas), /s/[id]/table, /s/[id]/export, /settings,
+                         /projects/[id] (redirects to the canvas), and the API routes
   api/projects/[id]/[...path]/route.ts   → src/lib/api.ts (small router for all stage endpoints)
-  api/projects/[id]/events/route.ts      → SSE progress stream
-src/components/          wizard shell, paper drawer, one component per stage, UI primitives
+  api/projects/[id]/events/route.ts      → SSE progress stream (stage states, jobs, costs, canvas summary)
+src/components/canvas/   canvas shell, node cards, Focus panel host, stage rail, List view, ⌘K palette, add menu
+src/components/panels/   one Focus panel per node type (the stage UIs), evidence chips, shared panel parts
+src/components/session/  session provider (data, SSE, commands, confirm dialogs), paper dialog, full-page frame
+src/components/table/    the summary and ranking table
+src/components/ui.tsx    base components on design tokens (badges, dialogs, menus, disclosure)
+src/lib/canvas/          graph derivation, next actions and stage gating, layout, canvas store (unit-tested)
+src/lib/paid-guard.ts    when paid APIs may be called (unit-tested)
+src/lib/design/          WCAG contrast helpers and the token contrast test
 src/lib/db/              Drizzle schema + client
 src/lib/ai/              xAI client (structured calls, budget, cost), prompt loader, schema conversion, model check, mock responders
 src/lib/sources/         pubmed, openalex, crossref, unpaywall, europepmc + cached/rate-limited HTTP layer
@@ -234,10 +254,16 @@ Room for later features is already in the schema:
 
 ## Testing
 
+Everything here runs in mock mode with no keys; it is the default outside production, and a real key is refused there (see **Mock mode**).
+
 ```bash
-npm test                                          # unit tests (quote verification)
+npm test                                          # unit tests: quote verification, paid-API guard, colour contrast of the tokens,
+                                                  # canvas graph, stage gating and next actions, layout, persisted canvas state
+npm run build && npm start                        # production build on :3000
 node scripts/api-flow.mjs                         # drive all nine stages through the HTTP API
-node scripts/e2e.mjs --out=e2e-artifacts/run      # drive all nine stages through the browser (Playwright) with checks
+node scripts/e2e.mjs http://localhost:3000        # drive all nine stages through the canvas in a browser (Playwright), with checks
+npm run qa -- --round=N                           # visual audit: builds fixtures, screenshots every view, scores the 12-item checklist
+npm run demo:render                               # re-render the landing page's canvas demo video (Remotion, build time only)
 ```
 
 `scripts/e2e.mjs` checks the acceptance criteria directly. It uses the test idea throughout: *"What is the knowledge gap in implementing telemedicine in Southeast Asia?"*
@@ -256,13 +282,41 @@ node scripts/e2e.mjs --out=e2e-artifacts/run      # drive all nine stages throug
 - Editing a topic after retrieval marks stages 3–9 stale.
 - No browser console errors.
 
+`scripts/visual-audit.ts` (`npm run qa`) starts its own production server in mock mode with the keys stripped from its environment and a fresh database. It seeds sessions through the API (empty, scoping, ghost subtopics, running, error, stale, done, ranked, and a 300-node session). It then screenshots every view and Focus panel at 1440×900 and 390×844, in dark and light, with reduced motion on and off, into `qa/shots/<round>/`, and scores each shot against the 12-item checklist into `qa/report-<round>.md`. The checks are:
+- the accent count and the squint test;
+- collapsed-by-default disclosures;
+- axe-core (serious and critical issues);
+- a Tab walk for focus rings and traps;
+- transforms under reduced motion;
+- overflow, overlap and 44 px tap targets at 390 px;
+- state badges carrying icon and text;
+- the 4-pt grid and type-size count;
+- 300-node pan frame rate and List-view parity;
+- Lighthouse mobile;
+- console errors and paid-API calls.
+
 See **Test results** below for what was actually run.
 
 ## Test results
 
+### Canvas redesign (mock mode, no keys, $0)
+
+All of this ran with every API key removed from the server's environment. The paid-API guard counted **0 attempted calls**, so the redesign spent nothing.
+
+| Run | Result |
+|---|---|
+| `npm test` | 57/57 pass. The earlier tests plus:<ul><li>the paid-API guard;</li><li>colour contrast of every token pair in both themes;</li><li>the canvas graph (nodes, statuses, ghosts, quotes);</li><li>stage gating and next actions (frontier only, locked options with reasons, the checkpointed re-run cascade);</li><li>layout (pinned nodes never move);</li><li>persisted canvas state;</li><li>number and time formatting.</li></ul> |
+| `npm run build` | compiles and type-checks. First-load JS: `/` 116 kB; `/s/[id]` 148 kB, with the canvas itself loaded after first paint; `/s/[id]/table` 188 kB. |
+| `node scripts/e2e.mjs` | 29/29 checks pass, driving the whole pipeline through the canvas (nodes, Focus panel, table page, export page) in about 30 s. |
+| `npm run qa` (visual audit), round 5 of 5 | **All 12 checklist items pass in all 192 screenshots** (24 views × 1440/390 px × dark/light × motion on/reduced). The full results are in `qa/report-final.md`, with WebP screenshots in `qa/screenshots/`. Highlights:<ul><li>The 300-node canvas pans at 59 fps.</li><li>The canvas route loads 242 kB gzip of JS before the first node shows.</li><li>Landing LCP is 0.76 s on simulated slow-4G mobile.</li><li>Lighthouse mobile performance is 92–99 and accessibility 100 on all 7 pages.</li></ul> |
+
+Rounds 1–4 and what each fixed are summarised in `qa/report-final.md`.
+
+### Before the redesign (wizard UI)
+
 Everything below was run in this repository on 2026-10-28. Total xAI spend for the whole session, development included, was **$2.12** against a $5 cap. Screenshots from the final real run are in `docs/screenshots/`. Its machine-readable check results are in `docs/real-run-results.json`.
 
-### Automated checks
+#### Automated checks
 
 | Run | Mode | Result |
 |---|---|---|
@@ -275,7 +329,7 @@ Everything below was run in this repository on 2026-10-28. Total xAI spend for t
 
 The real runs used the test idea, with the scripted student answers in `scripts/e2e.mjs`. They made no manual database or code intervention.
 
-### Final real run (`prj_c43ca2ca16a8457c`)
+#### Final real run (`prj_c43ca2ca16a8457c`)
 
 - **Scoping:** Grok asked 3 questions and skipped what the idea already stated. It proposed 5 topics with MeSH terms.
 - **Search:** 10 queries in correct PubMed (`[mh]`, `[tiab]`, truncation) and OpenAlex syntax, with dry-run counts from 7 to 268.
@@ -307,7 +361,7 @@ Approximate AI cost by stage in that run:
 | Synthesis | 0.129 |
 | Research questions | 0.027 |
 
-### QA loops (three, as budgeted)
+#### QA loops (three, as budgeted)
 
 1. **Real run #1, then a review of the screenshots, outputs and logs.** Fixed:
    - The model wrote internal IDs into prose. Fixed with v2 prompts that forbid it, plus a display-time scrub.
