@@ -1,0 +1,229 @@
+{
+ "persona": "undergrad",
+ "completed": true,
+ "stage_reached": 9,
+ "would_have_quit_at": "I would not have quit mid-flow, because the step-by-step prompts kept me moving. I would have lost confidence at step 6 (Ranking), where the app said no papers matched \"Grades\" and only 1 matched \"Sleep\", and again at step 8, where the \"Known\" statement was about telemedicine in Thai ear-nose-throat patients. At that point I would be unsure whether I had done something wrong and would ask my tutor. I would also stop at the final \"(mock)\" question, since I could not show that to my tutor. I would likely give up on step 7 (quote checking) without help, because the side panel left so little room to read the paper that I only found the quotes by tabbing.",
+ "activity": "Signed up as \"Mai\" (mai.undergrad.qa3@example.com). Created one project, \"I'm interested in sleep and grades\" (prj_3deda2fcff40427a), and ran all 9 steps to the end.\n\n- Step 2: answered 5 scoping questions, kept the 4 suggested topics and approved them.\n- Step 3: ran the PubMed count on the Sleep query, then ran all 8 searches.\n- Step 4 to 5: summarised 158 papers. Filtered by study type and article type, opened the Map view and opened one paper.\n- Step 6: opened the Sleep ranking and met the \"3 topics have fewer than 3 papers\" dialog. Chose \"Appraise anyway\".\n- Step 7: rejected 6 \"not found, you decide\" quotes, which the app said were altered on purpose, and marked the papers as looked at.\n- Step 8 to 9: ran the synthesis, got 3 candidate questions and chose Candidate 2: \"(mock) Is there an association between sleep and grades among university students?\"\n- Export: previewed the report. Started the Markdown download and switched the format to the CSV spreadsheet.\n\nNo console errors or failed requests appeared at any point. The \"Open printable report\" link opened a new tab that I could not view with the helper, so I judged the report only from the in-page preview, which showed about 200 of 510 lines. I did not visit My projects, the Settings page or the BibTeX download. I used about 115 helper commands.",
+ "categories_and_colours": "Study type has seven categories, each with its own colour and shape: Trial (blue circle), Cohort / case-control (orange-red square), Cross-sectional (teal-green triangle), Qualitative / mixed methods (amber diamond), Systematic / scoping review (pink star), Other design (green cross) and Not reported (grey open ring). The key appears in step 4's mix bars, the 3D map and the step 5/6 chip filters. The same colour and shape are used in the table cells, so I could work out \"colour and shape = kind of study\" without being told, and clicking a chip filtered the table (\"Showing 21 of 158: review article\"). Article type (Journal / Review / Preprint / Editorial) is a second row of plain chips with no colour, and filtering by it worked.\n\nWhat I would query:\n- Two overlapping dimensions with no explanation. \"Review article\" (article type) and \"Systematic / scoping review\" (study type) look like the same thing to a first-year. The same goes for \"Other design\" containing \"Narrative review\" and \"Protocol\".\n- Selecting a chip in each row can give a confusing 0. Trial plus Review article gave \"Showing 0 of 158\" and the other chips kept their original counts, so I could not tell the combination was impossible.\n- Study-type counts change between pages. Step 4 said \"Not reported 141 / Trial 5 / Other design 8\". Step 5 said \"Not reported 20 / Other design 59\" and Cohort 4, Cross-sectional 27. A note explains that the AI reads abstracts in step 5, but the first set looked authoritative.\n- The green cross (Other design) and the teal-green triangle (Cross-sectional) are close in hue and rely on shape to tell them apart.\n- In the Sleep ranking, the filter chips show counts for the 44 papers on screen. That scoping is fine but not stated.\n- The 3D map has an unlabeled \"height\" axis in the retrieval step and a hover-only point identity. The 2D toggle helps, but \"Show as 2D chart\" is easy to miss.",
+ "validity_assessment": "Mostly honest and traceable, but the output cannot be used as a real review in demo mode. Strong points:\n\n- A \"Demo mode\" banner is on every page and says results will not match my topic.\n- AI text is marked \"(mock)\".\n- Search counts and novelty checks are labelled as samples.\n- The report opens with \"Demo: scripted AI and recorded sample papers; not a real review\".\n- The ranking step warns that Grades has no matching papers, and the synthesis repeats that.\n- Quotes carry a word-for-word check, and tampered quotes are shown with the closest passage and \"Accept anyway\" / \"Reject\".\n- The novelty text avoids calling anything novel (\"Finding no similar study does not prove a question is new\").\n- The report says it is a scoping aid with a single reviewer and gives search and duplicate counts.\n\nConcerns:\n1. The research questions and gaps do not come from the papers. The papers were about telemedicine in Southeast Asia, yet Candidate 2's gap is supported by a quote from \"Ilmaskal et al. 2026\" (a telemedicine paper). A student could believe the gap was found in the literature.\n2. The synonym \"sleep means lower grades\" came from my own answer and was turned into a search term. This is a keyword-matching error, not a synonym.\n3. The one paper selected for Sleep (Thai ENT telemedicine) matched only through \"obstructive sleep apnea\". The synthesis then listed its age difference under \"Known: what the papers agree on\", although one paper cannot agree with anything.\n4. Search counts are inconsistent. The pre-run count said PubMed 9,245 for Sleep; the run says PubMed 38. The Grades and Measurement queries show identical counts (2,207 / 451).\n5. The step 3 \"Check the searches\" panel did not appear after \"Write the searches\"; I had to find the Query node myself.\n6. The exported question still starts with \"(mock)\", and candidate 1 dropped \"grades\".\n7. The \"(mock)\" scripted dialog says each paper has one altered quote, which cannot happen in real mode, so I did not see how real quote failures would behave.",
+ "three_second_test": [
+  {
+   "page": "Landing /",
+   "understood_in_3s": true,
+   "note": "What it is for: turning a rough idea into a research question using real papers. First: Start a review. Next: sign up. Clear headline and two obvious buttons. The animated demo below shows a health-systems example, which is unrelated but harmless."
+  },
+  {
+   "page": "Sign up",
+   "understood_in_3s": true,
+   "note": "What it is for: creating an account. First: fill name, email, password. Next: click Create account. The password rule 'not containing the name part of your email' is a bit odd to read."
+  },
+  {
+   "page": "New review (step 1 idea)",
+   "understood_in_3s": true,
+   "note": "What it is for: describe my research idea in a sentence. First: type it or click an example chip. Next: Start my review. The grey 'Write at least a sentence' note under the button reads as disabled until I typed."
+  },
+  {
+   "page": "Session canvas (first view)",
+   "understood_in_3s": false,
+   "note": "I saw one card with two buttons ('Sharpen my idea' on the card and 'Open step 1' at the top) and the demo banner. I understood it was a workflow with 9 steps, but not why there were two buttons. The banner is long and says results 'will not match your topic', which worried me."
+  },
+  {
+   "page": "Step 2 scoping questions",
+   "understood_in_3s": true,
+   "note": "What it is for: answer short questions about who/where/what. First: type an answer. Next: Send answer. The 'What we know so far' box and the search topics forming beside it explained what my answers were used for."
+  },
+  {
+   "page": "Step 2 keep topics",
+   "understood_in_3s": true,
+   "note": "What it is for: keep the suggested topics. First: Keep. Next: Keep 4 suggested topics, then Use these topics. 'Keep' on the list and 'Accept' on the canvas cards mean the same thing but use different words. The panel hid half the canvas cards."
+  },
+  {
+   "page": "Step 3 search builder (topic panel)",
+   "understood_in_3s": false,
+   "note": "I expected to see the database searches. I saw 'Topic name / Synonyms / Controlled vocabulary (MeSH)' with MeSH unexplained, and 'sleep means lower grades' as a synonym. After 'Write the searches' the panel still said 'Edit this search topic' and I had to find the Query nodes myself."
+  },
+  {
+   "page": "Step 3 query check",
+   "understood_in_3s": true,
+   "note": "What it is for: check the PubMed/OpenAlex searches before they run. First: read the keyword groups and click Count matches. Next: Run all 8 searches. 'Group 1: any of ... AND group 2' was clear in plain words."
+  },
+  {
+   "page": "Step 4 retrieval",
+   "understood_in_3s": true,
+   "note": "What it is for: see what was found. 260 fetched, 102 duplicates, 158 left, with article type and study type bars. Next: Summarise the papers. The 3D chart is attractive but I could not tell what it was for."
+  },
+  {
+   "page": "Step 5 summary table (panel)",
+   "understood_in_3s": true,
+   "note": "What it is for: skim papers and fix wrong cells. First: Open the full table. Next: Rank the papers. The panel itself shows only two numbers, so the 3-item checklist only appears on the full table page."
+  },
+  {
+   "page": "Step 5 full table",
+   "understood_in_3s": true,
+   "note": "What it is for: skim papers, filter by study type and article type, then rank. The 'Do these 3 things' box and coloured chips were easy to follow."
+  },
+  {
+   "page": "Step 6 ranking",
+   "understood_in_3s": true,
+   "note": "What it is for: choose which papers go forward. The yellow warning that Grades has no matching papers was clear. After clicking Appraise, a dialog appeared that I only noticed in a screenshot."
+  },
+  {
+   "page": "Step 7 appraisal",
+   "understood_in_3s": false,
+   "note": "Dense. 'Appraisal', 'quality checklist', 'AI: Unclear' and 'found word for word' were unfamiliar. The side panel left only about a quarter of its height for the actual paper, so I could not see what I was meant to check without tabbing or using 'Show only quotes I need to decide'."
+  },
+  {
+   "page": "Step 8 synthesis",
+   "understood_in_3s": false,
+   "note": "What it is for: read known/contested/unknown. I understood the layout, but 'Known: What the papers agree on' with one paper, an 'evidence network' and a 'conflict' made it hard to know what I was supposed to do besides press 'Suggest research questions'."
+  },
+  {
+   "page": "Step 9 choose question",
+   "understood_in_3s": true,
+   "note": "What it is for: pick one of three candidate questions. Each shows gap, feasibility and weakness, and one button says 'Choose this question'. PICo/PECO were not explained."
+  },
+  {
+   "page": "Export",
+   "understood_in_3s": true,
+   "note": "What it is for: download my literature review. First: check the question and choose Report. Next: Download. Three format cards plus a printable report make the choice slightly heavy for a beginner, but the explanations helped."
+  }
+ ],
+ "narrative": "I opened Athena as Mai, a nervous first-year who has never written a literature review. The landing page told me within a few seconds what it does and what to click. I signed up, typed \"I'm interested in sleep and grades\" and was glad the Demo mode banner appeared straight away. At the same time it made me wonder what the point was, if the results would not match my topic.\n\nThe scoping questions were friendly, and I liked watching my answers become topics. Step 3 confused me. I clicked \"Write the searches\" and the panel just showed my topic again with words like MeSH, so I had to hunt for the Query cards to see the actual searches. I also noticed \"sleep means lower grades\" had become a search term.\n\nSteps 4 and 5 felt reassuring: counts that added up, coloured shapes for study types, and filter chips I could click. The \"Trial plus Review article gives 0\" moment made me think I had broken something. Step 6 was honest: it told me Grades had no papers and the one Sleep paper was about telemedicine. I appreciated the warning dialog, though I only saw it because I took a screenshot.\n\nStep 7 was the hardest. The panel left very little room, and I found the altered quotes only by tabbing. The explanation that the quote was \"changed on purpose\" and the closest-passage display made me trust the checking. By step 8 I knew the content was off-topic, so I read it as a demonstration. I chose \"Is there an association between sleep and grades among university students?\", finished, and downloaded the report. I would not show my tutor a question that starts with \"(mock)\".",
+ "findings": [
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 9 / Export",
+   "what_happened": "The chosen research question and every AI statement in the exported report carry a '(mock)' prefix, and the gap for my question cites 'Ilmaskal et al. 2026', a telemedicine paper, as its supporting evidence. A student could take the report to a tutor believing the gap was found in the literature.",
+   "expected": "In demo mode, make it unmistakable that the gap and supporting quotes are scripted examples. The exported question should not need manual cleanup, or the export should offer a clearly marked 'sample' watermark only.",
+   "evidence": "docs/qa/iteration-3/undergrad/39-reasoning.jpg, docs/qa/iteration-3/undergrad/41-export.jpg",
+   "suggested_fix": "Keep the '(mock)' tag, but add a visible 'Demo, not citable' warning beside Download. Where a supporting quote's paper does not match the topic, show 'This paper is not about your topic' next to the quote."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 3 search builder",
+   "what_happened": "Part of my own answer, 'sleep means lower grades', was added as a synonym and used as a search phrase in PubMed and OpenAlex. A first-year would not know that is not a synonym, and the page presents it as part of an approved, defensible search.",
+   "expected": "Synonyms should be alternative words for the topic (for example 'sleep duration', 'sleep quality'), not my sentence from the scoping chat.",
+   "evidence": "docs/qa/iteration-3/undergrad/13-step3.jpg, docs/qa/iteration-3/undergrad/16-query.jpg",
+   "suggested_fix": "Filter out synonyms longer than about four words and flag them for review. Add a one-line hint under Synonyms such as 'Other words authors might use for this topic', plus an explanation of MeSH."
+  },
+  {
+   "severity": "major",
+   "category": "clarity",
+   "page": "Step 3 search builder",
+   "what_happened": "After clicking 'Write the searches' the panel did not change to show the searches. It stayed on 'Edit this search topic' (a step-2 view), and the PubMed/OpenAlex text only appeared after I switched to List view and clicked a Query row. The step's key content was one click away from where I was.",
+   "expected": "After 'Write the searches' the panel should open the first query, with 'Check the searches before they run' and the Run all button already on screen.",
+   "evidence": "docs/qa/iteration-3/undergrad/14-searches.jpg, docs/qa/iteration-3/undergrad/16-query.jpg",
+   "suggested_fix": "Navigate to the first Query node after the searches are written, or add a 'Read the searches' button in the panel."
+  },
+  {
+   "severity": "major",
+   "category": "clarity",
+   "page": "Step 7 appraisal",
+   "what_happened": "The side panel puts a long checklist, explanation and navigation in front of the paper and leaves about 150px for the paper itself. Page scroll does not move the panel content; I only reached the quotes by pressing Tab. The vocabulary (appraisal, quality checklist, 'AI: Unclear', 'Not reported', 'found word for word') is heavy for a first-year.",
+   "expected": "The paper's checklist and quotes should be visible without hunting. A short plain explanation of 'appraisal' should come first.",
+   "evidence": "docs/qa/iteration-3/undergrad/32-appraise-run.jpg, docs/qa/iteration-3/undergrad/33b.jpg, docs/qa/iteration-3/undergrad/34-tabbed.jpg",
+   "suggested_fix": "Collapse the intro and checklist after first view, or open the appraisal in a full-page route like the table. Add 'Appraisal = checking how trustworthy each study is' in one line."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 8 synthesis",
+   "what_happened": "'Known: What the papers agree on' for Sleep showed a single statistic from one telemedicine paper about age and accepting virtual visits. One paper cannot 'agree', and the paper is about ENT patients (it matched only through 'obstructive sleep apnea'). The only 'Sleep' paper was selected through this keyword match.",
+   "expected": "A single-paper finding should be labelled as such ('1 paper reports...'), and the topic match should be visible so I can see it does not concern sleep and grades.",
+   "evidence": "docs/qa/iteration-3/undergrad/37-synthesis.jpg, docs/qa/iteration-3/undergrad/29-sleep-rank.jpg",
+   "suggested_fix": "Rename 'What the papers agree on' to 'What the papers report', and show the number of papers behind each statement. Show 'matched on: sleep apnea' when the topic match comes from a single incidental term."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Step 3 count and Step 4 retrieval",
+   "what_happened": "The Sleep query showed 'PubMed 9,245 papers match' before the run and 'Ran: PubMed 38 \u00b7 OpenAlex 412' afterwards. The Grades and Measurement queries show identical results (PubMed 2,207 / OpenAlex 451). The earlier banner says the counts are recorded samples, but the figures contradict each other on adjacent screens.",
+   "expected": "Either the counts agree or the difference is explained ('9,245 match; the 40 most relevant were collected, 38 fetched').",
+   "evidence": "docs/qa/iteration-3/undergrad/17-count.jpg, docs/qa/iteration-3/undergrad/18-run.jpg",
+   "suggested_fix": "Label the figures as 'papers matching' and 'papers collected' in the same row, and explain 'collected' next to the 'Broad: only the 40 most relevant will be collected' warning."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 5/6 table filters",
+   "what_happened": "Study type and article type both include 'review' wording ('Systematic / scoping review' vs 'Review article') and nothing explains the difference. Choosing Trial plus Review article returned 'Showing 0 of 158' while every chip kept its original count, so it looked like a bug until I reset.",
+   "expected": "A one-line explanation of 'article type = what kind of publication; study type = how the research was done'. Counts on the other chips should update, or the empty result should say that no paper is both.",
+   "evidence": "docs/qa/iteration-3/undergrad/22-table.jpg, docs/qa/iteration-3/undergrad/23-filtered.jpg, docs/qa/iteration-3/undergrad/25-review-filter.jpg",
+   "suggested_fix": "Add a short tooltip or helper line above the two chip rows, and show 'No paper is both a Trial and a Review article' when the combination is empty."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 4 retrieval",
+   "what_happened": "Study-type counts on step 4 (Not reported 141, Other design 8, Trial 5) change on step 5 (Not reported 20, Other design 59, Cross-sectional 27, Qualitative 29). A note says the AI reads the abstracts next, but the first set looks like facts and the second contradicts it.",
+   "expected": "The step 4 chart should be labelled as 'database labels only' prominently, or show the 'unknown' category in an unmistakably provisional style.",
+   "evidence": "docs/qa/iteration-3/undergrad/18-run.jpg, docs/qa/iteration-3/undergrad/22-table.jpg",
+   "suggested_fix": "Rename the step 4 heading to 'Study type (as labelled by the database; most are unlabelled)' and move the explanation above the bars."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Step 4 map",
+   "what_happened": "The 3D scatter has no readable axis labels beyond 'Year', and 'Height has no meaning yet'. A hover-only point meaning and a rotating view are hard for keyboard users and beginners; the useful 'Show as 2D chart' checkbox is small. The green cross and teal-green triangle are close in hue.",
+   "expected": "The default for beginners is a 2D chart with a visible way to identify a paper.",
+   "evidence": "docs/qa/iteration-3/undergrad/20-chart2.jpg, docs/qa/iteration-3/undergrad/27-map.jpg",
+   "suggested_fix": "Make 2D the default or put the toggle next to the chart title. Separate the two green hues further or rely on shape in the legend with bigger glyphs."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Session canvas (step 1)",
+   "what_happened": "The first view of a new project has two buttons for the same action ('Sharpen my idea' on the card and 'Open step 1' in the top banner), and the card is called 'Idea' while the page says step 2 'Scoping'. The Demo banner says 'results will not match your topic' without saying what I should do about it.",
+   "expected": "One obvious next button, and demo text that tells a student what to do.",
+   "evidence": "docs/qa/iteration-3/undergrad/05-after-start.jpg, docs/qa/iteration-3/undergrad/08-step1-questions.jpg",
+   "suggested_fix": "Hide the card button while the 'next step' banner is shown, or make both open the same panel. Add 'Click through to see how it works' to the demo banner."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Step 2 keep topics",
+   "what_happened": "The list says 'Keep', 'Edit', 'Delete' while the canvas cards say 'Accept' and 'Dismiss'. 'Measurement and outcomes' appeared as a topic with no link to my answer about grades. The page promised 4-8 topics but offered 4 and the 'which kinds of studies' question was never asked ('not answered yet').",
+   "expected": "One verb for the same action, topics that I recognise from my answers, and a note that skipped questions use defaults.",
+   "evidence": "docs/qa/iteration-3/undergrad/11-topics.jpg, docs/qa/iteration-3/undergrad/10-q5.jpg",
+   "suggested_fix": "Use 'Keep' and 'Delete' everywhere. Add 'Why this topic?' under each topic. Show 'Study types: any (you can change this in step 3)' when not answered."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Step 6 ranking",
+   "what_happened": "The 'Before you continue' checklist ticks 'Keep 3-5 papers per topic, or every matching paper where fewer match' as done even though the warning above says three topics have too few papers. The 'Appraise selected papers' confirmation dialog appeared 5+ seconds after my click and was easy to miss; I waited on the spinner-less page.",
+   "expected": "The checklist should not show a warning topic as done, and the dialog should appear immediately and take focus.",
+   "evidence": "docs/qa/iteration-3/undergrad/28-rank.jpg, docs/qa/iteration-3/undergrad/31b-appraise.jpg",
+   "suggested_fix": "Tie the third checklist item to the warning state. Move focus into the dialog as soon as it opens."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Step 9 research question",
+   "what_happened": "PICo and PECO are named without explanation and 'Gap it fills' text is generic. Candidate 1 ('How do university students experience sleep?') drops grades, the second half of my idea. The 'Choose this question' / 'Chosen' / 'Edit this question' flow worked, but I could not tell what 'Finish and export' locked in.",
+   "expected": "A beginner-level line on what PECO means, and candidates that keep both parts of the original idea or say why one was dropped.",
+   "evidence": "docs/qa/iteration-3/undergrad/38-rq.jpg, docs/qa/iteration-3/undergrad/40-chosen.jpg",
+   "suggested_fix": "Add 'PECO = Population, Exposure, Comparison, Outcome: a checklist for a good question' as a tooltip, and a one-line 'Why this question' linking back to the idea."
+  },
+  {
+   "severity": "polish",
+   "category": "a11y",
+   "page": "Canvas (all steps done)",
+   "what_happened": "When the whole canvas is fitted to view, text on the nodes is about 7px and unreadable, and Topic and Query nodes share the same names ('Sleep', 'Sleep'). The helper also reported no visible focus on the panel heading.",
+   "expected": "A zoom level at which node titles are readable, and Topic/Query nodes that can be told apart by title.",
+   "evidence": "docs/qa/iteration-3/undergrad/47-canvas-final.jpg",
+   "suggested_fix": "Set a minimum zoom on Fit view or hide small text and show the step name only. Rename Query nodes to 'Search: Sleep'."
+  },
+  {
+   "severity": "polish",
+   "category": "copy",
+   "page": "Export",
+   "what_happened": "The 'Open printable report' link opens a new tab, which my helper could not follow, and the in-page preview is a small scroll box ('first 40 of 509 lines', then 'first 200 of 510 lines'). The line count changed by one between two previews, and the Report card text 'Markdown, a text file to edit or keep; to read, print or save it as PDF, open the printable report' is a long sentence for a beginner.",
+   "expected": "A single obvious way to read the report in full, and a stable line count.",
+   "evidence": "docs/qa/iteration-3/undergrad/41-export.jpg, docs/qa/iteration-3/undergrad/44-preview-mid.jpg",
+   "suggested_fix": "Shorten the format labels ('Report (read and print)', 'Papers spreadsheet', 'Reference list') and make the printable report the primary button."
+  }
+ ]
+}

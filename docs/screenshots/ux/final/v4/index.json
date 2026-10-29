@@ -1,0 +1,20 @@
+{
+  "done-375": {
+    "what": "Finished review: download the report",
+    "url": "/s/<project>/export",
+    "width": 375,
+    "theme": "dark"
+  },
+  "done-768": {
+    "what": "Finished review: download the report",
+    "url": "/s/<project>/export",
+    "width": 768,
+    "theme": "dark"
+  },
+  "done-1366": {
+    "what": "Finished review: download the report",
+    "url": "/s/<project>/export",
+    "width": 1366,
+    "theme": "dark"
+  }
+}

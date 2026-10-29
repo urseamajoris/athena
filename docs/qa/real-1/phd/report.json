@@ -1,0 +1,170 @@
+{
+ "persona": "phd",
+ "completed": true,
+ "stage_reached": 9,
+ "findings": [
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 8 Synthesis",
+   "what_happened": "The 'Known' box is headed 'What the papers agree on', but its first statement is explicitly 'in one study' (Saade 2024, one abstract). Other Known statements cite 'Isangwe et al. 2025' and 'Isangwe et al. 2026' as separate sources; these look like a preprint and journal version of the same Quebec study, so apparent agreement may be one study counted twice. 'Contested' says 'Nothing identified' with 11 papers, which reads as reassurance rather than 'not assessable'.",
+   "expected": "Known should require at least two independent studies, or be labelled 'single study'. Preprint and journal versions of one study should be merged or flagged. 'Nothing identified' should say how many papers were compared.",
+   "evidence": "docs/qa/real-1/phd/73-synth-done.jpg, docs/qa/real-1/phd/74-chip.jpg",
+   "suggested_fix": "Show an independent-study count on each statement and downgrade single-study findings to 'Reported by one study'. Detect preprint/journal duplicates by title, authors and DOI relation. Replace 'Nothing identified' with 'No conflicts found among N papers (limited comparison)'."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 9 Research question (candidate 1) and exported report",
+   "what_happened": "Candidate 1 asks about 'beyond 24 months'. Its Gap text says the gap is 'beyond six months'. Its Feasibility says follow-up of '12 months or more' within a typical dissertation timeline. The three numbers contradict each other, and the 24-month question is not what the feasibility text describes. The novelty check also says 1 of the top 10 records 'looks like the same question', yet the card still offers it without further comment. The inconsistent text went unchanged into the report.",
+   "expected": "The question, gap and feasibility should agree internally. A candidate with a probable near-duplicate should be flagged prominently, or shown with the matching record.",
+   "evidence": "docs/qa/real-1/phd/76-rq-done.jpg, docs/qa/real-1/phd/81-preview.jpg",
+   "suggested_fix": "Add a consistency check between the question and its gap and feasibility text before showing candidates. Show the near-duplicate record inline in the novelty line. Have the AI justify feasibility against the stated follow-up length."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 7 Appraisal",
+   "what_happened": "The word-for-word quote check produced 16 'not found' flags among about 175 quotes. Several were false negatives. The AI stitched two non-adjacent passages with '...', or punctuation and number tokens such as 'In-depth' and 'n = 463' failed the fragment match, although the closest passage in the paper clearly contained the facts. One real stitched quote was correctly caught. The user must hand-decide every one, and undecided ones are silently dropped from the synthesis (a warning dialog does appear). I decided only 2 of 16 and 14 were left out.",
+   "expected": "Fragment matching should tolerate hyphens, spaces and number formatting, and should check each '...' segment separately. The workload for a sceptical user should be small.",
+   "evidence": "docs/qa/real-1/phd/66-rejected.jpg, docs/qa/real-1/phd/67-p1-rest.jpg, docs/qa/real-1/phd/70-p3.jpg, docs/qa/real-1/phd/71-synth-start.jpg",
+   "suggested_fix": "Normalise hyphens, whitespace and digits before matching. Split quotes on '...' and verify each part. Show the diff of the nearest passage with the mismatch highlighted. Offer 'Accept all where every segment is found' with a review list."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 5 Summary table (and Step 4 abstracts)",
+   "what_happened": "For 'Long COVID during the Omicron predominant waves among Japanese healthcare workers' the stored 'abstract' is only a data-availability statement from OpenAlex. The AI used it as the key finding ('Data supporting the findings are available from the corresponding author upon reasonable request') and the study type shows 'Not reported'. Other abstracts are missing entirely and are marked 'no abstract available' correctly.",
+   "expected": "Non-abstract boilerplate should be detected and shown as 'no usable abstract', exactly like the missing-abstract rows.",
+   "evidence": "docs/qa/real-1/phd/43-detail.jpg",
+   "suggested_fix": "Add a guard that treats data-availability, copyright or publisher boilerplate as a missing abstract. Fetch the abstract from PubMed or Europe PMC where the DOI matches. Flag the row 'abstract looks wrong'."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 3 Search builder",
+   "what_happened": "The AI-written topics and searches are weak for a systematic reviewer. (a) The 'Return-to-work and sick leave' query had no long COVID block, so it pulled RTW papers on any cause; I added it by editing. (b) 'Occupational impact of long COVID' contains no occupational terms and is near-identical to query 1 (PubMed 380 against 479). (c) 'Observational study designs' is a study-design filter turned into a topic, narrowing to title/abstract words such as cohort and cross-sectional, and its help text says it excludes case reports and opinions, which the query does not do. (d) PubMed phrases such as \"healthcare worker\"[tiab] miss 'healthcare workers' and 'health care workers' (I added them). (e) 'language en' is a hard filter that is not called out as language bias.",
+   "expected": "Topics should be distinct PICO concept blocks, and every topic query should be anchored on the exposure. Plural and spelling variants should be included. Filters that bias the evidence should be named.",
+   "evidence": "docs/qa/real-1/phd/10-topics.jpg, docs/qa/real-1/phd/22-queries.jpg, docs/qa/real-1/phd/24-edit-search.jpg, docs/qa/real-1/phd/28-q2.jpg, docs/qa/real-1/phd/29-criteria.jpg",
+   "suggested_fix": "Generate one block per PICO concept and build queries from the shared blocks. Warn when two topics overlap. Do not turn study design into a topic. Auto-add plurals and 'health care' variants. Add a note on language restriction."
+  },
+  {
+   "severity": "major",
+   "category": "bug",
+   "page": "Step 5 and Step 6 table",
+   "what_happened": "Showing the Authors and Journal columns made the Title column collapse to a narrow strip: header cells 'Title' and 'Authors' overprinted each other and titles wrapped to one or two words per line. In the per-topic ranking view (Keep, Rank, Score, Title, Setting, Access), the Title column wrapped one word per line and the page would not scroll past the first few rows until I hid a column. The ranked list is hard to use at 1366px.",
+   "expected": "The title column should keep a sensible minimum width, with horizontal scrolling or fewer default columns.",
+   "evidence": "docs/qa/real-1/phd/45-table-cols.jpg, docs/qa/real-1/phd/53-topic-rank.jpg, docs/qa/real-1/phd/54b-bottom.jpg",
+   "suggested_fix": "Give Title a min-width of about 280px. Make the table scroll horizontally. Warn or auto-hide when too many columns are on. Fix scroll height for tall rows in the virtual list."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Step 7 Appraisal",
+   "what_happened": "AI 'Yes' answers sit on weak evidence. 'Ethics approval reported: Yes' quotes text that says ethical review and approval were waived. 'Sample size justified: Yes' quotes only 'judged adequate considering the working population of the hospital'. The quote check passes both. The page does warn that found means the words are in the paper, not that they prove the answer, which is honest, but the answer badge itself is not softened.",
+   "expected": "The answer should reflect what the quote shows, for example 'Waived' or 'Partly'.",
+   "evidence": "docs/qa/real-1/phd/63-q-a.jpg, docs/qa/real-1/phd/63-q-b.jpg",
+   "suggested_fix": "Add a 'Partly / weak' answer level. Ask the AI for a one-line rationale next to the Yes. Place the caveat next to each badge, not only at the top."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 3 Search builder, writing searches",
+   "what_happened": "Clicking 'Write the searches' showed only a spinner inside the button for about 75 seconds. There was no message, no progress and no 'safe to close' text, unlike the other AI steps. It looked stuck.",
+   "expected": "A running banner like steps 5 to 9: 'Writing searches for 4 topics, safe to close'.",
+   "evidence": "docs/qa/real-1/phd/21-searches.jpg, docs/qa/real-1/phd/21c-searches.jpg",
+   "suggested_fix": "Reuse the progress card with a count of topics done."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 3 Search builder footer",
+   "what_happened": "While reviewing the second query (still in step 3) the primary footer button changed from 'Run all 8 searches' to 'Go to step 3: Search builder'. That does not run anything, and it is odd to be told to go to the step I am on. Elsewhere, 'Go to step 2: Scoping' appeared while I was already on step 2.",
+   "expected": "Per the UX intent the single next action on this step is 'Run all N searches'. 'Go to step N' is only for panels of a non-current step.",
+   "evidence": "docs/qa/real-1/phd/28-q2.jpg, docs/qa/real-1/phd/29-criteria.jpg, docs/qa/real-1/phd/12-after-keep1.jpg",
+   "suggested_fix": "Always show 'Run all N searches' while step 3 is current. Show 'Go to step N' only when the panel's step differs from the current step."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 2 Scoping topics",
+   "what_happened": "After I kept a topic its card still showed an amber 'Your turn' badge. It was unclear whether Keep had worked. Separately, one click on a canvas card title deleted the topic instead of opening it (the 'Undo' toast was a good rescue). I could not confirm whether I hit a Delete button or the title.",
+   "expected": "A kept topic should show 'Kept', and a title click should open it.",
+   "evidence": "docs/qa/real-1/phd/12-after-keep1.jpg, docs/qa/real-1/phd/13-state.jpg, docs/qa/real-1/phd/14-undo.jpg",
+   "suggested_fix": "Show a 'Kept' state. Make title clicks safe, and keep the Undo toast."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Steps 6 and 7 checklists",
+   "what_happened": "The 'Do these things' checklists tick items before any work has happened. During ranking 'Keep 3 to 5 papers per topic' was already struck through. At the start of appraisal 'Look at each paper (0 of 11 looked at)' and 'Decide every quote ... (0 decided, 0 left)' were shown as done. The progress label 'Ordering topics by importance' during ranking is also unclear.",
+   "expected": "Items should be unticked until true, and the labels should be plain.",
+   "evidence": "docs/qa/real-1/phd/49-rank.jpg, docs/qa/real-1/phd/50-ranked.jpg, docs/qa/real-1/phd/61-appraise-start.jpg",
+   "suggested_fix": "Compute ticks from real counts only after the run finishes. Rename the label to 'Finding the most relevant topics'."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 6 Ranking",
+   "what_happened": "Papers are ranked per topic, but many relevant papers show 'not scored' in a topic, including a long COVID healthcare-worker paper (ORCHESTRA, Italy), with no explanation. Unticking a paper in one topic leaves it selected via another topic. The page explains this, but it takes extra steps to fully remove a paper because of the overlapping topics. The topic tabs also appear in a different order from the topic list.",
+   "expected": "Say why a paper is not scored. A paper should be removable once, from one place.",
+   "evidence": "docs/qa/real-1/phd/59-after-swap.jpg, docs/qa/real-1/phd/57-deselected.jpg, docs/qa/real-1/phd/51-ranktable.jpg",
+   "suggested_fix": "Add a reason on not-scored rows, such as 'not retrieved by this topic's search'. Add 'Remove from all topics'. Keep a stable topic order."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Maps and charts (steps 4 to 6)",
+   "what_happened": "I understood the study-type key (colour plus shape plus label, click to isolate). Two pairs are hard to tell apart in the small marks: cohort orange square against qualitative amber diamond, and cross-sectional teal triangle against other-design green cross. The 'Papers by year and score' chart says 'Height has no meaning yet' while its title says score. The 2D chart shows only 2020 and 2026 labels, so it adds little beyond the table. In retrieval, 182 of 204 papers are 'Not reported', which makes the chart mostly grey rings.",
+   "expected": "Distinct hues, a labelled y-axis, and a note about how many are unknown.",
+   "evidence": "docs/qa/real-1/phd/47-map.jpg, docs/qa/real-1/phd/48-map2d.jpg, docs/qa/real-1/phd/35-retr-scroll.jpg, docs/qa/real-1/phd/50-ranked.jpg",
+   "suggested_fix": "Separate the amber and orange hues and the two greens. Label every year on the x-axis. Show the score on the y-axis when ranked. Re-colour by the AI study type after summarising."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Step 3 Search builder",
+   "what_happened": "Wording slips: 'A paper must match at least one word from every group' (the items are phrases). The study-design topic help says it matches allowed study types 'while excluding case reports and opinions', but the query only ANDs design words and excludes nothing.",
+   "expected": "Accurate descriptions of what the query does.",
+   "evidence": "docs/qa/real-1/phd/22-queries.jpg, docs/qa/real-1/phd/17-topic4.jpg",
+   "suggested_fix": "Say 'at least one term from every group'. Remove or make true the exclusion claim."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 7 Appraisal panel",
+   "what_happened": "With 'Show only quotes I need to decide' on, an abstract-only paper shows 'Nothing to decide in this checklist', so the quality answers disappear. It reads as if the paper was not appraised. The panel is also tall: header, checklist and legend push the first quote below the fold.",
+   "expected": "Say 'All quotes verified; N answers hidden by the filter'.",
+   "evidence": "docs/qa/real-1/phd/68-p2.jpg, docs/qa/real-1/phd/63-q-a.jpg",
+   "suggested_fix": "Replace the empty message and collapse the explainer by default."
+  },
+  {
+   "severity": "polish",
+   "category": "validity",
+   "page": "Step 6 Ranking rubric",
+   "what_happened": "A social-media-recruited, self-reported mixed-methods survey scored Design strength 4/5, and Recency and Citation impact (25% of the score) favour newer, better-cited papers over rigour. This is disclosed clearly in 'Why this score' and 'How papers are scored', which a sceptical reader would welcome, but the weights are not editable.",
+   "expected": "Option to change the weights, or a risk-of-bias note.",
+   "evidence": "docs/qa/real-1/phd/52-why.jpg, docs/qa/real-1/phd/38-rubric.jpg",
+   "suggested_fix": "Let the user edit the weights, and cap Design strength where recruitment is by self-selection."
+  },
+  {
+   "severity": "polish",
+   "category": "a11y",
+   "page": "Sign up",
+   "what_happened": "Keyboard focus lands on the Email field first, not 'Your name'. The 'Create account' button looks pale and disabled before any input.",
+   "expected": "Focus the first field and keep the active button style.",
+   "evidence": "docs/qa/real-1/phd/02-signup.jpg",
+   "suggested_fix": "Autofocus the first field and darken the idle button state."
+  },
+  {
+   "severity": "polish",
+   "category": "clarity",
+   "page": "Step 4 Retrieval (cap)",
+   "what_happened": "Only the 40 most relevant records per search per database are collected (1,267 OpenAlex hits means 40 kept), flagged in orange at count time. Retrieval then reports '320 results fetched, 204 unique'. It is disclosed, and the report says 'a scoping aid, not an exhaustive systematic search', but the cap cannot be raised, so this cannot serve as a systematic search.",
+   "expected": "Option to raise the cap, or a clear statement at retrieval that this is not exhaustive.",
+   "evidence": "docs/qa/real-1/phd/33-q1-counts.jpg, docs/qa/real-1/phd/34-retrieval.jpg, docs/qa/real-1/phd/81-preview.jpg",
+   "suggested_fix": "Add a 'collect up to N' control and show the share of matches collected."
+  }
+ ],
+ "note": "Recovered from the agent transcript: its first report attempt (findings only) failed the schema, and the retry was a placeholder."
+}

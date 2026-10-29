@@ -1,19 +1,16 @@
 import "server-only";
+import { countPaidCall, resolveMode, type PaidCalls } from "./paid-guard";
 
-function bool(v: string | undefined, d = false) {
-  if (v === undefined || v === "") return d;
-  return ["1", "true", "yes", "on"].includes(v.toLowerCase());
-}
+const mode = resolveMode(process.env);
+
 function num(v: string | undefined, d: number) {
   const n = Number(v);
   return v !== undefined && v !== "" && Number.isFinite(n) ? n : d;
 }
 
 export const config = {
-  mockMode: bool(process.env.MOCK_MODE),
-  /** Mock only the model (real HTTP). Implied by MOCK_MODE. Useful for zero-cost pipeline tests and for recording fixtures. */
-  mockAi: bool(process.env.MOCK_MODE) || bool(process.env.MOCK_AI),
-  recordFixtures: bool(process.env.RECORD_FIXTURES),
+  /** ATHENA_ENV=production: the live deployment. Whether AI runs depends on the xAI key, not on this flag. */
+  production: mode.production,
   xaiApiKey: process.env.XAI_API_KEY ?? "",
   xaiBaseUrl: process.env.XAI_BASE_URL || "https://api.x.ai/v1",
   openalexApiKey: process.env.OPENALEX_API_KEY ?? "",
@@ -39,3 +36,12 @@ export const config = {
 };
 
 export type ModelRole = keyof typeof config.models;
+
+const g = globalThis as unknown as { __paidCalls?: PaidCalls };
+/** Every call to a paid API (xAI, OpenAlex) since the server started; tests run with no keys and expect zero. */
+export const paidCalls = (g.__paidCalls ??= { attempted: 0, blocked: 0 });
+
+/** Call immediately before any network request to a paid API. Counts it for the admin telemetry; never throws. */
+export function countPaid() {
+  countPaidCall(paidCalls);
+}

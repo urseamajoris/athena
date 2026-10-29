@@ -1,0 +1,20 @@
+{
+  "populated-375": {
+    "what": "Account page",
+    "url": "/account",
+    "width": 375,
+    "theme": "dark"
+  },
+  "populated-768": {
+    "what": "Account page",
+    "url": "/account",
+    "width": 768,
+    "theme": "dark"
+  },
+  "populated-1366": {
+    "what": "Account page",
+    "url": "/account",
+    "width": 1366,
+    "theme": "dark"
+  }
+}

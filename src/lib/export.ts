@@ -5,6 +5,10 @@ import { getProject, stageCosts } from "./project";
 import { STAGES, STUDY_TYPE_LABEL, RUBRIC, surname, shortCite, type StudyType } from "./shared/stages";
 import { appraisalsView, decisionLogView, papersView, questionsView, rankingView, retrievalView, synthesisView } from "./views";
 import { selectedPaperIds } from "./jobs/appraisal";
+import { describeView, type ViewPrefs } from "./shared/categories";
+import { noveltyVerdict } from "./shared/novelty";
+import { reportHtmlPage } from "./report-html";
+import { partsLabel } from "./quotes";
 
 const ids = (a: string[]) => a.concat(["-"]);
 
@@ -13,8 +17,8 @@ function csvCell(v: unknown): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-export function summaryCsv(projectId: string): string {
-  const { papers, topics } = papersView(projectId);
+export async function summaryCsv(projectId: string): Promise<string> {
+  const { papers, topics } = (await papersView(projectId));
   const head = ["paper_id", "title", "authors", "year", "journal", "study_type (abstract-derived)", "setting (abstract-derived)", "key_finding (abstract-derived)", "citation_count", "open_access_url", "source_databases", "topics", "doi", "pmid", "pmcid", "openalex_id"];
   const rows = papers.map((p) => [
     p.id,
@@ -48,9 +52,9 @@ function bibKey(p: { authors: string[]; year: number | null; title: string }, us
 }
 const bibEsc = (s: string) => s.replace(/([{}&%$#_])/g, "\\$1");
 
-export function selectedBibtex(projectId: string): string {
-  const pids = selectedPaperIds(projectId);
-  const papers = db.select().from(schema.papers).where(inArray(schema.papers.id, ids(pids))).all();
+export async function selectedBibtex(projectId: string): Promise<string> {
+  const pids = (await selectedPaperIds(projectId));
+  const papers = (await db.select().from(schema.papers).where(inArray(schema.papers.id, ids(pids))).all());
   const used = new Set<string>();
   return papers
     .map((p) => {
@@ -72,40 +76,49 @@ export function selectedBibtex(projectId: string): string {
 const ref = (p: { id?: string; doi: string | null; pmid: string | null; openalexId: string | null }) =>
   [p.doi ? `DOI ${p.doi}` : null, p.pmid ? `PMID ${p.pmid}` : null, p.openalexId ? `OpenAlex ${p.openalexId}` : null].filter(Boolean).join(" · ");
 
-export function markdownReport(projectId: string): string {
-  const p = getProject(projectId);
-  const topics = db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.importanceRank), asc(schema.topics.sortOrder)).all();
-  const qs = db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all();
-  const ret = retrievalView(projectId);
-  const { papers } = papersView(projectId);
-  const rank = rankingView(projectId);
-  const apps = appraisalsView(projectId).appraisals;
-  const syn = synthesisView(projectId);
-  const rq = questionsView(projectId);
+export async function markdownReport(projectId: string): Promise<string> {
+  const p = (await getProject(projectId));
+  const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.importanceRank), asc(schema.topics.sortOrder)).all());
+  const qs = (await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
+  const ret = (await retrievalView(projectId));
+  const { papers } = (await papersView(projectId));
+  const rank = (await rankingView(projectId));
+  const apps = (await appraisalsView(projectId)).appraisals;
+  const syn = (await synthesisView(projectId));
+  const rq = (await questionsView(projectId));
   const chosen = rq.questions.find((q) => q.chosen);
-  const allPapers = db.select().from(schema.papers).where(eq(schema.papers.projectId, projectId)).all();
+  const allPapers = (await db.select().from(schema.papers).where(eq(schema.papers.projectId, projectId)).all());
   const pById = new Map(allPapers.map((x) => [x.id, x]));
-  const claims = db.select().from(schema.claims).where(inArray(schema.claims.appraisalId, ids(apps.map((a) => a.id)))).all();
+  const claims = (await db.select().from(schema.claims).where(inArray(schema.claims.appraisalId, ids(apps.map((a) => a.id)))).all());
   const cById = new Map(claims.map((c) => [c.id, c]));
-  const cite = (cid: string) => {
-    const c = cById.get(cid);
-    if (!c) return `[${cid}]`;
-    const pp = pById.get(c.paperId);
-    return `[${pp ? shortCite(pp.authors, pp.year) : "?"}, ${cid}]`;
+  // Citations name the papers only ("[Lotfi et al. 2026; Rumi et al. 2026]"): internal claim IDs mean nothing to a reader.
+  const cite = (cids: string[]) => {
+    const names = [...new Set(cids.map((cid) => pById.get(cById.get(cid)?.paperId ?? "")).filter((pp) => !!pp).map((pp) => shortCite(pp!.authors, pp!.year)))];
+    return names.length ? `[${names.join("; ")}]` : "";
   };
-  const costs = stageCosts(projectId);
+  const withQuote = claims.filter((c) => !c.notReported && c.quote);
+  const notFound = withQuote.filter((c) => !c.verified);
+  const costs = (await stageCosts(projectId));
+  // The method's limits, stated next to its counts: capped searches, one per topic, AI-ranked with one reviewer.
+  const cap = ret.runs[0]?.cap;
+  const sumOf = (f: (r: (typeof ret.runs)[number]) => number | null) => ret.runs.reduce((a, r) => a + (f(r) ?? 0), 0);
   const L: string[] = [];
-  L.push(`# Literature review: ${p.title || p.idea.slice(0, 80)}`);
-  L.push(`_Generated by Athena prototype on ${new Date().toISOString().slice(0, 10)}. Every paper below comes from a database API record (identifier shown). AI-extracted claims carry verbatim quotes that were checked against the retrieved text._\n`);
+  // The chosen question names the review better than the first rough wording of the idea.
+  L.push(`# Literature review: ${chosen ? chosen.text : p.title || p.idea.slice(0, 80)}`);
+  L.push(`_Generated by Athena prototype on ${new Date().toISOString().slice(0, 10)}. Every paper below comes from a database API record (identifier shown). Each AI-extracted quote was checked word for word against the retrieved text: a found quote shows the words are in the paper, not that they prove the claim. Quotes found: ${withQuote.length - notFound.length}; not found: ${notFound.length} (accepted by you ${notFound.filter((c) => c.userAccepted).length}, rejected by you ${notFound.filter((c) => c.userRejected).length}, undecided ${notFound.filter((c) => !c.userAccepted && !c.userRejected).length})._\n`);
+  L.push(`**What this review is:** a scoping aid, not an exhaustive systematic search. Each topic was searched on its own (the topic AND the main concept of the idea) in each database, and each search collected ${cap ? `up to ${cap} records` : "a capped number of records"}, most relevant first. Searches: ${ret.runs.length}; hits the databases reported: ${sumOf((r) => r.resultCount)} (summed over searches, so a record can count more than once); records collected: ${sumOf((r) => r.fetchedCount)}; unique papers after removing duplicates: ${ret.uniquePapers}. Papers were ranked by AI and selected by a single reviewer (you); no second reviewer checked the selection.\n`);
   L.push(`## 1. Research idea\n\n${p.idea}\n`);
   if (chosen) {
     L.push(`## Chosen research question\n\n**${chosen.text}**\n`);
     L.push(`Framework: ${chosen.framework}\n`);
     for (const [k, v] of Object.entries(chosen.structure)) L.push(`- **${k}:** ${v}`);
-    L.push(`\n- **Design:** ${chosen.design}\n- **Gap:** ${chosen.gap} ${chosen.claimIds.map(cite).join(" ")}\n- **Feasibility:** ${chosen.feasibility}\n- **Main weakness:** ${chosen.weakness}\n`);
-    L.push(`**Novelty check (what was found — not proof of novelty):**\n`);
-    for (const nq of chosen.noveltyQueries) L.push(`- ${nq.database}: \`${nq.query}\` → ${nq.error ? `failed (${nq.error})` : `${nq.count ?? "?"} hits`}`);
-    for (const m of chosen.noveltyMatches) L.push(`  - ${m.title} (${m.year ?? "n.d."}) — ${ref(m)} — ${m.similarityNote}`);
+    L.push(`\n- **Design:** ${chosen.design}\n- **Gap:** ${chosen.gap} ${cite(chosen.claimIds)}\n- **Feasibility:** ${chosen.feasibility}\n- **Main weakness:** ${chosen.weakness}\n`);
+    const nv = noveltyVerdict(chosen, { ownTitles: allPapers.map((x) => x.title) });
+    L.push(`**Novelty check (what was found — not proof of novelty):** ${nv.headline}\n`);
+    for (const n of nv.notes) L.push(`${n}\n`);
+    for (const nq of chosen.noveltyQueries) L.push(`- ${nq.database}: \`${nq.query}\` → ${nq.error ? `failed (${nq.error})` : `${nq.count ?? "?"} records contain the search words`}`);
+    chosen.noveltyMatches.forEach((m, i) => L.push(`  - ${m.title} (${m.year ?? "n.d."}) — ${ref(m)} — ${m.similarityNote}${nv.close[i] ? " — **looks like the same question**" : ""}`));
+    for (const t of nv.own) L.push(`  - ${t} — already in this review — **looks like the same question**`);
     L.push("");
   }
   L.push(`## 2. Scoping\n`);
@@ -122,7 +135,7 @@ export function markdownReport(projectId: string): string {
     const q = qs.find((x) => x.id === r.queryId);
     L.push(`| ${r.topicName} | ${r.database} | \`${r.queryString.replace(/\|/g, "\\|")}\` | ${q?.edited ? "yes" : "no"} | ${r.resultCount ?? "-"} | ${r.fetchedCount} | ${r.newUniqueCount} | ${r.status}${r.error ? `: ${r.error.replace(/\|/g, "/")}` : ""} |`);
   }
-  L.push(`\nUnique papers after deduplication (DOI → PMID → normalised title): **${ret.uniquePapers}**. Per-query cap: ${ret.runs[0]?.cap ?? "-"}.\n`);
+  L.push(`\nUnique papers after deduplication (DOI → PMID → normalised title): **${ret.uniquePapers}**. Per-query cap: ${cap ?? "-"} (the most relevant records only; not an exhaustive search).\n`);
   L.push(`## 4. Selected papers and scores\n`);
   L.push(`Rubric (0–5 each): ${RUBRIC.map((r) => `${r.label} ${Math.round(r.weight * 100)}% (${r.by})`).join(", ")}.\n`);
   for (const t of rank.topics) {
@@ -139,13 +152,13 @@ export function markdownReport(projectId: string): string {
     L.push(`### ${pp.title} (${pp.year ?? "n.d."})\n\n${ref(pp)}\n\n**Text source: ${a.textSource === "full_text" ? "FULL TEXT" : "ABSTRACT ONLY"}.** ${a.textNote}\n\nTemplate: ${a.templateType}. Status: ${a.status}${a.error ? ` (${a.error})` : ""}.\n`);
     const cs = claims.filter((c) => c.appraisalId === a.id);
     for (const c of cs.filter((x) => x.field !== "checklist")) {
-      L.push(`- **${c.field}** ${c.notReported ? "— not reported" : `— ${c.statement}\n  > "${c.quote}" (${c.location}) — ${c.verified ? "✅ verified" : c.userAccepted ? "⚠️ unverified, accepted by user" : c.userRejected ? "❌ rejected by user" : "⚠️ UNVERIFIED"} [${c.id}]`}`);
+      L.push(`- **${c.field}** ${c.notReported ? "— not reported" : `— ${c.statement}\n  > "${c.quote}" (${c.location}) — ${c.verified ? `✅ found word for word${partsLabel(c.quote)}` : c.userAccepted ? "⚠️ not found, accepted by user" : c.userRejected ? "❌ not found, rejected by user" : "⚠️ NOT FOUND, not decided (left out of the synthesis)"}`}`);
     }
     if (a.checklist.length) {
       L.push(`\nQuality checklist:\n`);
       for (const it of a.checklist) {
         const c = it.claimId ? cById.get(it.claimId) : null;
-        L.push(`- ${it.item}: **${it.answer.replace("_", " ")}**${c ? ` — "${c.quote}" ${c.verified ? "✅" : "⚠️ unverified"}` : ""}`);
+        L.push(`- ${it.item}: **${it.answer.replace("_", " ")}**${c ? ` — "${c.quote}" ${c.verified ? "✅ found" : "⚠️ not found"}` : ""}`);
       }
     }
     L.push("");
@@ -157,12 +170,12 @@ export function markdownReport(projectId: string): string {
       const its = t.items.filter((i) => i.kind === kind);
       if (!its.length) continue;
       L.push(`**${kind[0].toUpperCase() + kind.slice(1)}**\n`);
-      for (const i of its) L.push(`- ${i.statement} ${i.claimIds.map(cite).join(" ")}`);
+      for (const i of its) L.push(`- ${i.statement} ${cite(i.claimIds)}`);
       L.push("");
     }
     if (t.contradictions.length) {
       L.push(`**Contradictions**\n`);
-      for (const c of t.contradictions) L.push(`- (${c.theme}) ${c.description} ${c.claimIds.map(cite).join(" ")}`);
+      for (const c of t.contradictions) L.push(`- (${c.theme}) ${c.description} ${cite(c.claimIds)}`);
       L.push("");
     }
   }
@@ -172,18 +185,25 @@ export function markdownReport(projectId: string): string {
     L.push("");
   }
   L.push(`## 8. Reference list (selected papers)\n`);
-  for (const pid of selectedPaperIds(projectId)) {
+  for (const pid of (await selectedPaperIds(projectId))) {
     const pp = pById.get(pid);
     if (pp) L.push(`- ${pp.authors.slice(0, 3).join(", ")}${pp.authors.length > 3 ? " et al." : ""} (${pp.year ?? "n.d."}). ${pp.title}. _${pp.journal ?? ""}_. ${ref(pp)}`);
   }
   L.push(`\n## 9. Reproducibility\n`);
+  const view = describeView(p.viewPrefs as ViewPrefs | null, topics.map((t) => ({ id: t.id, name: t.name })));
+  L.push(`### View choices\n\n${view ? `Your saved view of the papers: ${view}. These choices only changed what was shown; no paper was removed from the review because of them.` : "No category filters or grouping were saved."}${p.criteria && (p.criteria as { hardFilter?: string[] }).hardFilter?.length ? `\n\n**Hard retrieval filter:** only ${(p.criteria as { hardFilter?: string[] }).hardFilter!.join(", ")} were fetched from the databases. Papers of other types were never retrieved.` : ""}\n`);
   L.push(`### AI usage\n\n| Stage | Calls | Input tokens | Output tokens | Cost (USD) |\n|---|---|---|---|---|`);
   for (const s of STAGES) {
     const c = costs[String(s.n)];
     if (c) L.push(`| ${s.n}. ${s.title} | ${c.calls} | ${c.input} | ${c.output} | ${c.cost.toFixed(4)} |`);
   }
   L.push(`\n### Decision log\n`);
-  for (const d of decisionLogView(projectId)) L.push(`- ${d.createdAt} · stage ${d.stage} · ${d.actor} · ${d.action}${d.after ? ` · ${JSON.stringify(d.after).slice(0, 300)}` : ""}`);
+  for (const d of (await decisionLogView(projectId))) L.push(`- ${d.createdAt} · stage ${d.stage} · ${d.actor} · ${d.action}${d.after ? ` · ${JSON.stringify(d.after).slice(0, 300)}` : ""}`);
   L.push(`\n_Summary-table cells for study type, setting and key finding are AI-derived from abstracts only. Papers in table: ${papers.length}._`);
   return L.join("\n") + "\n";
+}
+
+/** The same report as a printable web page, for phones and anyone without a Markdown viewer. */
+export async function htmlReport(projectId: string): Promise<string> {
+  return reportHtmlPage(await markdownReport(projectId));
 }

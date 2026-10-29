@@ -1,8 +1,14 @@
-// End-to-end UI test: drives all nine stages through the browser like a student would.
+// End-to-end UI test with no xAI key: drives the canvas like a student would, as far as the app goes without AI.
 // Usage: node scripts/e2e.mjs [baseUrl] [--out=dir]
-// Works in MOCK_MODE (free) and real mode (costs xAI credit). Screenshots are written per stage.
+// Run it against a server with no xAI key (XAI_API_KEY empty, no key set in the admin dashboard). It reads
+// /api/status first and refuses to run if the server has a key, so it never spends. With the server's
+// ADMIN_EMAIL / ADMIN_PASSWORD in this environment it also checks server-wide that no AI call was sent.
+// Without a key every AI step stops before any request to xAI; steps past the search builder need AI output and
+// are covered only by a real run with a key.
 import { createRequire } from "node:module";
 import fs from "node:fs";
+import { Client } from "./lib/client.mjs";
+import { isAiRefusalLog, requireNoKey } from "./lib/no-key.mjs";
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright"); // pre-installed Playwright (CommonJS resolution honours NODE_PATH)
 
@@ -10,13 +16,8 @@ const base = process.argv.find((a) => a.startsWith("http")) ?? "http://localhost
 const out = process.argv.find((a) => a.startsWith("--out="))?.split("=")[1] ?? "e2e-artifacts/run";
 fs.mkdirSync(out, { recursive: true });
 const IDEA = "What is the knowledge gap in implementing telemedicine in Southeast Asia?";
-const ANSWERS = [
-  "Mainly patients and health workers in ASEAN countries, especially rural and underserved areas; health-system decision makers too.",
-  "Implementation outcomes: adoption/uptake, barriers and facilitators, acceptability, and policy or infrastructure readiness.",
-  "Publications from 2015 onwards; any study design including qualitative studies, surveys and systematic or scoping reviews.",
-  "Both public and private health systems, primary care and hospital teleconsultation.",
-  "English-language papers are fine.",
-];
+const TOPICS = ["Telemedicine adoption in ASEAN countries", "Barriers and facilitators for health workers", "Rural and underserved patients", "Policy and infrastructure readiness"];
+const NOT_SET_UP = /AI is not set up/i;
 const t0 = Date.now();
 const log = (...a) => console.log(`[${((Date.now() - t0) / 1000).toFixed(0).padStart(4)}s]`, ...a);
 const checks = [];
@@ -25,238 +26,222 @@ const check = (name, ok, detail = "") => {
   log(ok ? "✓" : "✗", name, detail);
 };
 
+// Refuses to go on (exit 2) if the server has an xAI key. As the admin it also notes the spend so far.
+const { status: statusBefore, client: checker } = await requireNoKey(base);
+const admin = statusBefore.keys ? checker : null;
+const overviewBefore = admin ? await admin.json("/api/admin/overview") : null;
+log(`server has no xAI key${admin ? ` · recorded spend so far $${statusBefore.spendUsd.toFixed(4)}` : " (set ADMIN_EMAIL / ADMIN_PASSWORD for the server-wide spend checks)"}`);
+
 const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 1366, height: 900 }, acceptDownloads: true });
+const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true });
 const page = await ctx.newPage();
+// Console errors are kept with their URL: the browser logs every refused AI step (HTTP 503) as a failed
+// resource load, which is the expected answer here, not an app error.
 const consoleErrors = [];
-page.on("console", (m) => m.type() === "error" && consoleErrors.push(m.text().slice(0, 200)));
-page.on("pageerror", (e) => consoleErrors.push(String(e).slice(0, 200)));
+const refusedUrls = new Set();
+page.on("console", (m) => m.type() === "error" && consoleErrors.push({ text: m.text().slice(0, 200), url: m.location()?.url ?? "" }));
+page.on("pageerror", (e) => consoleErrors.push({ text: String(e).slice(0, 200), url: "" }));
+page.on("response", (r) => r.status() === 503 && r.url().includes("/api/projects/") && refusedUrls.add(r.url()));
 const shot = (name) => page.screenshot({ path: `${out}/${name}.png` });
 let pid;
-const api = async (path) => (await fetch(`${base}/api/projects/${pid}${path}`)).json();
+// API reads go through the browser context, so they carry the signed-in user's session cookie.
+const api = async (path) => (await ctx.request.get(`${base}/api/projects/${pid}${path}`)).json();
 const states = async () => (await api("")).project.stageStates;
+const panel = () => page.locator("[data-panel]");
+const node = (id) => page.locator(`[data-node-id="${id}"]`);
+const footer = () => page.locator("[data-panel-footer]");
 
-async function waitState(n, wanted = ["needs_review"], timeoutMs = 30 * 60_000) {
+async function waitApproved(n, timeoutMs = 60_000) {
   const end = Date.now() + timeoutMs;
   for (;;) {
     const s = (await states())[String(n)];
-    if (wanted.includes(s)) return s;
-    if (s === "failed") throw new Error(`stage ${n} failed: ${(await api("")).jobs[String(n)]?.error}`);
-    if (Date.now() > end) throw new Error(`timeout waiting for stage ${n} (state ${s})`);
-    await page.waitForTimeout(2500);
-  }
-}
-async function approve(n) {
-  await page.getByRole("button", { name: n === 9 ? "Finish and see summary" : "Approve and continue" }).click();
-  if (n < 9) await page.waitForURL(new RegExp(`stage=${n + 1}`), { timeout: 60_000 });
-  await page.waitForTimeout(800);
-  const s = (await states())[String(n)];
-  if (s !== "approved") throw new Error(`stage ${n} not approved (state ${s})`);
-}
-
-try {
-  // 1. Idea
-  await page.goto(base);
-  await page.getByLabel("Your research idea").fill(IDEA);
-  await page.getByRole("button", { name: "Start review" }).click();
-  await page.waitForURL(/projects\/prj_/);
-  pid = page.url().match(/projects\/(prj_[a-z0-9]+)/)[1];
-  log("project", pid);
-  await page.getByRole("navigation", { name: "Review stages" }).waitFor();
-  await page.waitForTimeout(1500); // let React hydrate before the first click
-  await shot("1-idea");
-  for (let i = 0; i < 3 && !/stage=2/.test(page.url()); i++) {
-    await page.getByRole("button", { name: /Save and start scoping/ }).click().catch(() => {});
-    await page.waitForURL(/stage=2/, { timeout: 20_000 }).catch(() => {});
-  }
-
-  // 2. Scoping chat
-  for (let i = 0; i < 6; i++) {
-    const box = page.getByLabel("Your answer");
-    const buildBtn = page.getByRole("button", { name: /Build my search topics/ });
-    await Promise.race([box.and(page.locator(":enabled")).waitFor({ timeout: 120_000 }), buildBtn.waitFor({ timeout: 120_000 })]);
-    if (await buildBtn.isVisible()) break;
-    const q = await page.locator('[aria-label="Scoping conversation"] .bg-gray-100').last().innerText();
-    log(`Q${i + 1}:`, q.replace(/\s+/g, " ").slice(0, 140));
-    await box.fill(ANSWERS[i]);
-    await page.getByRole("button", { name: "Send" }).click();
+    if (s === "approved") return;
+    if (Date.now() > end) throw new Error(`timeout waiting for stage ${n} to be approved (state ${s})`);
     await page.waitForTimeout(500);
   }
-  const sc = await api("/scoping");
-  check("scoping asked at most 5 questions", sc.asked <= 5, `asked ${sc.asked}`);
-  await page.getByRole("button", { name: /Build my search topics/ }).click();
-  await page.getByText("Search topics", { exact: true }).waitFor({ timeout: 180_000 });
-  await page.waitForTimeout(500);
-  const topics = (await api("/scoping")).topics;
-  check("4–8 topics generated", topics.length >= 4 && topics.length <= 8, topics.map((t) => t.name).join(" | "));
-  check("every topic has synonyms and a rationale", topics.every((t) => t.synonyms.length && t.rationale));
-  await shot("2-scoping");
-  // A user edit: add a topic, then delete it (exercise the checkpoint controls).
-  await page.getByLabel("New topic name").fill("Cost and financing of telemedicine");
-  await page.getByRole("button", { name: "Add", exact: true }).click();
-  await page.getByRole("button", { name: "Delete topic Cost and financing of telemedicine" }).waitFor();
-  check("user can add a topic", (await api("/scoping")).topics.length === topics.length + 1);
-  await page.getByRole("button", { name: "Delete topic Cost and financing of telemedicine" }).click();
-  await page.waitForTimeout(800);
-  check("user can delete a topic", (await api("/scoping")).topics.length === topics.length);
-  await approve(2);
+}
+/** Open a node's Focus panel the way a keyboard user would: focus it, press Enter. */
+async function openNode(id) {
+  await node(id).waitFor({ timeout: 60_000 });
+  await node(id).focus();
+  await page.keyboard.press("Enter");
+  await panel().waitFor();
+}
+async function menu(label) {
+  await panel().getByRole("button", { name: /^More actions/ }).click();
+  await page.getByRole("menuitem", { name: label }).click();
+}
+/** How many elements on screen match `re` (a message may already be on screen, so callers compare counts). */
+async function visibleCount(re, scope = page) {
+  const l = scope.getByText(re);
+  let n = 0;
+  for (let i = 0; i < (await l.count()); i++) if (await l.nth(i).isVisible().catch(() => false)) n++;
+  return n;
+}
+async function waitForMore(re, before, timeoutMs = 30_000) {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    if ((await visibleCount(re)) > before) return true;
+    await page.waitForTimeout(300);
+  }
+  return false;
+}
+const SPINNERS = /Preparing the first question|Thinking about the next question|Writing the searches/;
 
-  // 3. Search builder (auto-builds queries)
-  await page.getByRole("button", { name: "Dry-run all" }).waitFor({ timeout: 180_000 });
-  await page.getByRole("button", { name: "Dry-run all" }).click();
-  await page.getByText(/records$/).first().waitFor({ timeout: 180_000 });
-  await page.waitForTimeout(1500);
-  const search = await api("/search");
-  const qs = search.topics.flatMap((t) => t.queries);
-  check("one query per database per topic", search.topics.every((t) => t.queries.length === 2), `${qs.length} queries`);
-  check("dry-run counts shown", qs.every((q) => q.dryRunAt), qs.map((q) => q.dryRunCount ?? `ERR ${q.dryRunError}`).join(", "));
-  await shot("3-search");
-  await approve(3);
+try {
+  // 0. Accounts: a new user signs up through the UI (the landing's call to action), then lands on the empty canvas.
+  await page.goto(`${base}/`);
+  await page.getByRole("link", { name: "Start a review" }).click();
+  await page.getByLabel("Email").fill(`e2e-${Date.now()}@example.org`);
+  await page.getByLabel("Password").fill("e2e-password-123");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.waitForURL(/\/s\/new/);
 
-  // 4. Retrieval (background job + SSE)
-  log("retrieval running…");
+  // 1. Idea: the empty canvas. Saving the idea needs no AI.
+  await page.getByLabel("Describe your research idea").fill(IDEA);
+  await page.keyboard.press("Enter");
+  await page.waitForURL(/\/s\/prj_/);
+  pid = page.url().match(/\/s\/(prj_[a-z0-9]+)/)[1];
+  log("project", pid);
+  await node("idea").waitFor();
+  check("the idea is saved", (await api("")).project.idea === IDEA);
+  await shot("1-idea");
+
+  // 2. "Sharpen my idea" approves the idea; the first scoping question needs AI, so the panel says it is not set up.
+  await node("idea").getByRole("button", { name: "Sharpen my idea" }).click();
+  await waitApproved(1);
+  await panel().waitFor();
+  const said = await panel().getByText(NOT_SET_UP).first().waitFor({ timeout: 30_000 }).then(() => true, () => false);
+  check("“Sharpen my idea” shows the plain AI-not-set-up message", said);
   await page.waitForTimeout(3000);
-  await page.reload(); // leaving/returning must not lose progress
-  await waitState(4);
-  await page.waitForTimeout(1500);
-  const ret = await api("/retrieval");
-  check("retrieval finished all queries", ret.runs.every((r) => r.status !== "running" && r.status !== "queued"), ret.runs.map((r) => `${r.database}:${r.status}`).join(" "));
-  check("papers deduplicated", ret.uniquePapers > 0 && ret.uniquePapers <= ret.runs.reduce((a, r) => a + r.fetchedCount, 0), `${ret.uniquePapers} unique of ${ret.runs.reduce((a, r) => a + r.fetchedCount, 0)} fetched`);
-  await shot("4-retrieval");
-  await approve(4);
+  check("no spinner is left running after the refusal", (await visibleCount(SPINNERS)) === 0);
+  check("no scoping question was stored", (await api("/scoping")).messages.length === 0);
+  await shot("2-not-set-up");
 
-  // 5. Summary table
-  log("summaries running…");
-  await waitState(5);
-  await page.reload();
-  await page.getByRole("table").waitFor();
-  const papers = (await api("/papers")).papers;
-  check("every paper has a real identifier", papers.every((p) => p.doi || p.pmid || p.openalexId), `${papers.length} papers`);
-  check("summary rows filled", papers.filter((p) => p.summary).length >= papers.length * 0.9, `${papers.filter((p) => p.summary).length}/${papers.length}`);
-  await page.getByRole("button", { name: /^Cites/ }).click(); // sort by citations
-  await page.getByRole("textbox", { name: "Search papers" }).fill("Indonesia");
-  await page.waitForTimeout(400);
-  await shot("5-summary");
-  await page.getByRole("textbox", { name: "Search papers" }).fill("");
-  // open the drawer for the first paper
-  await page.locator("tbody button").first().click();
-  await page.getByRole("dialog", { name: "Paper details" }).getByText("Found by these queries").waitFor();
-  await shot("5-drawer");
-  await page.keyboard.press("Escape");
-  await approve(5);
-
-  // 6. Ranking
-  log("ranking running…");
-  await waitState(6);
-  await page.reload();
-  await page.waitForTimeout(1000);
-  const rank = await api("/ranking");
-  check("3–5 papers selected per topic", rank.topics.every((t) => { const n = t.scores.filter((s) => s.selected).length; return n >= 3 && n <= 5; }), rank.topics.map((t) => t.scores.filter((s) => s.selected).length).join(","));
-  check("topics ordered by importance with justification", rank.topics.every((t) => t.importanceRank && t.importanceJustification));
-  // swap one selection
-  const swapSel = page.locator('section[aria-label^="Topic "] select').first();
-  const opt = await swapSel.locator("option").nth(1).getAttribute("value");
-  await swapSel.selectOption(opt);
-  await page.waitForTimeout(1200);
-  const rank2 = await api("/ranking");
-  check("user can swap a selected paper", rank2.topics.some((t) => t.scores.some((s) => s.userChanged)));
-  await shot("6-ranking");
-  await approve(6);
-
-  // 7. Appraisal
-  log("appraisal running…");
-  await waitState(7);
-  await page.reload();
-  await page.waitForTimeout(1500);
-  const apps = (await api("/appraisals")).appraisals;
-  check("every appraisal labelled full text or abstract only", apps.every((a) => ["full_text", "abstract"].includes(a.textSource)), `${apps.filter((a) => a.textSource === "full_text").length} full text, ${apps.filter((a) => a.textSource === "abstract").length} abstract only`);
-  const details = await Promise.all(apps.filter((a) => a.status === "done").map((a) => api(`/appraisals/${a.id}`)));
-  const allClaims = details.flatMap((d) => d.claims);
-  const extracted = allClaims.filter((c) => !c.notReported);
-  check("every extracted claim has a quote", extracted.every((c) => c.quote.trim().length > 0), `${extracted.length} claims`);
-  let mismatch = 0;
-  for (const d of details) for (const c of d.claims) {
-    if (c.verified) {
-      const norm = (s) => s.toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[‐-—−]/g, "-").replace(/\s+/g, " ").trim();
-      const span = d.sourceText.text.slice(c.matchStart, c.matchEnd);
-      if (!norm(span).length) mismatch++;
-    }
-  }
-  check("verified quotes point at real spans of the source text", mismatch === 0, `${extracted.filter((c) => c.verified).length} verified, ${extracted.filter((c) => !c.verified).length} unverified`);
-  await shot("7-appraisal");
-  const accept = page.getByRole("button", { name: "Accept anyway" }).first();
-  if (await accept.isVisible().catch(() => false)) {
-    await accept.click();
-    await page.waitForTimeout(1000);
-    check("user can accept an unverified quote", (await Promise.all(apps.map((a) => api(`/appraisals/${a.id}`)))).some((d) => d.claims.some((c) => c.userAccepted)));
-  }
-  await approve(7);
-
-  // 8. Synthesis
-  log("synthesis running…");
-  await waitState(8);
-  await page.reload();
-  await page.waitForTimeout(1500);
-  const syn = await api("/synthesis");
-  const items = syn.topics.flatMap((t) => t.items);
-  check("synthesis statements all cite claims", items.length > 0 && items.every((i) => i.claimIds.length > 0), `${items.length} statements, ${syn.topics.reduce((a, t) => a + t.contradictions.length, 0)} contradictions`);
-  const cited = items.flatMap((i) => i.claimIds).map((id) => syn.claims[id]);
-  check("synthesis only cites verified or user-accepted claims", cited.every((c) => c && (c.verified || c.userAccepted)));
-  await shot("8-synthesis");
-  await approve(8);
-
-  // 9. Research questions
-  log("questions running…");
-  await waitState(9);
-  await page.reload();
-  await page.waitForTimeout(1500);
-  const rq = await api("/questions");
-  check("three candidate questions", rq.questions.length === 3, rq.questions.map((q) => q.text).join(" || "));
-  check("each question links to supporting claims", rq.questions.every((q) => q.claimIds.length > 0));
-  check("novelty searches ran", rq.questions.every((q) => q.noveltyStatus !== "pending"), rq.questions.map((q) => `${q.noveltyMatches.length} matches`).join(", "));
-  await shot("9-questions");
-  await page.getByRole("button", { name: "Choose this question" }).first().click();
-  await page.getByText("Refine your chosen question").waitFor();
-  const qbox = page.getByLabel("Question", { exact: true });
-  await qbox.fill((await qbox.inputValue()).replace(/\?$/, "") + " between 2015 and 2025?");
-  await page.getByRole("button", { name: "Save edits" }).click();
+  // 3. Topics by hand: skip the questions, add topics, edit one, delete one, then approve them.
+  await menu("Skip remaining questions");
   await page.waitForTimeout(800);
-  await page.getByRole("button", { name: "Finish and see summary" }).click();
-  await page.getByText("Your research question").waitFor({ timeout: 30_000 });
-  await shot("9-final");
-  check("question chosen and edited", (await api("/questions")).questions.some((q) => q.chosen && q.edited));
+  check("the scoping questions can be skipped", (await api("/scoping")).done === true);
+  for (const name of TOPICS) {
+    await openNode("idea");
+    await menu("Add a topic");
+    const dialog = page.getByRole("dialog", { name: "Add a topic" });
+    await dialog.getByLabel("Topic name").fill(name);
+    await dialog.getByRole("button", { name: "Add topic" }).click();
+    await dialog.waitFor({ state: "hidden" });
+    await page.locator('[data-kind="topic"]', { hasText: name }).first().waitFor();
+  }
+  let topics = (await api("/scoping")).topics;
+  check("topics can be added by hand", topics.length === TOPICS.length && topics.every((t) => t.origin === "user"), topics.map((t) => t.name).join(" | "));
+  await shot("3-topics");
 
-  // Exports
-  for (const [label, ext] of [["Download report (Markdown)", "md"], ["Summary table (CSV)", "csv"], ["Selected papers (BibTeX)", "bib"]]) {
-    const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("main").getByRole("link", { name: label }).click()]);
+  const first = topics[0];
+  await openNode(`topic:${first.id}`);
+  const nameBox = panel().getByLabel("Topic name");
+  await nameBox.fill(`${first.name} in primary care`);
+  const syn = panel().getByLabel("Synonyms (comma-separated)");
+  await syn.click(); // blur → the name saves
+  await syn.fill("teleconsultation, eHealth, telehealth");
+  await nameBox.click(); // blur → the synonyms save
+  await page.waitForTimeout(1200);
+  const edited = (await api("/scoping")).topics.find((t) => t.id === first.id);
+  check("a topic can be edited by hand", edited?.name === `${first.name} in primary care` && edited?.synonyms.includes("eHealth"), edited ? `${edited.name} · ${edited.synonyms.join(", ")}` : "topic missing");
+
+  const last = topics[topics.length - 1];
+  await openNode(`topic:${last.id}`);
+  await menu("Delete topic");
+  await node(`topic:${last.id}`).waitFor({ state: "detached" });
+  topics = (await api("/scoping")).topics;
+  check("a topic can be deleted", topics.length === TOPICS.length - 1 && !topics.some((t) => t.id === last.id));
+
+  await openNode("idea");
+  await footer().getByRole("button", { name: "Use these topics" }).click();
+  await waitApproved(2);
+  check("topics can be approved by hand without AI", (await states())["2"] === "approved");
+
+  // 4. Search builder: writing the searches needs AI, so it says AI is not set up and writes nothing.
+  await page.keyboard.press("Escape");
+  const before = await visibleCount(NOT_SET_UP);
+  await page.locator('[data-kind="topic"]').first().getByRole("button", { name: "Write the searches" }).click();
+  check("the search builder shows the AI-not-set-up message", await waitForMore(NOT_SET_UP, before));
+  await page.waitForTimeout(3000);
+  check("no spinner is left running after the refusal", (await visibleCount(SPINNERS)) === 0);
+  const search = await api("/search");
+  check("no searches were written and step 3 stays open", search.topics.every((t) => t.queries.length === 0) && (await states())["3"] !== "approved");
+  await shot("4-search-not-set-up");
+
+  // 5. Nothing was spent: every AI call of this project was refused before any request to xAI.
+  const view = await api("");
+  const costs = Object.values(view.costs ?? {});
+  const calls = costs.reduce((a, c) => a + c.calls, 0);
+  const cost = costs.reduce((a, c) => a + c.cost, 0);
+  check("nothing was spent: AI cost $0 and every AI call was refused", cost === 0 && calls > 0 && costs.every((c) => c.failures === c.calls), `${calls} refused calls, $${cost.toFixed(4)}`);
+
+  // 6. Isolation: another account cannot open this project, by API or by page.
+  const other = await new Client(base, "other").signup(`e2e-other-${Date.now()}@example.org`);
+  const otherApi = await other.raw(`/api/projects/${pid}`);
+  const otherPage = await (await other.raw(`/s/${pid}`)).text();
+  check("another account cannot open the project", otherApi.status === 404 && !otherPage.includes(IDEA.slice(0, 40)), `API ${otherApi.status}`);
+
+  // 7. Exports of what exists (the idea and the topics). The full-page views carry the not-set-up banner.
+  await page.goto(`${base}/s/${pid}/export`);
+  const banner = await page.getByText("AI is not set up yet.").first().waitFor({ timeout: 15_000 }).then(() => true, () => false);
+  check("the export page shows the “AI is not set up yet.” banner", banner);
+  for (const [format, ext] of [["Report", "md"], ["Spreadsheet of all papers", "csv"], ["Reference list", "bib"]]) {
+    await page.getByRole("radio", { name: new RegExp(`^${format}`) }).click();
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.locator("main").getByRole("link", { name: /^Download/ }).first().click()]);
     const path = `${out}/export.${ext}`;
     await dl.saveAs(path);
-    check(`export ${ext}`, fs.statSync(path).size > 200, `${fs.statSync(path).size} bytes`);
+    const failure = await dl.failure();
+    if (ext === "md") {
+      const md = fs.readFileSync(path, "utf8");
+      check("export md has the idea and the topics", !failure && md.includes(IDEA.slice(0, 40)) && topics.every((t) => md.includes(t.name)), `${md.length} bytes`);
+    } else check(`export ${ext} downloads`, !failure && fs.existsSync(path), failure ?? `${fs.statSync(path).size} bytes`);
   }
+  await shot("7-export");
 
-  // Stale tracking: edit the topic list after retrieval → later stages become stale.
-  await page.goto(`${base}/projects/${pid}?stage=2`);
-  const firstName = page.getByLabel("Topic name").first();
-  await firstName.waitFor();
-  await firstName.fill((await firstName.inputValue()) + " (edited)");
-  await page.getByLabel("New topic name").click(); // blur → save → confirmation dialog
-  await page.getByRole("button", { name: "Edit and mark later steps stale" }).click();
-  await page.waitForTimeout(1500);
-  const st = await states();
-  check("editing topics marks stages 3–9 stale", [3, 4, 5, 6, 7, 8, 9].every((n) => st[String(n)] === "stale"), JSON.stringify(st));
-  await page.goto(`${base}/projects/${pid}?stage=5`);
-  await page.getByText("These results may be out of date.").waitFor();
-  await shot("stale-banner");
+  // 8. Editing an approved topic reopens step 2 (stale tracking, as far as it goes without AI).
+  await page.goto(`${base}/s/${pid}`);
+  await openNode(`topic:${topics[1].id}`);
+  const box = panel().getByLabel("Topic name");
+  await box.fill(`${topics[1].name} (edited)`);
+  await panel().getByLabel("Synonyms (comma-separated)").click(); // blur → save
+  const guard = page.getByRole("button", { name: "Edit and mark later steps stale" });
+  if (await guard.isVisible({ timeout: 1500 }).catch(() => false)) await guard.click();
+  await page.waitForTimeout(1200);
+  check("editing an approved topic reopens step 2", (await states())["2"] === "needs_review");
+
+  // 9. The account menu: the account page shows $0.00 of AI use; settings say AI is not set up.
+  await page.goto(`${base}/sessions`);
+  await page.getByRole("button", { name: "Account and settings" }).click();
+  await page.getByRole("menuitem", { name: "Account" }).click();
+  await page.waitForURL(/\/account/);
+  await page.getByRole("heading", { name: "Your account", exact: true }).waitFor();
+  await page.getByText(/AI calls? across/).waitFor();
+  check("the account menu opens the account page, which shows $0.00 of AI use", (await page.getByText(/costing \$0\.00/).count()) > 0);
+  await shot("9-account");
+  await page.getByRole("button", { name: "Account and settings" }).click();
+  await page.getByRole("menuitem", { name: "Settings" }).click();
+  await page.waitForURL(/\/settings/);
+  const settingsSay = await page.getByText("AI not set up: no xAI key").first().waitFor({ timeout: 15_000 }).then(() => true, () => false);
+  check("settings say AI is not set up", settingsSay);
+  await shot("9-settings");
 } catch (e) {
   check("run completed without error", false, String(e.message ?? e));
   await shot("error").catch(() => {});
 } finally {
-  check("no browser console errors", consoleErrors.length === 0, consoleErrors.slice(0, 5).join(" | "));
-  const status = await (await fetch(`${base}/api/status`)).json();
-  const view = pid ? await api("") : null;
+  const unexpected = consoleErrors.filter((c) => !isAiRefusalLog(c.text, c.url, refusedUrls));
+  check("no browser console errors", unexpected.length === 0, unexpected.length ? unexpected.slice(0, 5).map((c) => c.text).join(" | ") : `${consoleErrors.length} expected refusal logs (HTTP 503) ignored`);
+  const view = pid ? await api("").catch(() => null) : null;
   const total = view ? Object.values(view.costs).reduce((a, c) => a + c.cost, 0) : 0;
-  log(`AI cost this project: $${total.toFixed(4)} · total recorded spend $${status.spendUsd.toFixed(4)}`);
-  fs.writeFileSync(`${out}/results.json`, JSON.stringify({ project: pid, mode: status.mockMode ? "mock" : status.mockAi ? "mock-ai" : "real", costs: view?.costs, checks }, null, 2));
+  let statusAfter = null;
+  if (admin) {
+    statusAfter = await admin.json("/api/status");
+    const overviewAfter = await admin.json("/api/admin/overview");
+    check("server-wide: no AI call reached xAI and nothing was spent during the run", overviewAfter.ai.totals.sent === overviewBefore.ai.totals.sent && statusAfter.spendUsd === statusBefore.spendUsd, `sent ${overviewBefore.ai.totals.sent} → ${overviewAfter.ai.totals.sent}, spend $${statusBefore.spendUsd.toFixed(4)} → $${statusAfter.spendUsd.toFixed(4)}`);
+  }
+  log(`AI cost this project: $${total.toFixed(4)}${statusAfter ? ` · total recorded spend $${statusAfter.spendUsd.toFixed(4)} · paid API calls attempted: ${statusAfter.paidCalls?.attempted ?? "?"}` : ""}`);
+  fs.writeFileSync(`${out}/results.json`, JSON.stringify({ project: pid, mode: "no-key", costs: view?.costs, paidCalls: statusAfter?.paidCalls, checks }, null, 2));
   const failed = checks.filter((c) => !c.ok);
   log(failed.length ? `${failed.length} CHECK(S) FAILED` : `ALL ${checks.length} CHECKS PASSED`);
   await browser.close();

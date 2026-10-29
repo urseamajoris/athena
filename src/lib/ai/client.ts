@@ -3,35 +3,43 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { sql } from "drizzle-orm";
 import { db, schema } from "../db";
-import { config, type ModelRole } from "../config";
+import { config, countPaid, type ModelRole } from "../config";
 import { DATA_RULES, fill, loadPrompt } from "./prompts";
 import { toXaiSchema, zodErrorText } from "./schema";
 import { limiter, newId, errMsg } from "../util";
-import { mockRespond } from "./mock";
 import { resolvedModel } from "./models";
+import { aiEnabled, budgetLimit, effectiveXaiKey } from "../settings";
+import { fingerprint, redactSecrets } from "../auth/secrets";
+import { AiUnavailableError, AiValidationError, BudgetError, aiRefusal } from "./errors";
 export { repairId } from "../grounding";
+export { AiPausedError, AiUnavailableError, AiValidationError, BudgetError, isAiStop } from "./errors";
 
-export class AiValidationError extends Error {
-  constructor(message: string, public raw?: string) {
-    super(message);
-  }
-}
-export class BudgetError extends Error {}
-
-const g = globalThis as unknown as { __xai?: OpenAI; __aiLimit?: ReturnType<typeof limiter>; __noEffort?: Set<string> };
-function client() {
-  if (!g.__xai) {
-    if (!config.xaiApiKey) throw new Error("XAI_API_KEY is not set. Add it to .env or run with MOCK_MODE=true.");
+const g = globalThis as unknown as { __xai?: { client: OpenAI; fp: string }; __aiLimit?: ReturnType<typeof limiter>; __noEffort?: Set<string> };
+/** The SDK client for the key in force (admin-set or environment); rebuilt when the key changes. */
+async function client(): Promise<{ client: OpenAI; key: string }> {
+  const { key } = await effectiveXaiKey();
+  if (!key) throw new AiUnavailableError();
+  const fp = fingerprint(key);
+  if (!g.__xai || g.__xai.fp !== fp) {
     // The SDK retries 429/5xx with exponential backoff; we raise the retry count for xAI rate limits.
-    g.__xai = new OpenAI({ apiKey: config.xaiApiKey, baseURL: config.xaiBaseUrl, maxRetries: 5, timeout: 600_000 });
+    g.__xai = { client: new OpenAI({ apiKey: key, baseURL: config.xaiBaseUrl, maxRetries: 5, timeout: 600_000 }), fp };
   }
-  return g.__xai;
+  return { client: g.__xai.client, key };
+}
+
+/** Refuses the call (and logs the refusal) when AI is switched off or no key is configured. No model call, no cost. */
+async function assertAiOn(log: (row: Partial<typeof schema.aiCalls.$inferInsert>) => Promise<unknown>) {
+  const [enabled, { key }] = await Promise.all([aiEnabled(), effectiveXaiKey()]);
+  const refused = aiRefusal({ enabled, key });
+  if (!refused) return;
+  await log(refused.row);
+  throw refused.error;
 }
 export const aiLimit = (g.__aiLimit ??= limiter(config.aiConcurrency));
 const noEffort = (g.__noEffort ??= new Set());
 
-export function totalSpend(): number {
-  const r = db.select({ s: sql<number>`coalesce(sum(${schema.aiCalls.costUsd}),0)` }).from(schema.aiCalls).get();
+export async function totalSpend(): Promise<number> {
+  const r = (await db.select({ s: sql<number>`coalesce(sum(${schema.aiCalls.costUsd}),0)` }).from(schema.aiCalls).get());
   return r?.s ?? 0;
 }
 
@@ -51,8 +59,6 @@ export interface CallOpts<T> {
   check?: (out: T) => string | null;
   /** Deterministic clean-up applied after schema validation and before `check` (e.g. repairing ID formatting). */
   normalize?: (out: T) => T;
-  /** Data passed to the mock responder in MOCK_MODE. */
-  mockInput?: unknown;
 }
 
 export interface CallResult<T> {
@@ -73,17 +79,17 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
   const user = fill(prompt.user, opts.vars);
   const jsonSchema = toXaiSchema(opts.schema);
 
-  const log = (row: Partial<typeof schema.aiCalls.$inferInsert>) =>
-    db.insert(schema.aiCalls).values({
-      id: newId("ai"),
-      projectId: opts.projectId ?? null,
-      stage: opts.stage ?? null,
-      promptName: prompt.name,
-      promptVersion: prompt.version,
-      model,
-      status: "ok",
-      ...row,
-    }).run();
+  const log = async (row: Partial<typeof schema.aiCalls.$inferInsert>) =>
+    (await db.insert(schema.aiCalls).values({
+            id: newId("ai"),
+            projectId: opts.projectId ?? null,
+            stage: opts.stage ?? null,
+            promptName: prompt.name,
+            promptVersion: prompt.version,
+            model,
+            status: "ok",
+            ...row,
+          }).run());
 
   const validate = (raw: string): { ok: true; data: T } | { ok: false; error: string } => {
     let parsed: unknown;
@@ -100,14 +106,7 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
     return { ok: true, data };
   };
 
-  if (config.mockAi) {
-    const out = await mockRespond(opts.prompt, opts.vars, opts.mockInput);
-    const raw = JSON.stringify(out);
-    const v = validate(raw);
-    log({ status: v.ok ? "ok" : "invalid", costSource: "mock", error: v.ok ? null : v.error, inputTokens: Math.round((system.length + user.length) / 4), outputTokens: Math.round(raw.length / 4) });
-    if (!v.ok) throw new AiValidationError(`Mock response failed validation: ${v.error}`, raw);
-    return { data: v.data, model: `mock:${model}`, promptVersion: prompt.version };
-  }
+  await assertAiOn(log);
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: system },
@@ -117,16 +116,20 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
   let lastError = "";
   let lastRaw = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const spent = totalSpend();
-    if (spent >= config.budgetUsd) {
-      log({ status: "refused", error: `budget reached ($${spent.toFixed(2)} of $${config.budgetUsd})` });
-      throw new BudgetError(`xAI budget cap reached ($${spent.toFixed(2)} of $${config.budgetUsd}). Raise XAI_BUDGET_USD to continue.`);
+    if (attempt > 1) await assertAiOn(log); // switched off (or the key removed) between the attempt and its retry
+    const spent = (await totalSpend());
+    const limit = await budgetLimit();
+    if (spent >= limit) {
+      (await log({ status: "refused", error: `budget reached ($${spent.toFixed(2)} of $${limit})` }));
+      throw new BudgetError(`AI budget reached ($${spent.toFixed(2)} of $${limit.toFixed(2)}). Your work is saved; the administrator can raise the limit.`);
     }
+    const { client: xai, key } = await client();
+    countPaid();
     const started = Date.now();
     const useEffort = (opts.role === "fast" || opts.role === "summary") && config.fastReasoningEffort && !noEffort.has(model);
     try {
       const res = await aiLimit(() =>
-        client().chat.completions.create({
+        xai.chat.completions.create({
           model,
           messages,
           response_format: { type: "json_schema", json_schema: { name: prompt.name.replace(/[^a-zA-Z0-9_-]/g, "_"), strict: true, schema: jsonSchema } },
@@ -142,31 +145,31 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
       const raw = res.choices[0]?.message?.content ?? "";
       lastRaw = raw;
       const v = validate(raw);
-      log({
-        status: v.ok ? "ok" : "invalid",
-        error: v.ok ? null : v.error,
-        attempt,
-        inputTokens: input,
-        cachedTokens: cached,
-        outputTokens: output,
-        reasoningTokens: reasoning,
-        costUsd: apiCost ?? estimateCost(model, input, cached, output),
-        costSource: apiCost !== null ? "api" : "estimate",
-        durationMs: Date.now() - started,
-      });
+      (await log({
+                status: v.ok ? "ok" : "invalid",
+                error: v.ok ? null : v.error,
+                attempt,
+                inputTokens: input,
+                cachedTokens: cached,
+                outputTokens: output,
+                reasoningTokens: reasoning,
+                costUsd: apiCost ?? estimateCost(model, input, cached, output),
+                costSource: apiCost !== null ? "api" : "estimate",
+                durationMs: Date.now() - started,
+              }));
       if (v.ok) return { data: v.data, model, promptVersion: prompt.version };
       lastError = v.error;
       messages.push({ role: "assistant", content: raw });
       messages.push({ role: "user", content: `Your previous response failed validation: ${v.error}\nReturn a corrected JSON response that fixes these problems. Use only the provided records and IDs.` });
     } catch (e) {
-      const msg = errMsg(e);
+      const msg = redactSecrets(errMsg(e), [key, config.xaiApiKey]);
       if (useEffort && /reasoningEffort|reasoning_effort/i.test(msg)) {
         noEffort.add(model);
         attempt--; // not a validation attempt; retry without the parameter
         continue;
       }
-      log({ status: "error", error: msg.slice(0, 500), attempt, durationMs: Date.now() - started });
-      throw e;
+      (await log({ status: "error", error: msg.slice(0, 500), attempt, durationMs: Date.now() - started }));
+      throw new Error(msg); // never rethrow the SDK error itself: it can carry request headers
     }
   }
   throw new AiValidationError(`The AI response did not pass validation after one retry: ${lastError}`, lastRaw);

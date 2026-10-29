@@ -18,7 +18,7 @@ export const STAGES: StageDef[] = [
   { n: 4, key: "retrieval", title: "Retrieval", done: "Wait for every query to finish, review the counts and any errors, then approve.", job: "retrieval" },
   { n: 5, key: "summary", title: "Summary table", done: "Skim the papers found, correct any abstract-derived cells, then approve.", job: "summaries" },
   { n: 6, key: "ranking", title: "Ranking", done: "Check the 3–5 papers selected per topic, swap any you disagree with, then approve.", job: "ranking" },
-  { n: 7, key: "appraisal", title: "Appraisal", done: "Review each appraisal, accept or reject unverified quotes, then approve.", job: "appraisal" },
+  { n: 7, key: "appraisal", title: "Appraisal", done: "Review each appraisal, accept or reject the quotes not found in the paper, then approve.", job: "appraisal" },
   { n: 8, key: "synthesis", title: "Synthesis", done: "Read the evidence matrix and the known / contested / unknown summaries, then approve.", job: "synthesis" },
   { n: 9, key: "questions", title: "Research question", done: "Compare the three candidates, pick one, edit it if needed, then finish.", job: "questions" },
 ];
@@ -26,9 +26,9 @@ export const STAGES: StageDef[] = [
 export const STATE_LABEL: Record<StageState, string> = {
   not_started: "Not started",
   running: "Running",
-  needs_review: "Needs review",
+  needs_review: "Your turn",
   approved: "Approved",
-  stale: "Stale",
+  stale: "Out of date",
   failed: "Failed",
 };
 
@@ -78,6 +78,16 @@ export const RUBRIC = [
   { key: "recency", label: "Recency", weight: 0.15, by: "formula" },
   { key: "citationImpact", label: "Citation impact", weight: 0.1, by: "formula" },
 ] as const;
+
+/** Papers kept per topic for appraisal ("3–5"). Fewer is allowed when few papers match a topic, but is said plainly. */
+export const PER_TOPIC = { min: 3, max: 5 } as const;
+/** Topic fit below this (0–1 of 5: unrelated, no topic terms in title or abstract) means the paper does not match the topic. */
+export const MIN_TOPIC_FIT = 2;
+
+/** Topics with fewer papers selected than the minimum, in the order given. */
+export function thinTopics<T extends { selected: number }>(topics: T[]): T[] {
+  return topics.filter((t) => t.selected < PER_TOPIC.min);
+}
 
 /** Surname from either PubMed style ("Teoh KW") or OpenAlex style ("Carl Froilan D. Leochico"). */
 export function surname(name: string | undefined | null): string {
