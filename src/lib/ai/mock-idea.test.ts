@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { answersByField, ideaQuestions, ideaSearch, ideaTopics, phrases, summaryOf, synonymsFor } from "./mock-idea";
+import { answersByField, gist, ideaQuestions, ideaSearch, ideaTopics, phrases, respellCommon, summaryOf, synonymsFor, synthesisStatements } from "./mock-idea";
 
 // Ideas the simulated users typed (docs/qa), with some of their answers.
 const IDEAS: [string, string[]][] = [
@@ -60,15 +60,80 @@ test("demo candidate questions are well formed and distinct", () => {
   for (const [idea, answers] of IDEAS) {
     const topics = ideaTopics(idea, answersByField(answers));
     const by = answersByField(answers);
-    const qs = ideaQuestions(topics, summaryOf({ population: by.population ?? "(mock) not stated", setting: by.setting ?? "(mock) not stated" }));
+    const qs = ideaQuestions(topics, summaryOf({ population: by.population ?? "(mock) not stated", setting: by.setting ?? "(mock) not stated" }), undefined, idea);
     assert.equal(qs.length, 3);
     assert.equal(new Set(qs.map((q) => q.text)).size, 3);
     assert.equal(new Set(qs.map((q) => q.weakness)).size, 3);
+    assert.equal(new Set(qs.map((q) => q.design)).size, 3);
     for (const q of qs) {
-      assert.match(q.text, /^\(mock\) (How do|Is there an association between|What helps or hinders) .+\?$/);
+      assert.match(q.text, /^\(mock\) (How do|Is there an association between|What is the effect of|What helps or hinders) .+\?$/);
       assert.ok(!/factors shape|Southeast Asia|telemedicine/i.test(q.text), q.text);
+      assert.ok(!/Less or no/.test(JSON.stringify(q.structure)), JSON.stringify(q.structure));
     }
   }
   const [, assoc] = ideaQuestions(ideaTopics(IDEAS[0][0], answersByField(IDEAS[0][1])), summaryOf({ population: "university students in the UK", setting: "UK" }));
   assert.equal(assoc.text, "(mock) Is there an association between sleep and grades among university students in the UK?");
+});
+
+test("the association question keeps the idea's direction and a sensible comparison", () => {
+  // The user deleted "Sleep" and added it back, so it is now the last topic.
+  const idea = "How does sleep affect grades in university students?";
+  const topics = ideaTopics(idea).filter((t) => t.name !== "Sleep");
+  topics.push({ name: "Sleep", synonyms: ["sleep"], controlledTerms: [], rationale: "Added by you" });
+  const [, assoc] = ideaQuestions(topics, summaryOf({ population: "university students" }), "", idea);
+  const el = Object.fromEntries(assoc.structure.map((s) => [s.element, s.value]));
+  assert.equal(assoc.framework, "PECO");
+  assert.equal(assoc.text, "(mock) Is there an association between sleep and grades among university students?");
+  assert.deepEqual([el.Exposure, el.Comparison, el.Outcome], ["Sleep", "Less sleep", "Grades"]);
+});
+
+test("an idea that asks whether a treatment helps gets an effect (PICO) question that does not repeat the population", () => {
+  const idea = IDEAS[3][0];
+  const topics = ideaTopics(idea, answersByField(["adults over 65 after hip fracture surgery"]));
+  const qs = ideaQuestions(topics, summaryOf({ population: "adults over 65 after hip fracture surgery" }), "", idea);
+  const effect = qs.find((q) => q.framework === "PICO");
+  assert.ok(effect, qs.map((q) => q.text).join(" | "));
+  assert.equal(effect.text, "(mock) What is the effect of tele-rehabilitation compared with usual care on recovery among adults over 65 after hip fracture surgery?");
+  assert.deepEqual(effect.structure.map((s) => s.element), ["Population", "Intervention", "Comparison", "Outcome"]);
+  assert.match(effect.design, /trial/i);
+  for (const q of qs) assert.ok((q.text.match(/hip fracture surgery/g) ?? []).length <= 1, q.text);
+  // "return-to-work" does not make an association idea ask about an effect.
+  const covid = ideaQuestions(ideaTopics(IDEAS[2][0]), summaryOf({}), "", IDEAS[2][0]);
+  assert.ok(!covid.some((q) => q.framework === "PICO"), covid.map((q) => q.text).join(" | "));
+});
+
+test("common health words are spelt right even when every answer has the same typo", () => {
+  const idea = "how mobile app help diabtes pateint in thailand control there sugar level?";
+  const names = ideaTopics(idea, answersByField(["type 2 diabetes pateints in thailand"])).map((t) => t.name);
+  assert.ok(names.includes("Diabetes patient"), names.join(", "));
+  assert.equal(respellCommon("pateints with diabtes"), "patients with diabetes");
+  assert.equal(respellCommon("patent law and parents"), "patent law and parents");
+});
+
+test("demo synthesis statements say what the claims they cite say, and cite only those claims", () => {
+  const claims = [
+    { id: "c0", paperId: "p1", field: "key_findings", statement: "(mock) Telemedicine works which clearly proves the intervention works everywhere", verified: false },
+    { id: "c1", paperId: "p1", field: "key_findings", statement: "(mock) The results showed that teleconsultation reduced travel time for rural patients by half.", verified: true },
+    { id: "c2", paperId: "p1", field: "key_findings", statement: "(mock) Satisfaction was associated with prior internet use.", verified: true },
+    { id: "c3", paperId: "p2", field: "key_findings", statement: "(mock) RESULTS: Uptake stayed low in remote provinces; cost was the main barrier.", verified: true },
+    { id: "c4", paperId: "p2", field: "key_findings", statement: "(mock) Most nurses found the platform easy to use.", verified: true },
+    { id: "c5", paperId: "p2", field: "limitations", statement: "(mock) The sample was small and self-selected.", verified: true },
+    { id: "c6", paperId: "p1", field: "methods", statement: "(mock) A survey was used.", verified: true },
+  ];
+  const papers = [{ id: "p1", authors: ["Lee SWH", "Kim J"], year: 2021 }, { id: "p2", authors: ["Carl Froilan D. Leochico"], year: 2020 }];
+  const out = synthesisStatements(claims, papers, "Main findings");
+  assert.deepEqual(out.known.map((k) => k.statement), [
+    "(mock) Teleconsultation reduced travel time for rural patients by half (reported by Lee et al. 2021).",
+    "(mock) Uptake stayed low in remote provinces (reported by Leochico 2020).",
+  ]);
+  assert.deepEqual(out.contested[0].claimIds, ["c2", "c4"], "other findings than Known, from two papers");
+  assert.match(out.contested[0].statement, /Lee et al\. 2021: Satisfaction was associated with prior internet use\. Leochico 2020: Most nurses/);
+  assert.deepEqual(out.unknown, [{ statement: "(mock) Still uncertain: The sample was small and self-selected (a limitation noted by Leochico 2020).", claimIds: ["c5"] }]);
+  const ids = new Set(claims.map((c) => c.id));
+  for (const s of [...out.known, ...out.contested, ...out.unknown, ...out.contradictions]) assert.ok(s.claimIds.length && s.claimIds.every((id) => ids.has(id)));
+  for (const s of [...out.known, ...out.contested, ...out.unknown]) assert.match(s.statement, /^\(mock\) /);
+  // No limitations: Unknown says so and points at how a study was done, not at nothing.
+  const none = synthesisStatements(claims.filter((c) => c.field !== "limitations"), papers, "Main findings");
+  assert.deepEqual(none.unknown[0].claimIds, ["c6"]);
+  assert.equal(gist("(mock) In conclusion, we found that apps improved adherence among 40 participants in a twelve week pilot trial in two rural districts of northern Thailand with nurse support", 10), "Apps improved adherence among 40 participants in a twelve week…");
 });

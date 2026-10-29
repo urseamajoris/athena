@@ -1,8 +1,9 @@
 /*
  * Demo (mock) mode only: read a research idea and the scoping answers in the user's own words, so the scripted
- * AI suggests topics, searches and questions about THEIR idea (the recorded papers stay telemedicine samples).
- * Pure and dependency-free so it can be unit-tested; used by mock.ts.
+ * AI suggests topics, searches and questions about THEIR idea (the recorded papers stay telemedicine samples), and
+ * write synthesis statements from the claims they cite. Pure (no server code) so it can be unit-tested; used by mock.ts.
  */
+import { shortCite } from "../shared/stages";
 
 export type ScopeField = "population" | "setting" | "outcome" | "timeframe" | "studyTypes";
 export type Answers = Partial<Record<ScopeField, string>>;
@@ -70,13 +71,27 @@ function editDistance(a: string, b: string): number {
   return d[a.length][b.length];
 }
 
-/** Fix a misspelt word when the user spelt it correctly in one of their answers ("diabtes" → "diabetes"). */
+// Common words in health ideas, fixed when one letter is off even if the user never spelt them right ("pateint").
+// Real words one letter away from them are listed too, so they are kept as typed ("patent" is not "patient").
+const COMMON = ("patient patients diabetes diabetic children disease diseases hospital hospitals treatment pregnancy pregnant depression " +
+  "anxiety dementia hypertension rehabilitation adolescents elderly students nurses doctors mothers").split(" ");
+const REAL = new Set(["patent", "patents", "diseased", "nursed"]);
+
+/**
+ * Fix a misspelt word when the user spelt it correctly in one of their answers ("diabtes" → "diabetes"), or when it
+ * is one letter (or one swap) away from a common health word.
+ */
 function respell(word: string, vocab: string[]): string {
   const w = word.toLowerCase();
-  if (w.length < 5 || vocab.includes(w)) return word;
-  const fix = vocab.find((v) => v[0] === w[0] && v !== `${w}s` && w !== `${v}s` && editDistance(w, v) <= (w.length >= 6 ? 2 : 1));
+  if (w.length < 5 || COMMON.includes(w) || REAL.has(w)) return word;
+  const near = (v: string, most: number) => v[0] === w[0] && v !== `${w}s` && w !== `${v}s` && editDistance(w, v) <= most;
+  // The common words first: the same typo in the idea and the answers must not count as the right spelling.
+  const fix = (w.length >= 6 ? COMMON.find((v) => near(v, 1)) : undefined) ?? (vocab.includes(w) ? undefined : vocab.find((v) => near(v, w.length >= 6 ? 2 : 1)));
   return fix ? (word[0] === word[0].toUpperCase() ? capFirst(fix) : fix) : word;
 }
+
+/** A sentence with common health words spelt right (only those: other words stay as the user wrote them). */
+export const respellCommon = (text: string) => text.replace(/[A-Za-z]{6,}/g, (w) => respell(w, []));
 
 /**
  * Key phrases in the user's words: runs of words between stop words and punctuation, so multi-word concepts stay
@@ -222,18 +237,51 @@ export function ideaSearch<T extends { id: string; name: string; synonyms: strin
   };
 }
 
+// Things done to people to help them (an effect question compares them with usual care), and health conditions.
+const INTERVENTION = /(intervention|therap|treatment|rehabilitation|counsel|coaching|programme|program|training|support group|tele-?\w|mhealth|e-?health|mobile app|exercise)/i;
+const CONDITION = /(covid|depress|anxiety|burnout|disease|disorder|syndrome|diabetes|obesity|pain|injury|fracture|infection|cancer|stroke|illness|dementia|asthma|hypertension)/i;
+// The idea asks whether something works ("Does tele-rehabilitation help…", "can an app reduce…"); not "return-to-work".
+const ASKS_EFFECT = /(?<![-\w])(help|helps|helped|work|works|improve|improves|reduce|reduces|lower|lowers|effective|effectiveness|efficacy|benefit|benefits|prevent|prevents)(?![-\w])/i;
+
+/** Topics in the order the idea names them ("sleep affects grades": sleep, then grades); topics not in it keep their order, last. */
+function inIdeaOrder<T extends { name: string; synonyms: string[] }>(topics: T[], idea: string): T[] {
+  const low = idea.toLowerCase();
+  const at = (t: T) => Math.min(Infinity, ...[t.name, ...t.synonyms].map((w) => low.indexOf(w.toLowerCase())).filter((n) => n >= 0));
+  return topics.map((t, i) => ({ t, i, at: at(t) })).sort((x, y) => (x.at === y.at ? x.i - y.i : x.at - y.at)).map((x) => x.t);
+}
+
+/** What an exposure is compared with: usual care for a treatment, people without a condition, otherwise less of it. */
+function contrastOf(name: string): string {
+  const a = inSentence(name);
+  if (INTERVENTION.test(a)) return `Usual care, without ${a}`;
+  if (CONDITION.test(a)) return `Without ${a}`;
+  const last = a.split(" ").pop() ?? "";
+  return /[a-z]s$/.test(last) && !/(ss|us|is)$/.test(last) && !NO_SINGULAR.has(last) ? `Less use of ${a}` : `Less ${a}`;
+}
+
+/** The outcome in the idea's verb: "help older adults recover after hip fracture surgery" → "recovery after hip fracture surgery". */
+function outcomeInIdea(idea: string, pop: string | null): string | null {
+  const m = idea.match(/\brecover(?:y|s|ing|ed)?\b(?:\s+(after|from)\s+([^?.!,;]+))?/i);
+  if (!m) return null;
+  const what = m[2] ? inSentence(m[2].trim().split(/\s+/).slice(0, 5).join(" ")) : null;
+  return what && !(pop ?? "").toLowerCase().includes(what.toLowerCase()) ? `recovery ${m[1].toLowerCase()} ${what}` : "recovery";
+}
+
 /**
  * Three well-formed candidate questions in the user's words: how people experience the main concept (PICo), whether
- * it is associated with the second concept (PECO), and what helps or hinders it (PICo). Each has its own gap,
- * feasibility and weakness.
+ * it is associated with the second concept (PECO, exposure and outcome in the order the idea names them) or, when the
+ * idea asks whether something helps, what its effect is compared with usual care (PICO), and what helps or hinders it
+ * (PICo). Each has its own design, gap, feasibility and weakness.
  */
-export function ideaQuestions(topics: { name: string; synonyms: string[] }[], sum: Record<string, string | null>, note = SAMPLE_NOTE) {
+export function ideaQuestions(topics: { name: string; synonyms: string[] }[], sum: Record<string, string | null>, note = SAMPLE_NOTE, idea = "") {
   const place = namedPlace(sum);
-  const concepts = conceptsOf(topics, place);
-  const a = concepts[0] ?? topics[0];
-  const b = concepts[1] ?? { name: clause(sum.outcome) ?? "outcomes", synonyms: [] };
   const people = topics.find((t) => isPeople(t.name));
   const pop = clause(sum.population) ?? (people ? inSentence(people.name) : null);
+  // A concept the population already names is not a second concept ("adults over 65 after hip fracture surgery").
+  const inPop = (t: { name: string }) => !!pop && pop.toLowerCase().includes(inSentence(t.name).toLowerCase());
+  const concepts = inIdeaOrder(conceptsOf(topics, place), idea);
+  const a = concepts[0] ?? topics[0];
+  const b = concepts.find((t) => t !== a && !inPop(t)) ?? { name: clause(sum.outcome) ?? "outcomes", synonyms: [] };
   const A = inSentence(a.name);
   const B = inSentence(b.name);
   const among = pop ? ` among ${pop}` : "";
@@ -241,9 +289,68 @@ export function ideaQuestions(topics: { name: string; synonyms: string[] }[], su
   const who = { element: "Population", value: pop ?? "(mock) not stated" };
   const context = { element: "Context", value: place ?? "Any setting" };
   const novelty = { pubmed: `(${tiab(termsOf(a, 2))}) AND (${tiab(termsOf(b, 2))})`, openalex: `(${quoted(termsOf(a, 2))}) AND (${quoted(termsOf(b, 2))})` };
+  // An effect question when the idea asks whether a treatment (something done to help people) works.
+  const effect = INTERVENTION.test(A) && (ASKS_EFFECT.test(idea) || /\beffects? of\b/i.test(idea));
+  // The second concept is the outcome (an outcome answer is merged into it or follows it), unless the verb names one.
+  const outcome = outcomeInIdea(idea, pop) ?? B;
+  const second = effect
+    ? { framework: "PICO" as const, text: `(mock) What is the effect of ${A} compared with usual care on ${outcome}${among}${where}?`, structure: [who, { element: "Intervention", value: a.name }, { element: "Comparison", value: "Usual care" }, { element: "Outcome", value: capFirst(outcome) }], design: "Randomised controlled trial (a small pilot first)", gap: `(mock) Sample gap: few included papers compare ${A} with usual care.`, feasibility: "(mock) Feasible as a pilot trial with about 60 people over 12 months.", weakness: "(mock) A pilot this small may not show a difference even if there is one." }
+    : { framework: "PECO" as const, text: `(mock) Is there an association between ${A} and ${B}${among}?`, structure: [who, { element: "Exposure", value: a.name }, { element: "Comparison", value: contrastOf(a.name) }, { element: "Outcome", value: b.name }], design: "Cross-sectional survey", gap: "(mock) Sample gap: the included papers do not measure this link directly.", feasibility: "(mock) Feasible with an online survey of about 300 people.", weakness: "(mock) A survey shows an association, not a cause." };
   return [
-    { framework: "PICo" as const, text: `(mock) How do ${pop ?? "the people involved"} experience ${A}${where}?`, structure: [who, { element: "Interest", value: a.name }, context], gap: "(mock) Sample gap: few included papers describe how people experience this.", feasibility: "(mock) Feasible with 15 to 25 interviews over 6 months.", weakness: "(mock) A small sample may not transfer to other groups." },
-    { framework: "PECO" as const, text: `(mock) Is there an association between ${A} and ${B}${among}?`, structure: [who, { element: "Exposure", value: a.name }, { element: "Comparison", value: `Less or no ${A}` }, { element: "Outcome", value: b.name }], gap: "(mock) Sample gap: the included papers do not measure this link directly.", feasibility: "(mock) Feasible with an online survey of about 300 people.", weakness: "(mock) A survey shows an association, not a cause." },
-    { framework: "PICo" as const, text: `(mock) What helps or hinders ${A}${among}${where}?`, structure: [who, { element: "Interest", value: `What helps or hinders ${A}` }, context], gap: "(mock) Sample gap: barriers and enablers are rarely compared across settings.", feasibility: "(mock) Feasible over 12 months with a survey and follow-up interviews.", weakness: "(mock) Larger and slower than a single-method study." },
+    { framework: "PICo" as const, text: `(mock) How do ${pop ?? "the people involved"} experience ${A}${where}?`, structure: [who, { element: "Interest", value: a.name }, context], design: "Qualitative interview study", gap: "(mock) Sample gap: few included papers describe how people experience this.", feasibility: "(mock) Feasible with 15 to 25 interviews over 6 months.", weakness: "(mock) A small sample may not transfer to other groups." },
+    second,
+    { framework: "PICo" as const, text: `(mock) What helps or hinders ${A}${among}${where}?`, structure: [who, { element: "Interest", value: `What helps or hinders ${A}` }, context], design: "Mixed-methods implementation study", gap: "(mock) Sample gap: barriers and enablers are rarely compared across settings.", feasibility: "(mock) Feasible over 12 months with a survey and follow-up interviews.", weakness: "(mock) Larger and slower than a single-method study." },
   ].map((c) => ({ ...c, text: c.text.slice(0, 400), structure: c.structure.map((s) => ({ ...s, value: s.value.slice(0, 300) })), gap: `${c.gap}${note ? ` ${note}` : ""}`, noveltyQueries: novelty }));
+}
+
+/** A claim in plain words for a synthesis statement: no "(mock)", section label or lead-in ("The results showed that"). */
+export function gist(statement: string, words = 24): string {
+  const s = statement
+    .replace(/^\(mock\)\s*/, "")
+    .replace(/^[A-Z][A-Z /]+:\s*/, "")
+    .replace(/^(in conclusion|overall|in summary|taken together|finally),?\s+/i, "")
+    .replace(/^(the |these |our |this )?(results?|findings?|study|data|analysis|review|authors?|we)( also)? (showed?|shows|suggest(?:ed|s)?|found|finds|indicated?|indicates|revealed?|reveals|demonstrated?|demonstrates|reported|reports|highlighted?|highlights|concluded?|concludes)( that)?\s+/i, "")
+    .split(/;\s/)[0]
+    .trim();
+  const w = s.split(/\s+/);
+  const t = w.length > words ? `${w.slice(0, words).join(" ").replace(/[\s,;:.]+$/, "")}…` : s.replace(/[\s,;:.]+$/, "");
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+interface MockClaim { id: string; paperId: string; field: string; statement: string; verified?: boolean }
+
+/**
+ * Demo synthesis statements that say what the claims they cite say: Known condenses one paper's finding, Contested sets
+ * two other findings from different papers side by side, Unknown comes from the papers' own limitations. Only the
+ * claims given (verified or accepted ones) are cited; quotes found in the paper come before ones the user accepted.
+ */
+export function synthesisStatements(claims: MockClaim[], papers: { id: string; authors?: string[]; year?: number | null }[], theme: string) {
+  const cite = (paperId: string) => {
+    const p = papers.find((x) => x.id === paperId);
+    return p ? shortCite(p.authors ?? [], p.year ?? null) : "one paper";
+  };
+  const foundFirst = (cs: MockClaim[]) => [...cs].sort((x, y) => Number(y.verified !== false) - Number(x.verified !== false));
+  const byPaper = (field: string) => {
+    const m = new Map<string, MockClaim[]>();
+    for (const c of foundFirst(claims.filter((x) => x.field === field))) m.set(c.paperId, [...(m.get(c.paperId) ?? []), c]);
+    return [...m.values()];
+  };
+  const kf = byPaper("key_findings");
+  const known = kf.slice(0, 3).map(([c]) => ({ statement: `(mock) ${gist(c.statement)} (reported by ${cite(c.paperId)}).`.slice(0, 600), claimIds: [c.id] }));
+  const knownIds = new Set(known.flatMap((k) => k.claimIds));
+  // Two papers' other findings, so Contested does not repeat Known (unless there are no others).
+  const spare = kf.map((cs) => cs.find((c) => !knownIds.has(c.id))).filter((c): c is MockClaim => !!c);
+  const [pa, pb] = spare.length >= 2 ? spare : kf.map(([c]) => c);
+  const lims = byPaper("limitations").slice(0, 2).map(([c]) => c);
+  const how = foundFirst(claims.filter((c) => c.field === "methods" || c.field === "sample"))[0] ?? claims[0];
+  return {
+    contradictions: pa && pb ? [{ theme, description: `(mock) Possible conflict between ${cite(pa.paperId)} and ${cite(pb.paperId)}: the demo sets two findings from different papers side by side. Compare the quotes to see whether they really disagree.`.slice(0, 400), claimIds: [pa.id, pb.id] }] : [],
+    known,
+    contested: pa && pb ? [{ statement: `(mock) Possible difference to check. ${cite(pa.paperId)}: ${gist(pa.statement)}. ${cite(pb.paperId)}: ${gist(pb.statement)}. Read both quotes before treating this as a real disagreement.`.slice(0, 600), claimIds: [pa.id, pb.id] }] : [],
+    unknown: lims.length
+      ? lims.map((c) => ({ statement: `(mock) Still uncertain: ${gist(c.statement)} (a limitation noted by ${cite(c.paperId)}).`.slice(0, 600), claimIds: [c.id] }))
+      : how
+        ? [{ statement: `(mock) None of these ${papers.length} papers states its limitations, so what is still unknown is unclear; check how they were done. For example, ${cite(how.paperId)}: ${gist(how.statement)}.`.slice(0, 600), claimIds: [how.id] }]
+        : [],
+  };
 }
