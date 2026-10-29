@@ -49,7 +49,7 @@ Mock mode replays recorded HTTP fixtures from `fixtures/http/` (real PubMed, Ope
 
 - The responders build schema-valid output from the real input records, so grounding checks, quote verification, deduplication and the whole UI behave as they do in real mode.
 - Free-text mock output is prefixed `(mock)`.
-- Each mock appraisal includes one deliberately altered quote, so you can see the "unverified" path.
+- In one or two appraised papers per review, one quote is altered on purpose, so you can see the "unverified" path.
 - With the test idea and the mock scoping answers, queries match the recorded fixtures exactly. For other queries a fixture recorded for the same endpoint is served.
 - Full text that came from open PDFs is not in the fixtures, because PDFs and PDF text are never recorded. Those papers fall back to abstract-only in mock mode.
 

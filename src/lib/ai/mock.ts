@@ -4,13 +4,13 @@ import { config } from "../config";
  * MOCK_MODE model responders. They are deterministic and build schema-valid output FROM THE INPUT they are
  * given (real records from fixtures), so every downstream check (grounded IDs, quote verification) is
  * exercised exactly as in real mode. Outputs are prefixed "(mock)" where they are free text.
- * One appraisal quote per paper is deliberately altered so the "unverified quote" path can be demoed.
+ * In one or two papers per review one appraisal quote is altered on purpose, so the "unverified quote" path can be demoed.
  * The telemedicine test idea (scripts/e2e.mjs) gets the scripted telemedicine scope; any other idea gets topics,
  * searches and questions built from its own words and answers (mock-idea.ts), while the recorded papers stay
  * telemedicine samples, which the free text says.
  */
 
-import { answersByField, cleanAnswer, FILLER_TOPICS, IDEA_QUESTIONS, ideaQuestions, ideaSearch, ideaTopics, inSentence, isPeople, namedPlace, phrases, quoted, SAMPLE_NOTE, summaryOf, termsOf, tiab, unwrapData, type ScopeField } from "./mock-idea";
+import { answersByField, cleanAnswer, FILLER_TOPICS, IDEA_QUESTIONS, ideaQuestions, ideaSearch, ideaTopics, inSentence, isPeople, namedPlace, phrases, quoted, respellCommon, SAMPLE_NOTE, summaryOf, synthesisStatements, termsOf, tiab, unwrapData, type ScopeField } from "./mock-idea";
 
 type AnyRec = Record<string, unknown>;
 
@@ -71,6 +71,22 @@ function telemedRun(inp: AnyRec, vars: Record<string, string>) {
 /** Recorded sample papers only when the databases are mocked too (with mock AI alone the papers are real). */
 const sampleNote = () => (config.mockMode ? SAMPLE_NOTE : "");
 
+/**
+ * Papers given the altered quote, per project. One or two per review shows the "not found, you decide" path;
+ * planting it in every paper made the appraisal tedious. A paper that already has it keeps it when it is redone.
+ */
+const ALTERED_PER_REVIEW = 2;
+const alteredIn = new Map<string, Set<string>>();
+function getsAlteredQuote(paper: { id?: string; projectId?: string } | undefined): boolean {
+  if (!paper?.id) return true;
+  const ids = alteredIn.get(paper.projectId ?? "") ?? new Set<string>();
+  alteredIn.set(paper.projectId ?? "", ids);
+  if (ids.has(paper.id)) return true;
+  if (ids.size >= ALTERED_PER_REVIEW) return false;
+  ids.add(paper.id);
+  return true;
+}
+
 export async function mockRespond(prompt: string, vars: Record<string, string>, input: unknown): Promise<unknown> {
   const inp = (input ?? {}) as AnyRec;
   switch (prompt) {
@@ -123,7 +139,8 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
       if (!isTelemed(idea)) {
         const byField = answersByField((inp.answers as string[]) ?? []);
         const topics = ideaTopics(idea, byField);
-        const said = (f: ScopeField, otherwise: string) => `(mock) ${byField[f] ?? otherwise}`;
+        // A question the user skipped reads "not stated", never a default they did not choose.
+        const said = (f: ScopeField, otherwise: string) => `(mock) ${respellCommon(byField[f] ?? otherwise)}`;
         const concepts = topics.filter((t) => !isPeople(t.name) && !FILLER_TOPICS.includes(t.name)).map((t) => inSentence(t.name));
         return {
           summary: {
@@ -131,8 +148,8 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
             setting: said("setting", "not stated"),
             phenomenon: `(mock) ${concepts.join(", ") || cleanAnswer(idea, 120)}`,
             outcome: said("outcome", "not stated"),
-            timeframe: said("timeframe", "2015 onwards"),
-            studyTypes: said("studyTypes", "Any design"),
+            timeframe: said("timeframe", "not stated"),
+            studyTypes: said("studyTypes", "not stated"),
           },
           conceptMap: {
             nodes: topics.map((t, i) => ({ id: `n${i + 1}`, label: t.name, kind: isPeople(t.name) ? "population" : i === 0 ? "phenomenon" : "context" })),
@@ -211,7 +228,7 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
       return { order: topics.map((t, i) => ({ topicId: t.id, rank: i + 1, justification: `(mock) Kept in scoping order (#${i + 1}).` })) };
     }
     case "appraisal": {
-      const { text, checklist } = inp as { text: string; checklist: string[] };
+      const { text, checklist, paper } = inp as { text: string; checklist: string[]; paper?: { id?: string; projectId?: string } };
       const s = sentences(text);
       const pick = (re: RegExp, used: Set<string>) => {
         const x = s.find((y) => re.test(y) && !used.has(y));
@@ -234,9 +251,12 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
           ? { field, statement: `(mock) ${trimWords(q, 30)}`, notReported: false, quote: trimWords(q, 55), location: "(mock) located by keyword" }
           : { field, statement: "not reported", notReported: true, quote: "", location: "" };
       });
-      // Deliberately unverifiable quote to demonstrate flagging.
+      // An overstated quote that is not in the paper, in one or two papers per review, so the check can be seen to catch it.
       const kf = extractions.find((e) => e.field === "key_findings" && e.quote);
-      if (kf) extractions.push({ field: "key_findings", statement: "(mock) Paraphrase presented as a quote — should be flagged", notReported: false, quote: `${kf.quote.split(" ").slice(0, 6).join(" ")} which clearly proves the intervention works everywhere`, location: "(mock) deliberately altered" });
+      if (kf && getsAlteredQuote(paper)) {
+        const quote = `${kf.quote.split(" ").slice(0, 6).join(" ")} which clearly proves the intervention works everywhere`;
+        extractions.push({ field: "key_findings", statement: `(mock) ${quote}`, notReported: false, quote, location: "(mock) demo example: this quote was changed on purpose" });
+      }
       return {
         extractions,
         checklist: checklist.map((item, i) => {
@@ -246,7 +266,7 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
       };
     }
     case "synthesis": {
-      const { claims, papers } = inp as { claims: { id: string; paperId: string; field: string; statement: string }[]; papers: { id: string }[] };
+      const { claims, papers } = inp as { claims: { id: string; paperId: string; field: string; statement: string; verified?: boolean }[]; papers: { id: string; authors?: string[]; year?: number | null }[] };
       const themes = ["(mock) Main findings", "(mock) Study context", "(mock) Limitations"];
       const fieldTheme: Record<string, string> = { key_findings: themes[0], setting: themes[1], sample: themes[1], limitations: themes[2] };
       const matrix = papers.flatMap((p) =>
@@ -255,35 +275,34 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
           return cs.length ? { paperId: p.id, theme: th, value: cs[0].statement.slice(0, 200), stance: "neutral", claimIds: cs.map((c) => c.id) } : null;
         }).filter(Boolean),
       );
-      const kf = claims.filter((c) => c.field === "key_findings");
-      const lim = claims.filter((c) => c.field === "limitations");
-      const twoPapers = [...new Map(kf.map((c) => [c.paperId, c])).values()].slice(0, 2);
       return {
         themes,
         matrix: matrix.length ? matrix : [{ paperId: claims[0].paperId, theme: themes[0], value: claims[0].statement.slice(0, 200), stance: "neutral", claimIds: [claims[0].id] }],
-        contradictions: twoPapers.length === 2 ? [{ theme: themes[0], description: "(mock) sample conflict: two papers' key findings paired at random to show how a conflict is highlighted. They do not necessarily disagree.", claimIds: twoPapers.map((c) => c.id) }] : [],
-        known: kf.length ? [{ statement: `(mock) ${kf.length} key findings were extracted for this topic.`, claimIds: kf.slice(0, 5).map((c) => c.id) }] : [],
-        contested: twoPapers.length === 2 ? [{ statement: "(mock) sample conflict: shows where findings that differ between studies would appear.", claimIds: twoPapers.map((c) => c.id) }] : [],
-        unknown: [{ statement: "(mock) Gaps signalled by the studies' own limitations.", claimIds: (lim.length ? lim : claims).slice(0, 4).map((c) => c.id) }],
+        ...synthesisStatements(claims, papers, themes[0]),
       };
     }
     case "research_questions": {
-      const { items, links, topics } = inp as { items: { id: string; kind: string }[]; links: { ownerId: string; claimId: string }[]; topics: { name: string; synonyms: string[] }[] };
+      const { items, links, topics, claims = [] } = inp as { items: { id: string; kind: string }[]; links: { ownerId: string; claimId: string }[]; topics: { name: string; synonyms: string[] }[]; claims?: { id: string; field: string; verified?: boolean }[] };
       const unknown = items.filter((i) => i.kind === "unknown");
+      // A gap's supporting quotes: the papers' limitations first, then their findings, then the rest; found before accepted.
+      const relevance = (id: string) => {
+        const c = claims.find((x) => x.id === id);
+        return (c?.field === "limitations" ? 0 : c?.field === "key_findings" ? 1 : 2) + (c?.verified === false ? 0.5 : 0);
+      };
       const pickClaims = (k: number) => {
         const it = (unknown.length ? unknown : items)[k % Math.max(1, (unknown.length ? unknown : items).length)];
-        const cs = links.filter((l) => l.ownerId === it.id).map((l) => l.claimId).slice(0, 3);
+        const cs = links.filter((l) => l.ownerId === it.id).map((l) => l.claimId).sort((x, y) => relevance(x) - relevance(y)).slice(0, 3);
         return { it: it.id, cs: cs.length ? cs : [links[0].claimId] };
       };
-      const designs = ["Qualitative interview study", "Cross-sectional survey", "Mixed-methods implementation study"];
       if (!telemedRun(inp, vars)) {
         return {
-          questions: ideaQuestions(topics, summaryOf(vars.summary), sampleNote()).map((c, k) => {
+          questions: ideaQuestions(topics, summaryOf(vars.summary), sampleNote(), unwrapData(vars.idea)).map((c, k) => {
             const { it, cs } = pickClaims(k);
-            return { ...c, design: designs[k], gapClaimIds: cs, synthesisIds: [it] };
+            return { ...c, gapClaimIds: cs, synthesisIds: [it] };
           }),
         };
       }
+      const designs = ["Qualitative interview study", "Cross-sectional survey", "Mixed-methods implementation study"];
       return {
         questions: [0, 1, 2].map((k) => {
           const t = topics[k % topics.length];
