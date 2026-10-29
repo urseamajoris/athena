@@ -125,7 +125,7 @@ The admin's first report failed the report schema, and it then sent a blank plac
 | 3 | major (validity) | 4 | The novelty check said "No closely matching records were returned" directly under "2,207 matching records". |
 | 4 | major (validity) | 6 | Demo synthesis statements were content-free ("(mock) 8 key findings were extracted"). Gap quotes were unrelated to the gap. The planted altered quote appeared in every paper. |
 | 5 | major (validity) | 2 | Demo candidate questions: the PECO breakdown reversed exposure and outcome. For "does X help?" no candidate was an effect question. |
-| 6 | major (bug) | 1 | After "Summarise without them", the panel stayed on step 7, with "Next paper" as its primary action. |
+| 6 | major (bug) | 2 | After "Summarise without them", the panel stayed on step 7, with "Next paper" as its primary action. |
 | 7 | major (validity) | 3 | A topic with 0 papers silently disappeared from the synthesis. |
 | 8 | major (a11y) | 1 | On the table page the primary button came after about 95 Tab stops. Focus was lost after Esc in List view, after hiding the demo note, after moving to a new page, and after "Keep" on a list row. |
 | 9 | major (clarity) | 1 | Editing a topic at step 3 reopened step 2 for the whole review, with no message. |
