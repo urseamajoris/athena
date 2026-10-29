@@ -66,8 +66,11 @@ function ListItem({ it, depth, c }: { it: TreeItem; depth: number; c: ItemCtx })
           <TrustBadges node={n} verbose />
         </span>
         {n.ghost ? (
-          <ActionButton action={{ cmd: { type: "acceptTopic", topicId: n.topicId! }, label: "Keep" }} />
-        ) : action && n.id !== c.frontier ? (
+          // Keep removes its own button: hand focus to the row, which stays.
+          <span onClickCapture={(e) => { const row = e.currentTarget.closest("[data-list-node]")?.querySelector<HTMLElement>(":scope > button"); requestAnimationFrame(() => row?.focus()); }}>
+            <ActionButton action={{ cmd: { type: "acceptTopic", topicId: n.topicId! }, label: "Keep" }} />
+          </span>
+        ) :action && n.id !== c.frontier ? (
           <ActionButton action={action} showReason />
         ) : null}
       </div>

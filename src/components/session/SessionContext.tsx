@@ -356,11 +356,13 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
         case "dismissTopic":
           return step(async () => {
             if (!(await confirmEdit(2))) return;
+            // Any topic change reopens an approved step 2 on the server: say so, it is not visible from here.
+            const reopens = states["2"] === "approved";
             await api(projectPath(projectId, `topics/${cmd.topicId}`), { method: "DELETE" });
             if (store.selected === `topic:${cmd.topicId}`) store.select("idea");
             if (store.panel === `topic:${cmd.topicId}`) store.closePanel();
             await refresh();
-            announce("Subtopic dismissed.");
+            announce(reopens ? "Topic deleted. Step 2 is open again: approve the topics again with “Use these topics” to continue." : "Topic deleted.");
           });
         case "addTopic":
           setAddTopic({ flowAt: opts.flowAt });
@@ -385,7 +387,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
           return;
       }
     },
-    [approve, projectId, refresh, announce, confirmEdit, summary, focusStage, graph, router],
+    [approve, projectId, refresh, announce, confirmEdit, summary, focusStage, graph, router, states],
   );
 
   const runRef = useRef(run);

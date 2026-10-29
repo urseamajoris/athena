@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { TransitionLink } from "../vt";
 import { ArrowLeft, ArrowRight } from "lucide-react";
@@ -12,8 +12,17 @@ import { nextAction } from "@/lib/canvas/actions";
 import { frontierNodeId, frontierStage } from "@/lib/canvas/graph";
 import { STAGES } from "@/lib/shared/stages";
 import { StageRail } from "../canvas/StageRail";
+import { focusWithRing } from "../canvas/focus";
 import { DemoBanner } from "./DemoBanner";
 import { AiPausedBanner } from "./AiPausedBanner";
+
+/** Move focus to the page's one next action (in the header on wide screens, the bottom bar on narrow ones), for
+ *  the "Skip to the next action" link of a page with many controls (the table). False if there is none. */
+export function focusPageAction(): boolean {
+  const el = [...document.querySelectorAll<HTMLElement>("[data-page-action] button, [data-page-action] a")].find((x) => x.offsetParent !== null);
+  el?.focus();
+  return !!el;
+}
 
 /** A full-screen view that belongs to one session node (table, export): back to the canvas, one mission.
  *  Nothing here animates, so it does not load Motion. */
@@ -28,6 +37,30 @@ export function SessionPage({ projectId, node, title, children, showAction = tru
   );
 }
 
+/** Focus the page's heading once it has rendered, so a keyboard user arriving from the canvas (or from the table
+ *  at the report) does not start again from the page body. Never takes focus the user has already moved. */
+function useFocusHeading(main: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const root = main.current;
+    if (!root) return;
+    const tryFocus = () => {
+      const a = document.activeElement;
+      if (a && a !== document.body && a.isConnected) return true;
+      const h = root.querySelector<HTMLElement>("[data-page-heading], h1, h2");
+      if (!h) return false;
+      if (!h.hasAttribute("tabindex")) h.tabIndex = -1;
+      focusWithRing(h);
+      return true;
+    };
+    if (tryFocus()) return;
+    // The page's data may still be loading: wait briefly for its heading.
+    const mo = new MutationObserver(() => { if (tryFocus()) mo.disconnect(); });
+    mo.observe(root, { childList: true, subtree: true });
+    const t = setTimeout(() => mo.disconnect(), 5000);
+    return () => { mo.disconnect(); clearTimeout(t); };
+  }, [main]);
+}
+
 function Frame({ node, title, children, showAction }: { node: string; title: string; children: ReactNode; showAction: boolean }) {
   const { projectId, graph, input } = useSession();
   const back = `/s/${projectId}?node=${encodeURIComponent(node)}`;
@@ -37,6 +70,8 @@ function Frame({ node, title, children, showAction }: { node: string; title: str
     const t = setTimeout(() => router.prefetch(back), 3000);
     return () => clearTimeout(t);
   }, [router, back]);
+  const mainRef = useRef<HTMLElement>(null);
+  useFocusHeading(mainRef);
   const n = graph.nodes.find((x) => x.id === node);
   const action = showAction && n ? nextAction(n, graph, input) : null;
   // Where the review needs the user now. When that is no longer this page's step (the user pressed "Appraise
@@ -63,15 +98,15 @@ function Frame({ node, title, children, showAction }: { node: string; title: str
         </TransitionLink>
         <h1 className="sr-only">{title}</h1>
         <div className="min-w-0 flex-1"><StageRail compact /></div>
-        {action && <span className="max-md:hidden"><ActionButton action={action} primary showReason /></span>}
-        {forward && <span className="max-md:hidden">{forward}</span>}
+        {action && <span className="max-md:hidden" data-page-action><ActionButton action={action} primary showReason /></span>}
+        {forward && <span className="max-md:hidden" data-page-action>{forward}</span>}
         <AppMenu />
       </header>
       <DemoBanner />
       <AiPausedBanner />
-      <main id="main" className="min-h-0 flex-1 overflow-hidden">{children}</main>
-      {action && <div className="shrink-0 border-t border-line bg-bg-1 px-4 py-2 md:hidden [&_button]:w-full"><ActionButton action={action} primary showReason /></div>}
-      {forward && <div className="shrink-0 border-t border-line bg-bg-1 px-4 py-2 md:hidden [&_a]:w-full">{forward}</div>}
+      <main id="main" ref={mainRef} className="min-h-0 flex-1 overflow-hidden">{children}</main>
+      {action && <div className="shrink-0 border-t border-line bg-bg-1 px-4 py-2 md:hidden [&_button]:w-full" data-page-action><ActionButton action={action} primary showReason /></div>}
+      {forward && <div className="shrink-0 border-t border-line bg-bg-1 px-4 py-2 md:hidden [&_a]:w-full" data-page-action>{forward}</div>}
     </div>
   );
 }
