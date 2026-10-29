@@ -3,7 +3,7 @@ import { eq, inArray } from "drizzle-orm";
 import { db, schema, batchWrite, type BatchItem } from "../db";
 import type { ChecklistItem } from "../db/schema";
 import { config } from "../config";
-import { structuredCall, BudgetError } from "../ai/client";
+import { structuredCall, isAiStop } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { Appraisal, EXTRACTION_FIELDS } from "../stages/ai-schemas";
 import { CHECKLISTS, FIELD_GUIDANCE, TEMPLATE_LABEL, templateFor } from "../stages/templates";
@@ -161,7 +161,7 @@ export async function appraisalJob(ctx: JobContext) {
       } catch (e) {
         (await db.update(schema.appraisals).set({ status: "failed", error: errMsg(e) }).where(eq(schema.appraisals.id, appraisalId)).run());
         (await ctx.log(`✗ appraisal failed for ${paper.id}: ${errMsg(e)}`));
-        if (e instanceof BudgetError) throw e;
+        if (isAiStop(e)) throw e;
       } finally {
         finished++;
         (await ctx.progress(finished, todo.length, `Appraised ${finished}/${todo.length}`));

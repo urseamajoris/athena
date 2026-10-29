@@ -139,7 +139,7 @@ on("POST", "stages/:n/run", async ({ projectId, params, body }) => {
 
 on("POST", "stages/:n/cancel", async ({ projectId, params }) => {
   const n = Number(params.n);
-  const j = (await db.select().from(schema.jobs).where(and(eq(schema.jobs.projectId, projectId), eq(schema.jobs.stage, n))).all()).filter((x) => x.status === "running" || x.status === "queued");
+  const j = (await db.select().from(schema.jobs).where(and(eq(schema.jobs.projectId, projectId), eq(schema.jobs.stage, n))).all()).filter((x) => x.status === "running" || x.status === "queued" || x.status === "paused");
   await forEachSeq(j, async (x) => (await cancelJob(x.id)));
   (await setStageState(projectId, n, "failed"));
   (await logDecision(projectId, n, "stage_cancelled"));

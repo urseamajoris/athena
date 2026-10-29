@@ -15,6 +15,7 @@ import { AppMenu } from "../AppMenu";
 import { SessionProvider, canvasStore, useCanvas, useSession } from "../session/SessionContext";
 import { StageRail } from "./StageRail";
 import { canvasCommands, focusNode } from "./focus";
+import { AiPausedBanner } from "../session/AiPausedBanner";
 import { STAGE_KEY_TO_NODE, nodeForStage } from "@/lib/canvas/graph";
 
 const CanvasView = dynamic(() => import("./CanvasView"), { ssr: false, loading: () => <Loading label="Drawing the canvas…" /> });
@@ -180,6 +181,7 @@ function Shell() {
         </button>
         <AppMenu onShortcuts={() => canvasStore.getState().setShortcuts(true)} />
       </header>
+      <AiPausedBanner />
       <main id="main" className="relative flex-1 overflow-hidden" aria-label={view === "list" ? "Review list" : "Review canvas"}>
         {!hydrated ? (
           <>

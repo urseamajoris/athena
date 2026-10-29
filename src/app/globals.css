@@ -29,6 +29,22 @@
   --focus: #f5f5f7;
   --mark: rgb(245 181 71 / 0.16);
   --mark-active: rgb(245 181 71 / 0.3);
+  /* Category palette (src/lib/shared/categories.ts; validated for colour-blind separation and 3:1 contrast). */
+  --cat-1: #3987e5;
+  --cat-2: #d95926;
+  --cat-3: #199e70;
+  --cat-4: #c98500;
+  --cat-5: #d55181;
+  --cat-6: #2a9a2a;
+  --cat-7: #9085e9;
+  --cat-8: #e66767;
+  --cat-none: #8a8a94;
+  /* Sequential ramp (ranking score), low → high. */
+  --seq-1: #184f95;
+  --seq-2: #256abf;
+  --seq-3: #3987e5;
+  --seq-4: #6da7ec;
+  --seq-5: #9ec5f4;
 }
 
 :root[data-theme="light"] {
@@ -53,6 +69,20 @@
   --focus: #111113;
   --mark: rgb(245 181 71 / 0.35);
   --mark-active: rgb(245 181 71 / 0.7);
+  --cat-1: #2a78d6;
+  --cat-2: #d95926;
+  --cat-3: #13936a;
+  --cat-4: #b97f00;
+  --cat-5: #d4558a;
+  --cat-6: #008300;
+  --cat-7: #6250d6;
+  --cat-8: #e34948;
+  --cat-none: #6e6e78;
+  --seq-1: #86b6ef;
+  --seq-2: #5598e7;
+  --seq-3: #2a78d6;
+  --seq-4: #1c5cab;
+  --seq-5: #104281;
 }
 
 @theme inline {
@@ -77,6 +107,15 @@
   --color-err: var(--err);
   --color-run: var(--run);
   --color-focus: var(--focus);
+  --color-cat-1: var(--cat-1);
+  --color-cat-2: var(--cat-2);
+  --color-cat-3: var(--cat-3);
+  --color-cat-4: var(--cat-4);
+  --color-cat-5: var(--cat-5);
+  --color-cat-6: var(--cat-6);
+  --color-cat-7: var(--cat-7);
+  --color-cat-8: var(--cat-8);
+  --color-cat-none: var(--cat-none);
   /* Tinted fills and borders for status (low salience: they must never compete with the accent). */
   --color-ok-soft: color-mix(in oklab, var(--ok) 12%, transparent);
   --color-warn-soft: color-mix(in oklab, var(--warn) 12%, transparent);

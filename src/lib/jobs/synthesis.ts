@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db, schema, batchWrite, type BatchItem } from "../db";
-import { structuredCall, unknownIds, BudgetError, repairId } from "../ai/client";
+import { structuredCall, unknownIds, isAiStop, repairId } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { Synthesis } from "../stages/ai-schemas";
 import { STUDY_TYPE_LABEL, type StudyType } from "../shared/stages";
@@ -120,7 +120,7 @@ export async function synthesisJob(ctx: JobContext) {
         ok++;
         (await ctx.log(`✓ "${t.name}": ${data.themes.length} themes, ${data.contradictions.length} contradictions`));
       } catch (e) {
-        if (e instanceof BudgetError) throw e;
+        if (isAiStop(e)) throw e;
         (await ctx.log(`✗ synthesis failed for "${t.name}": ${errMsg(e)}`));
       } finally {
         finished++;

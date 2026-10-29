@@ -9,6 +9,7 @@ import { totalSpend } from "./ai/client";
 import { canvasView, papersTableView, projectView, questionsView, rankingTableView } from "./views";
 import { exportPreview } from "./api";
 import { ownedProject, type SessionUser } from "./auth/server";
+import { aiState, budgetLimit } from "./settings";
 
 /** GET /api/projects */
 export async function projectsList(ownerId: string) {
@@ -26,13 +27,14 @@ export async function statusView(user: SessionUser) {
     models: modelResolutions(),
     maxResultsPerQuery: config.maxResultsPerQuery,
     user: { email: user.email, name: user.name, role: user.role },
+    ai: await aiState(),
   };
   if (user.role !== "admin") return base;
   return {
     ...base,
     paidCalls,
     spendUsd: (await totalSpend()),
-    budgetUsd: config.budgetUsd,
+    budgetUsd: await budgetLimit(),
     keys: { xai: !!config.xaiApiKey, openalex: !!config.openalexApiKey, contactEmail: !!config.contactEmail },
     simulatedFailures: config.simulateFailure,
   };

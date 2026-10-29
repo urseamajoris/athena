@@ -1,5 +1,7 @@
 import "server-only";
-import { config, type ModelRole } from "../config";
+import { config, guardPaid, type ModelRole } from "../config";
+import { effectiveXaiKey } from "../settings";
+import { redactSecrets } from "../auth/secrets";
 
 /**
  * Model IDs come from env. At startup we call GET /v1/models to confirm each one exists; if a slug has been
@@ -14,7 +16,7 @@ interface Resolution {
   note: string;
 }
 
-const g = globalThis as unknown as { __models?: Record<ModelRole, Resolution>; __modelsChecked?: Promise<void> };
+const g = globalThis as unknown as { __models?: Record<ModelRole, Resolution>; __modelsChecked?: Promise<void>; __modelsKey?: string };
 
 function initial(): Record<ModelRole, Resolution> {
   const out = {} as Record<ModelRole, Resolution>;
@@ -46,16 +48,43 @@ function closest(target: string, available: string[]): string | null {
   return [...text].sort((a, b) => score(b) - score(a))[0];
 }
 
+/** GET /v1/models with this key (free: no tokens). The model IDs it lists, or an error with the key removed. */
+async function listModels(key: string): Promise<string[]> {
+  const r = await fetch(`${config.xaiBaseUrl}/models`, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(20000) });
+  if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? `xAI rejected the key (HTTP ${r.status})` : `HTTP ${r.status}`);
+  const j = (await r.json()) as { data: { id: string }[] };
+  return j.data.map((m) => m.id);
+}
+
+/**
+ * The dashboard's "Test key": the same /v1/models check the server runs at start, for the key in force.
+ * Outside production no request is made (paid-API guard), and the result says so.
+ */
+export async function testKey(): Promise<{ ok: boolean; message: string; source: "admin" | "environment" | "none" }> {
+  const { key, source, error } = await effectiveXaiKey();
+  if (!key) return { ok: false, message: "No key is configured.", source };
+  if (!config.production) return { ok: false, message: "Not tested: outside production (ATHENA_ENV=production) the server never contacts xAI.", source };
+  try {
+    guardPaid("xai", "key test (GET /v1/models)");
+    const ids = await listModels(key);
+    const missing = Object.values(config.models).filter((m) => !ids.includes(m));
+    g.__modelsChecked = undefined; // re-resolve models with this key on the next status read
+    return { ok: true, message: `Key accepted. ${ids.length} models listed${missing.length ? `; not listed: ${missing.join(", ")}` : "; all configured models are available"}.${error ? ` ${error}` : ""}`, source };
+  } catch (e) {
+    return { ok: false, message: redactSecrets((e as Error).message, [key, config.xaiApiKey]), source };
+  }
+}
+
 export async function checkModels(): Promise<void> {
-  if (config.mockAi || !config.xaiApiKey || !config.production) return;
-  if (g.__modelsChecked) return g.__modelsChecked;
+  if (config.mockAi || !config.production) return;
+  const { key } = await effectiveXaiKey();
+  if (!key) return;
+  if (g.__modelsChecked && g.__modelsKey === key) return g.__modelsChecked;
+  g.__modelsKey = key;
   g.__modelsChecked = (async () => {
     const res = modelResolutions();
     try {
-      const r = await fetch(`${config.xaiBaseUrl}/models`, { headers: { Authorization: `Bearer ${config.xaiApiKey}` }, signal: AbortSignal.timeout(20000) });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const j = (await r.json()) as { data: { id: string }[] };
-      const ids = j.data.map((m) => m.id);
+      const ids = await listModels(key);
       for (const role of Object.keys(res) as ModelRole[]) {
         const want = res[role].configured;
         if (ids.includes(want)) {
@@ -69,8 +98,9 @@ export async function checkModels(): Promise<void> {
         }
       }
     } catch (e) {
-      for (const role of Object.keys(res) as ModelRole[]) res[role].note = `model check failed: ${(e as Error).message}`;
-      console.warn("[athena] could not verify xAI models:", (e as Error).message);
+      const msg = redactSecrets((e as Error).message, [key]);
+      for (const role of Object.keys(res) as ModelRole[]) res[role].note = `model check failed: ${msg}`;
+      console.warn("[athena] could not verify xAI models:", msg);
     }
   })();
   return g.__modelsChecked;

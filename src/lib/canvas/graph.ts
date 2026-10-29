@@ -53,6 +53,8 @@ export interface GNode {
   topicId?: string;
   claimId?: string;
   progress?: { done: number; total: number };
+  /** Its job is paused (AI switched off or budget reached): work is kept and resumes later. */
+  paused?: boolean;
   trust?: Trust;
   staleReason?: string;
 }
@@ -264,6 +266,7 @@ export function buildGraph(input: GraphInput): Graph {
     }
   }
 
+  for (const n of nodes) if (n.status === "running" && n.stages.some((st) => input.jobs[String(st)]?.status === "paused")) n.paused = true;
   return { nodes, edges };
 }
 

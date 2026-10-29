@@ -142,8 +142,131 @@ const afterDel = await A.raw(`/api/projects/${pc}`);
 const relog = await new Client(base).raw("/api/auth/login", { body: { email: `sec-c-${stamp}@example.org`, password: "test-password-123" } });
 check("deleting an account deletes its projects and its login", del.status === 200 && afterDel.status === 404 && relog.status === 401, `${del.status}/${afterDel.status}/${relog.status}`);
 
-const extra = process.env.SECURITY_EXTRA ? await import(process.env.SECURITY_EXTRA) : null;
-if (extra?.default) await extra.default({ base, check, Client, A, B, anon, pa, stamp });
+// 7. Admin area (needs the server's ADMIN_EMAIL / ADMIN_PASSWORD in this environment).
+if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
+  const admin = await new Client(base, "admin").login(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD);
+  const adminDir = new URL("../src/app/api/admin/", import.meta.url);
+  const adminRoutes = [];
+  const walk = (dir, prefix) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) walk(new URL(`${e.name}/`, dir), `${prefix}/${e.name.replace(/^\[(.+)\]$/, "x")}`);
+      else if (e.name === "route.ts") for (const m of fs.readFileSync(new URL(e.name, dir), "utf8").matchAll(/export const (GET|POST|PUT|PATCH|DELETE)\b/g)) adminRoutes.push({ method: m[1], path: `/api/admin${prefix}` });
+    }
+  };
+  walk(adminDir, "");
+  check("admin routes discovered", adminRoutes.length >= 9, adminRoutes.map((r) => `${r.method} ${r.path}`).join(", "));
+  const body = (r) => (r.method === "GET" || r.method === "DELETE" ? undefined : r.path.endsWith("/ai") ? { enabled: false } : r.path.endsWith("/budget") ? { limitUsd: 0 } : r.path.endsWith("/key") ? { key: "xai-NOTALLOWEDKEY0000000000000" } : { action: "disable" });
+  const a401 = [];
+  const a403 = [];
+  for (const r of adminRoutes) {
+    const p = r.path.replace("/x", `/${"usr_doesnotexist"}`);
+    if ((await anon.raw(p, { method: r.method, body: body(r) })).status !== 401) a401.push(`${r.method} ${r.path}`);
+    if ((await B.raw(p, { method: r.method, body: body(r) })).status !== 403) a403.push(`${r.method} ${r.path}`);
+  }
+  check("anonymous gets 401 on every admin route", a401.length === 0, a401.join("; "));
+  check("a non-admin gets 403 on every admin route", a403.length === 0, a403.join("; "));
+  const adminPage = await B.raw("/admin");
+  check("the admin page sends non-admins away", [302, 303, 307, 308].includes(adminPage.status), `status ${adminPage.status}`);
+  const st = await B.json("/api/status");
+  check("ordinary users do not see spend, budget or key presence", st.spendUsd === undefined && st.keys === undefined && st.budgetUsd === undefined);
+  check("admins cannot open another user's project", (await admin.raw(`/api/projects/${pa}`)).status === 404);
+
+  // Privacy: the dashboard shows aggregates, never content.
+  const ov = await admin.json("/api/admin/overview");
+  const ovText = JSON.stringify(ov) + JSON.stringify(await admin.json("/api/admin/users"));
+  const titles = papers.papers.slice(0, 20).map((p) => p.title.slice(0, 30));
+  check("the dashboard never contains research ideas or paper titles", !ovText.includes(ideaA.slice(0, 30)) && titles.every((t) => !ovText.includes(t)));
+  check("the dashboard never contains password hashes", !/scrypt\$/.test(ovText));
+  check("the dashboard counts the users and projects this test created", ov.users.total >= 3 && ov.users.projects >= 2 && ov.ai.totals.calls > 0, `${ov.users.total} users, ${ov.users.projects} projects, ${ov.ai.totals.calls} AI calls`);
+
+  // The xAI key: stored encrypted, never returned, never logged, never exported.
+  const SAMPLE = `xai-SAMPLE${stamp}TESTKEYdoNotUse0123456789`;
+  const put = await admin.raw("/api/admin/key", { method: "PUT", body: { key: SAMPLE } });
+  const putText = await put.text();
+  check("an admin can set a key, and the response does not contain it", put.status === 200 && !putText.includes(SAMPLE) && putText.includes(SAMPLE.slice(-4)), `status ${put.status}`);
+  const leaks = [];
+  const scan = async (label, c, path, opts) => { const t = await (await c.raw(path, opts)).text(); if (t.includes(SAMPLE) || t.includes(SAMPLE.slice(4, 20))) leaks.push(label); };
+  await scan("overview", admin, "/api/admin/overview");
+  await scan("key status", admin, "/api/admin/key");
+  await scan("key test", admin, "/api/admin/key/test", { body: {} });
+  await scan("users", admin, "/api/admin/users");
+  await scan("status", admin, "/api/status");
+  await scan("A status", A, "/api/status");
+  for (const k of ["markdown", "csv", "bibtex"]) await scan(`export ${k}`, A, `/api/projects/${pa}/export/${k}`);
+  await scan("log", A, `/api/projects/${pa}/log`);
+  await scan("account export", A, "/api/account/export");
+  for (const f of [process.env.SECURITY_DB, process.env.SECURITY_DB && `${process.env.SECURITY_DB}-wal`, process.env.SECURITY_LOG].filter(Boolean)) {
+    if (fs.existsSync(f) && fs.readFileSync(f).includes(Buffer.from(SAMPLE))) leaks.push(`file ${f.split("/").pop()}`);
+  }
+  check("the key never appears in a response, export, the database file or the server log", leaks.length === 0, leaks.length ? `leaked in: ${leaks.join(", ")}` : `checked ${process.env.SECURITY_DB ? "responses, exports, database and log" : "responses and exports (set SECURITY_DB / SECURITY_LOG to scan files too)"}`);
+  const ks = await admin.json("/api/admin/key");
+  check("the admin-set key is in use and shown masked", ks.inUse === "admin" && ks.masked === `••••${SAMPLE.slice(-4)}`, `${ks.inUse} ${ks.masked}`);
+  const tested = await admin.json("/api/admin/key/test", { body: {} });
+  check("Test key records a result (outside production it makes no request)", !!tested.lastTest && typeof tested.lastTest.message === "string", tested.lastTest?.message);
+  const cleared = await admin.json("/api/admin/key", { method: "DELETE" });
+  check("clearing the key falls back to the environment key", cleared.inUse !== "admin" && !cleared.admin, cleared.inUse);
+
+  // AI off switch: AI steps refused (no call, no cost, no mock fallback), retrieval still works, jobs pause and resume.
+  await admin.json("/api/admin/ai", { body: { enabled: false } });
+  const pd = (await A.json("/api/projects", { body: { idea: "Does peer tutoring improve exam results for first-year nursing students?" } })).id;
+  await A.json(`/api/projects/${pd}/stages/1/approve`, { body: {} });
+  const off = await A.raw(`/api/projects/${pd}/scoping/start`, { body: {} });
+  const offBody = await off.json();
+  check("with AI off, an AI step is refused with the paused message", off.status === 503 && offBody.kind === "ai_paused" && /paused by the administrator/i.test(offBody.error), `${off.status} ${offBody.error}`);
+  const wait = async (c, pid, n, want, ms = 60_000) => {
+    const end = Date.now() + ms;
+    for (;;) {
+      const v = await c.json(`/api/projects/${pid}`);
+      if (want(v.project.stageStates[String(n)], v.jobs[String(n)]?.status)) return v;
+      if (Date.now() > end) return v;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  };
+  await A.json(`/api/projects/${pa}/stages/4/run`, { body: { force: true } });
+  const r4 = await wait(A, pa, 4, (s) => s === "needs_review");
+  check("with AI off, database retrieval (no AI) still runs", r4.project.stageStates["4"] === "needs_review", r4.project.stageStates["4"]);
+  await A.json(`/api/projects/${pa}/stages/4/approve`, { body: {} });
+  await A.json(`/api/projects/${pa}/stages/5/run`, { body: { force: true } });
+  const p5 = await wait(A, pa, 5, (_s, j) => j === "paused");
+  check("with AI off, a running AI job pauses cleanly (not failed)", p5.jobs["5"]?.status === "paused" && p5.project.stageStates["5"] === "running", `${p5.jobs["5"]?.status} / ${p5.project.stageStates["5"]}`);
+  const ovOff = await admin.json("/api/admin/overview");
+  check("the dashboard shows AI off and the refused calls", ovOff.ai.enabled === false && ovOff.ai.totals.paused > 0 && ovOff.verdict.level !== "green", `paused calls ${ovOff.ai.totals.paused}, verdict ${ovOff.verdict.level}`);
+  const on = await admin.json("/api/admin/ai", { body: { enabled: true } });
+  const r5 = await wait(A, pa, 5, (s) => s === "needs_review");
+  check("turning AI back on resumes the paused job", on.resumedJobs >= 1 && r5.project.stageStates["5"] === "needs_review", `resumed ${on.resumedJobs}, stage 5 ${r5.project.stageStates["5"]}`);
+  check("after resuming, AI steps work again", (await A.raw(`/api/projects/${pd}/scoping/start`, { body: {} })).status === 200);
+
+  // Budget: raising above the server's limit needs an explicit confirmation; every change is logged.
+  const env = ov.ai.budget.envUsd;
+  const above = await admin.raw("/api/admin/budget", { method: "PUT", body: { limitUsd: env + 5 } });
+  check("raising the limit above XAI_BUDGET_USD needs confirmation", above.status === 409 && (await above.json()).kind === "confirm_needed", `status ${above.status}`);
+  const lower = await admin.json("/api/admin/budget", { method: "PUT", body: { limitUsd: Math.max(0, env - 1) } });
+  const restored = await admin.json("/api/admin/budget", { method: "PUT", body: { limitUsd: null } });
+  check("an admin can lower and restore the limit", lower.limitUsd === Math.max(0, env - 1) && restored.limitUsd === env && !restored.override, `${lower.limitUsd} → ${restored.limitUsd}`);
+
+  // Account actions.
+  const users = (await admin.json("/api/admin/users")).users;
+  const bRow = users.find((u) => u.email === `sec-b-${stamp}@example.org`);
+  await admin.json(`/api/admin/users/${bRow.id}`, { body: { action: "disable" } });
+  check("a disabled user is logged out at once", (await B.raw("/api/projects")).status === 401);
+  check("a disabled user cannot log in", (await new Client(base).raw("/api/auth/login", { body: { email: bRow.email, password: "test-password-123" } })).status === 403);
+  await admin.json(`/api/admin/users/${bRow.id}`, { body: { action: "enable" } });
+  const reset = await admin.json(`/api/admin/users/${bRow.id}`, { body: { action: "reset_password" } });
+  const B2 = new Client(base);
+  const relogin = await B2.json("/api/auth/login", { body: { email: bRow.email, password: reset.temporaryPassword } });
+  check("a reset password works once and forces a new password", !!reset.temporaryPassword && relogin.mustChangePassword === true);
+  const me = users.find((u) => u.email === process.env.ADMIN_EMAIL.toLowerCase());
+  check("an admin cannot remove their own admin role", (await admin.raw(`/api/admin/users/${me.id}`, { body: { action: "set_role", role: "user" } })).status === 409);
+  await admin.json(`/api/admin/users/${bRow.id}`, { body: { action: "set_role", role: "admin" } });
+  check("role changes take effect", (await B2.raw("/api/admin/overview")).status === 200);
+  await admin.json(`/api/admin/users/${bRow.id}`, { body: { action: "set_role", role: "user" } });
+  check("…and can be undone", (await B2.raw("/api/admin/overview")).status === 403);
+  const audit = (await admin.json("/api/admin/overview")).audit.map((a) => a.action);
+  const want = ["xai_key_set", "xai_key_tested", "xai_key_cleared", "ai_disabled", "ai_enabled", "budget_changed", "user_disabled", "user_enabled", "password_reset", "role_changed", "login_failed"];
+  check("every admin action and security event is in the audit log", want.every((w) => audit.includes(w)), want.filter((w) => !audit.includes(w)).join(", ") || "all present");
+} else {
+  console.log("(admin checks skipped: set ADMIN_EMAIL and ADMIN_PASSWORD to the server's admin)");
+}
 
 const failed = checks.filter((c) => !c.ok);
 console.log(failed.length ? `\n${failed.length} CHECK(S) FAILED` : `\nALL ${checks.length} SECURITY CHECKS PASSED`);

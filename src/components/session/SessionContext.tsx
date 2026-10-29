@@ -41,7 +41,10 @@ export interface LiveData {
   costs: Record<string, Cost>;
   retrieval: unknown;
   canvas: CanvasSummary;
+  ai?: AiState;
 }
+/** Whether AI steps can run right now (admin switch and server budget). */
+export interface AiState { enabled: boolean; budgetReached: boolean }
 
 /** One canvas store per browser tab; layout and choices persist per session. */
 export const canvasStore = createCanvasStore();
@@ -56,6 +59,7 @@ interface Ctx {
   staleReasons: Record<string, string>;
   jobs: Record<string, Job | null>;
   costs: Record<string, Cost>;
+  ai: AiState;
   summary: CanvasSummary | null;
   claims: ClaimLite[] | null;
   graph: Graph;
@@ -163,6 +167,8 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const jobs = useStable(live?.jobs ?? data?.jobs ?? {});
   const costs = useStable(live?.costs ?? data?.costs ?? {});
   const liveRetrieval = useStable(live?.retrieval ?? null);
+  const { data: status } = useApi<{ ai?: AiState }>("/api/status");
+  const ai = useStable(live?.ai ?? status?.ai ?? { enabled: true, budgetReached: false });
 
   // Announce run-state changes to screen readers, and refresh the project when stages move.
   const prevStates = useRef<Record<string, StageState> | null>(null);
@@ -390,6 +396,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
             staleReasons: input.staleReasons,
             jobs: input.jobs,
             costs,
+            ai,
             summary,
             claims: claims ?? null,
             graph,
@@ -407,7 +414,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
             announce,
           }
         : null,
-    [data, projectId, states, input, costs, summary, claims, graph, ui, goTo, refresh, confirmEdit, approve, run, busy, err, announce],
+    [data, projectId, states, input, costs, ai, summary, claims, graph, ui, goTo, refresh, confirmEdit, approve, run, busy, err, announce],
   );
 
   // Data, not SWR's isLoading: that stays true while server-provided (fallback) data revalidates.
