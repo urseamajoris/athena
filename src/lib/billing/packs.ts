@@ -23,8 +23,16 @@ export const CREDIT_PACKS: CreditPack[] = [
   { id: "pro", name: "Pro", priceCents: 4000, credits: 4800, bonusPercent: 20, blurb: "Best value for regular use" },
 ];
 
-export function packById(id: unknown): CreditPack | undefined {
-  return CREDIT_PACKS.find((p) => p.id === id);
+/** Every pack is priced in US dollars (Stripe's lower-case currency code). */
+export const CREDIT_CURRENCY = "usd";
+
+export function packById(id: unknown, packs: readonly CreditPack[] = CREDIT_PACKS): CreditPack | undefined {
+  return packs.find((p) => p.id === id);
+}
+
+/** Was exactly this pack's price paid, in the packs' currency? Amounts are in cents. */
+export function paidForPack(pack: CreditPack, amountCents: number | null | undefined, currency: string | null | undefined): boolean {
+  return amountCents === pack.priceCents && (currency ?? "").toLowerCase() === CREDIT_CURRENCY;
 }
 
 /** Credits given to every new account. Override with SIGNUP_FREE_CREDITS on the server. */

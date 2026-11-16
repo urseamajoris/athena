@@ -1,74 +1,39 @@
 @import "tailwindcss";
 
 /*
- * Design tokens. Dark is the default; light is a token swap.
+ * Design tokens. Light is the default; dark is a token swap (Settings → Theme).
  * Every text/surface pair here is checked by src/lib/design/contrast.test.ts.
- * Rule: --accent fills exactly one thing per view, the next action.
+ *
+ * The rules the tokens exist to keep (docs/ux-intent.md has the full list):
+ *   --accent      fills the ONE primary button on a screen and marks "you are here". Nothing else.
+ *   --ok/warn/err/run  colour a status icon; the status itself is always written in words next to it.
+ *   --line-control     borders that identify a control (inputs, plain buttons): at least 3:1 on every surface.
+ *   Surfaces step by background (bg-0 page, bg-1 card, bg-2 quiet fill, bg-3 hover) and 1px lines, not shadows.
  */
 :root,
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --bg-0: #0a0a0b;
-  --bg-1: #111113;
-  --bg-2: #18181b;
-  --bg-3: #222226;
-  --line: #2a2a30;
-  --line-strong: #3a3a42;
-  /* Borders that identify a control (inputs, checkboxes, outline buttons): ≥ 3:1 on every surface. */
-  --line-control: #70707a;
-  --fg-0: #f5f5f7;
-  --fg-1: #b4b4bd;
-  --fg-2: #8a8a94;
-  --accent: #7c9cff;
-  --accent-hover: #95b0ff;
-  --accent-fg: #0a0a0b;
-  --ok: #3dd68c;
-  --warn: #f5b547;
-  --err: #ff6b6b;
-  --run: #5ec8ff;
-  --focus: #f5f5f7;
-  --mark: rgb(245 181 71 / 0.16);
-  --mark-active: rgb(245 181 71 / 0.3);
-  /* Category palette (src/lib/shared/categories.ts; validated for colour-blind separation and 3:1 contrast). */
-  --cat-1: #3987e5;
-  --cat-2: #d95926;
-  --cat-3: #199e70;
-  --cat-4: #c98500;
-  --cat-5: #d55181;
-  --cat-6: #2a9a2a;
-  --cat-7: #9085e9;
-  --cat-8: #e66767;
-  --cat-none: #8a8a94;
-  /* Sequential ramp (ranking score), low → high. */
-  --seq-1: #184f95;
-  --seq-2: #256abf;
-  --seq-3: #3987e5;
-  --seq-4: #6da7ec;
-  --seq-5: #9ec5f4;
-}
-
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg-0: #fafafb;
+  --bg-0: #f8f7f4;
   --bg-1: #ffffff;
-  --bg-2: #f3f3f5;
-  --bg-3: #e9e9ed;
-  --line: #e2e2e7;
-  --line-strong: #cdcdd5;
-  --line-control: #7a7a86;
-  --fg-0: #111113;
-  --fg-1: #3e3e47;
-  --fg-2: #5c5c67;
-  --accent: #3754d6;
-  --accent-hover: #2b46bf;
+  --bg-2: #f4f3ef;
+  --bg-3: #e9e7e1;
+  --line: #e2dfd8;
+  --line-strong: #cbc7bd;
+  --line-control: #76726a;
+  --fg-0: #1b1a17;
+  --fg-1: #403d37;
+  --fg-2: #5b574f;
+  --accent: #3a41b4;
+  --accent-hover: #2d3394;
   --accent-fg: #ffffff;
-  --ok: #0a7446;
-  --warn: #8a5300;
-  --err: #c02b2b;
-  --run: #00669a;
-  --focus: #111113;
+  --ok: #0b6a3f;
+  --warn: #7d4c00;
+  --err: #b02a21;
+  --run: #26597d;
+  --focus: #1b1a17;
   --mark: rgb(245 181 71 / 0.35);
   --mark-active: rgb(245 181 71 / 0.7);
+  /* Category palette (src/lib/shared/categories.ts; validated for colour-blind separation and 3:1 contrast). */
   --cat-1: #2a78d6;
   --cat-2: #d95926;
   --cat-3: #13936a;
@@ -78,11 +43,50 @@
   --cat-7: #6250d6;
   --cat-8: #e34948;
   --cat-none: #6e6e78;
+  /* Sequential ramp (ranking score), low → high. */
   --seq-1: #86b6ef;
   --seq-2: #5598e7;
   --seq-3: #2a78d6;
   --seq-4: #1c5cab;
   --seq-5: #104281;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-0: #131311;
+  --bg-1: #1a1a17;
+  --bg-2: #22221e;
+  --bg-3: #2d2d28;
+  --line: #32322c;
+  --line-strong: #46463e;
+  --line-control: #85847a;
+  --fg-0: #f3f2ee;
+  --fg-1: #c2c0b8;
+  --fg-2: #a09e95;
+  --accent: #aab3ff;
+  --accent-hover: #c3c9ff;
+  --accent-fg: #14153a;
+  --ok: #55d69a;
+  --warn: #f0b455;
+  --err: #ff8279;
+  --run: #82c6f0;
+  --focus: #f3f2ee;
+  --mark: rgb(245 181 71 / 0.16);
+  --mark-active: rgb(245 181 71 / 0.3);
+  --cat-1: #3987e5;
+  --cat-2: #d95926;
+  --cat-3: #199e70;
+  --cat-4: #c98500;
+  --cat-5: #d55181;
+  --cat-6: #2a9a2a;
+  --cat-7: #9085e9;
+  --cat-8: #e66767;
+  --cat-none: #8a8a94;
+  --seq-1: #184f95;
+  --seq-2: #256abf;
+  --seq-3: #3987e5;
+  --seq-4: #6da7ec;
+  --seq-5: #9ec5f4;
 }
 
 @theme inline {
@@ -102,6 +106,8 @@
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-fg: var(--accent-fg);
+  /* The tint behind "you are here" (the current row in the stage rail). */
+  --color-accent-soft: color-mix(in oklab, var(--accent) 10%, transparent);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-err: var(--err);
@@ -117,44 +123,64 @@
   --color-cat-8: var(--cat-8);
   --color-cat-none: var(--cat-none);
   /* Tinted fills and borders for status (low salience: they must never compete with the accent). */
-  --color-ok-soft: color-mix(in oklab, var(--ok) 12%, transparent);
-  --color-warn-soft: color-mix(in oklab, var(--warn) 12%, transparent);
-  --color-err-soft: color-mix(in oklab, var(--err) 12%, transparent);
-  --color-run-soft: color-mix(in oklab, var(--run) 12%, transparent);
-  --color-ok-line: color-mix(in oklab, var(--ok) 45%, transparent);
+  --color-ok-soft: color-mix(in oklab, var(--ok) 9%, transparent);
+  --color-warn-soft: color-mix(in oklab, var(--warn) 10%, transparent);
+  --color-err-soft: color-mix(in oklab, var(--err) 8%, transparent);
+  --color-run-soft: color-mix(in oklab, var(--run) 9%, transparent);
+  --color-ok-line: color-mix(in oklab, var(--ok) 40%, transparent);
   --color-warn-line: color-mix(in oklab, var(--warn) 45%, transparent);
   --color-err-line: color-mix(in oklab, var(--err) 45%, transparent);
-  --color-run-line: color-mix(in oklab, var(--run) 45%, transparent);
-  --color-scrim: rgb(0 0 0 / 0.6);
+  --color-run-line: color-mix(in oklab, var(--run) 40%, transparent);
+  --color-scrim: rgb(20 19 16 / 0.5);
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Type scale: 12 / 13 / 14 (body) / 16 / 20 / 28 / 44 (landing only). */
+  /*
+   * Type scale: three sizes on a normal screen, plus one for the landing page.
+   *   text-headline  the page title (one per screen)
+   *   text-body      everything you read or type; section titles are body size, semibold
+   *   text-small     labels, hints, status words, table cells, button text
+   *   text-display   the landing headline only
+   */
   --text-*: initial;
-  --text-12: 12px;
-  --text-12--line-height: 16px;
-  --text-13: 13px;
+  --text-display: 44px;
+  --text-display--line-height: 50px;
+  --text-display--letter-spacing: -0.022em;
+  --text-headline: 28px;
+  --text-headline--line-height: 34px;
+  --text-headline--letter-spacing: -0.017em;
+  --text-body: 16px;
+  --text-body--line-height: 24px;
+  --text-small: 14px;
+  --text-small--line-height: 20px;
+  /* Names from the earlier scale, kept so older screens land on the three sizes above. Do not use in new code. */
+  --text-12: 14px;
+  --text-12--line-height: 20px;
+  --text-13: 14px;
   --text-13--line-height: 20px;
   --text-14: 14px;
   --text-14--line-height: 20px;
   --text-16: 16px;
   --text-16--line-height: 24px;
-  --text-20: 20px;
-  --text-20--line-height: 28px;
+  --text-20: 16px;
+  --text-20--line-height: 24px;
   --text-28: 28px;
-  --text-28--line-height: 36px;
+  --text-28--line-height: 34px;
+  --text-28--letter-spacing: -0.017em;
   --text-44: 44px;
-  --text-44--line-height: 48px;
+  --text-44--line-height: 50px;
+  --text-44--letter-spacing: -0.022em;
 
   --radius-*: initial;
-  --radius-sm: 6px;
-  --radius-md: 10px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
   --radius-lg: 16px;
   --radius-full: 9999px;
 
-  /* Elevation comes from 1px lines and background steps, never shadows. */
+  /* One shadow, for things that float above the page (menus, dialogs). Cards and bars use lines. */
   --shadow-*: initial;
+  --shadow-pop: 0 12px 32px -8px rgb(20 19 16 / 0.22), 0 2px 6px rgb(20 19 16 / 0.08);
   --drop-shadow-*: initial;
 
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
@@ -163,14 +189,14 @@
   --animate-spin: spin 0.9s linear infinite;
 }
 
-/* Short viewports (e.g. a laptop at 200% zoom, ~450 CSS px tall): fixed headers give way to the content. */
+/* Short viewports (e.g. a laptop at 200% zoom, ~450 CSS px tall): sticky bars give way to the content. */
 @custom-variant short (@media (max-height: 640px));
 
 :root {
   --dur-hover: 120ms;
-  --dur-panel: 180ms;
-  --dur-spawn: 240ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
+  /* Heights of the fixed chrome, so sticky things can sit under or above them. */
+  --topbar-h: 56px;
 }
 
 html,
@@ -180,11 +206,16 @@ body {
 }
 body {
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 20px;
+  font-size: 16px;
+  line-height: 24px;
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+h1,
+h2,
+h3 {
+  text-wrap: balance;
 }
 code,
 pre,
@@ -193,14 +224,14 @@ kbd,
   font-feature-settings: normal;
 }
 ::selection {
-  background: color-mix(in oklab, var(--accent) 35%, transparent);
+  background: color-mix(in oklab, var(--accent) 28%, transparent);
 }
 
-/* Focus is always visible and never uses the accent (that is reserved for the next action). */
+/* Focus is always visible. It is ink, not the accent: the accent already means "the next action". */
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 :focus:not(:focus-visible) {
   outline: none;
@@ -217,7 +248,7 @@ kbd,
   }
 }
 
-/* ---------- base components (shadcn-style recipes) ---------- */
+/* ---------- base components ---------- */
 @utility card {
   background: var(--bg-1);
   border: 1px solid var(--line);
@@ -228,13 +259,14 @@ kbd,
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 36px;
-  padding: 8px 12px;
+  min-height: 40px;
+  padding: 8px 16px;
   border-radius: var(--radius-sm);
   font-size: 14px;
   line-height: 20px;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
+  cursor: pointer;
   transition-property: background-color, border-color, color, opacity;
   transition-duration: var(--dur-hover);
   transition-timing-function: var(--ease);
@@ -244,13 +276,12 @@ kbd,
     cursor: not-allowed;
   }
 }
-/* The one accent-filled button per view. Disabled, it becomes an outline (a dimmed fill reads as "enabled but
-   faint", and testers could not tell the two apart); the reason is said next to it. */
+/* The one accent-filled button on a screen. Disabled, it becomes an outline (a dimmed fill reads as "enabled but
+   faint"); the reason is always written next to it. */
 @utility btn-primary {
   @apply btn;
   background: var(--accent);
   color: var(--accent-fg);
-  font-weight: 600;
   &:not(:disabled):not([aria-disabled="true"]):hover {
     background: var(--accent-hover);
   }
@@ -266,21 +297,24 @@ kbd,
     background: var(--accent);
     color: var(--accent-fg);
     border: 0;
+    cursor: pointer;
   }
 }
+/* A plain button: every action that is not the screen's primary one. */
 @utility btn-secondary {
   @apply btn;
-  background: var(--bg-2);
+  background: var(--bg-1);
   color: var(--fg-0);
   border: 1px solid var(--line-control);
-  &:not(:disabled):hover {
+  &:not(:disabled):not([aria-disabled="true"]):hover {
     background: var(--bg-3);
   }
 }
+/* A quiet button, for the least important choice next to others (Cancel, Undo). */
 @utility btn-ghost {
   @apply btn;
   color: var(--fg-1);
-  &:not(:disabled):hover {
+  &:not(:disabled):not([aria-disabled="true"]):hover {
     background: var(--bg-3);
     color: var(--fg-0);
   }
@@ -288,33 +322,39 @@ kbd,
 @utility btn-danger {
   @apply btn;
   color: var(--err);
+  background: var(--bg-1);
   border: 1px solid color-mix(in oklab, var(--err) 60%, transparent);
   &:not(:disabled):hover {
-    background: color-mix(in oklab, var(--err) 12%, transparent);
+    background: color-mix(in oklab, var(--err) 10%, var(--bg-1));
   }
 }
 @utility btn-sm {
-  min-height: 28px;
-  padding: 4px 8px;
-  font-size: 12px;
-  line-height: 16px;
-  gap: 4px;
+  min-height: 32px;
+  padding: 4px 10px;
+  gap: 6px;
+}
+/* The landing page and the sign-in forms: one large button. */
+@utility btn-lg {
+  min-height: 48px;
+  padding: 12px 24px;
+  font-size: 16px;
+  line-height: 24px;
 }
 @utility input {
   width: 100%;
-  min-height: 36px;
+  min-height: 40px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--line-control);
-  background: var(--bg-0);
+  background: var(--bg-1);
   color: var(--fg-0);
   padding: 8px 12px;
-  font-size: 14px;
-  line-height: 20px;
+  font-size: 16px;
+  line-height: 24px;
   &::placeholder {
     color: var(--fg-2);
   }
   &:focus {
-    border-color: var(--fg-1);
+    border-color: var(--fg-0);
   }
   &:disabled {
     opacity: 0.6;
@@ -322,11 +362,11 @@ kbd,
 }
 @utility label {
   display: block;
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 500;
-  color: var(--fg-2);
-  margin-bottom: 4px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--fg-0);
+  margin-bottom: 6px;
 }
 @utility link {
   color: var(--fg-0);
@@ -337,12 +377,19 @@ kbd,
     text-decoration-color: var(--fg-0);
   }
 }
+/* The small line above a page title that says where you are ("Stage 2 of 4 · Question"). */
+@utility eyebrow {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--fg-2);
+}
 
 input[type="checkbox"],
 input[type="radio"] {
   accent-color: var(--fg-0);
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
 .prose-calm p {
@@ -365,103 +412,20 @@ mark.q-bad {
   color: inherit;
 }
 
-/* ---------- canvas (React Flow) ---------- */
-/* :root raises specificity above React Flow's own .react-flow.dark rules (its stylesheet loads later). */
-:root .react-flow,
-:root .react-flow.dark,
-:root .react-flow.light {
-  --xy-background-color-default: transparent;
-  --xy-background-pattern-dots-color-default: var(--line-strong);
-  --xy-edge-stroke-default: var(--line-control);
-  --xy-edge-stroke-width-default: 1.5;
-  --xy-connectionline-stroke-default: var(--fg-1);
-  --xy-minimap-background-color-default: var(--bg-1);
-  --xy-minimap-mask-background-color-default: rgb(0 0 0 / 0.45);
-  --xy-minimap-mask-stroke-color-default: var(--fg-2);
-  --xy-handle-background-color-default: var(--bg-3);
-  --xy-handle-border-color-default: var(--line-control);
-  --xy-selection-background-color-default: transparent;
-  --xy-selection-border-default: none;
-}
-:root[data-theme="light"] .react-flow {
-  --xy-minimap-mask-background-color-default: rgb(255 255 255 / 0.55);
-}
-.react-flow__node {
-  transition: transform var(--dur-spawn) var(--ease);
-}
-.react-flow__node.dragging {
-  transition: none;
-}
-.react-flow__node:focus-visible,
-.react-flow__node:focus {
-  outline: none;
-}
-.react-flow__edge.running .react-flow__edge-path {
-  stroke: var(--run);
-  stroke-dasharray: 6 4;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .react-flow__edge.running .react-flow__edge-path {
-    animation: athena-flow 0.6s linear infinite;
-  }
-}
-@keyframes athena-flow {
-  to {
-    stroke-dashoffset: -10;
-  }
-}
-/* Handles show on hover or focus. visibility (not opacity) so idle handles are not painted at all. */
-.athena-handle {
-  width: 8px;
-  height: 8px;
-  visibility: hidden;
-}
-.react-flow__node:hover .athena-handle.connectable,
-.react-flow__node:focus-within .athena-handle.connectable {
-  visibility: visible;
-}
-/* Icons draw inside their viewBox; without the default clip each card paints in fewer layers. */
+/* Icons draw inside their viewBox; without the default clip they paint in fewer layers. */
 svg.lucide {
   overflow: visible;
 }
-/* Zoomed-out overview: kind, status and title stay; the key line and secondary actions return on zoom-in. */
-[data-zoom="far"] [data-detail] {
-  visibility: hidden;
-}
-.react-flow__minimap {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-}
-.react-flow__minimap-node { fill: var(--bg-3); stroke: none; }
-.react-flow__minimap-node.mm-done { fill: var(--fg-2); }
-.react-flow__minimap-node.mm-running { fill: var(--run); }
-.react-flow__minimap-node.mm-review { fill: var(--fg-1); }
-.react-flow__minimap-node.mm-stale { fill: var(--warn); }
-.react-flow__minimap-node.mm-error { fill: var(--err); }
 
-/* View transitions between routes (crossfade; nothing when motion is reduced). */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: var(--dur-panel);
-  animation-timing-function: var(--ease);
-}
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(*),
-  ::view-transition-old(*),
-  ::view-transition-new(*) {
-    animation: none !important;
-  }
-}
-
-/* Headings that receive focus programmatically (tabindex=-1, not reachable by Tab) need no ring... */
+/* Headings that receive focus from code (tabindex=-1, not reachable by Tab) need no ring... */
 [tabindex="-1"]:focus {
   outline: none;
 }
-/* ...unless focus was moved there for a keyboard user (focusWithRing in components/canvas/focus.ts). */
+/* ...unless focus was moved there for a keyboard user (focusWithRing in components/focus.ts). */
 [tabindex="-1"][data-focus-ring]:focus {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 /* Touch: every control is at least 44 × 44 px on small screens. */
@@ -478,31 +442,10 @@ svg.lucide {
   .btn-sm {
     min-width: 44px;
   }
-}
-/* Short viewports: the side panel's pinned footer stays compact (the note beside the buttons, less padding), so it
-   does not take a third of a zoomed screen. Focused controls are scrolled clear of it (revealInPanel in focus.ts). */
-@media (max-height: 640px) {
-  [data-panel-footer] > div {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px 8px;
-    padding-top: 6px;
-    padding-bottom: 6px;
+  :root {
+    --text-headline: 24px;
+    --text-headline--line-height: 30px;
+    --text-display: 32px;
+    --text-display--line-height: 38px;
   }
-  [data-panel-footer] > div > p {
-    flex: 1 1 12rem;
-    margin-bottom: 0;
-  }
-  [data-panel-footer] > div > div {
-    margin-left: auto;
-  }
-  [data-panel-footer-fallback] {
-    padding-top: 6px;
-    padding-bottom: 6px;
-  }
-}
-/* Promote the viewport to its own layer only while panning/zooming (crisp text the rest of the time). */
-[data-moving] .react-flow__viewport {
-  will-change: transform;
 }

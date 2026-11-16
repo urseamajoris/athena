@@ -1,13 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { z } from "zod";
-import { toXaiSchema } from "./ai/schema";
+import { toModelSchema } from "./ai/schema";
 import { normalizeDoi, normalizeTitle } from "./util";
 import { citationScore, defaultSelection, recencyScore, topicCoverage, weightedTotal } from "./scoring";
 import { surname, scrubIds, thinTopics } from "./shared/stages";
 
-test("xAI schema strips unsupported keywords but keeps structure", () => {
-  const s = toXaiSchema(z.object({ a: z.string().min(2).max(5), b: z.array(z.number()).min(1).max(3), c: z.enum(["x", "y"]).nullable() }));
+test("model schema strips unsupported keywords but keeps structure", () => {
+  const s = toModelSchema(z.object({ a: z.string().min(2).max(5), b: z.array(z.number()).min(2).max(3), c: z.enum(["x", "y"]).nullable() }));
   const txt = JSON.stringify(s);
   for (const k of ["minLength", "maxLength", "minItems", "maxItems", "pattern", "allOf", "$schema"]) assert.ok(!txt.includes(k), k);
   assert.deepEqual((s as { required: string[] }).required, ["a", "b", "c"]);

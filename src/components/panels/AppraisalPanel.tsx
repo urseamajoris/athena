@@ -4,16 +4,15 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api, projectPath, useApi } from "../api";
 import { Badge, EmptyState, ErrorState, Loading, Spinner, TextSourceBadge, cx } from "../ui";
 import { Disclosure } from "../disclosure";
-import { canvasStore, useJobRefresh, useSession } from "../session/SessionContext";
+import { useJobRefresh, useSession } from "../session/SessionContext";
+import { useMarks } from "../session/marks";
 import { ActionButton, JobLog, JobStatus, PanelFooter, SectionTitle, StaleNotice } from "./common";
-import { FOUND_MEANS, PinButton, QuoteVerdict, SourcePassage } from "./evidence";
-import { nextAction } from "@/lib/canvas/actions";
+import { FOUND_MEANS, QuoteVerdict, SourcePassage } from "./evidence";
 import { isUndecided } from "@/lib/shared/canvas";
 import { fmtInt } from "@/lib/shared/format";
 import { Checklist } from "../guide/Checklist";
 import { appraisalChecks } from "../guide/checklist-rules";
-import { WhatHappens } from "../guide/WhatHappens";
-import { usingKeyboard } from "../canvas/focus";
+import { usingKeyboard } from "../focus";
 
 export interface AppraisalRow {
   id: string; paperId: string; status: string; error: string | null; textSource: string; textNote: string; templateType: string;
@@ -43,7 +42,8 @@ export function useAppraisals() {
 
 /** Appraisal node: finish one appraisal at a time (checklist + extracted claims with verified quotes). */
 export function AppraisalPanel() {
-  const { projectId, ui, graph, input, states } = useSession();
+  const { projectId, actionFor, states } = useSession();
+  const ui = useMarks(projectId);
   const { data, error, isLoading, mutate } = useAppraisals();
   const list = useMemo(() => data?.appraisals ?? [], [data]);
   const [active, setActive] = useState<string | null>(null);
@@ -52,8 +52,7 @@ export function AppraisalPanel() {
   const current = list.find((a) => a.id === active) ?? firstUnreviewed ?? null;
   const idx = current ? list.findIndex((a) => a.id === current.id) : -1;
   const reviewed = list.filter((a) => ui.reviewed.includes(a.id)).length;
-  const node = graph.nodes.find((n) => n.id === "appraisal");
-  const action = node ? nextAction(node, graph, input) : null;
+  const action = actionFor("articles");
   // Every "to decide" count here comes from the server's per-paper counts (the same rule as the canvas card).
   const totals = list.reduce((a, x) => ({ ft: a.ft + (x.textSource === "full_text" ? 1 : 0), left: a.left + x.counts.undecided, decided: a.decided + x.counts.accepted + x.counts.rejected }), { ft: 0, left: 0, decided: 0 });
   // Ticked only once every paper's appraisal has finished (while they run, "0 of 11 looked at, 0 left" is not done).
@@ -65,7 +64,7 @@ export function AppraisalPanel() {
 
   function go(delta: number) {
     if (!current) return;
-    if (delta > 0) canvasStore.getState().markReviewed(projectId, current.id);
+    if (delta > 0) ui.markReviewed(current.id);
     const next = list[Math.min(list.length - 1, Math.max(0, idx + delta))];
     if (next) setActive(next.id);
   }
@@ -76,7 +75,6 @@ export function AppraisalPanel() {
     <div className="space-y-4">
       <StaleNotice stage={7} />
       {states["7"] === "running" && <JobStatus stage={7} />}
-      <WhatHappens stage={7} />
       {!list.length ? (
         <EmptyState title="No appraisals yet">They appear here as each selected paper is read.</EmptyState>
       ) : (
@@ -135,7 +133,7 @@ export function AppraisalPanel() {
           </>
         ) : action ? (
           <>
-            {markLast && <button className="btn-secondary" onClick={() => { if (!current) return; setActive(current.id); canvasStore.getState().markReviewed(projectId, current.id); }}>Mark this paper as looked at</button>}
+            {markLast && <button className="btn-secondary" onClick={() => { if (!current) return; setActive(current.id); ui.markReviewed(current.id); }}>Mark this paper as looked at</button>}
             <ActionButton action={action} primary showReason />
           </>
         ) : list.length > 0 ? (
@@ -287,7 +285,6 @@ export function QuoteLine({ c, text, stale, onDecide, busy }: { c: Claim; text?:
           {!c.verified && !c.userAccepted && <button className="btn-secondary btn-sm" data-decide onClick={() => onDecide("accept")} title="The paper does say this: keep it">Accept anyway</button>}
           {!c.verified && !c.userRejected && <button className="btn-secondary btn-sm" data-decide onClick={() => onDecide("reject")} title="Leave this claim out of the synthesis">Reject</button>}
           {!c.verified && (c.userAccepted || c.userRejected) && <button className="btn-ghost btn-sm" onClick={() => onDecide("clear")} aria-label={c.userRejected ? "Undo reject" : "Undo accept"}>Undo</button>}
-          <PinButton claimId={c.id} />
         </span>
       </div>
       {c.userRejected && !c.verified ? (

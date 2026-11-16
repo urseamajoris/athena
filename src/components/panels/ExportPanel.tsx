@@ -1,12 +1,11 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
-import { Check, Download, Maximize2, Pencil, Printer } from "lucide-react";
+import { Check, Download, Pencil, Printer } from "lucide-react";
 import { RadioGroup } from "radix-ui";
 import { projectPath, useApi } from "../api";
 import { ErrorState, Spinner, cx } from "../ui";
 import { Disclosure } from "../disclosure";
-import { canvasStore, useSession } from "../session/SessionContext";
+import { useSession } from "../session/SessionContext";
 import { PanelFooter, Stat } from "./common";
 import { useQuestions } from "./QuestionsPanel";
 import { fmtInt } from "@/lib/shared/format";
@@ -37,7 +36,7 @@ type Format = (typeof FORMATS)[number]["id"];
 
 /** Format choice, a preview of the actual file, and Download. Shared by the Export node and /s/[id]/export. */
 export function ExportView({ full = false }: { full?: boolean }) {
-  const { projectId, summary } = useSession();
+  const { projectId, summary, goToStep } = useSession();
   const { data } = useQuestions();
   const [format, setFormat] = useState<Format>("markdown");
   const [downloaded, setDownloaded] = useState<Format | null>(null);
@@ -70,11 +69,7 @@ export function ExportView({ full = false }: { full?: boolean }) {
         <section aria-label="Your research question" className="rounded-md border border-line bg-bg-1 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-12 text-fg-2">Your research question</p>
-            {full ? (
-              <Link href={`/s/${projectId}?node=questions`} className="btn-ghost btn-sm"><Pencil className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Edit the question</Link>
-            ) : (
-              <button className="btn-ghost btn-sm" onClick={() => canvasStore.getState().openPanel("questions")}><Pencil className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Edit the question</button>
-            )}
+            <button className="btn-ghost btn-sm" onClick={() => goToStep("report")}><Pencil className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Edit the question</button>
           </div>
           <p className={cx("font-semibold leading-snug", full && "text-16")}>{q.text}</p>
         </section>
@@ -111,7 +106,6 @@ export function ExportView({ full = false }: { full?: boolean }) {
       <section aria-label="Preview">
         <div className="mb-2 flex items-center justify-between gap-2">
           {full ? <h2 className="text-12 font-medium text-fg-2">Preview{count}</h2> : <h3 className="text-12 font-medium text-fg-2">Preview{count}</h3>}
-          {!full && <Link href={`/s/${projectId}/export`} className="btn-ghost btn-sm"><Maximize2 className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Larger preview</Link>}
         </div>
         {err ? <ErrorState error={err} /> : !preview ? <p className="flex items-center gap-2 text-fg-2"><Spinner /> Loading preview…</p> : (
           format === "markdown" ? (

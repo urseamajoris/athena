@@ -1,11 +1,7 @@
 "use client";
 import { useMemo, useState, useSyncExternalStore } from "react";
-import dynamic from "next/dynamic";
-import { Box, Square } from "lucide-react";
 import { Legend } from "../categories";
 import { shapePath } from "../categories";
-import { cx } from "../ui";
-import { useReducedMotion, useTheme, useVizMode } from "./support";
 import { AXIS_NOTE, countBy, place, type MapPoint } from "./paper-points";
 import { categoriesFor, categoryVar, COLOR_BY, type ColorBy } from "@/lib/shared/categories";
 
@@ -18,10 +14,8 @@ function subHover(cb: () => void) {
 }
 const useTouchOnly = () => useSyncExternalStore(subHover, () => window.matchMedia(NO_HOVER).matches, () => false);
 
-const PaperMap3D = dynamic(() => import("./PaperMap3D"), { ssr: false, loading: () => <div className="flex h-[380px] items-center justify-center text-12 text-fg-2">Loading the 3D map…</div> });
-
-/** 2D version (no WebGL, weak devices, or chosen): the same positions, colours, shapes and legend. */
-function PaperMap2D({ points, colorBy, topics, isolated, highlight, onOpen, label, dimUnselected }: { points: MapPoint[]; colorBy: ColorBy; topics: { id: string; name: string }[]; isolated: string | null; highlight: string | null; onOpen: (id: string) => void; label: string; dimUnselected: boolean }) {
+/** The chart itself: one mark per paper, by year (across) and score (up, once the papers are ranked). */
+function PaperPlot({ points, colorBy, topics, isolated, highlight, onOpen, label, dimUnselected }: { points: MapPoint[]; colorBy: ColorBy; topics: { id: string; name: string }[]; isolated: string | null; highlight: string | null; onOpen: (id: string) => void; label: string; dimUnselected: boolean }) {
   const { placed, yearMin, yearMax, scored } = useMemo(() => place(points, 1), [points]);
   const cats = categoriesFor(colorBy, topics);
   const W = 600;
@@ -50,15 +44,10 @@ function PaperMap2D({ points, colorBy, topics, isolated, highlight, onOpen, labe
 
 /**
  * Papers as points, coloured and shaped by category, with a legend that highlights (hover) and isolates (click)
- * a category, and a "Color by" switch. 3D when WebGL is available, 2D otherwise or on request. Decorative to the
- * task: every number it shows is also in the legend counts and the caption. `of` is the number of papers in the
+ * a category, and a "Colour by" switch. Every number it shows is also in the legend counts and the caption. `of` is the number of papers in the
  * review when the caller already filtered `points` (e.g. by article type), so the caption says "Showing X of Y".
  */
-export function PaperMap({ points, colorBy, onColorBy, topics, onOpen, layers, title, dimUnselected = false, colorChoices, of }: { points: MapPoint[]; colorBy: ColorBy; onColorBy: (c: ColorBy) => void; topics: { id: string; name: string }[]; onOpen: (id: string) => void; layers: number; title: string; dimUnselected?: boolean; colorChoices?: ColorBy[]; of?: number }) {
-  const [pref, setPref] = useState<"auto" | "2d">("auto");
-  const mode = useVizMode(pref);
-  const reduced = useReducedMotion();
-  const theme = useTheme();
+export function PaperMap({ points, colorBy, onColorBy, topics, onOpen, title, dimUnselected = false, colorChoices, of }: { points: MapPoint[]; colorBy: ColorBy; onColorBy: (c: ColorBy) => void; topics: { id: string; name: string }[]; onOpen: (id: string) => void; layers?: number; title: string; dimUnselected?: boolean; colorChoices?: ColorBy[]; of?: number }) {
   const [isolated, setIsolated] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
   const counts = useMemo(() => countBy(points), [points]);
@@ -78,23 +67,13 @@ export function PaperMap({ points, colorBy, onColorBy, topics, onOpen, layers, t
               {COLOR_BY.filter((c) => !colorChoices || colorChoices.includes(c.key)).map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
             </select>
           </label>
-          {mode && (
-            <button className="btn-secondary btn-sm" onClick={() => setPref(pref === "2d" ? "auto" : "2d")} title={mode === "3d" ? "Show a flat chart instead" : "Show the 3D view"}>
-              {mode === "3d" ? <Square className="h-3 w-3" aria-hidden /> : <Box className="h-3 w-3" aria-hidden />}
-              {mode === "3d" ? "Show as 2D chart" : "Show in 3D"}
-            </button>
-          )}
         </span>
       </figcaption>
       <Legend dim={colorBy} topics={topics} counts={counts} highlight={highlight} isolated={isolated} onHighlight={setHighlight} onIsolate={setIsolated} className="mt-2" title={isolated ? `Showing only one category (${counts[isolated] ?? 0} papers). ${touch ? "Tap" : "Click"} it again to show all.` : touch ? `Key (${dimLabel}): tap a category to show only that one` : `Key (${dimLabel}): hover or focus to highlight, click to show only that category`} />
-      <div className={cx("mt-2", !mode && "h-[300px]")}>
-        {mode === "3d" ? (
-          <PaperMap3D points={shown} colorBy={colorBy} topics={topics} theme={theme} isolated={null} highlight={highlight} animate={!reduced} onOpen={onOpen} layers={layers} label={caption} dimUnselected={dimUnselected} />
-        ) : mode === "2d" ? (
-          <PaperMap2D points={shown} colorBy={colorBy} topics={topics} isolated={null} highlight={highlight} onOpen={onOpen} label={caption} dimUnselected={dimUnselected} />
-        ) : null}
+      <div className="mt-2">
+        <PaperPlot points={shown} colorBy={colorBy} topics={topics} isolated={null} highlight={highlight} onOpen={onOpen} label={caption} dimUnselected={dimUnselected} />
       </div>
-      <p className="mt-2 text-12 text-fg-2">{caption}{mode === "3d" ? (touch ? " Drag to turn, pinch to zoom." : " Drag to turn, scroll to zoom.") : ""}</p>
+      <p className="mt-2 text-12 text-fg-2">{caption}</p>
     </figure>
   );
 }

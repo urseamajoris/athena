@@ -12,16 +12,21 @@ export interface StageDef {
 }
 
 export const STAGES: StageDef[] = [
-  { n: 1, key: "idea", title: "Idea", done: "Describe your research idea in a sentence or a paragraph, then approve it." },
-  { n: 2, key: "scoping", title: "Scoping", done: "Answer up to five questions, then edit and approve the list of 4–8 search topics." },
-  { n: 3, key: "search", title: "Search builder", done: "Check each database query and the shared criteria, dry-run the counts, then approve." },
-  { n: 4, key: "retrieval", title: "Retrieval", done: "Wait for every query to finish, review the counts and any errors, then approve.", job: "retrieval" },
-  { n: 5, key: "summary", title: "Summary table", done: "Skim the papers found, correct any abstract-derived cells, then approve.", job: "summaries" },
-  { n: 6, key: "ranking", title: "Ranking", done: "Check the 3–5 papers selected per topic, swap any you disagree with, then approve.", job: "ranking" },
-  { n: 7, key: "appraisal", title: "Appraisal", done: "Review each appraisal, accept or reject the quotes not found in the paper, then approve.", job: "appraisal" },
-  { n: 8, key: "synthesis", title: "Synthesis", done: "Read the evidence matrix and the known / contested / unknown summaries, then approve.", job: "synthesis" },
-  { n: 9, key: "questions", title: "Research question", done: "Compare the three candidates, pick one, edit it if needed, then finish.", job: "questions" },
+  { n: 1, key: "idea", title: "Idea", done: "Describe what you want to research in a sentence or a paragraph, then continue." },
+  { n: 2, key: "scoping", title: "Research question", done: "Answer up to five short questions, then choose, edit or write your research question and confirm it." },
+  { n: 3, key: "search", title: "Search plan", done: "Check the search topics, the database searches and the criteria, then run the searches." },
+  { n: 4, key: "retrieval", title: "Papers found", done: "Wait for every search to finish, look at what came back and any errors, then continue.", job: "retrieval" },
+  { n: 5, key: "summary", title: "Paper summaries", done: "Every paper is summarised from its abstract. Ranking starts by itself when the summaries are ready.", job: "summaries" },
+  { n: 6, key: "ranking", title: "Choose papers", done: "Check the 3–5 papers chosen per topic, correct any summary, swap papers you disagree with, then continue.", job: "ranking" },
+  { n: 7, key: "appraisal", title: "Article analysis", done: "Read the analysis of each article, accept or reject the quotes not found in its text, then continue.", job: "appraisal" },
+  { n: 8, key: "synthesis", title: "Evidence summary", done: "Read what is known, contested and unknown, and the evidence matrix, then continue.", job: "synthesis" },
+  { n: 9, key: "questions", title: "Final question", done: "Keep your research question or pick a revision the evidence suggests, edit it if needed, then finish.", job: "questions" },
 ];
+
+/** Title of an engine stage, for messages ("Finish \"Search plan\" first"). */
+export function stageTitle(n: number): string {
+  return STAGES[n - 1]?.title ?? `stage ${n}`;
+}
 
 export const STATE_LABEL: Record<StageState, string> = {
   not_started: "Not started",
@@ -79,7 +84,31 @@ export const RUBRIC = [
   { key: "citationImpact", label: "Citation impact", weight: 0.1, by: "formula" },
 ] as const;
 
-/** Papers kept per topic for appraisal ("3–5"). Fewer is allowed when few papers match a topic, but is said plainly. */
+/** Frameworks a research question can be structured with (the working question in stage 2, the final one in stage 9). */
+export const QUESTION_FRAMEWORKS = ["PICO", "PECO", "PEO", "PICo", "SPIDER", "other"] as const;
+export type QuestionFramework = (typeof QUESTION_FRAMEWORKS)[number];
+
+/** How an analysed article bears on the working research question (stage 7). "" on analyses with no judgement. */
+export const RELEVANCE = ["direct", "partial", "background"] as const;
+export type Relevance = (typeof RELEVANCE)[number];
+export const RELEVANCE_LABEL: Record<Relevance, string> = {
+  direct: "Answers your question directly",
+  partial: "Answers part of your question",
+  background: "Background only",
+};
+
+/**
+ * Stage 9 lists the working research question first, as a candidate the user can keep ("Your question,
+ * unchanged"), then the revisions the evidence suggests. The working-question candidate is the row with
+ * `order` 0 and this exact `gap` text (the gap cannot be edited through the API).
+ */
+export const WORKING_QUESTION_ORDER = 0;
+export const WORKING_QUESTION_GAP = "This is your working research question, as you confirmed it before the search.";
+export function isWorkingQuestionCandidate(q: { order: number; gap: string }): boolean {
+  return q.order === WORKING_QUESTION_ORDER && q.gap === WORKING_QUESTION_GAP;
+}
+
+/** Papers kept per topic for article analysis ("3–5"). Fewer is allowed when few papers match a topic, but is said plainly. */
 export const PER_TOPIC = { min: 3, max: 5 } as const;
 /** Topic fit below this (0–1 of 5: unrelated, no topic terms in title or abstract) means the paper does not match the topic. */
 export const MIN_TOPIC_FIT = 2;

@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 // The key travels browser → server once, in this request body. It is never logged (apiRoute records the route,
 // status and duration only), never stored in plain text, and never sent back: responses carry the masked status.
-const Key = z.object({ key: z.string().trim().min(20, "That does not look like an xAI API key.").max(300).regex(/^\S+$/, "The key cannot contain spaces.") });
+const Key = z.object({ key: z.string().trim().min(20, "That does not look like an API key.").max(300).regex(/^\S+$/, "The key cannot contain spaces.") });
 
 export const GET = apiRoute("admin/key", async () => {
   await requireAdmin();

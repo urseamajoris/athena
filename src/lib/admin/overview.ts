@@ -57,7 +57,7 @@ export async function adminOverview() {
   const active = (ms: number) => users.filter((u) => u.lastActiveAt && Date.parse(u.lastActiveAt) >= now - ms).length;
 
   // ---- AI ----
-  // Rows logged by the old scripted (mock) model were never sent to xAI: they are left out of every count.
+  // Rows logged by the old scripted (mock) model were never sent to a model: they are left out of every count.
   const notMock = sql`coalesce(${schema.aiCalls.costSource}, '') <> 'mock'`;
   const totals = await db
     .select({
@@ -193,7 +193,9 @@ export async function adminOverview() {
 
   const models = Object.values(modelResolutions());
   const modelProblems = models.filter((m) => m.status === "substituted" || (/failed/.test(m.note) && config.production)).map((m) => `Model ${m.role}: ${m.note}`);
-  const exhaustion = projectExhaustion(sentCalls, spent, budget.limitUsd, now);
+  // When the cap runs out at the current rate of spend. With no cap it never does: only the rate is reported.
+  const rate = projectExhaustion(sentCalls, spent, budget.capped ? budget.limitUsd : spent + 1, now);
+  const exhaustion = budget.capped ? rate : { perDay: rate.perDay, exhaustedAt: null, daysLeft: null };
 
   return {
     generatedAt: iso(now),
@@ -210,7 +212,7 @@ export async function adminOverview() {
       spent,
       limit: budget.limitUsd,
       sourceErrorRates: sources.map((s) => ({ source: s.source, requests: s.requests, errorRate: s.errorRate })),
-      keyProblem: key.problem ?? (key.inUse === "none" ? "No xAI key is configured: AI steps are paused until one is added." : null),
+      keyProblem: key.problem ?? (key.inUse === "none" ? "No API key is configured: AI steps are paused until one is added." : null),
       modelProblems,
     }),
     health: {
@@ -234,7 +236,8 @@ export async function adminOverview() {
       key,
       paidCalls,
       models,
-      budget: { ...budget, spentUsd: spent, pct: budget.limitUsd > 0 ? spent / budget.limitUsd : 0, ...exhaustion },
+      // `capped` false = no spend cap: limitUsd is 0, pct stays 0 and the cap never runs out.
+      budget: { ...budget, spentUsd: spent, pct: budget.capped ? spent / budget.limitUsd : 0, ...exhaustion },
       totals: {
         calls: callTotal,
         sent,

@@ -1,8 +1,8 @@
 "use client";
 import { Lock } from "lucide-react";
 import { Spinner, cx } from "../ui";
-import { cmdKey, useSessionActions } from "../session/SessionContext";
-import type { Action } from "@/lib/canvas/actions";
+import { useSessionActions } from "../session/SessionContext";
+import { cmdKey, type Action } from "../session/actions";
 
 /**
  * Renders a node action. `primary` makes it the view's one accent-filled button. A locked action stays

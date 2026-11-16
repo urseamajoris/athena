@@ -9,8 +9,8 @@ import { templateFor, TEMPLATE_LABEL } from "../stages/templates";
 
 const css = fs.readFileSync(path.resolve(process.cwd(), "src/app/globals.css"), "utf8");
 const themes = {
-  dark: tokensFrom(css, /^\s*:root,\s*:root\[data-theme="dark"\]\s*$/),
-  light: tokensFrom(css, /^\s*:root\[data-theme="light"\]\s*$/),
+  light: tokensFrom(css, /^\s*:root,\s*:root\[data-theme="light"\]\s*$/),
+  dark: tokensFrom(css, /^\s*:root\[data-theme="dark"\]\s*$/),
 };
 
 for (const theme of ["light", "dark"] as const) {

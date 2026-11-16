@@ -7,9 +7,11 @@ import { Synthesis } from "../stages/ai-schemas";
 import { STUDY_TYPE_LABEL, type StudyType } from "../shared/stages";
 import { errMsg, newId } from "../util";
 import { getProject, logDecision } from "../project";
+import { questionText, workingQuestion } from "../stages/rules";
 import type { JobContext } from "./runner";
+import type { PromptVars } from "../stages/prompt-vars";
 
-/** Claims that synthesis may cite: verified quotes, or unverified ones the user explicitly accepted. */
+/** Claims the evidence summary may cite: quotes found in the text, or ones not found that the user explicitly accepted. */
 export async function usableClaims(paperIds: string[]) {
   return (await db
       .select()
@@ -19,9 +21,11 @@ export async function usableClaims(paperIds: string[]) {
     .filter((c) => !c.notReported && !c.userRejected && (c.verified || c.userAccepted));
 }
 
+/** Evidence summary (stage 8): per topic, what the analysed articles say together about the working research question. */
 export async function synthesisJob(ctx: JobContext) {
   const { projectId } = ctx;
   const p = (await getProject(projectId));
+  const question = wrapData("working research question", questionText(workingQuestion(p)));
   const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.importanceRank), asc(schema.topics.sortOrder)).all());
   const oldItems = (await db.select({ id: schema.synthesisItems.id }).from(schema.synthesisItems).where(eq(schema.synthesisItems.projectId, projectId)).all()).map((r) => r.id);
   (await db.delete(schema.claimLinks).where(and(eq(schema.claimLinks.ownerType, "synthesis"), inArray(schema.claimLinks.ownerId, oldItems.concat(["-"])))).run());
@@ -33,7 +37,7 @@ export async function synthesisJob(ctx: JobContext) {
 
   let finished = 0;
   let ok = 0;
-  (await ctx.progress(0, topics.length, `Synthesising ${topics.length} topics`));
+  (await ctx.progress(0, topics.length, `Summarising the evidence for ${topics.length} topic${topics.length === 1 ? "" : "s"}`));
   await Promise.all(
     topics.map(async (t) => {
       if ((await ctx.cancelled())) return;
@@ -45,7 +49,7 @@ export async function synthesisJob(ctx: JobContext) {
         const sums = (await db.select().from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, pids.concat(["-"]))).all());
         const claims = (await usableClaims(pids));
         if (claims.length < 2) {
-          (await ctx.log(`Topic "${t.name}": fewer than 2 usable (verified or accepted) claims — skipped.`));
+          (await ctx.log(`Topic "${t.name}": fewer than 2 findings with a quote that was found in the text or accepted by you, so it was left out.`));
           return;
         }
         const claimIds = claims.map((c) => c.id);
@@ -57,8 +61,9 @@ export async function synthesisJob(ctx: JobContext) {
           projectId,
           stage: 8,
           vars: {
+            question,
             idea: wrapData("research idea", p.idea),
-            topic: `${t.name} — ${t.rationale}`,
+            topic: wrapData("topic", `${t.name} — ${t.rationale}`),
             papers: wrapData(
               "papers",
               papers
@@ -66,12 +71,12 @@ export async function synthesisJob(ctx: JobContext) {
                   const a = apps.find((y) => y.paperId === x.id);
                   const s = sums.find((y) => y.paperId === x.id);
                   // First author and journal let the model tell a preprint and its journal version apart as one study.
-                  return `${x.id} — ${x.title} — ${x.authors[0] ?? "n/a"} — ${x.journal ?? "n/a"} — ${x.year ?? "n/a"} — ${STUDY_TYPE_LABEL[(s?.studyType ?? "not_reported") as StudyType] ?? s?.studyType} — ${a?.textSource === "full_text" ? "full text" : "abstract only"}`;
+                  return `${x.id} — ${x.title} — ${x.authors[0] ?? "n/a"} — ${x.journal ?? "n/a"} — ${x.year ?? "n/a"} — ${STUDY_TYPE_LABEL[(s?.studyType ?? "not_reported") as StudyType] ?? s?.studyType} — ${a?.textSource === "full_text" ? "full text" : "abstract only"} — ${a?.relevance || "not judged"}`;
                 })
                 .join("\n"),
             ),
             claims: wrapData("claims", claims.map((c) => `${c.id} | ${c.paperId} | ${c.field} | ${c.statement} | quote: "${c.quote}"`).join("\n")),
-          },
+          } satisfies PromptVars<"synthesis">,
           normalize: (o) => {
             const fc = (a: string[]) => a.map((x) => repairId(x, claimIds));
             return {
@@ -121,13 +126,13 @@ export async function synthesisJob(ctx: JobContext) {
         (await ctx.log(`✓ "${t.name}": ${data.themes.length} themes, ${data.contradictions.length} contradictions`));
       } catch (e) {
         if (isAiStop(e)) throw e;
-        (await ctx.log(`✗ synthesis failed for "${t.name}": ${errMsg(e)}`));
+        (await ctx.log(`✗ the evidence for "${t.name}" could not be summarised: ${errMsg(e)}`));
       } finally {
         finished++;
-        (await ctx.progress(finished, topics.length, `Synthesised ${finished}/${topics.length} topics`));
+        (await ctx.progress(finished, topics.length, `Summarised the evidence for ${finished} of ${topics.length} topics`));
       }
     }),
   );
   (await logDecision(projectId, 8, "synthesis_generated", null, { topics: topics.length, ok }, "ai"));
-  if (!ok) throw new Error("No topic could be synthesised. Check that appraisals produced verified claims.");
+  if (!ok) throw new Error("The evidence could not be summarised for any topic. Check that the article analysis has findings whose quotes were found in the text or accepted by you.");
 }

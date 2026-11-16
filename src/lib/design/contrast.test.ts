@@ -6,8 +6,8 @@ import { contrast, parseHex, requiredPairs, tokensFrom } from "./contrast";
 
 const css = fs.readFileSync(path.resolve(process.cwd(), "src/app/globals.css"), "utf8");
 const themes = {
-  dark: tokensFrom(css, /^\s*:root,\s*:root\[data-theme="dark"\]\s*$/),
-  light: tokensFrom(css, /^\s*:root\[data-theme="light"\]\s*$/),
+  light: tokensFrom(css, /^\s*:root,\s*:root\[data-theme="light"\]\s*$/),
+  dark: tokensFrom(css, /^\s*:root\[data-theme="dark"\]\s*$/),
 };
 
 test("contrast maths matches known WCAG values", () => {
@@ -31,7 +31,13 @@ for (const [name, tokens] of Object.entries(themes)) {
   });
 }
 
-test("dark is the default theme (bare :root carries the dark tokens)", () => {
-  assert.equal(themes.dark["bg-0"].toLowerCase(), "#0a0a0b");
-  assert.equal(themes.dark["accent"].toLowerCase(), "#7c9cff");
+test("light is the default theme (bare :root carries the light tokens)", () => {
+  assert.equal(css.match(/:root,\s*:root\[data-theme="light"\]\s*\{\s*color-scheme:\s*(\w+)/)?.[1], "light");
+  assert.equal(contrast(parseHex(themes.light["fg-0"]), parseHex(themes.light["bg-0"])) > 12, true);
+});
+
+test("the accent is not a status colour: it stays apart from ok, warn, err and run in both themes", () => {
+  for (const tokens of Object.values(themes)) {
+    for (const status of ["ok", "warn", "err", "run"]) assert.notEqual(tokens.accent.toLowerCase(), tokens[status].toLowerCase());
+  }
 });

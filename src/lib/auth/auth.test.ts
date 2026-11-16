@@ -32,23 +32,25 @@ test("settings key: hex, base64 or a long passphrase; refuses short or missing",
 
 test("secrets: AES-256-GCM round-trip, tamper detection, wrong key fails", () => {
   const key = settingsKey("0123456789abcdef".repeat(4))!;
-  const blob = encryptSecret("xai-SAMPLEKEY1234567890abcd", key);
+  const blob = encryptSecret("sk-ant-SAMPLEKEY1234567890abcd", key);
   assert.ok(!blob.includes("SAMPLEKEY"));
-  assert.equal(decryptSecret(blob, key), "xai-SAMPLEKEY1234567890abcd");
+  assert.equal(decryptSecret(blob, key), "sk-ant-SAMPLEKEY1234567890abcd");
   const parts = blob.split(":");
   const tampered = [...parts.slice(0, 3), Buffer.from("x" + Buffer.from(parts[3], "base64").toString("latin1")).toString("base64")].join(":");
   assert.throws(() => decryptSecret(tampered, key));
   assert.throws(() => decryptSecret(blob, settingsKey("f".repeat(64))!));
-  assert.equal(maskKey("xai-SAMPLEKEY1234567890abcd"), "••••abcd");
+  assert.equal(maskKey("sk-ant-SAMPLEKEY1234567890abcd"), "••••abcd");
   assert.equal(fingerprint("a").length, 8);
 });
 
 test("redaction removes known keys and key-shaped strings", () => {
-  const msg = "401 Incorrect API key provided: xai-SAMPLEKEY1234567890abcd. Authorization: Bearer abcdefghijklmnopqrstuv";
+  const msg = "401 Incorrect API key provided: sk-ant-SAMPLEKEY1234567890abcd. Authorization: Bearer abcdefghijklmnopqrstuv";
   const out = redactSecrets(msg, ["my-secret-value-123"]);
   assert.ok(!out.includes("SAMPLEKEY"));
   assert.ok(!out.includes("abcdefghijklmnop"));
   assert.equal(redactSecrets("token my-secret-value-123 here", ["my-secret-value-123"]), "token [redacted] here");
+  assert.equal(redactSecrets('headers: {"x-api-key": "abcdefghijklmnopqrstuv"}'), 'headers: {"x-api-key [redacted]"}');
+  assert.equal(redactSecrets("invalid x-api-key"), "invalid x-api-key", "the header name alone is left as it is");
 });
 
 test("login rate limit: per email and per IP, inside the window only", () => {

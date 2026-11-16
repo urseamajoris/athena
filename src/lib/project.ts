@@ -38,8 +38,11 @@ export async function setStageState(projectId: string, stage: number, state: Sta
 /**
  * Called whenever an upstream stage's outputs change. Every later stage that has produced anything
  * becomes "stale" so results never silently go out of date. Returns the stages marked.
+ *
+ * The edited stage itself goes back to review when it was confirmed, except with `reopen: false`: paper
+ * summaries (stage 5) have no checkpoint of their own, so correcting one leaves stage 5 confirmed.
  */
-export async function markDownstreamStale(projectId: string, fromStage: number, reason: string): Promise<number[]> {
+export async function markDownstreamStale(projectId: string, fromStage: number, reason: string, opts: { reopen?: boolean } = {}): Promise<number[]> {
   const p = (await getProject(projectId));
   const states = { ...p.stageStates };
   const reasons = { ...p.staleReasons };
@@ -55,8 +58,7 @@ export async function markDownstreamStale(projectId: string, fromStage: number, 
       reasons[String(s.n)] = reasons[String(s.n)] || reason;
     }
   }
-  // An edited upstream stage itself goes back to review.
-  if (states[String(fromStage)] === "approved") states[String(fromStage)] = "needs_review";
+  if (opts.reopen !== false && states[String(fromStage)] === "approved") states[String(fromStage)] = "needs_review";
   (await db.update(schema.projects).set({ stageStates: states, staleReasons: reasons, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run());
   if (marked.length) (await logDecision(projectId, fromStage, "downstream_marked_stale", null, { stages: marked, reason }, "system"));
   return marked;

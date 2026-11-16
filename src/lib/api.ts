@@ -4,11 +4,13 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "./db";
 import { getProject, HttpError, logDecision, markDownstreamStale, setStageState } from "./project";
-import { STAGES } from "./shared/stages";
+import { QUESTION_FRAMEWORKS, RELEVANCE, STAGES } from "./shared/stages";
 import { requireUser, ownedProject } from "./auth/server";
-import { startJob, cancelJob } from "./jobs";
-import { addTopic, answerScoping, approveTopics, deleteTopic, generateTopics, mergeTopics, nextScopingTurn, restoreTopic, scopingState, skipScoping, updateTopic } from "./stages/scoping";
-import { buildQueries, dryRun, dryRunAll, searchState, updateCriteria, updateQuery } from "./stages/search";
+import { startJob, cancelJob, settleSummaries } from "./jobs";
+import { answerScoping, confirmQuestion, draftQuestions, nextScopingTurn, scopingState, setQuestion, skipScoping } from "./stages/scoping";
+import { addTopic, deleteTopic, listTopics, mergeTopics, restoreTopic, updateTopic } from "./stages/topics";
+import { buildQueries, buildSearchPlan, dryRun, dryRunAll, searchState, updateCriteria, updateQuery } from "./stages/search";
+import { approvalBlock, keepTogether, retitle, upstreamBlock } from "./stages/rules";
 import { paperPointsView, appraisalDetail, appraisalsView, canvasView, claimsView, decisionLogView, paperDetail, papersTableView, projectView, questionsView, rankingTableView, retrievalView, synthesisView } from "./views";
 import { htmlReport, markdownReport, selectedBibtex, summaryCsv } from "./export";
 import { REPORT_CSP } from "./report-html";
@@ -74,17 +76,17 @@ async function ownScore(projectId: string, scoreId: string) {
 }
 async function ownClaim(projectId: string, claimId: string) {
   const c = await db.select().from(schema.claims).where(eq(schema.claims.id, claimId)).get();
-  if (!c) throw new HttpError(404, "Claim not found");
+  if (!c) throw new HttpError(404, "Finding not found");
   await ownPaper(projectId, c.paperId).catch(() => {
-    throw new HttpError(404, "Claim not found");
+    throw new HttpError(404, "Finding not found");
   });
   return c;
 }
 async function ownAppraisal(projectId: string, appraisalId: string) {
   const a = await db.select().from(schema.appraisals).where(eq(schema.appraisals.id, appraisalId)).get();
-  if (!a) throw new HttpError(404, "Appraisal not found");
+  if (!a) throw new HttpError(404, "Article analysis not found");
   await ownPaper(projectId, a.paperId).catch(() => {
-    throw new HttpError(404, "Appraisal not found");
+    throw new HttpError(404, "Article analysis not found");
   });
   return a;
 }
@@ -97,49 +99,63 @@ async function ownQuestion(projectId: string, questionId: string) {
 // ---------- stages ----------
 const JOB_STAGES: Record<number, string> = Object.fromEntries(STAGES.filter((s) => s.job).map((s) => [s.n, s.job!]));
 
+function stageParam(raw: string): number {
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > STAGES.length) throw new HttpError(404, "There is no such step.");
+  return n;
+}
+
+/** Every stage before `n` must be confirmed. The message names the first one that is not, by its title. */
 async function requireUpstreamApproved(projectId: string, n: number) {
-  const p = (await getProject(projectId));
-  for (let i = 1; i < n; i++) {
-    if (p.stageStates[String(i)] !== "approved") throw new HttpError(409, `Approve stage ${i} (${STAGES[i - 1].title}) first.`);
-  }
+  // Paper summaries (5) have no checkpoint of their own: confirm summaries left waiting before checking.
+  if (n > 5) await settleSummaries(projectId, { jobFinished: false });
+  const block = upstreamBlock((await getProject(projectId)).stageStates, n);
+  if (block) throw new HttpError(409, block);
 }
 
 on("POST", "stages/:n/approve", async ({ projectId, params }) => {
-  const n = Number(params.n);
+  const n = stageParam(params.n);
   (await requireUpstreamApproved(projectId, n));
   const p = (await getProject(projectId));
-  const state = p.stageStates[String(n)];
-  if (state === "running") throw new HttpError(409, "This stage is still running.");
-  if (n === 1 && !p.idea.trim()) throw new HttpError(400, "Write your idea first.");
-  if (n === 2) (await approveTopics(projectId));
-  if (n === 3 && !(await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all()).length) throw new HttpError(400, "Build the queries first.");
-  if (n === 9) {
-    const chosen = (await db.select().from(schema.researchQuestions).where(and(eq(schema.researchQuestions.projectId, projectId), eq(schema.researchQuestions.chosen, true))).get());
-    if (!chosen) throw new HttpError(400, "Pick one research question first.");
-  }
-  if (JOB_STAGES[n] && (state === "not_started" || state === "failed")) throw new HttpError(409, "Run this stage before approving it.");
+  const block = approvalBlock(
+    n,
+    p.stageStates[String(n)],
+    {
+      idea: p.idea,
+      question: p.question,
+      topics: n === 3 ? (await listTopics(projectId)) : [],
+      queries: n === 3 ? (await db.select({ topicId: schema.queries.topicId }).from(schema.queries).where(eq(schema.queries.projectId, projectId)).all()) : [],
+      questionChosen: n === 9 && !!(await db.select({ id: schema.researchQuestions.id }).from(schema.researchQuestions).where(and(eq(schema.researchQuestions.projectId, projectId), eq(schema.researchQuestions.chosen, true))).get()),
+    },
+    !!JOB_STAGES[n],
+  );
+  if (block) throw new HttpError(block.status, block.message);
+  if (n === 2) (await confirmQuestion(projectId));
   (await setStageState(projectId, n, "approved", { currentStage: Math.min(9, n + 1) }));
   (await logDecision(projectId, n, "stage_approved"));
-  // Kick off the next stage's background job if it has never run.
+  // Start the next stage's background job if it has never run. Summaries (5) then chain into ranking (6) by themselves.
   const next = n + 1;
   if (JOB_STAGES[next] && (await getProject(projectId)).stageStates[String(next)] === "not_started") {
     (await startJob(projectId, JOB_STAGES[next], next));
+  } else if (n < 5) {
+    // Summaries from an earlier run that were waiting on this stage need no review of their own.
+    (await settleSummaries(projectId, { jobFinished: false }));
   }
   if (n === 9) (await db.update(schema.projects).set({ status: "complete", updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run());
   return (await projectView(projectId));
 });
 
 on("POST", "stages/:n/run", async ({ projectId, params, body }) => {
-  const n = Number(params.n);
+  const n = stageParam(params.n);
   (await requireUpstreamApproved(projectId, n));
-  if (!JOB_STAGES[n]) throw new HttpError(400, "This stage has no background job.");
+  if (!JOB_STAGES[n]) throw new HttpError(400, "This step has nothing to run.");
   const jobId = (await startJob(projectId, JOB_STAGES[n], n, (body as Record<string, unknown>) ?? {}));
   (await logDecision(projectId, n, "stage_run_requested", null, body));
   return { jobId };
 });
 
 on("POST", "stages/:n/cancel", async ({ projectId, params }) => {
-  const n = Number(params.n);
+  const n = stageParam(params.n);
   const j = (await db.select().from(schema.jobs).where(and(eq(schema.jobs.projectId, projectId), eq(schema.jobs.stage, n))).all()).filter((x) => x.status === "running" || x.status === "queued" || x.status === "paused");
   await forEachSeq(j, async (x) => (await cancelJob(x.id)));
   (await setStageState(projectId, n, "failed"));
@@ -147,44 +163,59 @@ on("POST", "stages/:n/cancel", async ({ projectId, params }) => {
   return { cancelled: j.length };
 });
 
-/** Keep stale results: the stage returns to "needs review" so the user re-checks and approves it. */
+/**
+ * Keep out-of-date results: the stage returns to "needs review" so the user re-checks and confirms it.
+ * Summaries (5) and ranking (6) are one checkpoint, so keeping either keeps both; kept summaries need no review
+ * of their own and are confirmed at once.
+ */
 on("POST", "stages/:n/keep", async ({ projectId, params }) => {
-  const n = Number(params.n);
+  const n = stageParam(params.n);
   const p = (await getProject(projectId));
-  if (p.stageStates[String(n)] !== "stale") throw new HttpError(409, "Stage is not stale.");
-  (await setStageState(projectId, n, "needs_review"));
-  (await logDecision(projectId, n, "stale_results_kept", p.staleReasons[String(n)] ?? null));
+  const stale = keepTogether(n).filter((k) => p.stageStates[String(k)] === "stale");
+  if (!stale.length) throw new HttpError(409, "This step is not out of date.");
+  await forEachSeq(stale, async (k) => {
+    (await setStageState(projectId, k, "needs_review"));
+    (await logDecision(projectId, k, "stale_results_kept", p.staleReasons[String(k)] ?? null));
+  });
+  if (stale.includes(5)) (await settleSummaries(projectId, { jobFinished: false }));
   return (await projectView(projectId));
 });
 
-/** User is about to edit an approved stage: reopen it (and warn the UI about downstream). */
+/**
+ * The user is about to edit a confirmed stage: reopen it (the UI warns about what goes out of date).
+ * Summaries (5) have no checkpoint, so reopening them reopens the paper choice (6), where they are edited.
+ */
 on("POST", "stages/:n/reopen", async ({ projectId, params }) => {
-  const n = Number(params.n);
+  const asked = stageParam(params.n);
+  const n = asked === 5 ? 6 : asked;
   const p = (await getProject(projectId));
   if (p.stageStates[String(n)] === "approved") (await setStageState(projectId, n, "needs_review", { currentStage: n }));
   (await logDecision(projectId, n, "stage_reopened_for_edit"));
   return (await projectView(projectId));
 });
 
-// ---------- stage 1 ----------
+// ---------- stage 1: idea ----------
 on("PATCH", "idea", async ({ projectId, body }) => {
   const { idea } = parse(z.object({ idea: z.string().trim().min(10, "Please write at least a sentence.").max(4000) }), body);
   const p = (await getProject(projectId));
   if (p.idea === idea) return (await projectView(projectId));
-  (await db.update(schema.projects).set({ idea, title: idea.slice(0, 90), updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run());
+  // The title follows the idea until the research question or the user gives the review another name.
+  (await db.update(schema.projects).set({ idea, title: retitle(p.title, p.idea, idea), updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run());
   (await logDecision(projectId, 1, "idea_edited", p.idea, idea));
   (await markDownstreamStale(projectId, 1, "The research idea was edited"));
   return (await projectView(projectId));
 });
 
-// ---------- stage 2 ----------
+// ---------- stage 2: research question ----------
 on("GET", "scoping", async ({ projectId }) => (await scopingState(projectId)));
 on("POST", "scoping/start", async ({ projectId }) => {
+  (await requireUpstreamApproved(projectId, 2));
   const s = (await scopingState(projectId));
   if (s.messages.length) return s;
   return (await nextScopingTurn(projectId));
 });
 on("POST", "scoping/restart", async ({ projectId }) => {
+  (await requireUpstreamApproved(projectId, 2));
   (await db.delete(schema.scopingMessages).where(eq(schema.scopingMessages.projectId, projectId)).run());
   (await logDecision(projectId, 2, "scoping_restarted"));
   (await setStageState(projectId, 2, "needs_review"));
@@ -192,34 +223,72 @@ on("POST", "scoping/restart", async ({ projectId }) => {
 });
 on("POST", "scoping/answer", async ({ projectId, body }) => {
   const { text } = parse(z.object({ text: z.string().trim().min(1).max(2000) }), body);
+  (await requireUpstreamApproved(projectId, 2));
   return (await answerScoping(projectId, text));
 });
-on("POST", "scoping/skip", async ({ projectId }) => (await skipScoping(projectId)));
-on("POST", "scoping/topics", async ({ projectId }) => (await generateTopics(projectId)));
+on("POST", "scoping/skip", async ({ projectId }) => {
+  (await requireUpstreamApproved(projectId, 2));
+  return (await skipScoping(projectId));
+});
+/** Three AI-drafted wordings of the research question, from the idea and the chat so far. Replaces earlier drafts. */
+on("POST", "question/draft", async ({ projectId }) => {
+  (await requireUpstreamApproved(projectId, 2));
+  return (await draftQuestions(projectId));
+});
+const QuestionBody = z.object({
+  text: z.string().trim().min(10, "Write your research question as a full sentence.").max(600, "Keep your research question under 600 characters."),
+  framework: z.enum(QUESTION_FRAMEWORKS).nullable().optional(),
+  structure: z
+    .record(z.string().trim().min(1).max(40), z.string().trim().max(300))
+    .refine((r) => Object.keys(r).length <= 8, "A question has at most 8 parts.")
+    .nullable()
+    .optional(),
+});
+/** The working research question: a draft, an edit of one, or the user's own words. */
+on("PUT", "question", async ({ projectId, body }) => {
+  const q = parse(QuestionBody, body);
+  (await requireUpstreamApproved(projectId, 2));
+  return (await setQuestion(projectId, q));
+});
+
+// ---------- stage 3: search plan ----------
+on("GET", "search", async ({ projectId }) => (await searchState(projectId)));
+/** One action: the search topics from the research question, then the database searches for every topic. */
+on("POST", "search/plan", async ({ projectId }) => {
+  (await requireUpstreamApproved(projectId, 3));
+  return (await buildSearchPlan(projectId));
+});
+/** Write the searches: by default only for topics that have none; `scope: "all"` writes every search again. */
+on("POST", "search/build", async ({ projectId, body }) => {
+  const { scope } = parse(z.object({ scope: z.enum(["missing", "all"]).default("missing") }), body ?? {});
+  (await requireUpstreamApproved(projectId, 3));
+  return (await buildQueries(projectId, scope));
+});
 
 const TopicPatch = z.object({ name: z.string().trim().min(1).max(120).optional(), synonyms: z.array(z.string().max(120)).max(30).optional(), controlledTerms: z.array(z.string().max(120)).max(20).optional(), rationale: z.string().max(400).optional() });
-on("POST", "topics", async ({ projectId, body }) => ({ id: (await addTopic(projectId, parse(TopicPatch.extend({ name: z.string().trim().min(1).max(120) }), body))), state: (await scopingState(projectId)) }));
+on("POST", "topics", async ({ projectId, body }) => {
+  const input = parse(TopicPatch.extend({ name: z.string().trim().min(1).max(120) }), body);
+  (await requireUpstreamApproved(projectId, 3));
+  return { id: (await addTopic(projectId, input)), state: (await searchState(projectId)) };
+});
 on("PATCH", "topics/:tid", async ({ projectId, params, body }) => {
   (await updateTopic(projectId, params.tid, parse(TopicPatch, body)));
-  return (await scopingState(projectId));
+  return (await searchState(projectId));
 });
 on("DELETE", "topics/:tid", async ({ projectId, params }) => {
   (await deleteTopic(projectId, params.tid));
-  return (await scopingState(projectId));
+  return (await searchState(projectId));
 });
 on("POST", "topics/:tid/restore", async ({ projectId, params }) => {
   (await restoreTopic(projectId, params.tid));
-  return (await scopingState(projectId));
+  return (await searchState(projectId));
 });
 on("POST", "topics/merge", async ({ projectId, body }) => {
-  const { ids, name } = parse(z.object({ ids: z.array(z.string()).min(2), name: z.string().trim().min(1).max(120) }), body);
-  (await mergeTopics(projectId, ids, name));
-  return (await scopingState(projectId));
+  const { ids, name } = parse(z.object({ ids: z.array(z.string()).min(2).max(8), name: z.string().trim().min(1).max(120) }), body);
+  const id = (await mergeTopics(projectId, ids, name));
+  return { id, state: (await searchState(projectId)) };
 });
 
-// ---------- stage 3 ----------
-on("GET", "search", async ({ projectId }) => (await searchState(projectId)));
-on("POST", "search/build", async ({ projectId }) => (await buildQueries(projectId)));
 on("PATCH", "queries/:qid", async ({ projectId, params, body }) => {
   const { queryString } = parse(z.object({ queryString: z.string().trim().min(2).max(4000) }), body);
   (await updateQuery(projectId, params.qid, queryString));
@@ -241,10 +310,10 @@ on("PUT", "criteria", async ({ projectId, body }) => {
   return (await searchState(projectId));
 });
 
-// ---------- stage 4 ----------
+// ---------- stage 4: papers found ----------
 on("GET", "retrieval", async ({ projectId }) => (await retrievalView(projectId)));
 
-// ---------- stage 5 ----------
+// ---------- stage 5: paper summaries (reviewed with the ranking, at stage 6) ----------
 on("GET", "papers", async ({ projectId }) => (await papersTableView(projectId)));
 on("GET", "papers-points", async ({ projectId }) => (await paperPointsView(projectId)));
 on("GET", "papers/:pid", async ({ projectId, params }) => {
@@ -259,11 +328,12 @@ on("PATCH", "papers/:pid/summary", async ({ projectId, params, body }) => {
   if (!s) throw new HttpError(404, "Summary not found");
   (await db.update(schema.paperSummaries).set({ ...patch, edited: true }).where(eq(schema.paperSummaries.id, s.id)).run());
   (await logDecision(projectId, 5, "summary_cell_edited", { studyType: s.studyType, setting: s.setting, keyFinding: s.keyFinding }, patch));
-  (await markDownstreamStale(projectId, 5, "A summary-table cell was corrected"));
+  // Summaries have no checkpoint of their own, so stage 5 stays confirmed; the ranking made from them goes stale.
+  (await markDownstreamStale(projectId, 5, "A paper summary was corrected", { reopen: false }));
   return { ok: true };
 });
 
-// ---------- stage 6 ----------
+// ---------- stage 6: choose papers ----------
 on("GET", "ranking", async ({ projectId }) => (await rankingTableView(projectId)));
 on("GET", "ranking/scores/:sid", async ({ projectId, params }) => {
   const s = await ownScore(projectId, params.sid);
@@ -274,7 +344,7 @@ on("POST", "ranking/select", async ({ projectId, body }) => {
   const s = await ownScore(projectId, scoreId);
   (await db.update(schema.scores).set({ selected, userChanged: true }).where(eq(schema.scores.id, scoreId)).run());
   (await logDecision(projectId, 6, selected ? "paper_selected" : "paper_deselected", { paperId: s.paperId, topicId: s.topicId, selected: s.selected }, { selected }));
-  (await markDownstreamStale(projectId, 6, "The selected papers changed"));
+  (await markDownstreamStale(projectId, 6, "The chosen papers changed"));
   return (await rankingTableView(projectId));
 });
 on("POST", "ranking/swap", async ({ projectId, body }) => {
@@ -285,16 +355,26 @@ on("POST", "ranking/swap", async ({ projectId, body }) => {
   (await db.update(schema.scores).set({ selected: false, userChanged: true }).where(eq(schema.scores.id, outId)).run());
   (await db.update(schema.scores).set({ selected: true, userChanged: true }).where(eq(schema.scores.id, inId)).run());
   (await logDecision(projectId, 6, "papers_swapped", { out: a.paperId }, { in: b.paperId, topicId: a.topicId }));
-  (await markDownstreamStale(projectId, 6, "The selected papers changed"));
+  (await markDownstreamStale(projectId, 6, "The chosen papers changed"));
   return (await rankingTableView(projectId));
 });
 
-// ---------- stage 7 ----------
+// ---------- stage 7: article analysis ----------
 on("GET", "appraisals", async ({ projectId }) => (await appraisalsView(projectId)));
 on("GET", "appraisals/:aid", async ({ projectId, params }) => {
   const d = (await appraisalDetail(projectId, params.aid));
-  if (!d) throw new HttpError(404, "Appraisal not found");
+  if (!d) throw new HttpError(404, "Article analysis not found");
   return d;
+});
+/** Correct the AI's reading of an article: its bottom line and how it bears on the research question. */
+on("PATCH", "appraisals/:aid", async ({ projectId, params, body }) => {
+  const patch = parse(z.object({ bottomLine: z.string().trim().min(1).max(600).optional(), relevance: z.enum(RELEVANCE).optional(), relevanceNote: z.string().trim().max(400).optional() }), body);
+  const a = await ownAppraisal(projectId, params.aid);
+  if (!Object.keys(patch).length) return (await appraisalDetail(projectId, a.id));
+  (await db.update(schema.appraisals).set(patch).where(eq(schema.appraisals.id, a.id)).run());
+  (await logDecision(projectId, 7, "analysis_edited", { bottomLine: a.bottomLine, relevance: a.relevance, relevanceNote: a.relevanceNote }, patch));
+  (await markDownstreamStale(projectId, 7, "The reading of an article was corrected"));
+  return (await appraisalDetail(projectId, a.id));
 });
 on("PATCH", "claims/:cid", async ({ projectId, params, body }) => {
   const patch = parse(z.object({ decision: z.enum(["accept", "reject", "clear"]).optional(), statement: z.string().trim().min(1).max(600).optional() }), body);
@@ -306,13 +386,13 @@ on("PATCH", "claims/:cid", async ({ projectId, params, body }) => {
   if (patch.statement) set.statement = patch.statement;
   (await db.update(schema.claims).set(set).where(eq(schema.claims.id, c.id)).run());
   (await logDecision(projectId, 7, `claim_${patch.decision ?? "edited"}`, { verified: c.verified, accepted: c.userAccepted, rejected: c.userRejected, statement: c.statement }, set));
-  (await markDownstreamStale(projectId, 7, "An appraisal claim was accepted, rejected or edited"));
+  (await markDownstreamStale(projectId, 7, "A finding in the article analysis was accepted, rejected or edited"));
   return (await appraisalDetail(projectId, c.appraisalId));
 });
 on("POST", "appraisals/reverify", async ({ projectId }) => {
   const r = (await reverifyProject(projectId));
   (await logDecision(projectId, 7, "quotes_reverified", null, r, "system"));
-  if (r.changed) (await markDownstreamStale(projectId, 7, `Quote re-check changed ${r.changed} claim(s)`));
+  if (r.changed) (await markDownstreamStale(projectId, 7, `Checking the quotes again changed ${r.changed} finding${r.changed === 1 ? "" : "s"}`));
   return r;
 });
 on("POST", "appraisals/:aid/redo", async ({ projectId, params }) => {
@@ -320,7 +400,7 @@ on("POST", "appraisals/:aid/redo", async ({ projectId, params }) => {
   return { jobId: (await startJob(projectId, "appraisal", 7, { paperIds: [a.paperId] })) };
 });
 
-// ---------- stage 8 ----------
+// ---------- stage 8: evidence summary ----------
 on("GET", "synthesis", async ({ projectId }) => (await synthesisView(projectId)));
 on("PATCH", "synthesis/:sid", async ({ projectId, params, body }) => {
   const { statement } = parse(z.object({ statement: z.string().trim().min(1).max(600) }), body);
@@ -328,11 +408,11 @@ on("PATCH", "synthesis/:sid", async ({ projectId, params, body }) => {
   if (!s) throw new HttpError(404, "Not found");
   (await db.update(schema.synthesisItems).set({ statement, edited: true }).where(eq(schema.synthesisItems.id, s.id)).run());
   (await logDecision(projectId, 8, "synthesis_edited", s.statement, statement));
-  (await markDownstreamStale(projectId, 8, "A synthesis statement was edited"));
+  (await markDownstreamStale(projectId, 8, "A statement in the evidence summary was edited"));
   return (await synthesisView(projectId));
 });
 
-// ---------- stage 9 ----------
+// ---------- stage 9: final question ----------
 on("GET", "questions", async ({ projectId }) => (await questionsView(projectId)));
 on("PATCH", "questions/:qid", async ({ projectId, params, body }) => {
   const patch = parse(z.object({ text: z.string().trim().min(5).max(600).optional(), structure: z.record(z.string(), z.string().max(400)).optional(), design: z.string().max(300).optional(), feasibility: z.string().max(800).optional(), weakness: z.string().max(600).optional() }), body);

@@ -6,10 +6,8 @@ import { Badge, ErrorState, ProgressBar, cx } from "../ui";
 import { Disclosure } from "../disclosure";
 import { useJobRefresh, useLiveRetrieval, useSession } from "../session/SessionContext";
 import { ActionButton, JobLog, JobStatus, PanelFooter, Stat, StaleNotice } from "./common";
-import { nextAction } from "@/lib/canvas/actions";
 import { fmtInt } from "@/lib/shared/format";
 import dynamic from "next/dynamic";
-import { WhatHappens } from "../guide/WhatHappens";
 import { ShapeIcon } from "../categories";
 import { useViewPrefs } from "../session/viewPrefs";
 import { ARTICLE_TYPES, STUDY_GROUPS, hasHues, articleTypeOf, categoryVar, sourceOf, studyGroupFromLabels, studyGroupOf, type Category, type Dimension } from "@/lib/shared/categories";
@@ -61,7 +59,7 @@ const DB: Record<string, string> = { pubmed: "PubMed", openalex: "OpenAlex" };
 
 /** Corpus node: watch retrieval live (SSE), then review deduplication. */
 export function CorpusPanel() {
-  const { projectId, graph, input, states, openPaper } = useSession();
+  const { projectId, actionFor, states, openPaper } = useSession();
   const live = useLiveRetrieval();
   const running = states["4"] === "running";
   const view = useViewPrefs();
@@ -75,8 +73,7 @@ export function CorpusPanel() {
   const failed = runs.filter((r) => r.status === "failed");
   const fetchedTotal = runs.reduce((a, r) => a + r.fetchedCount, 0);
   const sources = [...new Set(runs.map((r) => r.database))];
-  const node = graph.nodes.find((n) => n.id === "corpus");
-  const action = node ? nextAction(node, graph, input) : null;
+  const action = actionFor("found");
   let cumulative = 0;
   const ps = pts?.papers ?? [];
   const summarised = ps.some((p) => p.studyType);
@@ -104,7 +101,6 @@ export function CorpusPanel() {
     <div className="space-y-4">
       <StaleNotice stage={4} />
       <JobStatus stage={4} />
-      <WhatHappens stage={4} />
       {runs.length > 0 && (
         <p className="text-fg-0" aria-live="polite">
           {running ? "So far: " : ""}<span className="font-semibold tabular-nums">{fmtInt(fetchedTotal)}</span> results fetched, <span className="font-semibold tabular-nums">{fmtInt(dupes)}</span> were the same paper found twice, so <span className="font-semibold tabular-nums">{fmtInt(data?.uniquePapers ?? 0)}</span> different papers {running ? "so far" : "remain"}.

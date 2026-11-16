@@ -3,7 +3,8 @@ import { checkModels } from "./lib/ai/models";
 import { resumeJobs, resumeJobsPausedForNoKey } from "./lib/jobs";
 import { ready } from "./lib/db";
 import { ensureAdminFromEnv } from "./lib/auth/server";
-import { aiState, budgetLimit, effectiveXaiKey } from "./lib/settings";
+import { hasCap } from "./lib/paid-guard";
+import { aiState, budgetLimit, effectiveApiKey } from "./lib/settings";
 
 // Apply database migrations (local file or Turso) before anything reads the database.
 // A remote database (Turso) can time out on a cold start: retry, and never crash the server over it
@@ -19,18 +20,18 @@ for (let attempt = 1; attempt <= 3 && !dbReady; attempt++) {
   }
 }
 
-// With an xAI key (admin-set or XAI_API_KEY) AI steps spend real money: say so once outside production.
+// With an API key (admin-set or ANTHROPIC_API_KEY) AI steps spend real money: say so once outside production.
 // With no key every AI step pauses before any call, so nothing is spent.
 if (!config.production) {
   try {
-    const [{ key }, limit] = dbReady ? await Promise.all([effectiveXaiKey(), budgetLimit()]) : [{ key: config.xaiApiKey }, config.budgetUsd];
-    if (key) console.warn(`[athena] An xAI key is set: AI steps will call xAI and spend real money (budget $${limit}).`);
+    const [{ key }, limit] = dbReady ? await Promise.all([effectiveApiKey(), budgetLimit()]) : [{ key: config.anthropicApiKey }, config.budgetUsd];
+    if (key) console.warn(`[athena] An API key is set: AI steps will call the Anthropic API and spend real money (${hasCap(limit) ? `server-wide budget $${limit}` : "no server-wide budget cap"}).`);
   } catch (e) {
     console.error("[athena] could not read the key settings:", e);
   }
 }
 
-// Server start: confirm model IDs with xAI and resume jobs interrupted by a restart.
+// Server start: confirm the model IDs with the API and resume jobs interrupted by a restart.
 try {
   await checkModels();
 } catch (e) {

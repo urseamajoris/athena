@@ -1,20 +1,14 @@
 "use client";
 import { useMemo, useState } from "react";
-import dynamic from "next/dynamic";
 import { Legend, ShapeIcon, shapePath } from "../categories";
-import { useReducedMotion, useTheme, useVizMode } from "./support";
 import { layoutEvidence, type EvPaper, type EvStatement } from "./evidence-graph";
 import { STUDY_GROUPS, categoryVar } from "@/lib/shared/categories";
 
-const EvidenceNetwork3D = dynamic(() => import("./EvidenceNetwork3D"), { ssr: false, loading: () => <div className="h-[360px]" /> });
 // Statement kinds: colour plus shape (square, diamond, ring), never colour alone.
 const KIND = { known: { label: "Known: the papers agree", color: "var(--ok)", shape: "square" }, contested: { label: "Contested: the papers disagree", color: "var(--cat-7)", shape: "diamond" }, unknown: { label: "Unknown: not yet studied", color: "var(--fg-2)", shape: "ring" } } as const;
 
 /** Statements joined to the papers whose quotes support them; papers coloured and shaped by study type. */
 export function EvidenceNetwork({ statements, papers, onOpenPaper }: { statements: EvStatement[]; papers: EvPaper[]; onOpenPaper: (id: string) => void }) {
-  const mode = useVizMode();
-  const theme = useTheme();
-  const reduced = useReducedMotion();
   const [isolated, setIsolated] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
   const g = useMemo(() => layoutEvidence(statements, papers), [statements, papers]);
@@ -25,9 +19,6 @@ export function EvidenceNetwork({ statements, papers, onOpenPaper }: { statement
   const iso = isolated ?? highlight;
   return (
     <figure>
-      {mode === "3d" ? (
-        <EvidenceNetwork3D g={g} theme={theme} animate={!reduced} label={label} isolated={iso} onOpenPaper={onOpenPaper} />
-      ) : (
         <svg viewBox={`0 0 400 ${Math.max(200, Math.max(g.statements.length, g.papers.length) * 18 + 30)}`} className="w-full" role="img" aria-label={label}>
           {g.links.map((l, i) => {
             const si = l.s;
@@ -47,14 +38,13 @@ export function EvidenceNetwork({ statements, papers, onOpenPaper }: { statement
             );
           })}
         </svg>
-      )}
       <ul className="mt-2 flex flex-wrap gap-3 text-12 text-fg-1" aria-label="Statement kinds">
         {(Object.keys(KIND) as (keyof typeof KIND)[]).map((kind) => (
           <li key={kind} className="inline-flex items-center gap-1.5"><ShapeIcon shape={KIND[kind].shape} color={KIND[kind].color} />{KIND[kind].label} ({k(kind)})</li>
         ))}
       </ul>
       <Legend dim="study" counts={counts} isolated={isolated} highlight={highlight} onHighlight={setHighlight} onIsolate={setIsolated} className="mt-2" title="Papers, by study type (hover to highlight, click to show only one)" />
-      <figcaption className="mt-1 text-12 text-fg-2">Squares, diamonds and rings on the left are statements; each line is a quote linking a statement to the paper it came from.{mode === "3d" ? " Drag to turn." : ""}</figcaption>
+      <figcaption className="mt-1 text-12 text-fg-2">Squares, diamonds and rings on the left are statements; each line is a quote linking a statement to the paper it came from.</figcaption>
     </figure>
   );
 }

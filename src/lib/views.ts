@@ -2,7 +2,8 @@ import "server-only";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import { getProject, latestJob, stageCosts } from "./project";
-import { MIN_TOPIC_FIT, STAGES, scrubIds } from "./shared/stages";
+import { isWorkingQuestionCandidate, MIN_TOPIC_FIT, STAGES, scrubIds } from "./shared/stages";
+import { workingQuestion } from "./stages/rules";
 import { isUndecided, type CanvasSummary, type ClaimLite } from "./shared/canvas";
 import type { Criteria } from "./db/schema";
 import { scopingState } from "./stages/scoping";
@@ -90,7 +91,7 @@ export async function papersTableView(projectId: string) {
   const v = (await papersView(projectId));
   // Evidence status per paper (for the category views): what the appraisal was based on, and quotes still undecided
   // (the same rule as isUndecided).
-  const apps = (await db.select({ id: schema.appraisals.id, paperId: schema.appraisals.paperId, textSource: schema.appraisals.textSource, status: schema.appraisals.status }).from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids(v.papers.map((p) => p.id)))).all()).filter((a) => a.status === "done");
+  const apps = (await db.select({ id: schema.appraisals.id, paperId: schema.appraisals.paperId, textSource: schema.appraisals.textSource, status: schema.appraisals.status, relevance: schema.appraisals.relevance }).from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids(v.papers.map((p) => p.id)))).all()).filter((a) => a.status === "done");
   const open = apps.length
     ? (await db.select({ appraisalId: schema.claims.appraisalId, n: sql<number>`count(*)` }).from(schema.claims).where(and(inArray(schema.claims.appraisalId, ids(apps.map((a) => a.id))), eq(schema.claims.verified, false), eq(schema.claims.userAccepted, false), eq(schema.claims.userRejected, false), eq(schema.claims.notReported, false))).groupBy(schema.claims.appraisalId).all())
     : [];
@@ -103,7 +104,7 @@ export async function papersTableView(projectId: string) {
         sourceDatabases: p.sourceDatabases, publicationTypes: p.publicationTypes, doi: p.doi, pmid: p.pmid, openalexId: p.openalexId, hasAbstract: p.hasAbstract,
         summary: p.summary && { studyType: p.summary.studyType, setting: p.summary.setting, keyFinding: p.summary.keyFinding, edited: p.summary.edited },
         topicIds: p.topicIds,
-        appraisal: a ? { textSource: a.textSource, unverified: open.find((o) => o.appraisalId === a.id)?.n ?? 0 } : null,
+        appraisal: a ? { textSource: a.textSource, unverified: open.find((o) => o.appraisalId === a.id)?.n ?? 0, relevance: a.relevance } : null,
       };
     }),
   };
@@ -148,6 +149,8 @@ export async function appraisalsView(projectId: string) {
       const cs = claims.filter((c) => c.appraisalId === a.id);
       return {
         ...a,
+        bottomLine: scrubIds(a.bottomLine),
+        relevanceNote: scrubIds(a.relevanceNote),
         paper: { id: p.id, title: p.title, year: p.year, doi: p.doi, pmid: p.pmid, pmcid: p.pmcid },
         counts: {
           claims: cs.length,
@@ -170,7 +173,7 @@ export async function appraisalDetail(projectId: string, appraisalId: string) {
   if (!p || p.projectId !== projectId) return null;
   const st = a.sourceTextId ? (await db.select().from(schema.sourceTexts).where(eq(schema.sourceTexts.id, a.sourceTextId)).get()) : null;
   const claims = (await db.select().from(schema.claims).where(eq(schema.claims.appraisalId, a.id)).all());
-  return { appraisal: a, paper: p, sourceText: st, claims };
+  return { appraisal: { ...a, bottomLine: scrubIds(a.bottomLine), relevanceNote: scrubIds(a.relevanceNote) }, paper: p, sourceText: st, claims };
 }
 
 export async function synthesisView(projectId: string) {
@@ -205,7 +208,10 @@ export async function questionsView(projectId: string) {
   const claims = (await db.select().from(schema.claims).where(inArray(schema.claims.id, ids(links.map((l) => l.claimId)))).all());
   const papers = (await db.select({ id: schema.papers.id, title: schema.papers.title, year: schema.papers.year, authors: schema.papers.authors }).from(schema.papers).where(inArray(schema.papers.id, ids(claims.map((c) => c.paperId)))).all());
   return {
-    questions: qs.map((q) => ({ ...q, text: scrubIds(q.text), gap: scrubIds(q.gap), feasibility: scrubIds(q.feasibility), weakness: scrubIds(q.weakness), design: scrubIds(q.design), structure: Object.fromEntries(Object.entries(q.structure).map(([k, v]) => [k, scrubIds(v)])), claimIds: links.filter((l) => l.ownerId === q.id).map((l) => l.claimId) })),
+    /** The working research question the candidates are compared with (null on reviews that never set one). */
+    workingQuestion: workingQuestion(await getProject(projectId)),
+    /** `kind` "working": the working question offered unchanged (always first); "revision": proposed from the evidence. */
+    questions: qs.map((q) => ({ ...q, kind: isWorkingQuestionCandidate(q) ? ("working" as const) : ("revision" as const), text: scrubIds(q.text), gap: scrubIds(q.gap), feasibility: scrubIds(q.feasibility), weakness: scrubIds(q.weakness), design: scrubIds(q.design), structure: Object.fromEntries(Object.entries(q.structure).map(([k, v]) => [k, scrubIds(v)])), claimIds: links.filter((l) => l.ownerId === q.id).map((l) => l.claimId) })),
     claims: Object.fromEntries((await withOrdinals(claims)).map((c) => [c.id, c])),
     papers: Object.fromEntries(papers.map((p) => [p.id, p])),
     // Every paper this review collected: the novelty check compares each question with them too.
@@ -226,15 +232,16 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
   const sc = (await scopingState(projectId));
   const qs = (await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
   const runs = (await db.select().from(schema.searchRuns).where(eq(schema.searchRuns.projectId, projectId)).all());
-  const criteria = (await db.select({ criteria: schema.projects.criteria }).from(schema.projects).where(eq(schema.projects.id, projectId)).get())?.criteria ?? null;
+  const project = (await getProject(projectId));
+  const criteria = project.criteria ?? null;
   const paperIds = (await db.select({ id: schema.papers.id }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all()).map((p) => p.id);
   const sums = (await db.select({ edited: schema.paperSummaries.edited }).from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, ids(paperIds))).all());
   const scores = (await db.select({ topicId: schema.scores.topicId, paperId: schema.scores.paperId, selected: schema.scores.selected, subScores: schema.scores.subScores }).from(schema.scores).where(inArray(schema.scores.topicId, ids(topics.map((t) => t.id)))).all());
-  const apps = (await db.select({ id: schema.appraisals.id, status: schema.appraisals.status, textSource: schema.appraisals.textSource }).from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids(paperIds))).all());
+  const apps = (await db.select({ id: schema.appraisals.id, status: schema.appraisals.status, textSource: schema.appraisals.textSource, relevance: schema.appraisals.relevance }).from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids(paperIds))).all());
   const cl = (await db.select({ verified: schema.claims.verified, notReported: schema.claims.notReported, userAccepted: schema.claims.userAccepted, userRejected: schema.claims.userRejected }).from(schema.claims).where(inArray(schema.claims.appraisalId, ids(apps.map((a) => a.id)))).all());
   const items = (await db.select({ kind: schema.synthesisItems.kind }).from(schema.synthesisItems).where(eq(schema.synthesisItems.projectId, projectId)).all());
   const cxCount = (await db.select({ id: schema.contradictions.id }).from(schema.contradictions).where(eq(schema.contradictions.projectId, projectId)).all()).length;
-  const rqs = (await db.select({ id: schema.researchQuestions.id, chosen: schema.researchQuestions.chosen, text: schema.researchQuestions.text }).from(schema.researchQuestions).where(eq(schema.researchQuestions.projectId, projectId)).all());
+  const rqs = (await db.select({ id: schema.researchQuestions.id, chosen: schema.researchQuestions.chosen, text: schema.researchQuestions.text, order: schema.researchQuestions.order, gap: schema.researchQuestions.gap }).from(schema.researchQuestions).where(eq(schema.researchQuestions.projectId, projectId)).all());
   const chosen = rqs.find((q) => q.chosen) ?? null;
   const perSource: CanvasSummary["retrieval"]["perSource"] = {};
   for (const r of runs) {
@@ -244,8 +251,10 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
     if (r.status === "failed") s.failed++;
   }
   const extracted = cl.filter((c) => !c.notReported);
+  const doneApps = apps.filter((a) => a.status === "done");
   return {
-    topics: topics.map((t) => ({ id: t.id, name: t.name, origin: t.origin, approved: t.approved, synonyms: t.synonyms.length, controlledTerms: t.controlledTerms.length })),
+    question: { text: workingQuestion(project)?.text ?? null, framework: project.questionFramework ?? null, confirmed: !!project.questionConfirmedAt && project.stageStates["2"] === "approved", drafts: project.questionDrafts?.length ?? 0 },
+    topics: topics.map((t) => ({ id: t.id, name: t.name, origin: t.origin, synonyms: t.synonyms.length, controlledTerms: t.controlledTerms.length, queries: qs.filter((q) => q.topicId === t.id).length })),
     scoping: { messages: sc.messages.length, asked: sc.asked, maxQuestions: sc.maxQuestions, done: sc.done, awaitingAnswer: sc.awaitingAnswer },
     queries: qs.map((q) => {
       // The query's retrieval result, while it still describes this query (same text and database filters).
@@ -283,9 +292,15 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
       rejected: extracted.filter((c) => !c.verified && c.userRejected).length,
       notReported: cl.length - extracted.length,
       appraisalIds: apps.map((a) => a.id),
+      relevance: {
+        direct: doneApps.filter((a) => a.relevance === "direct").length,
+        partial: doneApps.filter((a) => a.relevance === "partial").length,
+        background: doneApps.filter((a) => a.relevance === "background").length,
+        unjudged: doneApps.filter((a) => !a.relevance).length,
+      },
     },
     synthesis: { statements: items.length, contradictions: cxCount, known: items.filter((i) => i.kind === "known").length, contested: items.filter((i) => i.kind === "contested").length, unknown: items.filter((i) => i.kind === "unknown").length },
-    questions: { count: rqs.length, chosenId: chosen?.id ?? null, chosenText: chosen ? scrubIds(chosen.text) : null },
+    questions: { count: rqs.length, revisions: rqs.filter((q) => !isWorkingQuestionCandidate(q)).length, chosenId: chosen?.id ?? null, chosenText: chosen ? scrubIds(chosen.text) : null, chosenIsWorking: !!chosen && isWorkingQuestionCandidate(chosen) },
   };
 }
 

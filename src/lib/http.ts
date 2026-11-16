@@ -3,6 +3,7 @@ import { NextResponse, after } from "next/server";
 import { db, schema } from "./db";
 import { HttpError } from "./project";
 import { AiPausedError, AiValidationError, BudgetError } from "./ai/client";
+import { CreditsError } from "./ai/errors";
 import { assertSameOrigin, currentUser } from "./auth/server";
 import { redactSecrets } from "./auth/secrets";
 import { config } from "./config";
@@ -13,6 +14,8 @@ export const RETENTION_DAYS = 14;
 
 export function errorResponse(e: unknown) {
   if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
+  // Out of credits is the account's own state, not the server's: the page can offer to buy more.
+  if (e instanceof CreditsError) return NextResponse.json({ error: e.message, kind: "credits" }, { status: 402 });
   if (e instanceof AiPausedError) return NextResponse.json({ error: e.message, kind: "ai_paused" }, { status: 503 });
   if (e instanceof BudgetError) return NextResponse.json({ error: e.message, kind: "budget" }, { status: 402 });
   if (e instanceof AiValidationError) return NextResponse.json({ error: e.message, kind: "ai_validation" }, { status: 502 });
@@ -23,7 +26,7 @@ export function errorResponse(e: unknown) {
 
 /** An error message with any API key removed (env key, admin-set key, and anything key-shaped). */
 export function safeError(e: unknown): string {
-  return redactSecrets(errMsg(e), [config.xaiApiKey, config.openalexApiKey, process.env.SETTINGS_ENCRYPTION_KEY]);
+  return redactSecrets(errMsg(e), [config.anthropicApiKey, config.openalexApiKey, process.env.SETTINGS_ENCRYPTION_KEY]);
 }
 
 let lastPrune = 0;
@@ -45,8 +48,16 @@ function record(route: string, method: string, status: number, started: number, 
 }
 
 /**
- * Wraps an API route: same-origin check for writes, uniform error responses (secrets redacted), and one
- * request_metrics row per call (route pattern, method, status, duration; never the body or the URL).
+ * The one path that another service calls: Stripe posts payment events to it, with no session cookie and from
+ * its own origin. That route checks Stripe's signature over the body instead of the same-origin rule.
+ */
+export const WEBHOOK_PATH = "/api/billing/webhook";
+const signedBySender = (req: Request) => new URL(req.url).pathname === WEBHOOK_PATH;
+
+/**
+ * Wraps an API route: same-origin check for writes (except WEBHOOK_PATH), uniform error responses (secrets
+ * redacted), and one request_metrics row per call (route pattern, method, status, duration; never the body or
+ * the URL).
  */
 export function apiRoute<C>(route: string, handler: (req: Request, ctx: C) => Promise<Response>) {
   return async (req: Request, ctx: C): Promise<Response> => {
@@ -54,7 +65,7 @@ export function apiRoute<C>(route: string, handler: (req: Request, ctx: C) => Pr
     let res: Response;
     let err: string | null = null;
     try {
-      await assertSameOrigin(req);
+      if (!signedBySender(req)) await assertSameOrigin(req);
       res = await handler(req, ctx);
     } catch (e) {
       res = errorResponse(e);

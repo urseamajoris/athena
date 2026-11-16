@@ -8,13 +8,10 @@ import { Disclosure } from "../disclosure";
 import { useJobRefresh, useSession } from "../session/SessionContext";
 import { ActionButton, JobLog, JobStatus, PanelFooter, SectionTitle, StaleNotice } from "./common";
 import { ClaimChip, short, type ClaimRef, type PaperRef } from "./evidence";
-import { nextAction } from "@/lib/canvas/actions";
 import dynamic from "next/dynamic";
 import { AlertTriangle, CheckCircle2, HelpCircle } from "lucide-react";
 import { Checklist } from "../guide/Checklist";
-import { WhatHappens } from "../guide/WhatHappens";
-import { canvasStore, useCanvas } from "../session/SessionContext";
-import { sessionOf } from "@/lib/canvas/store";
+import { useMarks } from "../session/marks";
 import { paperCount, paperCountLabel } from "@/lib/shared/evidence-count";
 
 const EvidenceNetwork = dynamic(() => import("../viz/EvidenceNetwork").then((m) => m.EvidenceNetwork), { ssr: false, loading: () => <Loading /> });
@@ -40,14 +37,13 @@ const STANCE_CLASS: Record<string, string> = { supports: "border-ok-line", contr
 
 /** Synthesis node: write and verify the synthesis; every statement cites verified (or accepted) quotes. */
 export function SynthesisPanel() {
-  const { projectId, states, confirmEdit, refresh, graph, input, openPaper, summary } = useSession();
-  const seen = useCanvas((s) => sessionOf(s, projectId).seen);
+  const { projectId, states, confirmEdit, refresh, actionFor, openPaper, summary } = useSession();
+  const { seen, markSeen } = useMarks(projectId);
   const { data, error, isLoading, mutate } = useApi<SynData>(projectPath(projectId, "synthesis"));
   useJobRefresh(8, mutate);
   const [editing, setEditing] = useState<string | null>(null);
   const stale = states["8"] === "stale";
-  const node = graph.nodes.find((n) => n.id === "synthesis");
-  const action = node ? nextAction(node, graph, input) : null;
+  const action = actionFor("evidence");
   if (isLoading) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (!data) return null;
@@ -83,7 +79,6 @@ export function SynthesisPanel() {
     <div className="space-y-4">
       <StaleNotice stage={8} />
       {states["8"] === "running" && <JobStatus stage={8} />}
-      <WhatHappens stage={8} />
       {topics.length > 0 && (
         <Checklist
           title="Do these things"
@@ -110,7 +105,7 @@ export function SynthesisPanel() {
       ) : (
         <>
         <p className="text-12 text-fg-1">Each small button under a statement is a quote from a paper (<span className="text-ok">✓ found word for word</span>, or accepted by you). Found means the words are in the paper, not that they prove the statement. Click one to read the quote.</p>
-        <Tabs.Root defaultValue={topics[0].id} onValueChange={() => canvasStore.getState().markSeen(projectId, "read-synthesis")}>
+        <Tabs.Root defaultValue={topics[0].id} onValueChange={() => markSeen("read-synthesis")}>
           <Tabs.List aria-label="Topics" className="-mx-1 flex gap-1 overflow-x-auto border-b border-line px-1">
             {topics.map((t) => (
               <Tabs.Trigger key={t.id} value={t.id} className="min-h-11 shrink-0 border-b-2 border-transparent px-3 py-2 text-fg-1 data-[state=active]:border-fg-0 data-[state=active]:font-medium data-[state=active]:text-fg-0">
@@ -147,7 +142,7 @@ export function SynthesisPanel() {
                         ) : (
                           <p className="leading-relaxed">
                             {i.statement} {i.edited && <Badge>edited</Badge>}{" "}
-                            <button className="btn-ghost btn-sm min-h-8 align-middle" onClick={() => { canvasStore.getState().markSeen(projectId, "checked-statements"); setEditing(i.id); }} aria-label={`Edit statement: ${i.statement.slice(0, 60)}`}><Pencil className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Edit</button>
+                            <button className="btn-ghost btn-sm min-h-8 align-middle" onClick={() => { markSeen("checked-statements"); setEditing(i.id); }} aria-label={`Edit statement: ${i.statement.slice(0, 60)}`}><Pencil className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Edit</button>
                           </p>
                         )}
                         <div className="mt-1 flex flex-wrap items-center gap-1"><PaperCount claimIds={i.claimIds} kind={kind} claims={data.claims} />{i.claimIds.map((id) => <ClaimChip key={id} id={id} claims={data.claims} papers={data.papers} stale={stale} />)}</div>

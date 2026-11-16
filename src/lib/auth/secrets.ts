@@ -42,12 +42,13 @@ export function fingerprint(key: string): string {
   return createHash("sha256").update(key).digest("hex").slice(0, 8);
 }
 
-const KEY_PATTERNS = [/\bxai-[A-Za-z0-9_-]{8,}/g, /\bsk-[A-Za-z0-9_-]{8,}/g, /\b(Bearer)\s+[A-Za-z0-9._~+/=-]{12,}/gi];
+// Key-shaped text (sk-…, which covers sk-ant-… API keys) and the value after a Bearer or x-api-key header name.
+const KEY_PATTERNS = [/\bsk-[A-Za-z0-9_-]{8,}/g, /\b(Bearer)\s+[A-Za-z0-9._~+/=-]{12,}/gi, /\b(x-api-key)["']?\s*[:=]\s*["']?[A-Za-z0-9._~+/=-]{12,}/gi];
 
 /** Removes API keys from text bound for logs, the database or a response. `known` = secrets to remove verbatim. */
 export function redactSecrets(text: string, known: (string | null | undefined)[] = []): string {
   let out = text;
   for (const k of known) if (k && k.length >= 8) out = out.split(k).join("[redacted]");
-  for (const re of KEY_PATTERNS) out = out.replace(re, (_m, bearer?: string) => (bearer && /^bearer$/i.test(bearer) ? `${bearer} [redacted]` : "[redacted]"));
+  for (const re of KEY_PATTERNS) out = out.replace(re, (_m, header?: string) => (typeof header === "string" ? `${header} [redacted]` : "[redacted]"));
   return out;
 }

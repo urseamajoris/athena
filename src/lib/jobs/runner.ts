@@ -12,7 +12,7 @@ import { NO_KEY_MESSAGE } from "../ai/errors";
  * On server start, jobs left "running" by a crashed process are re-queued and run again
  * (HTTP responses are cached, so re-running is cheap and deterministic).
  *
- * A job whose AI call is refused because AI was switched off, no xAI key is configured or the budget is spent is
+ * A job whose AI call is refused because AI was switched off, no API key is configured or the budget is spent is
  * *paused*, not failed: its stage stays "running", the work done so far is kept, and it resumes (re-runs, skipping
  * finished work) when an admin turns AI back on, adds a key or raises the budget, or when the user presses Resume.
  */
@@ -149,7 +149,7 @@ export async function resumeJob(id: string): Promise<string> {
 }
 
 /** Every paused job (after an admin turns AI back on, adds a key or raises the budget). */
-/** Startup: jobs paused only because no key was set resume once one is (e.g. XAI_API_KEY added and redeployed). */
+/** Startup: jobs paused only because no key was set resume once one is (e.g. ANTHROPIC_API_KEY added and redeployed). */
 export async function resumeJobsPausedForNoKey(): Promise<number> {
   const paused = (await db.select({ id: schema.jobs.id }).from(schema.jobs).where(and(eq(schema.jobs.status, "paused"), eq(schema.jobs.error, NO_KEY_MESSAGE))).all());
   for (const j of paused) await resumeJob(j.id);
@@ -158,6 +158,18 @@ export async function resumeJobsPausedForNoKey(): Promise<number> {
 
 export async function resumePausedJobs(): Promise<number> {
   const paused = (await db.select({ id: schema.jobs.id }).from(schema.jobs).where(eq(schema.jobs.status, "paused")).all());
+  for (const j of paused) await resumeJob(j.id);
+  return paused.length;
+}
+
+/** One account's jobs that paused with this message start again (after a credit top-up: the out-of-credits message). */
+export async function resumeJobsPausedWith(message: string, ownerId: string): Promise<number> {
+  const paused = (await db
+      .select({ id: schema.jobs.id })
+      .from(schema.jobs)
+      .innerJoin(schema.projects, eq(schema.projects.id, schema.jobs.projectId))
+      .where(and(eq(schema.jobs.status, "paused"), eq(schema.jobs.error, message), eq(schema.projects.ownerId, ownerId)))
+      .all());
   for (const j of paused) await resumeJob(j.id);
   return paused.length;
 }

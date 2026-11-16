@@ -1,26 +1,31 @@
 import "server-only";
-import { config, countPaid, type ModelRole } from "../config";
-import { effectiveXaiKey } from "../settings";
+import { config, countPaid, effortFor, type ModelRole } from "../config";
+import { effectiveApiKey } from "../settings";
 import { redactSecrets } from "../auth/secrets";
+import { errMsg } from "../util";
+import { dropEffortFor, listModels, type ListedModel } from "./request";
+import { resolveModel, type ModelStatus } from "./resolve";
 
 /**
- * Model IDs come from env. At startup we call GET /v1/models to confirm each one exists; if a slug has been
- * retired we pick the closest current Grok text model (longest shared prefix, same reasoning/non-reasoning
- * suffix where possible) and report it in the UI and server log.
+ * Model IDs come from the environment, one per role. When a key is configured, the server asks the API which
+ * models that key can use (the models list: free, no tokens) and confirms each ID. An ID that is not listed is
+ * replaced by the newest listed model of the same family (opus, sonnet, haiku, fable), and the status page, the
+ * admin dashboard and the server log say so. With no key every role stays "unchecked".
  */
 interface Resolution {
   role: ModelRole;
   configured: string;
   resolved: string;
-  status: "ok" | "substituted" | "unchecked";
+  status: ModelStatus;
   note: string;
 }
 
 const g = globalThis as unknown as { __models?: Record<ModelRole, Resolution>; __modelsChecked?: Promise<void>; __modelsKey?: string };
+const ROLES = Object.keys(config.models) as ModelRole[];
 
 function initial(): Record<ModelRole, Resolution> {
   const out = {} as Record<ModelRole, Resolution>;
-  for (const role of Object.keys(config.models) as ModelRole[]) {
+  for (const role of ROLES) {
     const id = config.models[role];
     out[role] = { role, configured: id, resolved: id, status: "unchecked", note: "not yet checked" };
   }
@@ -35,48 +40,44 @@ export function resolvedModel(role: ModelRole): string {
   return modelResolutions()[role].resolved;
 }
 
-function closest(target: string, available: string[]): string | null {
-  const text = available.filter((m) => m.startsWith("grok") && !/imagine|image|video|vision|tts|embed/i.test(m));
-  if (!text.length) return null;
-  const wantsReasoning = /reasoning/.test(target) && !/non-reasoning/.test(target);
-  const score = (m: string) => {
-    let p = 0;
-    while (p < m.length && p < target.length && m[p] === target[p]) p++;
-    const sameKind = wantsReasoning ? /reasoning/.test(m) && !/non-reasoning/.test(m) : !/(^|-)reasoning/.test(m) || /non-reasoning/.test(m);
-    return p + (sameKind ? 5 : 0) - (/multi-agent|build/.test(m) ? 10 : 0);
-  };
-  return [...text].sort((a, b) => score(b) - score(a))[0];
-}
-
-/** GET /v1/models with this key (free: no tokens). The model IDs it lists, or an error with the key removed. */
-async function listModels(key: string): Promise<string[]> {
-  const r = await fetch(`${config.xaiBaseUrl}/models`, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(20000) });
-  if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? `xAI rejected the key (HTTP ${r.status})` : `HTTP ${r.status}`);
-  const j = (await r.json()) as { data: { id: string }[] };
-  return j.data.map((m) => m.id);
-}
-
-/** The dashboard's "Test key": the same /v1/models check the server runs at start, for the key in force. */
+/** The dashboard's "Test key": the same models-list check the server runs at start, for the key in force. */
 export async function testKey(): Promise<{ ok: boolean; message: string; source: "admin" | "environment" | "none" }> {
-  const { key, source, error } = await effectiveXaiKey();
+  const { key, source, error } = await effectiveApiKey();
   if (!key) return { ok: false, message: "No key is configured.", source };
   try {
     countPaid();
-    const ids = await listModels(key);
-    const missing = Object.values(config.models).filter((m) => !ids.includes(m));
+    const listed = await listModels(key, config.anthropicBaseUrl);
+    const missing = [...new Set(Object.values(config.models))].filter((id) => resolveModel(id, listed).status !== "ok");
     g.__modelsChecked = undefined; // re-resolve models with this key on the next status read
-    return { ok: true, message: `Key accepted. ${ids.length} models listed${missing.length ? `; not listed: ${missing.join(", ")}` : "; all configured models are available"}.${error ? ` ${error}` : ""}`, source };
+    return { ok: true, message: `Key accepted. ${listed.length} models listed${missing.length ? `; not listed: ${missing.join(", ")}` : "; all configured models are available"}.${error ? ` ${error}` : ""}`, source };
   } catch (e) {
-    return { ok: false, message: redactSecrets((e as Error).message, [key, config.xaiApiKey]), source };
+    return { ok: false, message: redactSecrets(errMsg(e), [key, config.anthropicApiKey]), source };
+  }
+}
+
+/** Sets each role's model from the list, and notes an effort level the model does not take. */
+function apply(listed: ListedModel[]) {
+  const res = modelResolutions();
+  for (const role of ROLES) {
+    const r = resolveModel(res[role].configured, listed);
+    let note = r.note;
+    const effort = effortFor(role);
+    const efforts = listed.find((m) => m.id === r.resolved)?.efforts;
+    if (effort && efforts && !efforts.includes(effort)) {
+      dropEffortFor(r.resolved);
+      note += `; it does not take effort "${effort}", so its own default is used`;
+    }
+    res[role] = { ...res[role], ...r, note };
+    if (r.status !== "ok") console.warn(`[athena] model ${role}: ${note}`);
   }
 }
 
 /** Confirms the model IDs whenever a key is configured; with no key every role stays unchecked and says why. */
 export async function checkModels(): Promise<void> {
-  const { key } = await effectiveXaiKey();
+  const { key } = await effectiveApiKey();
   if (!key) {
     const res = modelResolutions();
-    for (const role of Object.keys(res) as ModelRole[]) res[role] = { ...res[role], resolved: res[role].configured, status: "unchecked", note: "no xAI key configured" };
+    for (const role of ROLES) res[role] = { ...res[role], resolved: res[role].configured, status: "unchecked", note: "no API key configured" };
     g.__modelsChecked = undefined;
     g.__modelsKey = undefined;
     return;
@@ -84,25 +85,13 @@ export async function checkModels(): Promise<void> {
   if (g.__modelsChecked && g.__modelsKey === key) return g.__modelsChecked;
   g.__modelsKey = key;
   g.__modelsChecked = (async () => {
-    const res = modelResolutions();
     try {
-      const ids = await listModels(key);
-      for (const role of Object.keys(res) as ModelRole[]) {
-        const want = res[role].configured;
-        if (ids.includes(want)) {
-          res[role] = { ...res[role], resolved: want, status: "ok", note: "confirmed via /v1/models" };
-        } else {
-          const alt = closest(want, ids);
-          res[role] = alt
-            ? { ...res[role], resolved: alt, status: "substituted", note: `${want} not listed by xAI; using closest current model ${alt}` }
-            : { ...res[role], status: "unchecked", note: `${want} not listed and no Grok text model found` };
-          console.warn(`[athena] model ${role}: ${res[role].note}`);
-        }
-      }
+      apply(await listModels(key, config.anthropicBaseUrl));
     } catch (e) {
-      const msg = redactSecrets((e as Error).message, [key]);
-      for (const role of Object.keys(res) as ModelRole[]) res[role].note = `model check failed: ${msg}`;
-      console.warn("[athena] could not verify xAI models:", msg);
+      const msg = redactSecrets(errMsg(e), [key, config.anthropicApiKey]);
+      const res = modelResolutions();
+      for (const role of ROLES) res[role] = { ...res[role], resolved: res[role].configured, status: "unchecked", note: `model check failed: ${msg}` };
+      console.warn("[athena] could not check the AI models:", msg);
     }
   })();
   return g.__modelsChecked;

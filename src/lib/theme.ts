@@ -1,22 +1,22 @@
-// Theme preference: dark by default, light as a token swap, or follow the system.
+// Theme preference: light by default, dark as a token swap, or follow the device.
 export type ThemePref = "dark" | "light" | "system";
 export const THEME_KEY = "athena-theme";
 
 export function resolveTheme(pref: string | null | undefined, systemLight: boolean): "dark" | "light" {
-  if (pref === "light") return "light";
+  if (pref === "dark") return "dark";
   if (pref === "system") return systemLight ? "light" : "dark";
-  return "dark";
+  return "light";
 }
 
 /** Runs before first paint (inlined in <head>) so the page never flashes the wrong theme. */
-export const themeInitScript = `(function(){try{var p=localStorage.getItem(${JSON.stringify(THEME_KEY)});var l=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches;document.documentElement.dataset.theme=p==='light'||(p==='system'&&l)?'light':'dark';}catch(e){}})();`;
+export const themeInitScript = `(function(){try{var p=localStorage.getItem(${JSON.stringify(THEME_KEY)});var l=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches;document.documentElement.dataset.theme=p==='dark'||(p==='system'&&!l)?'dark':'light';}catch(e){}})();`;
 
 export function readThemePref(): ThemePref {
   try {
     const v = localStorage.getItem(THEME_KEY);
-    return v === "light" || v === "system" ? v : "dark";
+    return v === "dark" || v === "system" ? v : "light";
   } catch {
-    return "dark";
+    return "light";
   }
 }
 

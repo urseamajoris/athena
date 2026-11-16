@@ -9,7 +9,8 @@ import { totalSpend } from "./ai/client";
 import { canvasView, papersTableView, projectView, questionsView, rankingTableView } from "./views";
 import { exportPreview } from "./api";
 import { ownedProject, type SessionUser } from "./auth/server";
-import { aiState, budgetLimit, effectiveXaiKey } from "./settings";
+import { hasCap } from "./paid-guard";
+import { aiState, budgetLimit, effectiveApiKey } from "./settings";
 
 /** GET /api/projects */
 export async function projectsList(ownerId: string) {
@@ -28,13 +29,15 @@ export async function statusView(user: SessionUser) {
     ai: await aiState(),
   };
   if (user.role !== "admin") return base;
+  const limit = await budgetLimit();
   return {
     ...base,
     paidCalls,
     spendUsd: (await totalSpend()),
-    budgetUsd: await budgetLimit(),
-    // xai: a key in force from the environment or set in the dashboard (scripts refuse to drive a server that has one).
-    keys: { xai: !!(await effectiveXaiKey()).key, openalex: !!config.openalexApiKey, contactEmail: !!config.contactEmail },
+    // The server-wide spend cap in force. Left out when there is no cap.
+    ...(hasCap(limit) ? { budgetUsd: limit } : {}),
+    // ai: an API key is in force, from the environment or set in the dashboard (scripts refuse to drive a server that has one).
+    keys: { ai: !!(await effectiveApiKey()).key, openalex: !!config.openalexApiKey, contactEmail: !!config.contactEmail },
     simulatedFailures: config.simulateFailure,
   };
 }

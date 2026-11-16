@@ -9,9 +9,11 @@ import { Appraisal, EXTRACTION_FIELDS } from "../stages/ai-schemas";
 import { CHECKLISTS, FIELD_GUIDANCE, TEMPLATE_LABEL, templateFor } from "../stages/templates";
 import { closestPassage, joinedWithoutEllipsis, normalizeWithMap, sectionAt, verifyQuote } from "../quotes";
 import { errMsg, newId } from "../util";
-import { logDecision } from "../project";
+import { getProject, logDecision } from "../project";
+import { questionText, workingQuestion } from "../stages/rules";
 import { getAppraisalText } from "./fulltext";
 import type { JobContext } from "./runner";
+import type { PromptVars } from "../stages/prompt-vars";
 
 /** Lenient key for matching checklist items: ignores numbering, case and punctuation. */
 const itemKey = (s: string) => s.toLowerCase().replace(/^\s*\d+[.)]\s*/, "").replace(/[^a-z0-9]+/g, " ").trim();
@@ -67,14 +69,21 @@ export async function selectedPaperIds(projectId: string): Promise<string[]> {
   return [...new Set(sel.map((s) => s.paperId))];
 }
 
+/**
+ * Article analysis (stage 7): each chosen article is read once (open full text where it is legally available,
+ * otherwise the abstract). The model extracts the study's aim, setting, sample, methods, key findings and
+ * limitations with verbatim quotes, answers the quality checklist, and gives its reading of the article against
+ * the working research question (bottom line, relevance). Every quote is then checked against the text.
+ */
 export async function appraisalJob(ctx: JobContext) {
   const { projectId } = ctx;
   const ids = (await selectedPaperIds(projectId));
-  if (!ids.length) throw new Error("No papers are selected in the Ranking stage.");
+  if (!ids.length) throw new Error("No papers are chosen yet. Choose the papers to analyse first.");
+  const question = wrapData("working research question", questionText(workingQuestion(await getProject(projectId))));
   const onlyIds = (ctx.params.paperIds as string[] | undefined) ?? null;
   const papers = (await db.select().from(schema.papers).where(inArray(schema.papers.id, ids)).all());
   const existing = (await db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids)).all());
-  // Remove appraisals for papers no longer selected, and the ones being redone.
+  // Remove the analyses of papers that are no longer chosen, and the ones being redone.
   const projectPaperIds = (await db.select({ id: schema.papers.id }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all()).map((r) => r.id);
   const deselected = (await db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, projectPaperIds.concat(["-"]))).all()).filter((a) => !ids.includes(a.paperId));
   for (const a of deselected) (await db.delete(schema.appraisals).where(eq(schema.appraisals.id, a.id)).run());
@@ -86,7 +95,7 @@ export async function appraisalJob(ctx: JobContext) {
   for (const p of todo) (await db.delete(schema.appraisals).where(eq(schema.appraisals.paperId, p.id)).run());
 
   let finished = 0;
-  (await ctx.progress(0, todo.length, `Appraising ${todo.length} selected papers`));
+  (await ctx.progress(0, todo.length, `Analysing ${todo.length} chosen article${todo.length === 1 ? "" : "s"}`));
   await Promise.all(
     todo.map(async (paper) => {
       if ((await ctx.cancelled())) return;
@@ -99,7 +108,7 @@ export async function appraisalJob(ctx: JobContext) {
         const st = (await db.select().from(schema.sourceTexts).where(eq(schema.sourceTexts.id, txt.sourceTextId)).get())!;
         const truncated = st.text.length > config.appraisalMaxChars;
         const sent = truncated ? st.text.slice(0, config.appraisalMaxChars) : st.text;
-        const note = txt.note + (truncated ? ` The model was given the first ${config.appraisalMaxChars.toLocaleString()} of ${st.text.length.toLocaleString()} characters; content after that was not read.` : "");
+        const note = txt.note + (truncated ? ` The AI was given the first ${config.appraisalMaxChars.toLocaleString()} of ${st.text.length.toLocaleString()} characters; the rest was not read.` : "");
         (await db.update(schema.appraisals).set({ sourceTextId: st.id, textSource: txt.kind, textNote: note, charsSentToModel: sent.length }).where(eq(schema.appraisals.id, appraisalId)).run());
         const checklist = CHECKLISTS[template];
         const guidance = FIELD_GUIDANCE[template];
@@ -110,16 +119,17 @@ export async function appraisalJob(ctx: JobContext) {
           projectId,
           stage: 7,
           vars: {
+            question,
             textSource: txt.kind === "full_text" ? "FULL TEXT" : "ABSTRACT ONLY (the full text was not available; do not imply you read it)",
             textNote: truncated ? `Only the first part of the full text is provided.` : "",
             template: TEMPLATE_LABEL[template],
             fields: EXTRACTION_FIELDS.map((f) => `- ${f}: ${guidance[f]}`).join("\n"),
             checklist: checklist.map((c, i) => `${i + 1}. ${c}`).join("\n"),
             paperId: paper.id,
-            title: paper.title,
+            title: wrapData("title", paper.title),
             year: String(paper.year ?? "n/a"),
             text: wrapData(`source text of ${paper.id}`, sent),
-          },
+          } satisfies PromptVars<"appraisal">,
           check: (o) => {
             const missing = EXTRACTION_FIELDS.filter((f) => !o.extractions.some((e) => e.field === f));
             if (missing.length) return `Missing extraction fields: ${missing.join(", ")}`;
@@ -155,22 +165,22 @@ export async function appraisalJob(ctx: JobContext) {
         {
     const stmts: BatchItem<"sqlite">[] = [];
                     for (const r of claimRows) stmts.push(db.insert(schema.claims).values(r));
-                    stmts.push(db.update(schema.appraisals).set({ checklist: cl, status: "done", model, promptVersion }).where(eq(schema.appraisals.id, appraisalId)));
+                    stmts.push(db.update(schema.appraisals).set({ checklist: cl, bottomLine: data.bottomLine, relevance: data.relevance, relevanceNote: data.relevanceNote, status: "done", model, promptVersion }).where(eq(schema.appraisals.id, appraisalId)));
                     await batchWrite(stmts);
   }
         const unv = claimRows.filter((c) => !c.verified && !c.notReported).length;
-        (await ctx.log(`✓ ${paper.title.slice(0, 60)}… — ${txt.kind === "full_text" ? "full text" : "abstract only"}, ${claimRows.length} claims, ${unv} unverified`));
+        (await ctx.log(`✓ ${paper.title.slice(0, 60)}… — ${txt.kind === "full_text" ? "full text" : "abstract only"}, ${claimRows.length} quoted points, ${unv} not found in the text, relevance: ${data.relevance}`));
       } catch (e) {
         (await db.update(schema.appraisals).set({ status: "failed", error: errMsg(e) }).where(eq(schema.appraisals.id, appraisalId)).run());
-        (await ctx.log(`✗ appraisal failed for ${paper.id}: ${errMsg(e)}`));
+        (await ctx.log(`✗ ${paper.title.slice(0, 60)}… could not be analysed: ${errMsg(e)}`));
         if (isAiStop(e)) throw e;
       } finally {
         finished++;
-        (await ctx.progress(finished, todo.length, `Appraised ${finished}/${todo.length}`));
+        (await ctx.progress(finished, todo.length, `Analysed ${finished} of ${todo.length} articles`));
       }
     }),
   );
   const res = (await db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids)).all());
   (await logDecision(projectId, 7, "appraisals_generated", null, { appraised: res.filter((a) => a.status === "done").length, failed: res.filter((a) => a.status === "failed").length, fullText: res.filter((a) => a.textSource === "full_text").length }, "ai"));
-  if (!res.some((a) => a.status === "done")) throw new Error("No appraisal succeeded.");
+  if (!res.some((a) => a.status === "done")) throw new Error("None of the articles could be analysed. Run this step again.");
 }

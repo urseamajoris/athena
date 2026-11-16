@@ -1,8 +1,8 @@
 import "server-only";
-import { asc, eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db, schema, batchWrite, type BatchItem } from "../db";
 import type { Criteria } from "../db/schema";
-import { structuredCall, unknownIds } from "../ai/client";
+import { structuredCall, unknownIds, isAiStop } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { SearchBuild } from "./ai-schemas";
 import { getProject, HttpError, logDecision, markDownstreamStale, setStageState } from "../project";
@@ -10,23 +10,71 @@ import { newId, nowIso, errMsg } from "../util";
 import { adapters } from "../sources";
 import { SEARCH_DATABASES, type SearchDatabase } from "../sources/types";
 import { dropEmptyGroups } from "../sources/syntax";
+import { questionText, topicsWithoutQueries, workingQuestion } from "./rules";
+import { generateTopics, listTopics } from "./topics";
+import type { PromptVars } from "./prompt-vars";
+
+/*
+ * Stage 3, the search plan: the search topics written from the working research question, one query per
+ * database per topic, and the shared criteria. Approving the stage runs the searches.
+ */
 
 export async function searchState(projectId: string) {
   const p = (await getProject(projectId));
-  const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
+  const topics = (await listTopics(projectId));
   const qs = (await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
   return {
     criteria: p.criteria,
     databases: SEARCH_DATABASES.map((d) => ({ id: d, label: adapters[d].label })),
     topics: topics.map((t) => ({ ...t, queries: qs.filter((q) => q.topicId === t.id) })),
+    /** Topics with no searches yet. The search plan cannot be confirmed while any is listed. */
+    missing: topicsWithoutQueries(topics, qs).map((t) => ({ id: t.id, name: t.name })),
+    conceptMap: p.conceptMap,
+    summary: p.scopingSummary,
   };
 }
 
-export async function buildQueries(projectId: string) {
+/**
+ * Build the search plan in one action: the search topics from the working research question, then the database
+ * searches for every topic. If the searches fail after the topics were written, the topics stay and the error
+ * says so; `buildQueries` writes the missing searches later.
+ */
+export async function buildSearchPlan(projectId: string) {
   const p = (await getProject(projectId));
-  const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
-  if (!topics.length) throw new HttpError(400, "No topics to build queries for.");
-  const topicIds = topics.map((t) => t.id);
+  if (!workingQuestion(p)) throw new HttpError(409, "Confirm your research question first.");
+  const wrote = (await generateTopics(projectId));
+  try {
+    (await buildQueries(projectId, "all"));
+  } catch (e) {
+    if (wrote && e instanceof Error) {
+      const why = e.message;
+      const message = `Your search topics are ready, but the searches could not be written. ${why}`;
+      // AI stops (AI off, no key, no budget, no credits) keep their own error type, so the client still sees which.
+      if (isAiStop(e)) {
+        e.message = message;
+        throw e;
+      }
+      throw new HttpError(502, `${message.replace(/\.?\s*$/, ".")} You can write the searches again without losing the topics.`);
+    }
+    throw e;
+  }
+  return (await searchState(projectId));
+}
+
+/**
+ * Write the database searches. `scope` "missing" writes them only for topics that have none and leaves every
+ * other search (and the criteria, once set) as the user has them; "all" writes every search and the criteria again.
+ */
+export async function buildQueries(projectId: string, scope: "missing" | "all" = "missing") {
+  const p = (await getProject(projectId));
+  const topics = (await listTopics(projectId));
+  if (!topics.length) throw new HttpError(400, "There are no search topics yet. Build the search plan or add a topic first.");
+  const had = (await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
+  const targets = scope === "all" ? topics : topicsWithoutQueries(topics, had);
+  if (!targets.length) throw new HttpError(409, "Every topic already has its searches.");
+  const others = topics.filter((t) => !targets.includes(t));
+  const topicIds = targets.map((t) => t.id);
+  const line = (t: (typeof topics)[number]) => `${t.id} — ${t.name} — ${t.synonyms.join("; ")} — ${t.controlledTerms.join("; ") || "none"}`;
   const { data } = await structuredCall({
     prompt: "search_builder",
     role: "fast",
@@ -34,12 +82,14 @@ export async function buildQueries(projectId: string) {
     projectId,
     stage: 3,
     vars: {
+      question: wrapData("working research question", questionText(workingQuestion(p))),
       idea: wrapData("research idea", p.idea),
-      summary: wrapData("scoping summary", JSON.stringify(p.scopingSummary ?? {}, null, 1)),
-      topics: wrapData("topics", topics.map((t) => `${t.id} — ${t.name} — ${t.synonyms.join("; ")} — ${t.controlledTerms.join("; ") || "none"}`).join("\n")),
+      summary: wrapData("scope", JSON.stringify(p.scopingSummary ?? {}, null, 1)),
+      topics: wrapData("topics", targets.map(line).join("\n")),
+      otherTopics: wrapData("other topics", others.length ? others.map((t) => `${t.name} — ${t.synonyms.join("; ")}`).join("\n") : "(none)"),
       databases: SEARCH_DATABASES.join(", "),
       syntax: SEARCH_DATABASES.map((d) => `- ${d}: ${adapters[d].syntaxGuide}`).join("\n"),
-    },
+    } satisfies PromptVars<"search_builder">,
     check: (o) => {
       const bad = unknownIds(o.queries.map((q) => q.topicId), topicIds);
       if (bad.length) return `Unknown topicId(s): ${bad.join(", ")}. Use only: ${topicIds.join(", ")}`;
@@ -48,24 +98,25 @@ export async function buildQueries(projectId: string) {
       return missing.length ? `Missing a query for: ${missing.join(", ")}` : null;
     },
   });
-  const had = (await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
+  const replaced = had.filter((h) => topicIds.includes(h.topicId));
   {
     const stmts: BatchItem<"sqlite">[] = [];
-        stmts.push(db.delete(schema.queries).where(eq(schema.queries.projectId, projectId)));
-        const seen = new Set<string>();
-        for (const q of data.queries) {
-          const k = `${q.topicId}/${q.database}`;
-          if (seen.has(k)) continue; // one query per database per topic
-          seen.add(k);
-          const query = dropEmptyGroups(q.query); // never show or run "AND ()"
-          stmts.push(db.insert(schema.queries).values({ id: newId("q"), projectId, topicId: q.topicId, database: q.database, queryString: query, aiQueryString: query, rationale: q.rationale }));
-        }
-        stmts.push(db.update(schema.projects).set({ criteria: data.criteria, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)));
-        await batchWrite(stmts);
+    if (replaced.length) stmts.push(db.delete(schema.queries).where(inArray(schema.queries.id, replaced.map((r) => r.id))));
+    const seen = new Set<string>();
+    for (const q of data.queries) {
+      const k = `${q.topicId}/${q.database}`;
+      if (seen.has(k)) continue; // one query per database per topic
+      seen.add(k);
+      const query = dropEmptyGroups(q.query); // never show or run "AND ()"
+      stmts.push(db.insert(schema.queries).values({ id: newId("q"), projectId, topicId: q.topicId, database: q.database, queryString: query, aiQueryString: query, rationale: q.rationale }));
+    }
+    // Criteria the user already has are theirs: only a full rewrite, or a plan that has none yet, takes the AI's.
+    if (scope === "all" || !p.criteria) stmts.push(db.update(schema.projects).set({ criteria: data.criteria, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)));
+    await batchWrite(stmts);
   }
-  (await logDecision(projectId, 3, "queries_generated", had.length ? had.map((h) => h.queryString) : null, data, "ai"));
+  (await logDecision(projectId, 3, "queries_generated", replaced.length ? replaced.map((h) => h.queryString) : null, { scope, ...data }, "ai"));
   (await setStageState(projectId, 3, "needs_review"));
-  if (had.length) (await markDownstreamStale(projectId, 3, "Search queries were regenerated"));
+  if (had.length) (await markDownstreamStale(projectId, 3, scope === "all" ? "The searches were written again" : "Searches were written for a new topic"));
   return (await searchState(projectId));
 }
 

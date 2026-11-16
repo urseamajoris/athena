@@ -10,6 +10,8 @@ import { chunk, errMsg, newId, forEachSeq } from "../util";
 import { getProject, logDecision } from "../project";
 import type { JobContext } from "./runner";
 import { citationScore, defaultSelection, recencyScore, weightedTotal } from "../scoring";
+import { questionText, workingQuestion } from "../stages/rules";
+import type { PromptVars } from "../stages/prompt-vars";
 
 const BATCH = 10;
 /** Max papers scored per topic (highest database relevance first) to bound cost. */
@@ -18,6 +20,7 @@ const MAX_PER_TOPIC = 60;
 export async function rankingJob(ctx: JobContext) {
   const { projectId } = ctx;
   const p = (await getProject(projectId));
+  const question = wrapData("working research question", questionText(workingQuestion(p)));
   const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
   const topicIds = topics.map((t) => t.id);
   // A resumed job (after AI was paused) keeps the scores it already has and scores only the rest.
@@ -41,11 +44,11 @@ export async function rankingJob(ctx: JobContext) {
       .filter(Boolean)
       .sort((a, b) => (bestRank.get(a.id) ?? 0) - (bestRank.get(b.id) ?? 0))
       .slice(0, MAX_PER_TOPIC);
-    if (links.filter((l) => l.topicId === t.id).length > MAX_PER_TOPIC) (await ctx.log(`Topic "${t.name}": scoring the ${MAX_PER_TOPIC} highest-relevance papers of ${links.filter((l) => l.topicId === t.id).length}.`));
+    if (links.filter((l) => l.topicId === t.id).length > MAX_PER_TOPIC) (await ctx.log(`Topic "${t.name}": ranking the ${MAX_PER_TOPIC} most relevant papers of ${links.filter((l) => l.topicId === t.id).length}.`));
     for (const b of chunk(ps.filter((x) => !scored.has(`${t.id}:${x.id}`)), BATCH)) jobs.push({ topic: t, batch: b });
   }
   let finished = 0;
-  (await ctx.progress(0, jobs.length + 1, `Scoring ${jobs.length} batches across ${topics.length} topics`));
+  (await ctx.progress(0, jobs.length + 1, `Ranking the papers of ${topics.length} topic${topics.length === 1 ? "" : "s"} against your question`));
   await Promise.all(
     jobs.map(async ({ topic, batch }) => {
       if ((await ctx.cancelled())) return;
@@ -58,16 +61,17 @@ export async function rankingJob(ctx: JobContext) {
           projectId,
           stage: 6,
           vars: {
+            question,
             idea: wrapData("research idea", p.idea),
-            summary: wrapData("scoping summary", JSON.stringify(p.scopingSummary ?? {})),
-            topic: `${topic.name} — ${topic.rationale}`,
+            summary: wrapData("scope", JSON.stringify(p.scopingSummary ?? {})),
+            topic: wrapData("topic", `${topic.name} — ${topic.rationale}`),
             papers: batch
               .map((x) => {
                 const s = sum.get(x.id);
                 return wrapData(`paper ${x.id}`, `ID: ${x.id}\nTitle: ${x.title}\nYear: ${x.year ?? "n/a"}\nStudy type (from abstract): ${s?.studyType ?? "n/a"}\nSetting (from abstract): ${s?.setting ?? "n/a"}\nKey finding (from abstract): ${s?.keyFinding ?? "n/a"}\nAbstract excerpt: ${(x.abstract ?? "none").slice(0, 700)}`);
               })
               .join("\n\n"),
-          },
+          } satisfies PromptVars<"ranking">,
           check: (o) => {
             const bad = unknownIds(o.scores.map((r) => r.paperId), ids);
             if (bad.length) return `Unknown paperId(s): ${bad.join(", ")}`;
@@ -92,10 +96,10 @@ export async function rankingJob(ctx: JobContext) {
         }
       } catch (e) {
         if (isAiStop(e)) throw e;
-        (await ctx.log(`Scoring batch for "${topic.name}" failed: ${errMsg(e)}`));
+        (await ctx.log(`A group of papers in "${topic.name}" could not be ranked: ${errMsg(e)}`));
       } finally {
         finished++;
-        (await ctx.progress(finished, jobs.length + 1, `Scored ${finished}/${jobs.length} batches`));
+        (await ctx.progress(finished, jobs.length + 1, `Ranked ${finished} of ${jobs.length} groups of papers`));
       }
     }),
   );
@@ -105,7 +109,7 @@ export async function rankingJob(ctx: JobContext) {
   for (const t of topics) {
     const top = defaultSelection(all.filter((s) => s.topicId === t.id));
     for (const s of top) (await db.update(schema.scores).set({ selected: true }).where(eq(schema.scores.id, s.id)).run());
-    if (top.length < PER_TOPIC.min) (await ctx.log(`Topic "${t.name}": ${top.length} paper${top.length === 1 ? "" : "s"} selected; papers that do not match the topic are not selected.`));
+    if (top.length < PER_TOPIC.min) (await ctx.log(`Topic "${t.name}": ${top.length} paper${top.length === 1 ? "" : "s"} chosen; papers that do not match the topic are not chosen.`));
   }
 
   // Order topics by importance.
@@ -122,7 +126,7 @@ export async function rankingJob(ctx: JobContext) {
       schema: TopicImportance,
       projectId,
       stage: 6,
-      vars: { idea: wrapData("research idea", p.idea), topics: wrapData("topics", stats.join("\n")) },
+      vars: { question, idea: wrapData("research idea", p.idea), topics: wrapData("topics", stats.join("\n")) } satisfies PromptVars<"topic_importance">,
       check: (o) => {
         const bad = unknownIds(o.order.map((x) => x.topicId), topicIds);
         if (bad.length) return `Unknown topicId(s): ${bad.join(", ")}`;
@@ -134,9 +138,9 @@ export async function rankingJob(ctx: JobContext) {
     await forEachSeq(sorted, async (o, i) => (await db.update(schema.topics).set({ importanceRank: i + 1, importanceJustification: o.justification }).where(eq(schema.topics.id, o.topicId)).run()));
   } catch (e) {
     if (isAiStop(e)) throw e;
-    (await ctx.log(`Topic ordering failed; keeping the original order: ${errMsg(e)}`));
-    await forEachSeq(topics, async (t, i) => (await db.update(schema.topics).set({ importanceRank: i + 1, importanceJustification: "Original order (AI ordering failed)" }).where(eq(schema.topics.id, t.id)).run()));
+    (await ctx.log(`The topics could not be put in order of importance; they keep their original order: ${errMsg(e)}`));
+    await forEachSeq(topics, async (t, i) => (await db.update(schema.topics).set({ importanceRank: i + 1, importanceJustification: "Original order (the AI could not order the topics)" }).where(eq(schema.topics.id, t.id)).run()));
   }
   (await logDecision(projectId, 6, "ranking_generated", null, { scored: all.length }, "ai"));
-  if (!all.length) throw new Error("No papers could be scored.");
+  if (!all.length) throw new Error("None of the papers could be ranked. Run this step again.");
 }

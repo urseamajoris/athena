@@ -1,12 +1,14 @@
 import "server-only";
 import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
-import { db, schema } from "../db";
+import { batchWrite, db, schema, type BatchItem } from "../db";
 import { HttpError } from "../project";
 import { markdownReport } from "../export";
 import { newId } from "../util";
 import { hashPassword, passwordProblem, verifyPassword } from "./password";
 import { LOGIN_WINDOW_MIN, hashId, normEmail, loginRetryAfter } from "./policy";
 import { audit, clientIp, endOtherSessions, endSession, recentFailures, startSession, type SessionUser } from "./server";
+import { billingConfig } from "../billing/config";
+import { balanceView, creditHistory, creditUsage, ledgerStatements } from "../billing/credits";
 
 export const signupOpen = () => !["0", "false", "no", "off"].includes((process.env.ALLOW_SIGNUP ?? "").trim().toLowerCase());
 
@@ -25,7 +27,11 @@ export async function signUp(input: { email: string; password: string; name?: st
     throw new HttpError(409, "An account with this email already exists. Log in instead.");
   }
   const id = newId("usr");
-  await db.insert(schema.users).values({ id, email, name: input.name?.trim() ?? "", passwordHash: await hashPassword(input.password), role: "user" }).run();
+  // The account and its welcome credits are written together: an account never exists without them.
+  const welcome = billingConfig.signupCredits;
+  const stmts: BatchItem<"sqlite">[] = [db.insert(schema.users).values({ id, email, name: input.name?.trim() ?? "", passwordHash: await hashPassword(input.password), role: "user" })];
+  if (welcome > 0) stmts.push(...ledgerStatements(id, welcome, { kind: "signup", note: "Welcome credits" }));
+  await batchWrite(stmts);
   await audit("security", "signup", { actorId: id, targetId: id, email, ip });
   await startSession(id);
   return { id };
@@ -75,7 +81,7 @@ export async function changePassword(user: SessionUser, current: string, next: s
   await audit("security", "password_changed", { actorId: u.id, targetId: u.id });
 }
 
-/** This user's own AI usage: calls and cost across their projects. */
+/** This user's own AI usage: calls, cost and credits across their projects. */
 export async function usageFor(userId: string) {
   const rows = await db
     .select({
@@ -84,6 +90,7 @@ export async function usageFor(userId: string) {
       createdAt: schema.projects.createdAt,
       calls: sql<number>`count(*)`,
       cost: sql<number>`coalesce(sum(${schema.aiCalls.costUsd}),0)`,
+      credits: sql<number>`coalesce(sum(${schema.aiCalls.credits}),0)`,
       tokens: sql<number>`coalesce(sum(${schema.aiCalls.inputTokens} + ${schema.aiCalls.outputTokens}),0)`,
     })
     .from(schema.aiCalls)
@@ -95,6 +102,7 @@ export async function usageFor(userId: string) {
   return {
     calls: rows.reduce((a, r) => a + r.calls, 0),
     costUsd: rows.reduce((a, r) => a + r.cost, 0),
+    credits: rows.reduce((a, r) => a + r.credits, 0),
     tokens: rows.reduce((a, r) => a + r.tokens, 0),
     byProject: rows,
   };
@@ -102,10 +110,13 @@ export async function usageFor(userId: string) {
 
 export async function accountView(user: SessionUser) {
   const projects = await db.select({ n: sql<number>`count(*)` }).from(schema.projects).where(eq(schema.projects.ownerId, user.id)).get();
-  return { user, projects: projects?.n ?? 0, usage: await usageFor(user.id) };
+  return { user, projects: projects?.n ?? 0, usage: await usageFor(user.id), credits: await balanceView(user) };
 }
 
-/** Everything this user owns, as JSON: profile, projects, each project's report. Never the password hash. */
+/**
+ * Everything this user owns, as JSON: profile, credits (balance, every ledger entry, credits used per project),
+ * projects and each project's report. Never the password hash, and no payment-provider IDs.
+ */
 export async function exportAccount(user: SessionUser) {
   const projects = await db.select().from(schema.projects).where(eq(schema.projects.ownerId, user.id)).all();
   const out = [];
@@ -121,7 +132,9 @@ export async function exportAccount(user: SessionUser) {
     });
   }
   await audit("security", "account_exported", { actorId: user.id, targetId: user.id });
-  return { exportedAt: new Date().toISOString(), profile: { email: user.email, name: user.name, role: user.role, createdAt: user.createdAt }, usage: await usageFor(user.id), projects: out };
+  const [balance, ledger, used] = await Promise.all([balanceView(user), creditHistory(user.id, 0), creditUsage(user.id)]);
+  const credits = { balance: balance.balance, exempt: balance.exempt, ledger, used: { total: used.totalCredits, calls: used.totalCalls, byProject: used.byProject } };
+  return { exportedAt: new Date().toISOString(), profile: { email: user.email, name: user.name, role: user.role, createdAt: user.createdAt }, credits, usage: await usageFor(user.id), projects: out };
 }
 
 /** Deletes the user, their projects (and everything in them) and their sessions. */

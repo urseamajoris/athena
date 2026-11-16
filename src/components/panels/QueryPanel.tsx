@@ -7,10 +7,7 @@ import { Disclosure } from "../disclosure";
 import { useLiveRetrieval, useSession } from "../session/SessionContext";
 import { criteriaDrafts } from "./criteria-draft";
 import { ActionButton, PanelFooter, SectionTitle, StaleNotice } from "./common";
-import { FIELD_LABEL, queryBlocks } from "@/lib/canvas/query-chips";
-import { WhatHappens } from "../guide/WhatHappens";
-import { nextAction, stageAction } from "@/lib/canvas/actions";
-import { frontierStage } from "@/lib/canvas/graph";
+import { FIELD_LABEL, queryBlocks } from "../search/query-chips";
 import { fmtInt } from "@/lib/shared/format";
 
 interface Query { id: string; database: string; queryString: string; aiQueryString: string; rationale: string; dryRunCount: number | null; dryRunAt: string | null; dryRunError: string | null; edited: boolean }
@@ -29,7 +26,7 @@ const countInputs = (c: Criteria | null) => ({ years: [c?.yearFrom ?? null, c?.y
 
 /** Query node: one topic's PubMed and OpenAlex queries, readable as chips; run the search. */
 export function QueryPanel({ topicId }: { topicId: string }) {
-  const { projectId, graph, input, states } = useSession();
+  const { projectId, actionFor, states } = useSession();
   const { data, error, isLoading, mutate } = useSearchData();
   const { data: status } = useApi<{ maxResultsPerQuery?: number }>("/api/status");
   const live = useLiveRetrieval() as { runs: Run[] } | null;
@@ -39,16 +36,12 @@ export function QueryPanel({ topicId }: { topicId: string }) {
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
   const topic = data?.topics.find((t) => t.id === topicId);
   if (!data || !topic) return <p className="text-fg-2">No queries for this topic yet.</p>;
-  const node = graph.nodes.find((n) => n.id === `query:${topicId}`);
-  // Every topic's searches offer step 3's action while step 3 is current, not only the first topic's
-  // (which is the frontier node): checking the second topic must not turn the footer into "Go to step 3".
-  const action = node ? nextAction(node, graph, input) ?? (frontierStage(states) === 3 ? stageAction(3, input) : null) : null;
+  const action = actionFor("search");
   const runs = (live ?? fetched)?.runs ?? [];
   const fields = [...new Set(topic.queries.flatMap((q) => queryBlocks(q.queryString).flatMap((b) => b.terms.map((t) => t.field)).filter(Boolean)))] as string[];
   return (
     <div className="space-y-4">
       <StaleNotice stage={3} />
-      <WhatHappens stage={3} />
       {data.databases.map((db) => {
         const q = topic.queries.find((x) => x.database === db.id);
         return q ? <QueryPreview key={q.id} q={q} label={db.label} criteria={data.criteria} run={runs.find((r) => r.queryId === q.id) ?? null} cap={status?.maxResultsPerQuery ?? 40} beforeCount={crit.dirty ? crit.save : null} onChange={(d) => mutate(d, { revalidate: false })} /> : <p key={db.id} className="text-fg-2">No {db.label} query.</p>;

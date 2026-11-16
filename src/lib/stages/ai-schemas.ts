@@ -1,33 +1,59 @@
 import { z } from "zod";
-import { STUDY_TYPES } from "../shared/stages";
+import { QUESTION_FRAMEWORKS, RELEVANCE, STUDY_TYPES } from "../shared/stages";
 
 /*
  * zod schemas for every AI output. Length/count limits live here (enforced by zod) and are stripped
- * from the JSON schema sent to xAI.
+ * from the JSON schema sent to the model, which does not support them.
  */
 
 const str = (max = 600) => z.string().trim().min(1).max(max);
 const nullableStr = z.string().nullable();
 
-export const SCOPING_FIELDS = ["population", "setting", "phenomenon", "outcome", "timeframe", "studyTypes"] as const;
+/**
+ * What the scoping chat pins down before a research question is drafted: who is studied, what is studied
+ * (exposure, intervention or phenomenon), compared with what, which outcome, where, over which years, and which
+ * kinds of study. The UI shows the coverage as "what we know so far".
+ */
+export const SCOPING_FIELDS = ["population", "phenomenon", "comparison", "outcome", "setting", "timeframe", "studyTypes"] as const;
+export type ScopingField = (typeof SCOPING_FIELDS)[number];
 
 export const ScopingTurn = z.object({
   coverage: z.object({
     population: nullableStr,
-    setting: nullableStr,
     phenomenon: nullableStr,
+    comparison: nullableStr,
     outcome: nullableStr,
+    setting: nullableStr,
     timeframe: nullableStr,
     studyTypes: nullableStr,
   }),
   done: z.boolean(),
   nextQuestion: z.string().max(400).nullable(),
   questionTarget: z.enum(SCOPING_FIELDS).nullable(),
-  draftTopics: z.array(str(80)).max(8),
 });
 export type ScopingTurn = z.infer<typeof ScopingTurn>;
 
-export const ScopingTopics = z.object({
+/** A framework's parts as element/value pairs (the model cannot return a free-form object); stored as a record. */
+const structurePairs = z.array(z.object({ element: str(40), value: str(300) })).min(2).max(7);
+export const pairsToRecord = (pairs: { element: string; value: string }[]): Record<string, string> => Object.fromEntries(pairs.map((s) => [s.element, s.value]));
+
+/** Three candidate wordings of one research question, drafted from the idea and the scoping chat (stage 2). */
+export const QuestionDrafts = z.object({
+  drafts: z
+    .array(
+      z.object({
+        text: str(400),
+        framework: z.enum(QUESTION_FRAMEWORKS),
+        structure: structurePairs,
+        note: str(240),
+      }),
+    )
+    .length(3),
+});
+export type QuestionDrafts = z.infer<typeof QuestionDrafts>;
+
+/** The search topics and concept map of the search plan (stage 3), written from the working research question. */
+export const SearchTopics = z.object({
   summary: z.object({
     population: str(300),
     setting: str(300),
@@ -49,10 +75,10 @@ export const ScopingTopics = z.object({
         rationale: str(240),
       }),
     )
-    .min(4)
+    .min(1)
     .max(8),
 });
-export type ScopingTopics = z.infer<typeof ScopingTopics>;
+export type SearchTopics = z.infer<typeof SearchTopics>;
 
 export const SearchBuild = z.object({
   criteria: z.object({
@@ -140,6 +166,10 @@ export const Appraisal = z.object({
     )
     .min(1)
     .max(14),
+  // Judgements about the article as a whole, read against the working research question. They carry no quote.
+  bottomLine: str(500),
+  relevance: z.enum(RELEVANCE),
+  relevanceNote: str(300),
 });
 export type Appraisal = z.infer<typeof Appraisal>;
 
@@ -163,13 +193,18 @@ export const Synthesis = z.object({
 });
 export type Synthesis = z.infer<typeof Synthesis>;
 
-export const ResearchQuestions = z.object({
-  questions: z
+/**
+ * Stage 9: search words for the working research question (so its novelty search can run too) and up to three
+ * revisions of it that the evidence supports. The working question itself is not rewritten by the model.
+ */
+export const QuestionRevisions = z.object({
+  workingQuestionSearch: z.object({ pubmed: z.string().trim().min(3).max(800), openalex: z.string().trim().min(3).max(800) }),
+  revisions: z
     .array(
       z.object({
         text: str(400),
-        framework: z.enum(["PICO", "PECO", "PEO", "PICo", "SPIDER", "other"]),
-        structure: z.array(z.object({ element: str(40), value: str(300) })).min(2).max(7),
+        framework: z.enum(QUESTION_FRAMEWORKS),
+        structure: structurePairs,
         design: str(200),
         gap: str(1000),
         gapClaimIds: z.array(str(40)).min(1).max(10),
@@ -179,6 +214,6 @@ export const ResearchQuestions = z.object({
         noveltyQueries: z.object({ pubmed: z.string().trim().min(3).max(800), openalex: z.string().trim().min(3).max(800) }),
       }),
     )
-    .length(3),
+    .max(3),
 });
-export type ResearchQuestions = z.infer<typeof ResearchQuestions>;
+export type QuestionRevisions = z.infer<typeof QuestionRevisions>;

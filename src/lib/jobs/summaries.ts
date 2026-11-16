@@ -5,14 +5,21 @@ import { structuredCall, unknownIds, AiValidationError, isAiStop } from "../ai/c
 import { wrapData } from "../ai/prompts";
 import { SummaryRows } from "../stages/ai-schemas";
 import { chunk, errMsg } from "../util";
-import { logDecision } from "../project";
+import { getProject, logDecision } from "../project";
+import { questionText, workingQuestion } from "../stages/rules";
 import type { JobContext } from "./runner";
+import type { PromptVars } from "../stages/prompt-vars";
 
 const BATCH = 8;
 const MAX_ABSTRACT = 2500;
 
+/**
+ * One summary row per paper, from its abstract. Stage 5 has no checkpoint of its own: when this job ends
+ * successfully the stage is confirmed and ranking starts (jobs/chain.ts), and the user reviews both at stage 6.
+ */
 export async function summariesJob(ctx: JobContext) {
   const { projectId } = ctx;
+  const question = wrapData("working research question", questionText(workingQuestion(await getProject(projectId))));
   const papers = (await db.select().from(schema.papers).where(eq(schema.papers.projectId, projectId)).all());
   const done = new Set(
     (await db.select({ id: schema.paperSummaries.paperId }).from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, papers.map((p) => p.id).concat(["-"]))).all()).map((r) => r.id),
@@ -32,7 +39,7 @@ export async function summariesJob(ctx: JobContext) {
   const batches = chunk(withAbs, BATCH);
   let finished = 0;
   let failed = 0;
-  (await ctx.progress(0, batches.length, `Summarising ${withAbs.length} abstracts (${noAbs.length} without abstract)`));
+  (await ctx.progress(0, batches.length, `Summarising ${withAbs.length} paper${withAbs.length === 1 ? "" : "s"} from their abstracts${noAbs.length ? ` (${noAbs.length} have no abstract)` : ""}`));
   await Promise.all(
     batches.map(async (batch) => {
       if ((await ctx.cancelled())) return;
@@ -45,10 +52,11 @@ export async function summariesJob(ctx: JobContext) {
           projectId,
           stage: 5,
           vars: {
+            question,
             papers: batch
               .map((p) => wrapData(`paper ${p.id}`, `ID: ${p.id}\nTitle: ${p.title}\nPublication types: ${p.publicationTypes.join(", ") || "n/a"}\nAbstract: ${(p.abstract ?? "").slice(0, MAX_ABSTRACT)}`))
               .join("\n\n"),
-          },
+          } satisfies PromptVars<"paper_summary">,
           check: (o) => {
             const bad = unknownIds(o.rows.map((r) => r.paperId), ids);
             if (bad.length) return `Unknown paperId(s): ${bad.join(", ")}`;
@@ -65,14 +73,14 @@ export async function summariesJob(ctx: JobContext) {
       } catch (e) {
         if (isAiStop(e)) throw e;
         failed += batch.length;
-        (await ctx.log(`Batch failed (${e instanceof AiValidationError ? "validation" : "error"}): ${errMsg(e)}`));
+        (await ctx.log(`A group of ${batch.length} papers could not be summarised (${e instanceof AiValidationError ? "the AI answer did not pass the checks" : "error"}): ${errMsg(e)}`));
       } finally {
         finished++;
-        (await ctx.progress(finished, batches.length, `Summarised ${finished}/${batches.length} batches`));
+        (await ctx.progress(finished, batches.length, `Summarised ${finished} of ${batches.length} groups of papers`));
       }
     }),
   );
   (await logDecision(projectId, 5, "summaries_generated", null, { papers: papers.length, failed }, "ai"));
-  if (failed) (await ctx.log(`${failed} papers could not be summarised; their cells show as missing. Re-run this stage to retry them.`));
-  if (failed && failed === withAbs.length && withAbs.length > 0) throw new Error("All summary batches failed.");
+  if (failed) (await ctx.log(`${failed} papers could not be summarised; their cells show as missing. Run the summaries again to retry them.`));
+  if (failed && failed === withAbs.length && withAbs.length > 0) throw new Error("None of the papers could be summarised. Run this step again.");
 }

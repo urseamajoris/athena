@@ -7,10 +7,8 @@ import { Disclosure } from "../disclosure";
 import { useJobRefresh, useSession } from "../session/SessionContext";
 import { ActionButton, JobLog, JobStatus, PanelFooter, StaleNotice } from "./common";
 import { ClaimChip, type ClaimRef, type PaperRef } from "./evidence";
-import { nextAction } from "@/lib/canvas/actions";
 import { fmtInt } from "@/lib/shared/format";
 import { noveltyVerdict } from "@/lib/shared/novelty";
-import { WhatHappens } from "../guide/WhatHappens";
 
 /** What each question framework's letters stand for (shown next to its name, never as a bare acronym). */
 const FRAMEWORK: Record<string, string> = {
@@ -54,7 +52,7 @@ export function useQuestions() {
 
 /** Questions node: choose one of three research questions, then export. */
 export function QuestionsPanel() {
-  const { projectId, refresh, states, graph, input } = useSession();
+  const { projectId, refresh, states, actionFor } = useSession();
   const { data, error, isLoading, mutate } = useQuestions();
   const [err, setErr] = useState<unknown>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -69,8 +67,7 @@ export function QuestionsPanel() {
       editBtn.current?.focus();
     }
   }, [editing]);
-  const node = graph.nodes.find((n) => n.id === "questions");
-  const action = node ? nextAction(node, graph, input) : null;
+  const action = states["9"] === "approved" ? null : actionFor("report");
   if (isLoading) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (!data) return null;
@@ -99,7 +96,6 @@ export function QuestionsPanel() {
         <EmptyState title="No candidate questions yet">Three are proposed from the gaps in the synthesis.</EmptyState>
       ) : (
         <>
-          <WhatHappens stage={9} />
           <p className="text-fg-1">Compare the gap each one fills, how feasible it is and its main weakness, then choose one. Once chosen, “Edit this question” lets you change its wording.</p>
           <p className="text-12 text-fg-2">The novelty check searches the databases again for each question and compares the top records with it. Finding no similar study does not prove a question is new.</p>
           <ul className="space-y-3" aria-label="Candidate research questions">

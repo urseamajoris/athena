@@ -9,7 +9,8 @@ import { deleteUserAndData } from "../auth/account";
 import { fingerprint } from "../auth/secrets";
 import { config } from "../config";
 import { testKey } from "../ai/models";
-import { aiEnabled, aiSwitch, budgetSetting, clearBudget, clearXaiKey, effectiveXaiKey, keyStatus, recordKeyTest, saveXaiKey, setAiEnabled, setBudget, SettingsError } from "../settings";
+import { allowsMoreThan, hasCap } from "../paid-guard";
+import { aiEnabled, aiSwitch, budgetSetting, clearApiKey, clearBudget, effectiveApiKey, keyStatus, recordKeyTest, saveApiKey, setAiEnabled, setBudget, SettingsError } from "../settings";
 import { resumePausedJobs } from "../jobs";
 
 async function target(id: string) {
@@ -74,10 +75,10 @@ export async function setAi(admin: SessionUser, enabled: boolean) {
 }
 
 export async function setKey(admin: SessionUser, key: string) {
-  const hadKey = !!(await effectiveXaiKey()).key;
+  const hadKey = !!(await effectiveApiKey()).key;
   try {
-    const { fingerprint: fp } = await saveXaiKey(key, admin.id);
-    await audit("admin", "xai_key_set", { actorId: admin.id, detail: { fingerprint: fp } });
+    const { fingerprint: fp } = await saveApiKey(key, admin.id);
+    await audit("admin", "api_key_set", { actorId: admin.id, detail: { fingerprint: fp } });
   } catch (e) {
     if (e instanceof SettingsError) throw new HttpError(409, e.message);
     throw e;
@@ -88,30 +89,36 @@ export async function setKey(admin: SessionUser, key: string) {
 }
 
 export async function clearKey(admin: SessionUser) {
-  await clearXaiKey();
-  await audit("admin", "xai_key_cleared", { actorId: admin.id, detail: { fallback: config.xaiApiKey ? "environment" : "none", envFingerprint: config.xaiApiKey ? fingerprint(config.xaiApiKey) : null } });
+  await clearApiKey();
+  await audit("admin", "api_key_cleared", { actorId: admin.id, detail: { fallback: config.anthropicApiKey ? "environment" : "none", envFingerprint: config.anthropicApiKey ? fingerprint(config.anthropicApiKey) : null } });
   return keyStatus();
 }
 
 export async function runKeyTest(admin: SessionUser) {
   const r = await testKey();
   await recordKeyTest({ ...r, at: new Date().toISOString() }, admin.id);
-  await audit("admin", "xai_key_tested", { actorId: admin.id, detail: { ok: r.ok, source: r.source } });
+  await audit("admin", "api_key_tested", { actorId: admin.id, detail: { ok: r.ok, source: r.source } });
   return keyStatus();
 }
 
+/**
+ * The admin's spend limit. `limitUsd` null = go back to the server's setting (AI_BUDGET_USD); 0 = no cap.
+ * Allowing more spend than the server's own cap (a higher limit, or none at all) needs `confirmAboveEnv`.
+ */
 export async function changeBudget(admin: SessionUser, limitUsd: number | null, confirmAboveEnv: boolean) {
   const before = await budgetSetting();
   if (limitUsd === null) {
     await clearBudget();
   } else {
-    if (limitUsd > before.envUsd && !confirmAboveEnv) {
-      throw Object.assign(new HttpError(409, `$${limitUsd.toFixed(2)} is above the server's limit of $${before.envUsd.toFixed(2)} (XAI_BUDGET_USD). Confirm to raise it.`), { kind: "confirm_needed" });
+    if (allowsMoreThan(limitUsd, before.envUsd) && !confirmAboveEnv) {
+      const asked = hasCap(limitUsd) ? `$${limitUsd.toFixed(2)} is above` : "Having no limit goes above";
+      throw Object.assign(new HttpError(409, `${asked} the server's limit of $${before.envUsd.toFixed(2)} (AI_BUDGET_USD). Confirm to ${hasCap(limitUsd) ? "raise" : "remove"} it.`), { kind: "confirm_needed" });
     }
     await setBudget(limitUsd, admin.id);
   }
   const after = await budgetSetting();
-  await audit("admin", "budget_changed", { actorId: admin.id, detail: { from: before.limitUsd, to: after.limitUsd, envUsd: after.envUsd, aboveEnv: after.limitUsd > after.envUsd } });
-  const resumed = after.limitUsd > before.limitUsd ? await resumePausedJobs() : 0;
+  const shown = (b: { capped: boolean; limitUsd: number }) => (b.capped ? b.limitUsd : "no cap");
+  await audit("admin", "budget_changed", { actorId: admin.id, detail: { from: shown(before), to: shown(after), envUsd: after.envCapped ? after.envUsd : "no cap", aboveEnv: allowsMoreThan(after.limitUsd, after.envUsd) } });
+  const resumed = allowsMoreThan(after.limitUsd, before.limitUsd) ? await resumePausedJobs() : 0;
   return { ...after, resumedJobs: resumed };
 }

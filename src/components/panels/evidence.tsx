@@ -1,8 +1,8 @@
 "use client";
-import { AlertTriangle, Check, Pin, X } from "lucide-react";
+import { AlertTriangle, Check, X } from "lucide-react";
 import { Popover } from "radix-ui";
 import { Badge, cx } from "../ui";
-import { canvasStore, useSession } from "../session/SessionContext";
+import { useSession } from "../session/SessionContext";
 import { shortCite } from "@/lib/shared/stages";
 import { partsLabel } from "@/lib/quotes";
 
@@ -42,7 +42,7 @@ export function short(p?: PaperRef) {
 
 /** Inline citation to a claim (scite-style): verdict badge always visible; the quote opens in a popover. */
 export function ClaimChip({ id, claims, papers, stale }: { id: string; claims: Record<string, ClaimRef>; papers: Record<string, PaperRef>; stale?: boolean }) {
-  const { openPaper, projectId } = useSession();
+  const { openPaper } = useSession();
   const c = claims[id];
   if (!c) return <Badge tone="err">{id}?</Badge>;
   const label = `${short(papers[c.paperId])} · ${FIELD_SHORT[c.field] ?? c.field.replace("_", " ")}${c.ofField && c.ofField > 1 ? ` ${c.ordinal}` : ""}`;
@@ -67,7 +67,6 @@ export function ClaimChip({ id, claims, papers, stale }: { id: string; claims: R
           {c.verified && !stale && <p className="mt-1 text-fg-2">{FOUND_MEANS}</p>}
           <div className="mt-2 flex gap-2">
             <button className="btn-ghost btn-sm" onClick={() => openPaper(c.paperId)}>Open paper</button>
-            <button className="btn-ghost btn-sm" onClick={() => canvasStore.getState().pinQuotes(projectId, [c.id])}><Pin className="h-3 w-3" strokeWidth={1.5} aria-hidden /> Pin to canvas</button>
           </div>
         </Popover.Content>
       </Popover.Portal>
@@ -87,24 +86,5 @@ export function SourcePassage({ text, start, end, context = 180 }: { text: strin
       {text.slice(end, b)}
       {b < text.length && "…"}
     </p>
-  );
-}
-
-export function PinButton({ claimId }: { claimId: string }) {
-  const { projectId, ui, announce } = useSession();
-  const pinned = ui.pinnedQuotes.includes(claimId);
-  return (
-    <button
-      className="btn-ghost btn-sm"
-      aria-pressed={pinned}
-      onClick={() => {
-        const st = canvasStore.getState();
-        if (pinned) st.unpinQuote(projectId, claimId);
-        else st.pinQuotes(projectId, [claimId]);
-        announce(pinned ? "Quote removed from the canvas." : "Quote pinned to the canvas.");
-      }}
-    >
-      <Pin className="h-3 w-3" strokeWidth={1.5} aria-hidden /> {pinned ? "Unpin" : "Pin to canvas"}
-    </button>
   );
 }
