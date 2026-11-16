@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import { EmptyCanvas } from "@/components/canvas/EmptyCanvas";
+import { NewReview } from "@/components/steps/NewReview";
 import { pageUser } from "@/lib/auth/server";
 
-export const metadata: Metadata = { title: "New session · Athena" };
-
+export const metadata: Metadata = { title: "New review · Athena" };
 export const dynamic = "force-dynamic";
 
-export default async function NewSessionPage() {
+export default async function NewReviewPage() {
   await pageUser("/s/new");
-  return <EmptyCanvas />;
+  return <NewReview />;
 }

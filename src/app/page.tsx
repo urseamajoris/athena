@@ -1,79 +1,77 @@
-import { LogoMark } from "@/components/Logo";
-import Link from "next/link";
-import { DemoVideo } from "@/components/landing/DemoVideo";
-import { Disclosure } from "@/components/disclosure";
-import { TransitionLink } from "@/components/vt";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { FileText, ListChecks, Table2 } from "lucide-react";
+import { PublicBar } from "@/components/AppChrome";
+import { ButtonLink } from "@/components/ui";
 import { SESSION_COOKIE } from "@/lib/auth/policy";
-import { HeroBackdrop } from "@/components/landing/HeroBackdrop";
-import { EXPLAINERS } from "@/lib/shared/explainers";
+import { CREDIT_PACKS, DEFAULT_SIGNUP_CREDITS, formatCredits, formatPrice } from "@/lib/billing/packs";
+import { PHASES, stepsOfPhase } from "@/lib/shared/flow";
 
-const PHASES = [
-  { steps: [1, 2, 3], title: "Shape your question", text: "Write a rough idea. A few short questions turn it into search topics and real database searches you can read and edit.", poster: 2 },
-  { steps: [4, 5, 6], title: "Find and pick the papers", text: "Athena searches PubMed and OpenAlex, removes duplicates, drafts a summary of each paper and scores them on a visible rubric.", poster: 6 },
-  { steps: [7, 8, 9], title: "Read, weigh, decide", text: "Each chosen paper is appraised with quotes checked word for word, then summarised into what is known, contested and unknown.", poster: 7 },
+const OUTPUTS = [
+  { icon: FileText, title: "A report", text: "Your question, how you searched, what each article found and what the evidence says together." },
+  { icon: Table2, title: "A spreadsheet of papers", text: "Every paper found, with its summary and ranking, to keep working on." },
+  { icon: ListChecks, title: "A reference list", text: "Ready to import into your reference manager." },
 ];
 
-/** Landing: one sentence, one call to action, one demo. */
+/** Landing: what Athena does, one button, then the four stages, what you get and what it costs. */
 export default async function Landing() {
-  // Signed-in visitors go straight to their projects (a cookie check only: no database call on the landing page).
+  // Signed-in visitors go straight to their reviews (a cookie check only: no database call on this page).
   if ((await cookies()).get(SESSION_COOKIE)) redirect("/sessions");
+  const cheapest = Math.min(...CREDIT_PACKS.map((p) => p.priceCents));
   return (
     <div className="min-h-screen bg-bg-0">
-      <header className="mx-auto flex h-12 max-w-6xl items-center justify-between px-4">
-        <span className="inline-flex items-center gap-2 font-semibold">
-          <LogoMark />
-          Athena
-        </span>
-        <Link href="/login" className="btn-ghost min-h-11">Log in</Link>
-      </header>
-      <main id="main" className="mx-auto max-w-6xl px-4 pb-16">
-        {/* On phones the first screen is the mission alone (headline, sentence, one button); the demo follows
-            below the fold, so the headline, not a 960 px image, is what the first paint has to show. */}
-        <section className="relative isolate mx-auto flex max-w-3xl flex-col justify-center pb-10 pt-8 text-center max-md:min-h-[calc(100svh-3rem)] md:pb-4 md:pt-20">
-          <HeroBackdrop />
-          <p className="relative text-12 font-medium uppercase tracking-[0.18em] text-fg-1">A guided literature review</p>
-          <h1 className="relative mt-3 text-28 font-semibold md:text-44">Turn a rough idea into a research question you can back up with real papers.</h1>
-          <p className="relative mx-auto mt-4 max-w-2xl text-16 text-fg-1">Tell Athena your idea. It finds real papers in PubMed and OpenAlex (two free research libraries), helps you read and judge them, and drafts research questions, with every quote checked against its source. You confirm each of the 9 steps.</p>
-          <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
-            <TransitionLink href="/signup?next=/s/new" className="btn-primary min-h-11 px-6 text-16">Start a review</TransitionLink>
-            <Link href="/login" className="btn-secondary min-h-11 px-6 text-16">I have an account</Link>
-          </div>
-          <p className="relative mt-3 text-12 text-fg-2">Free to try. You get a report, a spreadsheet of papers and a reference list.</p>
+      <PublicBar link={{ href: "/login", label: "Log in" }} />
+      <main id="main" className="mx-auto max-w-5xl px-4 pb-20 md:px-6">
+        <section className="max-w-3xl pb-14 pt-12 md:pb-20 md:pt-20">
+          <h1 className="text-display font-semibold">Go from a rough idea to a finished literature review.</h1>
+          <p className="mt-5 max-w-2xl text-fg-1">
+            Athena helps you turn your idea into a research question, finds real papers in PubMed and OpenAlex, and analyses each article with you, checking every quote against its source.
+          </p>
+          <ButtonLink variant="primary" size="lg" href="/signup?next=/s/new" className="mt-8">Start a review</ButtonLink>
         </section>
-        <section aria-labelledby="how" className="mx-auto mt-10 max-w-5xl">
-          <h2 id="how" className="text-center text-16 font-semibold">How it works: 9 steps, 3 stages</h2>
-          <ol className="mt-6 grid gap-4 md:grid-cols-3">
-            {PHASES.map((ph, i) => (
-              <li key={ph.title} className="overflow-hidden rounded-md border border-line bg-bg-1">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <figure className="border-b border-line">
-                  <img src={`/explainers/stage-${ph.poster}.webp`} alt="" width={640} height={360} loading="lazy" decoding="async" className="aspect-video w-full object-cover" />
-                  <figcaption className="px-4 pt-2 text-12 text-fg-2">Pictured: step {ph.poster}, {EXPLAINERS[ph.poster - 1].title.toLowerCase()}</figcaption>
-                </figure>
-                <div className="p-4 pt-2">
-                  <p className="text-12 font-medium text-fg-2">Stage {i + 1} of 3 · steps {ph.steps[0]}–{ph.steps[2]}</p>
-                  <h3 className="mt-1 text-16 font-semibold">{ph.title}</h3>
-                  <p className="mt-1 text-fg-1">{ph.text}</p>
-                  <p className="mt-2 text-12 text-fg-2">{ph.steps.map((n) => `${n}. ${EXPLAINERS[n - 1].title}`).join(" · ")}</p>
+
+        <section aria-labelledby="how" className="border-t border-line py-12">
+          <h2 id="how" className="font-semibold">How it works: four stages</h2>
+          <ol className="mt-6 grid gap-x-10 gap-y-8 sm:grid-cols-2">
+            {PHASES.map((ph) => (
+              <li key={ph.key} className="flex gap-4">
+                <span aria-hidden className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line-control font-semibold tabular-nums">{ph.n}</span>
+                <div>
+                  <h3 className="font-semibold">{ph.title}</h3>
+                  <p className="text-fg-1">{ph.blurb}.</p>
+                  <p className="mt-1 text-small text-fg-2">{stepsOfPhase(ph.key).map((s) => s.title).join(" · ")}</p>
                 </div>
               </li>
             ))}
           </ol>
         </section>
-        <section aria-labelledby="demo" className="mt-12">
-          <h2 id="demo" className="mb-3 text-center text-16 font-semibold">See a review take shape</h2>
-          <DemoVideo />
+
+        <section aria-labelledby="get" className="border-t border-line py-12">
+          <h2 id="get" className="font-semibold">What you get at the end</h2>
+          <ul className="mt-6 grid gap-x-10 gap-y-8 sm:grid-cols-3">
+            {OUTPUTS.map((o) => (
+              <li key={o.title}>
+                <o.icon className="h-6 w-6 text-fg-2" strokeWidth={1.75} aria-hidden />
+                <h3 className="mt-3 font-semibold">{o.title}</h3>
+                <p className="text-fg-1">{o.text}</p>
+              </li>
+            ))}
+          </ul>
         </section>
-        <section className="mx-auto mt-8 max-w-2xl">
-          <Disclosure title="What Athena will not do">
-            <ul className="list-disc space-y-2 pl-6 text-fg-1">
-              <li>Invent references: every paper comes from a real PubMed, OpenAlex or Crossref record with its identifier.</li>
-              <li>Hide what it could not read: every appraisal says whether it used the full text or only the abstract.</li>
-              <li>Move on without you: every AI suggestion waits for you to check and approve it.</li>
-            </ul>
-          </Disclosure>
+
+        <section aria-labelledby="cost" className="border-t border-line py-12">
+          <h2 id="cost" className="font-semibold">What it costs</h2>
+          <p className="mt-3 max-w-2xl text-fg-1">
+            A new account starts with {formatCredits(DEFAULT_SIGNUP_CREDITS)} free credits. Searching for papers is free. Steps that use AI take credits. When you need more, credit packs start at {formatPrice(cheapest)}.
+          </p>
+          <ul className="mt-6 grid max-w-2xl gap-3 sm:grid-cols-3">
+            {CREDIT_PACKS.map((p) => (
+              <li key={p.id} className="card px-4 py-3">
+                <p className="font-semibold">{p.name}</p>
+                <p className="text-fg-1"><span className="tabular-nums">{formatPrice(p.priceCents)}</span> for <span className="tabular-nums">{formatCredits(p.credits)}</span> credits</p>
+              </li>
+            ))}
+          </ul>
         </section>
       </main>
     </div>

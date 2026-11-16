@@ -67,6 +67,11 @@ export interface ModelReply {
   stopReason: string | null;
   /** For a refusal: the policy area, when the API names one. */
   refusalCategory: string | null;
+  /**
+   * The refusal category (or null) of each model run that declined, in order: the runs a fallback model took
+   * over from and, for a refusal, the last run. Decides which runs are billed (see costOf).
+   */
+  declined: (string | null)[];
   /** The text of the answer (empty for a refusal before any output). */
   text: string;
   /** The model that produced the answer: the one asked for, or the one a declined request was re-run on. */
@@ -75,10 +80,12 @@ export interface ModelReply {
 }
 
 /** Everything the app reads from a response. A `fallback` block only marks where another model took over. */
-function reply(m: { stop_reason: string | null; stop_details: { category: string | null } | null; content: { type: string; text?: string }[]; model: string; usage: ApiUsage }): ModelReply {
+function reply(m: { stop_reason: string | null; stop_details: { category: string | null } | null; content: { type: string; text?: string; trigger?: { category: string | null } }[]; model: string; usage: ApiUsage }): ModelReply {
+  const refusalCategory = m.stop_reason === "refusal" ? (m.stop_details?.category ?? null) : null;
   return {
     stopReason: m.stop_reason,
-    refusalCategory: m.stop_reason === "refusal" ? (m.stop_details?.category ?? null) : null,
+    refusalCategory,
+    declined: [...m.content.filter((b) => b.type === "fallback").map((b) => b.trigger?.category ?? null), ...(m.stop_reason === "refusal" ? [refusalCategory] : [])],
     text: m.content.map((b) => (b.type === "text" ? (b.text ?? "") : "")).join(""),
     model: m.model,
     usage: m.usage,

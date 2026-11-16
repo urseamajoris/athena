@@ -1,13 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { AlertTriangle, CheckCircle2, KeyRound, Power, XCircle } from "lucide-react";
 import { api, useApi } from "../api";
 import { ErrorState, Loading, Spinner, cx } from "../ui";
 import { Modal } from "../overlays";
 import { Disclosure } from "../disclosure";
-import { AppMenu } from "../AppMenu";
-import { LogoMark } from "../Logo";
+import { TopBar } from "../AppChrome";
 import { BudgetBar, DailyBars, HBars, Stat } from "./charts";
 import { UsersTable } from "./UsersTable";
 import { STUDY_GROUPS, slotVar } from "@/lib/shared/categories";
@@ -46,14 +44,7 @@ export function AdminDashboard() {
   }, []);
   return (
     <div className="min-h-screen bg-bg-0">
-      <header className="flex h-12 items-center justify-between gap-3 border-b border-line px-2 md:px-4">
-        <div className="flex items-center gap-2">
-          <Link href="/sessions" className="inline-flex h-11 items-center gap-2 rounded-sm px-1 font-semibold" aria-label="Athena: my projects"><LogoMark /><span className="max-sm:sr-only">Athena</span></Link>
-          <span className="text-fg-2">/</span>
-          <span className="font-medium">Admin</span>
-        </div>
-        <AppMenu />
-      </header>
+      <TopBar />
       <main id="main" className="mx-auto max-w-6xl space-y-4 px-4 py-6">
         {!data && !error && <Loading label="Reading the telemetry…" />}
         {error && <ErrorState error={error} onRetry={() => mutate()} title="Could not load the dashboard" />}

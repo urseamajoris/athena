@@ -110,19 +110,39 @@ export function approvalBlock(n: number, state: StageState, facts: ApprovalFacts
 }
 
 // ---------- summaries (5) and ranking (6): one checkpoint ----------
+//
+// Paper summaries (stage 5) have no checkpoint of their own: the user reviews summaries and ranking together at
+// stage 6. Three rules follow from that.
 
 /**
- * Paper summaries (stage 5) have no checkpoint of their own: the user reviews summaries and ranking together at
- * stage 6. So whenever stage 5 is waiting for review and everything before it is confirmed, it is confirmed by
- * the system, and ranking follows:
- *   - `jobFinished` (a summaries job has just ended successfully): ranking starts, unless it is already running;
- *   - otherwise (a stale stage 5 was kept, an interrupted chain is picked up): ranking starts only if it never ran.
- * A failed, paused or cancelled summaries job leaves stage 5 failed or running, so nothing here applies to it.
+ * 1. Stage 5 never waits for a review. While stages 1-4 are confirmed, "needs review" is stored as confirmed
+ *    (so the job runner's "job finished, needs review" confirms it). With an earlier stage open it does wait,
+ *    because nothing after an open stage is confirmed; rule 3 confirms it once that stage is confirmed again.
  */
-export function summariesStep(states: States, opts: { jobFinished: boolean }): { approve: boolean; rank: boolean } {
-  if (stateOf(states, 5) !== "needs_review" || upstreamBlock(states, 5)) return { approve: false, rank: false };
-  const six = stateOf(states, 6);
-  return { approve: true, rank: opts.jobFinished ? six !== "running" : six === "not_started" };
+export function storedStageState(states: States, stage: number, state: StageState): StageState {
+  return stage === 5 && state === "needs_review" && !upstreamBlock(states, 5) ? "approved" : state;
+}
+
+/**
+ * 2. When a summaries job has done its work, ranking starts at once, before the runner records the job as
+ *    finished, so the two stages are never both idle in between. Not when the job was cancelled or the stage
+ *    went out of date meanwhile (stage 5 is then no longer "running"), when an earlier stage is open, or when
+ *    ranking is already running. A failed or paused job never gets here: its handler does not return.
+ */
+export function rankAfterSummaries(states: States): boolean {
+  return stateOf(states, 5) === "running" && !upstreamBlock(states, 5) && stateOf(states, 6) !== "running";
+}
+
+/**
+ * 3. At rest (a stage was just confirmed or kept, or the server has started): summaries left waiting for a
+ *    review are confirmed, and ranking starts if it has never run. Ranking that has results is left alone, even
+ *    when they are out of date: nothing the user has seen is re-run without being asked.
+ */
+export function summariesStep(states: States): { approve: boolean; rank: boolean } {
+  if (upstreamBlock(states, 5)) return { approve: false, rank: false };
+  const five = stateOf(states, 5);
+  const approve = five === "needs_review";
+  return { approve, rank: (approve || five === "approved") && stateOf(states, 6) === "not_started" };
 }
 
 /** Stages a "keep the current results" choice applies to: 5 and 6 are one checkpoint, so they are kept together. */

@@ -132,7 +132,7 @@ export async function structuredCall<T>(opts: CallOpts<T>): Promise<CallResult<T
     }
 
     // The call reached the model: record what it used and take the credits, whatever the answer turns out to be.
-    const cost = costOf(model, reply.usage, config.pricing);
+    const cost = costOf(model, reply.usage, config.pricing, reply.declined);
     const credits = await charge(payer, cost.costUsd);
     const used = { ...cost, costSource: "estimate", credits, model: reply.model || model, attempt, durationMs: Date.now() - started };
 

@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
-import { STAGES } from "@/lib/shared/stages";
+import { stepForStage } from "@/lib/shared/flow";
 
-/** The old wizard URL (/projects/[id]?stage=N) opens the canvas with that stage's node. */
+/** An old link (/projects/[id]?stage=N) opens the review on the screen that holds that stage. */
 export default async function OldProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ stage?: string }> }) {
   const { id } = await params;
   const { stage } = await searchParams;
-  const s = STAGES.find((x) => String(x.n) === stage);
-  redirect(s ? `/s/${encodeURIComponent(id)}?node=${s.key}` : `/s/${encodeURIComponent(id)}`);
+  const n = Number(stage);
+  redirect(Number.isInteger(n) && n >= 1 && n <= 9 ? `/s/${encodeURIComponent(id)}?step=${stepForStage(n).key}` : `/s/${encodeURIComponent(id)}`);
 }

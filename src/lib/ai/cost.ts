@@ -81,14 +81,28 @@ function runCost(model: string, t: TokenCounts, prices: Record<string, ModelPric
 }
 
 /**
+ * Refusal categories that are billed even when the model declines before writing anything. A request declined
+ * before any output in another category (or with none) is not billed; one declined part-way through always is.
+ * Source: "How refusals are billed", https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback
+ * (read 2026-11-16).
+ */
+export const BILLED_REFUSALS = ["bio", "frontier_llm", "reasoning_extraction"];
+
+/**
  * Tokens and estimated cost of one response. `model` is the model that was asked for. When the response lists
  * its model runs (`usage.iterations`), each run is costed at the rates of the model that ran it and the runs are
  * added up; otherwise the top-level counts are costed at `model`'s rates.
+ *
+ * `declined` holds the refusal category (or null) of each run that declined, in order: the runs before a
+ * fallback model took over and, when the response itself is a refusal, the last run too. A declined run that
+ * wrote nothing costs nothing unless its category is billed; its tokens are still counted.
  */
-export function costOf(model: string, usage: ApiUsage | null | undefined, prices: Record<string, ModelPrice> = MODEL_PRICES): CallCost {
+export function costOf(model: string, usage: ApiUsage | null | undefined, prices: Record<string, ModelPrice> = MODEL_PRICES, declined: (string | null)[] = []): CallCost {
   if (!usage) return { inputTokens: 0, cachedTokens: 0, outputTokens: 0, reasoningTokens: 0, costUsd: 0 };
   const runs = (usage.iterations ?? []).filter((i) => i.type === "message" || i.type === "fallback_message");
-  const parts = runs.length ? runs.map((i) => runCost(i.model || model, i, prices)) : [runCost(model, usage, prices)];
+  const parts = (runs.length ? runs.map((i) => runCost(i.model || model, i, prices)) : [runCost(model, usage, prices)]).map((p, i) =>
+    i < declined.length && p.output === 0 && !BILLED_REFUSALS.includes(declined[i] ?? "") ? { ...p, usd: 0 } : p,
+  );
   const sum = (k: "prompt" | "read" | "output" | "usd") => parts.reduce((a, p) => a + p[k], 0);
   return {
     inputTokens: sum("prompt"),

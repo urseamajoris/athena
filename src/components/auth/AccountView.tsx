@@ -2,12 +2,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { api, useApi } from "../api";
 import { ErrorState, Loading, Spinner } from "../ui";
 import { Modal } from "../overlays";
-import { AppMenu } from "../AppMenu";
-import { LogoMark } from "../Logo";
+import { TopBar } from "../AppChrome";
 
 interface Account {
   user: { id: string; email: string; name: string; role: "user" | "admin"; mustChangePassword: boolean; createdAt: string };
@@ -29,11 +28,7 @@ export function AccountView() {
   const reset = useSearchParams().get("reset") === "1";
   return (
     <div className="min-h-screen bg-bg-0">
-      <header className="flex h-12 items-center justify-between gap-3 border-b border-line px-2 md:px-4">
-        <Link href="/sessions" className="btn-ghost h-11"><ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden /> My projects</Link>
-        <Link href="/" className="inline-flex h-11 items-center gap-2 px-1 font-semibold max-sm:hidden" aria-label="Athena home"><LogoMark /></Link>
-        <AppMenu />
-      </header>
+      <TopBar />
       <main id="main" className="mx-auto max-w-2xl px-4 py-8">
         <h1 className="text-20 font-semibold">Your account</h1>
         {!data && !error && <Loading />}

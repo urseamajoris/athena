@@ -8,6 +8,9 @@ import * as aiSchemas from "../stages/ai-schemas";
 /** The only keywords structured outputs take. Anything else in a schema is rejected or ignored by the API. */
 const ALLOWED = new Set(["type", "properties", "required", "additionalProperties", "items", "enum", "const", "anyOf", "allOf", "$ref", "$defs", "description", "title", "format", "minItems"]);
 const FORMATS = new Set(["date-time", "time", "date", "duration", "email", "hostname", "uri", "ipv4", "ipv6", "uuid"]);
+// "Schema complexity limits", https://platform.claude.com/docs/en/build-with-claude/structured-outputs (read 2026-11-16).
+const MAX_OPTIONAL = 24;
+const MAX_UNIONS = 16;
 
 type Node = Record<string, unknown>;
 
@@ -36,6 +39,12 @@ function assertSendable(schema: Node, name: string) {
   }
   // The SDK's own converter (what its zod helper sends) finds nothing left to remove or rewrite.
   assert.deepEqual(transformJSONSchema(schema), schema, `${name}: unchanged by the SDK's structured-output transform`);
+  // The API's published complexity limits for one request's schema: a schema over them is rejected with a 400.
+  const all = [...nodes(schema, name)].map(([n]) => n);
+  const optional = all.filter((n) => n.type === "object").reduce((a, n) => a + Object.keys(n.properties as Node).filter((k) => !((n.required as string[]) ?? []).includes(k)).length, 0);
+  const unions = all.filter((n) => "anyOf" in n).length;
+  assert.ok(optional <= MAX_OPTIONAL, `${name}: ${optional} optional fields (the limit is ${MAX_OPTIONAL}); make fields required, or nullable where the limit allows`);
+  assert.ok(unions <= MAX_UNIONS, `${name}: ${unions} fields with a union type such as nullable (the limit is ${MAX_UNIONS})`);
 }
 
 test("every AI output schema converts to a schema structured outputs accept", () => {

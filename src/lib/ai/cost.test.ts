@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MODEL_PRICES, costOf, priceFor } from "./cost";
+import { BILLED_REFUSALS, MODEL_PRICES, costOf, priceFor } from "./cost";
 
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-9, `${a} is not ${b}`);
 
@@ -60,4 +60,31 @@ test("cost: a request re-run on another model is the sum of its runs, each at it
   assert.equal(c.outputTokens, 310);
   assert.equal(c.reasoningTokens, 50);
   near(c.costUsd, (1_000 * 4 + 10 * 20) / 1e6 + (900 * 5 + 100 * 0.5 + 300 * 25) / 1e6);
+});
+
+test("cost: a request declined before any output is billed only in the billed categories", () => {
+  const usage = { input_tokens: 10_000, output_tokens: 0 };
+  const billed = (10_000 * 4) / 1e6;
+  assert.deepEqual(BILLED_REFUSALS, ["bio", "frontier_llm", "reasoning_extraction"]);
+  for (const category of ["cyber", "general_harms", null]) {
+    const c = costOf("claude-opus-5-5", usage, MODEL_PRICES, [category]);
+    assert.equal(c.costUsd, 0, `${category}: not billed`);
+    assert.equal(c.inputTokens, 10_000, "the tokens are still counted");
+  }
+  for (const category of BILLED_REFUSALS) near(costOf("claude-opus-5-5", usage, MODEL_PRICES, [category]).costUsd, billed);
+  near(costOf("claude-opus-5-5", { input_tokens: 10_000, output_tokens: 200 }, MODEL_PRICES, ["cyber"]).costUsd, (10_000 * 4 + 200 * 20) / 1e6);
+  near(costOf("claude-opus-5-5", usage).costUsd, billed);
+});
+
+test("cost: with a fallback, the declined first run follows the same rule and the answering run is always billed", () => {
+  const iterations = [
+    { type: "message", model: "claude-opus-5-5", input_tokens: 10_000, output_tokens: 0 },
+    { type: "fallback_message", model: "claude-opus-4-8", input_tokens: 10_000, output_tokens: 100 },
+  ];
+  const answer = (10_000 * 5 + 100 * 25) / 1e6;
+  near(costOf("claude-opus-5-5", { input_tokens: 10_000, output_tokens: 100, iterations }, MODEL_PRICES, ["cyber"]).costUsd, answer);
+  near(costOf("claude-opus-5-5", { input_tokens: 10_000, output_tokens: 100, iterations }, MODEL_PRICES, ["bio"]).costUsd, answer + (10_000 * 4) / 1e6);
+  // Both runs declined before writing anything, in a category that is not billed.
+  const both = iterations.map((i) => ({ ...i, output_tokens: 0 }));
+  assert.equal(costOf("claude-opus-5-5", { input_tokens: 10_000, output_tokens: 0, iterations: both }, MODEL_PRICES, ["cyber", "cyber"]).costUsd, 0);
 });

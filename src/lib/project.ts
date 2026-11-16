@@ -3,6 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import { STAGES, type StageState } from "./shared/stages";
 import { newId, nowIso } from "./util";
+import { storedStageState } from "./stages/rules";
 
 export function initialStageStates(): Record<string, StageState> {
   return Object.fromEntries(STAGES.map((s) => [String(s.n), s.n === 1 ? "needs_review" : "not_started"])) as Record<string, StageState>;
@@ -24,15 +25,24 @@ export async function logDecision(projectId: string, stage: number, action: stri
   (await db.insert(schema.decisionLog).values({ id: newId("log"), projectId, stage, actor, action, before: before ?? null, after: after ?? null }).run());
 }
 
-export async function setStageState(projectId: string, stage: number, state: StageState, extra?: { currentStage?: number }) {
+/**
+ * Every stage-state change goes through here, so the one rule about stored states is applied here: paper
+ * summaries (stage 5) have no checkpoint, so "needs review" is stored as confirmed while the stages before it
+ * are confirmed (storedStageState). Returns the state that was stored.
+ */
+export async function setStageState(projectId: string, stage: number, state: StageState, extra?: { currentStage?: number }): Promise<StageState> {
   const p = (await getProject(projectId));
-  const states = { ...p.stageStates, [String(stage)]: state };
+  const stored = storedStageState(p.stageStates, stage, state);
+  const states = { ...p.stageStates, [String(stage)]: stored };
   const reasons = { ...p.staleReasons };
-  if (state !== "stale") delete reasons[String(stage)];
+  if (stored !== "stale") delete reasons[String(stage)];
+  // Summaries confirmed this way move the review on to the paper choice, as a confirmation by the user would.
+  const current = extra?.currentStage ?? (stored !== state && p.currentStage < stage + 1 ? stage + 1 : undefined);
   (await db.update(schema.projects)
-        .set({ stageStates: states, staleReasons: reasons, updatedAt: nowIso(), ...(extra?.currentStage ? { currentStage: extra.currentStage } : {}) })
+        .set({ stageStates: states, staleReasons: reasons, updatedAt: nowIso(), ...(current ? { currentStage: current } : {}) })
         .where(eq(schema.projects.id, projectId))
         .run());
+  return stored;
 }
 
 /**

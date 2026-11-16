@@ -83,7 +83,7 @@ async function main(): Promise<number> {
   }
 
   // 3. The answer, the usage and the cost.
-  const cost = costOf(model, reply.usage, config.pricing);
+  const cost = costOf(model, reply.usage, config.pricing, reply.declined);
   console.log(`Answered by ${reply.model} in ${((Date.now() - started) / 1000).toFixed(1)} s; stop reason: ${reply.stopReason}.`);
   console.log("Usage:", JSON.stringify(reply.usage));
   console.log(`Tokens: ${cost.inputTokens} prompt (${cost.cachedTokens} read from the cache), ${cost.outputTokens} output (${cost.reasoningTokens} of them thinking).`);

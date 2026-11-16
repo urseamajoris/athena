@@ -62,15 +62,20 @@ export async function buildSearchPlan(projectId: string) {
 }
 
 /**
- * Write the database searches. `scope` "missing" writes them only for topics that have none and leaves every
- * other search (and the criteria, once set) as the user has them; "all" writes every search and the criteria again.
+ * Write the database searches for some topics, replacing the ones those topics have. `scope`:
+ *   "missing"       only topics that have no searches (the default; nothing the user has is touched);
+ *   { topicIds }    exactly these topics (to write one topic's searches again);
+ *   "all"           every topic, and the shared criteria again.
+ * Other topics keep their searches, and criteria that already exist are kept unless the scope is "all".
  */
-export async function buildQueries(projectId: string, scope: "missing" | "all" = "missing") {
+export async function buildQueries(projectId: string, scope: "missing" | "all" | { topicIds: string[] } = "missing") {
   const p = (await getProject(projectId));
   const topics = (await listTopics(projectId));
   if (!topics.length) throw new HttpError(400, "There are no search topics yet. Build the search plan or add a topic first.");
   const had = (await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
-  const targets = scope === "all" ? topics : topicsWithoutQueries(topics, had);
+  const named = typeof scope === "object" ? scope.topicIds : null;
+  if (named?.some((id) => !topics.some((t) => t.id === id))) throw new HttpError(404, "Topic not found");
+  const targets = named ? topics.filter((t) => named.includes(t.id)) : scope === "all" ? topics : topicsWithoutQueries(topics, had);
   if (!targets.length) throw new HttpError(409, "Every topic already has its searches.");
   const others = topics.filter((t) => !targets.includes(t));
   const topicIds = targets.map((t) => t.id);
@@ -116,7 +121,7 @@ export async function buildQueries(projectId: string, scope: "missing" | "all" =
   }
   (await logDecision(projectId, 3, "queries_generated", replaced.length ? replaced.map((h) => h.queryString) : null, { scope, ...data }, "ai"));
   (await setStageState(projectId, 3, "needs_review"));
-  if (had.length) (await markDownstreamStale(projectId, 3, scope === "all" ? "The searches were written again" : "Searches were written for a new topic"));
+  if (had.length) (await markDownstreamStale(projectId, 3, replaced.length ? "Searches were written again" : "Searches were written for a new topic"));
   return (await searchState(projectId));
 }
 

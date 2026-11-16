@@ -122,7 +122,7 @@ export function ExportView({ full = false }: { full?: boolean }) {
       </section>
       <Disclosure title="What the files include">
         <div className="grid grid-cols-2 gap-2">
-          <Stat label="Unique papers" value={fmtInt(summary?.retrieval.unique ?? 0)} />
+          <Stat label="Unique papers" value={fmtInt(summary?.retrieval?.unique ?? 0)} />
           <Stat label="Papers appraised" value={a?.papers ?? 0} />
           <Stat label="Full text / abstract" value={`${a?.fullText ?? 0} / ${(a?.papers ?? 0) - (a?.fullText ?? 0)}`} />
           <Stat label="Quotes found / not found" value={`${a?.verified ?? 0} / ${(a?.pending ?? 0) + (a?.accepted ?? 0) + (a?.rejected ?? 0)}`} />

@@ -118,6 +118,7 @@ test("a request: streamed, schema-constrained, effort set, system block cacheabl
   assert.equal(r.text, '{"greeting":"hello"}');
   assert.equal(r.model, "claude-opus-5-5");
   assert.equal(r.refusalCategory, null);
+  assert.deepEqual(r.declined, []);
   assert.deepEqual(costOf("claude-opus-5-5", r.usage), { inputTokens: 2000, cachedTokens: 800, outputTokens: 55, reasoningTokens: 30, costUsd: (1200 * 4 + 800 * 0.2 + 55 * 20) / 1e6 });
 
   assert.equal(seen.length, 1);
@@ -155,12 +156,13 @@ test("an answer from the fallback model: its text is read past the switch marker
     { type: "message", model: "claude-opus-5-5", input_tokens: 1000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 0 },
     { type: "fallback_message", model: "claude-opus-4-8", input_tokens: 1000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 20 },
   ];
-  script.push(sse({ content: [{ type: "fallback", from: { model: "claude-opus-5-5" }, to: { model: "claude-opus-4-8" } }, { type: "text", text: '{"greeting":"hi"}' }], outputTokens: 20, usage: { input_tokens: 1000, iterations } }));
+  script.push(sse({ content: [{ type: "fallback", from: { model: "claude-opus-5-5" }, to: { model: "claude-opus-4-8" }, trigger: { type: "refusal", category: "bio" } }, { type: "text", text: '{"greeting":"hi"}' }], outputTokens: 20, usage: { input_tokens: 1000, iterations } }));
   const r = await sendStructured(req());
   assert.equal(r.stopReason, "end_turn");
   assert.equal(r.text, '{"greeting":"hi"}');
   assert.equal(r.model, "claude-opus-4-8", "the model that produced the answer");
-  const c = costOf("claude-opus-5-5", r.usage);
+  assert.deepEqual(r.declined, ["bio"], "the first run declined, in a category that is billed");
+  const c = costOf("claude-opus-5-5", r.usage, undefined, r.declined);
   assert.equal(c.inputTokens, 2000);
   assert.ok(Math.abs(c.costUsd - ((1000 * 4) / 1e6 + (1000 * 5 + 20 * 25) / 1e6)) < 1e-12);
 });
@@ -170,7 +172,9 @@ test("a refusal is reported by its stop reason, with the category and no text", 
   const r = await sendStructured(req());
   assert.equal(r.stopReason, "refusal");
   assert.equal(r.refusalCategory, "cyber");
+  assert.deepEqual(r.declined, ["cyber"]);
   assert.equal(r.text, "");
+  assert.equal(costOf("claude-opus-5-5", r.usage, undefined, r.declined).costUsd, 0, "declined before any output, in a category that is not billed");
 });
 
 test("an answer cut off at the length limit is reported by its stop reason, with the partial text", async () => {

@@ -258,11 +258,14 @@ on("POST", "search/plan", async ({ projectId }) => {
   (await requireUpstreamApproved(projectId, 3));
   return (await buildSearchPlan(projectId));
 });
-/** Write the searches: by default only for topics that have none; `scope: "all"` writes every search again. */
+/**
+ * Write the searches: by default only for topics that have none. `topicIds` writes those topics' searches again;
+ * `scope: "all"` writes every search and the criteria again.
+ */
 on("POST", "search/build", async ({ projectId, body }) => {
-  const { scope } = parse(z.object({ scope: z.enum(["missing", "all"]).default("missing") }), body ?? {});
+  const { scope, topicIds } = parse(z.object({ scope: z.enum(["missing", "all"]).default("missing"), topicIds: z.array(z.string().max(60)).min(1).max(8).optional() }), body ?? {});
   (await requireUpstreamApproved(projectId, 3));
-  return (await buildQueries(projectId, scope));
+  return (await buildQueries(projectId, topicIds ? { topicIds } : scope));
 });
 
 const TopicPatch = z.object({ name: z.string().trim().min(1).max(120).optional(), synonyms: z.array(z.string().max(120)).max(30).optional(), controlledTerms: z.array(z.string().max(120)).max(20).optional(), rationale: z.string().max(400).optional() });
