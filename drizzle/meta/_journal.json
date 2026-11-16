@@ -15,6 +15,13 @@
       "when": 1793248155692,
       "tag": "0001_accounts_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794819127541,
+      "tag": "0002_credits_question",
+      "breakpoints": true
     }
   ]
 }

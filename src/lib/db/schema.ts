@@ -28,6 +28,15 @@ export interface Criteria {
   hardFilter?: string[];
 }
 
+/** One AI-drafted wording of the working research question (stage 2). */
+export interface QuestionDraft {
+  text: string;
+  framework: string; // PICO | PEO | PICo | SPIDER | other
+  structure: Record<string, string>;
+  /** One plain sentence on what this wording emphasises, so drafts can be told apart. */
+  note: string;
+}
+
 export const projects = sqliteTable("projects", {
   id: id(),
   ownerId: text("owner_id"), // users.id; enforced on every project route (src/lib/auth/access.ts)
@@ -40,6 +49,16 @@ export const projects = sqliteTable("projects", {
   scopingSummary: text("scoping_summary", { mode: "json" }).$type<Record<string, string> | null>(),
   conceptMap: text("concept_map", { mode: "json" }).$type<{ nodes: { id: string; label: string; kind: string }[]; edges: { from: string; to: string; label: string }[] } | null>(),
   criteria: text("criteria", { mode: "json" }).$type<Criteria | null>(),
+  /**
+   * The working research question, refined from the idea in stage 2 and confirmed by the user. Every later stage
+   * (search plan, ranking, article analysis, evidence summary) is judged against it. Null until one is drafted.
+   */
+  question: text("question"),
+  questionFramework: text("question_framework"), // PICO | PEO | PICo | SPIDER | other
+  questionStructure: text("question_structure", { mode: "json" }).$type<Record<string, string> | null>(),
+  /** The AI's latest drafts of the question (the user picks one, edits it, or writes their own). */
+  questionDrafts: text("question_drafts", { mode: "json" }).$type<QuestionDraft[] | null>(),
+  questionConfirmedAt: text("question_confirmed_at"),
   finalReport: text("final_report"),
   /** Category view choices (filters, group-by, colour-by) saved per project and listed in the report. */
   viewPrefs: text("view_prefs", { mode: "json" }).$type<Record<string, unknown> | null>(),
@@ -213,6 +232,10 @@ export const appraisals = sqliteTable("appraisals", {
   charsSentToModel: integer("chars_sent_to_model"),
   templateType: text("template_type").notNull(), // trial | cohort | cross_sectional | qualitative | systematic_review | other
   checklist: text("checklist", { mode: "json" }).$type<ChecklistItem[]>().notNull().default([]),
+  /** Article analysis, judged against the project's working research question. Empty on analyses made before it existed. */
+  bottomLine: text("bottom_line").notNull().default(""), // one or two plain sentences: what this article tells you
+  relevance: text("relevance").notNull().default(""), // direct | partial | background | "" (not judged)
+  relevanceNote: text("relevance_note").notNull().default(""), // why, in one sentence
   status: text("status").notNull().default("pending"), // pending | running | done | failed
   error: text("error"),
   model: text("model"),
@@ -347,6 +370,10 @@ export const httpCache = sqliteTable("http_cache", {
 export const aiCalls = sqliteTable("ai_calls", {
   id: id(),
   projectId: text("project_id"),
+  /** The account charged for this call (the project's owner); null for server calls such as the key test. */
+  userId: text("user_id"),
+  /** Credits taken from that account for this call (0 for refused calls and for administrators). */
+  credits: real("credits").notNull().default(0),
   stage: integer("stage"),
   promptName: text("prompt_name").notNull(),
   promptVersion: text("prompt_version").notNull(),
@@ -362,7 +389,7 @@ export const aiCalls = sqliteTable("ai_calls", {
   attempt: integer("attempt").notNull().default(1),
   durationMs: integer("duration_ms").notNull().default(0),
   createdAt: createdAt(),
-}, (t) => [index("ai_calls_project_idx").on(t.projectId, t.stage)]);
+}, (t) => [index("ai_calls_project_idx").on(t.projectId, t.stage), index("ai_calls_user_idx").on(t.userId, t.createdAt)]);
 
 // ---------- accounts, admin and telemetry ----------
 
@@ -377,6 +404,8 @@ export const users = sqliteTable("users", {
   disabled: integer("disabled", { mode: "boolean" }).notNull().default(false),
   /** Set when an admin resets the password: the next login must choose a new one. */
   mustChangePassword: integer("must_change_password", { mode: "boolean" }).notNull().default(false),
+  /** Computing credits left. AI steps take credits; purchases, sign-up and admin grants add them (see credit_ledger). */
+  creditBalance: real("credit_balance").notNull().default(0),
   createdAt: createdAt(),
   lastLoginAt: text("last_login_at"),
   lastActiveAt: text("last_active_at"),
@@ -404,7 +433,25 @@ export const auditEvents = sqliteTable("audit_events", {
   createdAt: createdAt(),
 }, (t) => [index("audit_cat_idx").on(t.category, t.createdAt), index("audit_email_idx").on(t.emailHash, t.createdAt), index("audit_ip_idx").on(t.ipHash, t.createdAt)]);
 
-/** Runtime settings an admin can change (AI on/off, the encrypted xAI key, the budget). */
+/**
+ * Every change to a credit balance except AI use (which is in ai_calls.credits): purchases, the sign-up grant,
+ * admin grants and refunds. `stripeSessionId` is unique, so a Stripe webhook delivered twice credits once.
+ */
+export const creditLedger = sqliteTable("credit_ledger", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind").$type<"purchase" | "signup" | "grant" | "refund">().notNull(),
+  credits: real("credits").notNull(), // signed: + adds, - removes
+  amountUsd: real("amount_usd"), // what was paid, for purchases and refunds
+  packId: text("pack_id"),
+  stripeSessionId: text("stripe_session_id"),
+  stripePaymentIntent: text("stripe_payment_intent"),
+  actorId: text("actor_id"), // the admin who made a grant
+  note: text("note"),
+  createdAt: createdAt(),
+}, (t) => [index("ledger_user_idx").on(t.userId, t.createdAt), uniqueIndex("ledger_stripe_session_uq").on(t.stripeSessionId)]);
+
+/** Runtime settings an admin can change (AI on/off, the encrypted Anthropic API key, the budget). */
 export const appSettings = sqliteTable("app_settings", {
   key: text("key").primaryKey(),
   value: text("value", { mode: "json" }).$type<unknown>().notNull(),

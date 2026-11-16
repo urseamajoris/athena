@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Lets several builds or dev servers run side by side from one checkout (tests, QA), each with its own output folder.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   serverExternalPackages: ["@libsql/client", "libsql", "unpdf"],
   // Read from disk at runtime (migrations, prompt files), so serverless bundles must include them.
   outputFileTracingIncludes: { "/**": ["./drizzle/**", "./prompts/**"] },
