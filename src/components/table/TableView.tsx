@@ -8,19 +8,16 @@ import dynamic from "next/dynamic";
 import { api, projectPath, useApi } from "../api";
 import { AbstractBadge, Badge, EmptyState, ErrorState, Loading, cx } from "../ui";
 import { Disclosure } from "../disclosure";
-import { canvasStore, useCanvas, useJobRefresh, useSession } from "../session/SessionContext";
+import { useJobRefresh, useSession } from "../session/SessionContext";
+import { useMarks } from "../session/marks";
+import { frontierStage } from "../session/actions";
 import { JobStatus, StaleNotice } from "../panels/common";
 import { useViewPrefs } from "../session/viewPrefs";
 import { CategoryChip, ShapeIcon } from "../categories";
 import { Checklist } from "../guide/Checklist";
-import { WhatHappens } from "../guide/WhatHappens";
-import { focusPageAction } from "../session/SessionPage";
 import { MIN_TOPIC_FIT, PER_TOPIC, RUBRIC, STAGES, STUDY_TYPES, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
 import { topicCoverage } from "@/lib/scoring";
-import { frontierStage, nodeForStage } from "@/lib/canvas/graph";
-import { TransitionLink } from "../vt";
 import { ARTICLE_TYPES, DIMENSIONS, hasHues, accessOf, articleTypeOf, categoriesFor, categoryVar, describeFilters, evidenceOf, periodOf, scoreBandOf, sourceOf, studyGroupOf, type ColorBy, type Dimension } from "@/lib/shared/categories";
-import { sessionOf } from "@/lib/canvas/store";
 import type { MapPoint } from "../viz/paper-points";
 import { COL_W, tableMinWidth } from "./columns";
 import { keepRuleDone } from "../guide/checklist-rules";
@@ -70,7 +67,7 @@ const DEFAULT_HIDDEN: VisibilityState = { authors: false, journal: false, settin
 
 /** Full-screen summary + ranking table: rank and pick papers for appraisal. */
 export function TableView() {
-  const { projectId, states, confirmEdit, refresh, openPaper, graph, announce } = useSession();
+  const { projectId, states, confirmEdit, refresh, openPaper, goToStep } = useSession();
   const papers = useApi<PapersData>(projectPath(projectId, "papers"));
   const ranking = useApi<RankingData>(projectPath(projectId, "ranking"));
   useJobRefresh(5, papers.mutate);
@@ -79,8 +76,7 @@ export function TableView() {
   const [q, setQ] = useState("");
   const view = useViewPrefs();
   const [mode, setMode] = useState<"table" | "map">("table");
-  const seen = useCanvas((s) => sessionOf(s, projectId).seen);
-  const mark = (f: string) => canvasStore.getState().markSeen(projectId, f);
+  const { seen, markSeen: mark } = useMarks(projectId);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [visibility, setVisibility] = useState<VisibilityState>(DEFAULT_HIDDEN);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -258,7 +254,6 @@ export function TableView() {
   const warnNow = ranked && stage === 6 && !movedOn && !rankingRunning;
   const short = warnNow ? coverage.short : [];
   const few = warnNow ? coverage.few : [];
-  const step3For = (topicId: string) => graph.nodes.find((n) => n.id === `query:${topicId}`)?.id ?? nodeForStage(graph, 3);
   const checklist =
     stage === 5
       ? [
@@ -291,26 +286,13 @@ export function TableView() {
       <div className="shrink-0 space-y-3 px-4 pb-1 pt-3">
         <StaleNotice stage={5} also={[6]} />
         {(states["5"] === "running" || states["6"] === "running") && <JobStatus stage={states["6"] === "running" ? 6 : 5} />}
-        {movedOn && (
-          <div role="status" className="space-y-2 rounded-md border border-line bg-bg-1 px-3 py-3">
-            <p className="flex items-start gap-2 text-fg-0"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-ok" strokeWidth={1.5} aria-hidden /><span><strong className="font-semibold">Ranking approved.</strong> {f ? `Your review is now at step ${f} of 9: ${STAGES[f - 1].title}. Use “Go to step ${f}” to continue there.` : "Your review is finished. Use “Go to the report” to download it."}</span></p>
-            {f && states[String(f)] === "running" && <JobStatus stage={f} />}
-          </div>
-        )}
         {err ? <ErrorState error={err} /> : null}
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="min-w-0">
-            <p className="text-12 font-medium text-fg-1">Step {stage} of 9 · {stage === 5 ? "Summary table" : "Ranking"}</p>
-            <h2 data-page-heading className="text-20 font-semibold">{stage === 5 ? "Skim the papers and fix any wrong cells" : "Check which papers go forward"}</h2>
-            {/* Every paper row has controls, so the page's next action (header or bottom bar) is one key away. */}
-            <button type="button" className="sr-only focus:not-sr-only focus:mt-1 focus:inline-block focus:rounded-sm focus:bg-bg-2 focus:px-3 focus:py-2" onClick={() => { if (!focusPageAction()) announce("This page has no next action right now."); }}>Skip to the next action</button>
-            <p className="mt-1 max-w-3xl text-fg-1">
-              {stage === 5
-                ? <>One row per paper. The study type, setting and key finding were drafted by the AI from the abstract only <AbstractBadge />. Correct anything wrong, then rank the papers.</>
-                : <>Every paper was scored from 0 to 100 against each topic. The best-scoring papers that match the topic (up to 4 per topic) are <strong className="font-semibold">selected</strong> for a closer read. Change the selection if you disagree, then appraise them.</>}
-            </p>
-            <div className="mt-2 max-w-xl"><WhatHappens stage={stage} /></div>
-          </div>
+          <p className="min-w-0 max-w-3xl text-fg-1">
+            {stage === 5
+              ? <>One row per paper. The study type, setting and key finding were drafted by the AI from the abstract only <AbstractBadge />. Correct anything wrong.</>
+              : <>Every paper was scored from 0 to 100 against each topic. The best-scoring papers that match the topic (up to 4 per topic) are <strong className="font-semibold">selected</strong> for a closer read. Change the selection if you disagree.</>}
+          </p>
           <Checklist title={stage === 5 ? "Do these 3 things" : "Before you continue"} items={checklist} />
         </div>
 
@@ -386,10 +368,7 @@ export function TableView() {
                     Every matching paper is already selected, so {few.length === 1 ? "this topic" : "these topics"} will have little or no evidence. Papers that do not match a topic are not selected for it. To find more, change the search words in step 3.
                   </p>
                   <span className="flex flex-wrap gap-2">
-                    {few.map((t) => {
-                      const id = step3For(t.id);
-                      return id ? <TransitionLink key={t.id} href={`/s/${projectId}?node=${encodeURIComponent(id)}`} prefetch={false} className="btn-secondary btn-sm">Edit the searches for {t.name} (step 3)</TransitionLink> : null;
-                    })}
+                    <button type="button" className="btn-secondary btn-sm" onClick={() => goToStep("search")}>Edit the search plan</button>
                   </span>
                 </div>
               </div>

@@ -1,0 +1,45 @@
+{
+ "about": "Start of an open-access article's full text, from Europe PMC (fullTextXML), converted to plain text by the app's JATS parser and cut at the end of a paragraph. Used as the stored source text of a fixture article.",
+ "pmcid": "PMC10032251",
+ "pmid": "36949479",
+ "title": "Patient satisfaction with telemedicine in the Philippines during the COVID-19 pandemic: a mixed methods study.",
+ "license": "cc by",
+ "url": "https://europepmc.org/article/PMC/PMC10032251",
+ "fetchedAt": "2026-11-16",
+ "originalLength": 44980,
+ "text": "TITLE\nPatient satisfaction with telemedicine in the Philippines during the COVID-19 pandemic: a mixed methods study\n\nABSTRACT\n\n\nBACKGROUND\nThe capacity to deliver essential health services has been negatively impacted by the COVID-19 pandemic, particularly due to lockdown restrictions. Telemedicine provides a safe, efficient, and effective alternative that addresses the needs of patients and the health system. However, there remain implementation challenges and barriers to patient adoption in resource-limited settings as in the Philippines. This mixed methods study aimed to describe patient perspectives and experiences with telemedicine services, and explore the factors that influence telemedicine use and satisfaction.\n\nMETHODS\nAn online survey consisting of items adapted from the Consumer Assessment of Healthcare Providers and Systems (CAHPS) Clinician & Group Adult Visit Survey 4.0 (beta) and the Telehealth Usability Questionnaire (TUQ) was completed by 200 participants aged 18 to 65 years residing in the Philippines. A subsample of 16 participants was interviewed to provide further insights on their experiences. We used descriptive statistics to analyze survey data and thematically analyzed data from interviews guided by the principles of grounded theory.\n\nRESULTS\nParticipants were generally satisfied with telemedicine, and found it to be an efficient and convenient means of receiving healthcare. About 3 in 5 perceived telemedicine as affordable, with some finding telemedicine costs to be high and comparable to in-person consultations. Our results suggest that participants preferred telemedicine services, especially in cases where they feel that their condition is not urgent and does not need extensive physical examination. Safety against COVID-19, privacy, accessibility, and availability of multiple communication platforms contributed to patient satisfaction with telemedicine. Negative perceptions of patients on quality of care and service related to their telemedicine provider, inherent limitations of telemedicine in the diagnosis and management of patients, perceived high costs especially for mental health conditions, and poor connectivity and other technological issues were barriers to telemedicine use and satisfaction.\n\nCONCLUSION\nTelemedicine is viewed as a safe, efficient, and affordable alternative to receiving care. Expectations of patients on costs and outcomes need to be managed by providers to increase satisfaction. Continued adoption of telemedicine will require improvements in technology infrastructure and technical support for patients, training and performance evaluation of providers to ensure quality of care and service, better patient communication to meet patient needs, and integration of telemedicine services in remote areas that have limited access to medical services. Telemedicine, to realize its full potential, should be centered in health equity – addressing patient barriers and needs, reducing health disparities across population groups and settings, and providing quality services to all.\n\nSUPPLEMENTARY INFORMATION\nThe online version contains supplementary material available at 10.1186/s12913-023-09127-x.\nKeywords: COVID-19, Patient satisfaction, Telehealth, Telemedicine, Universal health care, Philippines\n\nBACKGROUND\nTelemedicine involves the use of technology in the diagnosis, treatment, monitoring, and management of patients [], including video teleconferencing, remote patient monitoring, mobile health applications, and more traditional methods of communication such as text, email, voice and video calls []. It is a safe, efficient, and affordable alternative to in-person healthcare services, which benefits both the patient and health system. Patients are able to access high-quality healthcare for non-urgent conditions without visiting a health facility [–], thereby saving resources and reducing unnecessary burden on the health system []. It has also been shown to be effective in improving health outcomes and lowering risks of hospitalization and readmission [–].\nThe COVID-19 pandemic has negatively impacted the capacity of health systems to deliver essential services, especially among low-and-middle income countries such as the Philippines [, ]. As cases increased and lockdown restrictions were imposed in the country, hospital admissions and procedures declined for non-COVID-19 and 12 high-burden diseases []. To respond to this public health crisis, the use of telemedicine has rapidly expanded to respond to the needs of different population groups, health conditions, and settings including urban areas [].\nDespite the benefits of telemedicine, challenges related to the patient (e.g., costs, access), health provider and system (e.g., financial and time constraints), and external factors such as poor connectivity pose problems to its wide-scale implementation [, , ]. Barriers to patient adoption, in particular, need to be addressed to encourage continued use. Studies on factors influencing telemedicine use and satisfaction have provided recommendations on how to improve the design and delivery of quality telemedicine services [, ]. To date however, only three local studies have documented patient perspectives and experiences with telemedicine services during the pandemic and all reported good levels of satisfaction [–]. Factors negatively influencing telemedicine use and satisfaction were not explored due to the quantitative nature of the studies conducted, and data were only collected from Filipinos residing in Luzon – one of the three main island groups in the country – potentially missing out on experiences from other regions and more rural settings.",
+ "sections": [
+  {
+   "title": "Title",
+   "start": 0
+  },
+  {
+   "title": "Abstract",
+   "start": 117
+  },
+  {
+   "title": "Background",
+   "start": 128
+  },
+  {
+   "title": "Methods",
+   "start": 730
+  },
+  {
+   "title": "Results",
+   "start": 1280
+  },
+  {
+   "title": "Conclusion",
+   "start": 2268
+  },
+  {
+   "title": "Supplementary Information",
+   "start": 3073
+  },
+  {
+   "title": "Background",
+   "start": 3295
+  }
+ ]
+}

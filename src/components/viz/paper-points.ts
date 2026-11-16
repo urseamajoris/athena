@@ -1,4 +1,4 @@
-// Layout and grouping for the papers-as-points views (shared by the 3D and 2D versions).
+// Layout and grouping for the papers-as-points views (shared by the chart and its legend).
 import type { ColorBy } from "@/lib/shared/categories";
 
 export interface MapPoint {

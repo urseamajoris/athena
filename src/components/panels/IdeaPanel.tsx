@@ -1,20 +1,17 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, projectPath, useApi } from "../api";
-import { Badge, ErrorState, Loading, Spinner, aiStopKind, cx } from "../ui";
+import { Badge, ErrorState, Loading, Spinner, aiStopKind, cx, isOutOfCredits } from "../ui";
 import { Disclosure } from "../disclosure";
-import { canvasStore, cmdKey, useSession } from "../session/SessionContext";
-import { ActionButton, PanelFooter, SectionTitle } from "./common";
+import { useSession } from "../session/SessionContext";
+import { PanelFooter, SectionTitle } from "./common";
 import { ConceptMap } from "./ConceptMap";
-import { WhatHappens } from "../guide/WhatHappens";
 import dynamic from "next/dynamic";
-import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
-import { focusWithRing, revealInPanel } from "../canvas/focus";
+import { CheckCircle2 } from "lucide-react";
+import { focusWithRing, revealAboveActionBar } from "../focus";
 import { TopicUndo } from "./topic-undo";
 
 const TopicConstellation = dynamic(() => import("../viz/TopicConstellation").then((m) => m.TopicConstellation), { ssr: false, loading: () => <Loading label="Drawing your topics…" /> });
-import { stageAction } from "@/lib/canvas/actions";
-import { frontierStage, isGhostTopic } from "@/lib/canvas/graph";
 
 interface Topic { id: string; name: string; synonyms: string[]; controlledTerms: string[]; rationale: string; origin: string; approved: boolean }
 export interface ScopingData {
@@ -40,9 +37,12 @@ const COVERAGE_LABEL: Record<string, [string, string]> = {
   studyTypes: ["Which kinds of studies", "e.g. trials, surveys, interviews, reviews"],
 };
 
-/** Idea node: the idea itself, then the scoping chat whose answers fill the scope (PICO-style) fields. */
-export function IdeaPanel() {
-  const { projectId, project, states, refresh, confirmEdit, run, busy, input, summary } = useSession();
+/**
+ * The short conversation that sharpens the idea (up to five questions), with what has been learned so far.
+ * `chatOnly` leaves out the topic list and the idea editor, for the Question screen.
+ */
+export function IdeaPanel({ chatOnly = false }: { chatOnly?: boolean }) {
+  const { projectId, project, states, refresh, confirmEdit } = useSession();
   const { data, error, isLoading, mutate } = useApi<ScopingData>(projectPath(projectId, "scoping"));
   const [idea, setIdea] = useState(project.idea);
   const [answer, setAnswer] = useState("");
@@ -91,7 +91,7 @@ export function IdeaPanel() {
     if (list) list.scrollTop = list.scrollHeight;
     if (data?.awaitingAnswer && !local) {
       answerRef.current?.focus({ preventScroll: true });
-      revealInPanel(answerRef.current);
+      revealAboveActionBar(answerRef.current);
     }
   }, [data?.messages.length, data?.awaitingAnswer, local]);
 
@@ -106,7 +106,7 @@ export function IdeaPanel() {
     else if (wasOpen.current) {
       const a = document.activeElement;
       // Focus was in the box or on a button that went away (or already sent to the panel heading by FocusPanel).
-      setEnded({ unsent: answer.trim(), focus: !a || a === document.body || !a.isConnected || a.matches("[data-panel] h2") });
+      setEnded({ unsent: answer.trim(), focus: !a || a === document.body || !a.isConnected || a.matches("h1") });
     }
     wasOpen.current = chatOpenNow;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -155,9 +155,6 @@ export function IdeaPanel() {
     if (!d) setAnswer((typed) => (typed.trim() ? `${text} ${typed.trim()}` : text)); // keep what was typed while sending
   }
 
-  const isFrontier = frontierStage(states) === 1 || frontierStage(states) === 2;
-  const action = isFrontier ? stageAction(frontierStage(states), input) : null;
-  const ghosts = (summary?.topics ?? []).filter((t) => isGhostTopic(t, states, input.client.acceptedTopics));
   const chatOpen = ideaApproved && !data.done && !data.topics.length;
   const answered = Object.keys(COVERAGE_LABEL).filter((k) => data.coverage?.[k]).length;
   const knownList = (onlyAnswered = false) => (
@@ -173,16 +170,13 @@ export function IdeaPanel() {
 
   return (
     <div className="space-y-4">
-      {!ideaApproved ? (
+      {!ideaApproved && !chatOnly ? (
         <div>
           <label htmlFor="idea-edit" className="label">Your research idea</label>
           <textarea id="idea-edit" className="input min-h-36 leading-relaxed" value={idea} placeholder="e.g. What is the knowledge gap in implementing telemedicine in Southeast Asia?" onChange={(e) => setIdea(e.target.value)} />
           <p className="mt-2 text-12 text-fg-2">{!dirty ? "Saved." : idea.trim().length < 10 ? "Write at least a sentence (10 characters) and it saves itself." : "Saving…"} It does not need to be a polished question yet.</p>
         </div>
       ) : null}
-
-      {!ideaApproved && <WhatHappens stage={1} />}
-      {ideaApproved && <WhatHappens stage={2} />}
 
       {ideaApproved && (chatOpen ? (
         <section aria-label="Scoping conversation" className="rounded-md border border-line">
@@ -232,7 +226,7 @@ export function IdeaPanel() {
         <div ref={endedRef} tabIndex={-1} role="status" className="flex items-start gap-2 rounded-md border border-line px-3 py-2 text-fg-0">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-ok" strokeWidth={1.5} aria-hidden />
           <div className="min-w-0 flex-1 space-y-1">
-            <p><strong className="font-semibold">The questions are done.</strong>{action && !data.topics.length ? ` Next: “${action.label}”, below.` : ""}</p>
+            <p><strong className="font-semibold">The questions are done.</strong></p>
             {ended.unsent && (
               <>
                 <p className="text-fg-1">You typed this after the last question, so it was not sent. Add it to a topic or to the idea if you need it:</p>
@@ -243,35 +237,22 @@ export function IdeaPanel() {
         </div>
       )}
 
-      {data.topics.length > 0 && (
+      {!chatOnly && data.topics.length > 0 && (
         <section aria-label="Topics">
           <SectionTitle right={<span className="text-12 text-fg-2">{data.topics.length} topic{data.topics.length === 1 ? "" : "s"}{data.topics.length < 4 || data.topics.length > 8 ? " · aim for 4–8" : ""}</span>}>Topics</SectionTitle>
           <ul className="space-y-1">
-            {data.topics.map((t) => {
-              const ghost = !!summary && isGhostTopic({ ...t, synonyms: 0, controlledTerms: 0 }, states, input.client.acceptedTopics);
-              return (
-                <li key={t.id} className="flex flex-wrap items-center gap-1 rounded-sm hover:bg-bg-2">
-                  <button data-topic-row={t.id} className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2 py-2 text-left" onClick={() => canvasStore.getState().openPanel(`topic:${t.id}`)} title="Open to edit its name and keywords">
-                    <span className="min-w-0 flex-1">{t.name}</span>
-                    {ghost ? <Badge tone="warn">suggested</Badge> : t.origin !== "ai" ? <Badge>{t.origin === "user" ? "added by you" : "merged"}</Badge> : null}
-                  </button>
-                  {ghost && (
-                    <span className="flex gap-1 pr-1">
-                      <button className="btn-ghost btn-sm" onClick={() => canvasStore.getState().openPanel(`topic:${t.id}`)} aria-label={`Edit the topic ${t.name}`}>Edit</button>
-                      <button className="btn-ghost btn-sm" onClick={() => run({ type: "acceptTopic", topicId: t.id })} aria-label={`Keep the topic ${t.name}`}>Keep</button>
-                      <button className="btn-ghost btn-sm" onClick={() => run({ type: "dismissTopic", topicId: t.id })} aria-label={`Delete topic: ${t.name}`}>Delete</button>
-                    </span>
-                  )}
-                </li>
-              );
-            })}
+            {data.topics.map((t) => (
+              <li key={t.id} className="flex min-h-11 flex-wrap items-center gap-2 px-2 py-2">
+                <span className="min-w-0 flex-1">{t.name}</span>
+                {t.origin !== "ai" ? <Badge>{t.origin === "user" ? "added by you" : "merged"}</Badge> : null}
+              </li>
+            ))}
           </ul>
-          {ghosts.length > 0 && <p className="mt-2 text-12 text-fg-2">Suggested topics stay dashed until you keep or delete them. Keep the ones that are part of your question; you can edit any topic afterwards.</p>}
         </section>
       )}
-      <TopicUndo />
+      {!chatOnly && <TopicUndo />}
 
-      {ideaApproved && !data.topics.length && (
+      {ideaApproved && (chatOnly || !data.topics.length) && (
         <section aria-label="What we know so far">
           <SectionTitle right={<span className="text-12 tabular-nums text-fg-2">{chatOpen ? `question ${Math.max(1, Math.min(data.asked, data.maxQuestions))} of up to ${data.maxQuestions}` : "questions done"}</span>}>What we know so far</SectionTitle>
           {chatOpen ? (
@@ -285,20 +266,20 @@ export function IdeaPanel() {
         </section>
       )}
 
-      {data.topics.length === 0 && data.draftTopics.length > 0 && (
+      {!chatOnly && data.topics.length === 0 && data.draftTopics.length > 0 && (
         <section aria-label="Draft topics">
           <SectionTitle>Search topics taking shape</SectionTitle>
           <ul className="flex flex-wrap gap-2">{data.draftTopics.map((t) => <li key={t}><Badge>{t}</Badge></li>)}</ul>
         </section>
       )}
 
-      {data.topics.length > 0 && (
+      {!chatOnly && data.topics.length > 0 && (
         <Disclosure title="What we know so far" meta={`${answered} of ${Object.keys(COVERAGE_LABEL).length} answered`}>
           {knownList()}
         </Disclosure>
       )}
-      {data.topics.length > 0 && <ManageTopics topics={data.topics} onChange={(d) => mutate(d, { revalidate: false })} />}
-      {data.topics.length > 0 && (
+      {!chatOnly && data.topics.length > 0 && <ManageTopics topics={data.topics} onChange={(d) => mutate(d, { revalidate: false })} />}
+      {!chatOnly && data.topics.length > 0 && (
         <Disclosure title="See how your topics connect" meta="map">
           <TopicConstellation idea={project.idea} topics={data.topics} />
           {data.conceptMap && (
@@ -309,7 +290,7 @@ export function IdeaPanel() {
           )}
         </Disclosure>
       )}
-      {ideaApproved && (
+      {ideaApproved && !chatOnly && (
         <Disclosure title="Edit the idea">
           <label htmlFor="idea-reedit" className="label">Research idea</label>
           <textarea id="idea-reedit" className="input min-h-28 leading-relaxed" value={idea} onChange={(e) => setIdea(e.target.value)} />
@@ -319,7 +300,7 @@ export function IdeaPanel() {
           </div>
         </Disclosure>
       )}
-      {!ideaApproved && (
+      {!ideaApproved && !chatOnly && (
         <Disclosure title="How this works">
           <ul className="list-disc space-y-1 pl-4 text-fg-1">
             <li>Every AI suggestion appears as a draft you can edit before anything else runs.</li>
@@ -329,36 +310,15 @@ export function IdeaPanel() {
         </Disclosure>
       )}
 
-      {err ? <ErrorState error={err} title="That step failed" onRetry={data.messages.length ? undefined : () => call("start", "scoping/start")} /> : null}
+      {/* AI that cannot run (no key, switched off, no credits) is said once, by the step frame's banner. */}
+      {err && !aiStopKind(err) && !isOutOfCredits(err) ? <ErrorState error={err} title="That did not work" onRetry={data.messages.length ? undefined : () => call("start", "scoping/start")} /> : null}
 
-      {action && (
-        <PanelFooter note={hint ? <span role="alert" className="text-err">{hint}</span> : chatOpen && data.awaitingAnswer ? "Up to five short questions. “Skip the rest” goes straight to your search topics." : undefined}>
-          {!ideaApproved ? (
-            <button
-              className="btn-primary"
-              data-await-input
-              data-action="approve"
-              aria-disabled={idea.trim().length < 10 || !!busy || undefined}
-              onClick={async () => {
-                if (busy) return;
-                if (idea.trim().length < 10) return setHint("Write your idea in at least a sentence (10 characters or more).");
-                if (await saveIdea()) await run({ type: "approve", stage: 1 });
-              }}
-            >
-              {busy === cmdKey({ type: "approve", stage: 1 }) && <Spinner />} Sharpen my idea
-            </button>
-          ) : action.cmd.type === "answer" ? (
-            <>
-            <button type="button" className="btn-ghost" disabled={!!local} onClick={() => call("skip", "scoping/skip")}>Skip the rest</button>
-            <button type="submit" form="scoping-answer-form" className="btn-primary" data-await-input aria-disabled={!answer.trim() || !!local || undefined} onClick={(e) => { if (!answer.trim() || local) e.preventDefault(); if (!answer.trim() && !local) setHint(data.awaitingAnswer ? "Type an answer first, or use “Skip the rest”." : "Wait for the next question to appear."); }}>
-              {local === "answer" && <Spinner />} Send answer
-            </button>
-            </>
-          ) : action.cmd.type === "openScoping" ? (
-            aiStopKind(err) ? <p className="text-fg-2">The first question appears when AI is available.</p> : <p className="flex items-center gap-2 text-fg-2"><Spinner /> Preparing the first question…</p>
-          ) : (
-            <ActionButton action={action} primary showReason />
-          )}
+      {chatOpen && data.messages.length > 0 && (
+        <PanelFooter note={hint ? <span role="alert" className="font-medium text-fg-0">{hint}</span> : "Up to five short questions. “Skip the rest” ends them now."}>
+          <button type="button" className="btn-secondary" disabled={!!local} onClick={() => call("skip", "scoping/skip")}>Skip the rest</button>
+          <button type="submit" form="scoping-answer-form" className="btn-primary" data-await-input aria-disabled={!answer.trim() || !!local || undefined} onClick={(e) => { if (!answer.trim() || local) e.preventDefault(); if (!answer.trim() && !local) setHint(data.awaitingAnswer ? "Type an answer first, or use “Skip the rest”." : "Wait for the next question to appear."); }}>
+            {local === "answer" && <Spinner />} Send answer
+          </button>
         </PanelFooter>
       )}
     </div>
@@ -423,53 +383,26 @@ function ManageTopics({ topics, onChange }: { topics: Topic[]; onChange: (d: Sco
   );
 }
 
-/** Topic node: edit one topic (name, synonyms, MeSH), or accept / dismiss it while it is a suggestion. */
+/** Edit one search topic: its name, synonyms and MeSH terms. */
 export function TopicPanel({ topicId }: { topicId: string }) {
-  const { projectId, confirmEdit, refresh, states, input, run, graph, announce } = useSession();
+  const { projectId, confirmEdit, refresh } = useSession();
   const { data, mutate } = useApi<ScopingData>(projectPath(projectId, "scoping"));
   const [err, setErr] = useState<unknown>(null);
-  // Set when an edit here reopened the approved step 2 (any topic change does, on the server): said, not silent.
-  const [reopened, setReopened] = useState(false);
   const t = data?.topics.find((x) => x.id === topicId);
   if (!data) return <Loading />;
   if (!t) return <p className="text-fg-2">This topic no longer exists.</p>;
-  const ghost = isGhostTopic({ ...t, synonyms: 0, controlledTerms: 0 }, states, input.client.acceptedTopics);
-  const approved2 = states["2"] === "approved";
   async function patch(body: Record<string, unknown>) {
-    if (!(await confirmEdit(2))) return;
-    const reopens = states["2"] === "approved";
+    if (!(await confirmEdit(3))) return;
     setErr(null);
     try {
       mutate(await api<ScopingData>(projectPath(projectId, `topics/${topicId}`), { method: "PATCH", body }), { revalidate: false });
       await refresh();
-      if (reopens) {
-        setReopened(true);
-        announce("You changed a topic, so step 2 is open again. Approve the topics again with “Use these topics” to continue.");
-      }
     } catch (e) {
       setErr(e);
     }
   }
-  const node = graph.nodes.find((n) => n.id === `topic:${topicId}`);
-  const frontier = node && stageAction(frontierStage(states), input);
-  const isFrontierNode = node && frontier && (frontierStage(states) === 3 && graph.nodes.find((n) => n.kind === "topic" && !n.ghost)?.id === node.id);
   return (
     <div className="space-y-4">
-      {ghost && <p className="rounded-md border border-dashed border-line-control px-3 py-2 text-fg-1">Suggested by the AI from your scoping answers. Keep it, or delete it if it does not fit.</p>}
-      {approved2 && !ghost && (
-        <p className="flex items-start gap-2 text-12 text-fg-1">
-          <Info className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden />
-          <span>Your topics are approved (step 2). Changing a topic reopens step 2: you then approve the topics again with “Use these topics” to continue.</span>
-        </p>
-      )}
-      {reopened && !approved2 && (
-        <div role="status" className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-fg-0">
-          <p className="flex items-start gap-2">
-            <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-warn" strokeWidth={1.5} aria-hidden />
-            <span><strong className="font-semibold">Step 2 is open again.</strong> You changed a topic, so the topics need approving again. Check the topics, then press “Use these topics” below to continue.</span>
-          </p>
-        </div>
-      )}
       <div>
         <label htmlFor={`tn-${t.id}`} className="label">Topic name</label>
         <input id={`tn-${t.id}`} key={`n-${t.name}`} className="input font-medium" defaultValue={t.name} onBlur={(e) => e.target.value.trim() && e.target.value !== t.name && patch({ name: e.target.value })} />
@@ -483,19 +416,6 @@ export function TopicPanel({ topicId }: { topicId: string }) {
       </label>
       <p className="text-12 text-fg-2">Changes save when you leave a field.</p>
       {err ? <ErrorState error={err} /> : null}
-      {(ghost || isFrontierNode) && (
-        <PanelFooter>
-          {ghost ? (
-            <>
-              {/* The primary action comes first in tab order; Delete (Undo shows after it) follows it. */}
-              <button className="btn-primary" onClick={() => run({ type: "acceptTopic", topicId })}>Keep this topic</button>
-              <button className="btn-ghost" onClick={() => run({ type: "dismissTopic", topicId })} aria-label={`Delete topic: ${t.name}`}>Delete</button>
-            </>
-          ) : (
-            frontier && <ActionButton action={frontier} primary showReason />
-          )}
-        </PanelFooter>
-      )}
     </div>
   );
 }

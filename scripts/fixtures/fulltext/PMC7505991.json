@@ -1,0 +1,33 @@
+{
+ "about": "Start of an open-access article's full text, from Europe PMC (fullTextXML), converted to plain text by the app's JATS parser and cut at the end of a paragraph. Used as the stored source text of a fixture article.",
+ "pmcid": "PMC7505991",
+ "pmid": "33013666",
+ "title": "Challenges to the Emergence of Telerehabilitation in a Developing Country: A Systematic Review.",
+ "license": "cc by",
+ "url": "https://europepmc.org/article/PMC/PMC7505991",
+ "fetchedAt": "2026-11-16",
+ "originalLength": 26263,
+ "text": "TITLE\nChallenges to the Emergence of Telerehabilitation in a Developing Country: A Systematic Review\n\nABSTRACT\nBackground: Despite being known abroad as a viable alternative to face-to-face consultation and therapy, telerehabilitation has not fully emerged in developing countries like the Philippines. In the midst of the coronavirus disease 2019 (COVID-19) pandemic, wherein social distancing disrupted the in-clinic delivery of rehabilitation services, Filipinos attempted to explore telerehabilitation. However, several hindrances were observed especially during the pre-implementation phase of telerehabilitation, necessitating a review of existing local evidences.\nObjective: We aimed to determine the challenges faced by telerehabilitation in the Philippines.\nMethod: We searched until March 2020 through PubMed, Scopus, Embase, Cochrane Library, and HeRDIN for telerehabilitation-related publications wherein Filipinos were involved as investigator or population. Because of the hypothesized low number of scientific outputs on telerehabilitation locally, we performed handsearching through gray literature and included relevant papers from different rehabilitation-related professional organizations in the Philippines. We analyzed the papers and extracted the human, organizational, and technical challenges to telerehabilitation or telehealth in general.\nResults: We analyzed 21 published and 4 unpublished papers, which were mostly reviews (8), feasibility studies (6), or case reports/series (4). Twelve out of 25 studies engaged patients and physicians in remote teleconsultation, teletherapy, telementoring, or telemonitoring. Patients sought telemedicine or telerehabilitation for general medical conditions (in 3 studies), chronic diseases (2), mental health issues (2), orthopedic problems (2), neurologic conditions (1), communication disorders (1), and cardiac conditions (1). Outcomes in aforementioned studies mostly included telehealth acceptance, facilitators, barriers, and satisfaction. Other studies were related to telehealth governance, legalities, and ethical issues. We identified 18 human, 17 organizational, and 18 technical unique challenges related to telerehabilitation in the Philippines. The most common challenges were slow internet speed (in 10 studies), legal concerns (9), and skepticism (9).\nConclusion: There is paucity of data on telerehabilitation in the Philippines. Local efforts can focus on exploring or addressing the most pressing human, organizational, and technical challenges to the emergence of telerehabilitation in the country.\nKeywords: telemedicine, telerehabilitation, barriers, rehabilitation medicine, healthcare delivery, developing country\n\nINTRODUCTION\nLocated in Southeast Asia, the Republic of the Philippines consists of an archipelago of 7,641 islands with a land area of more than 300,000 km2 (). The country is divided into three large groups of islands, namely, Luzon, Visayas, and Mindanao, and into 17 administrative regions () (, ). The Philippine National Statistics Office estimated that the total population in the country would reach 110 million in 2020 (). As of writing, the country has a gross national income per capita of 3,830 USD and remains to be a lower-middle-income economy according to The World Bank (, ). The geographical landscape, administrative organization, and growing imbalance between population and resources are among the reasons that contribute to the difficult distribution of healthcare services in the Philippines ().\n\n[Figure] Geographical landscape of the Philippines divided into 17 administrative regions, each with a corresponding number of physiatrists in their place of primary practice.\n\nOf the estimated 1 billion persons with disabilities (PWD) worldwide, 80% come from low- and middle-income countries (). Based on the 2017 Global Burden of Disease Study, the three leading causes of years lived with disability (YLDs) are low back pain, headache, and depression (). The World Health Organization states that the total number of YLDs globally is “linked to health conditions for which rehabilitation is beneficial” (). Rehabilitation is effective in improving or maintaining the functional independence and quality of life of PWD (, ). Despite limited reliable data documenting the need for rehabilitation in low- and middle-income countries, unique local experiences can attest to the prevailing unmet needs of the people amidst meager resources ().\nTelemedicine is the delivery of healthcare services through information and communications technology (ICT) to a different, often distant, site (). As a telemedicine subset, telerehabilitation (telerehab) is an emerging technology that uses electronic means in remotely conducting evaluation, consultation, therapy, and monitoring to provide rehabilitation care for patients in various locations, such as home, community, nearby health facility, and workplace (–). Despite its growing body of literature and scope of services in other, mostly developed, countries, telerehabilitation continues to face challenges or barriers to its emergence in less-developed countries like the Philippines, albeit its practical use to address the widening gap between the supply of and demand for rehabilitation services especially during unprecedented times like the coronavirus disease 2019 (COVID-19) pandemic, wherein face-to-face access to rehabilitation services is hampered (). In this review, we gathered evidences of previous local attempts at telerehabilitation along with other papers that could help us determine the human, organizational, and technical challenges that beset the emergence of telerehabilitation in the country.\n\nMETHODS\nThis review employed the Preferred Reporting Items for Systematic reviews and Meta-Analyses (PRISMA) consensus statements ().\n\nCRITERIA FOR STUDY SELECTION",
+ "sections": [
+  {
+   "title": "Title",
+   "start": 0
+  },
+  {
+   "title": "Abstract",
+   "start": 102
+  },
+  {
+   "title": "Introduction",
+   "start": 2706
+  },
+  {
+   "title": "Methods",
+   "start": 5695
+  },
+  {
+   "title": "Criteria for Study Selection",
+   "start": 5830
+  }
+ ]
+}

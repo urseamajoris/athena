@@ -18,10 +18,10 @@ export interface ModelPrice extends Rates {
 }
 
 /**
- * Anthropic first-party API prices, USD per million tokens. Source: the model table and model notes of the
- * Claude API reference bundled with Claude Code (cached 2026-11-03; https://platform.claude.com/docs/en/pricing
- * has the live figures). Cache writes are the 5-minute rate, the only one this app uses. A model missing from
- * the table is costed at the Claude Opus 5.5 rates.
+ * Anthropic first-party API prices, USD per million tokens. Source: the "Model pricing" table at
+ * https://platform.claude.com/docs/en/about-claude/pricing, read on 2026-11-16 (columns: base input tokens,
+ * 5m cache writes, cache hits and refreshes, output tokens). This app only makes 5-minute cache entries. A
+ * model missing from the table is costed at the Claude Opus 5.5 rates.
  */
 export const MODEL_PRICES: Record<string, ModelPrice> = {
   "claude-opus-5-5": { input: 4, cacheWrite: 5, cacheRead: 0.2, output: 20 },

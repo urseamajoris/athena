@@ -1,0 +1,53 @@
+{
+ "about": "Start of an open-access article's full text, from Europe PMC (fullTextXML), converted to plain text by the app's JATS parser and cut at the end of a paragraph. Used as the stored source text of a fixture article.",
+ "pmcid": "PMC10518689",
+ "pmid": "37753247",
+ "title": "A Review of Telemedicine Guidelines in the South-East Asia Region.",
+ "license": "cc by",
+ "url": "https://europepmc.org/article/PMC/PMC10518689",
+ "fetchedAt": "2026-11-16",
+ "originalLength": 18564,
+ "text": "TITLE\nA Review of Telemedicine Guidelines in the South-East Asia Region\n\nABSTRACT\n\n\nINTRODUCTION:\nTelemedicine use has increased for the past few years, and data security-related issues have also accompanied this. Barriers such as poor digital literacy, unaffordability, and ethical and legal issues have also affected the uptake of digital health. Telemedicine guidelines can help in promoting a suitable environment for wider uptake of telemedicine services by focusing on training, supervision, and monitoring of service providers. This policy review compares the telemedicine guidelines of countries in World Health Organization (WHO) South-East Asia Region (SEAR) as these countries have similar sociocultural backgrounds.\n\nMETHODOLOGY:\nLatest telemedicine guidelines of the South Asia Region of the WHO were accessed using the official government websites of the countries. The guidelines that were not in the English language were translated into English using Google Translate. The guidelines were analyzed and presented under the following subheadings: (1) Definitions, Purpose, and Tools of Telemedicine; (2) Clinical Aspects of Telemedicine; and (3) Operational and Technical Aspects of Telemedicine.\n\nRESULTS:\nInvestigating the telemedicine guidelines in the SEAR of the WHO revealed that only 5 out of 11 countries, that is, India, Bangladesh, Thailand, Indonesia and Nepal, have guidelines specifically for telemedicine. Besides Thailand, the other four countries either published (India, Nepal, and Bangladesh) or updated (Indonesia) their telemedicine guidelines after the onset of the COVID-19 pandemic. Guidelines from India and Bangladesh are detailed and robust compared with those from Nepal, Indonesia, and Thailand.\n\nCONCLUSION:\nTelemedicine guidelines need to be more robust to improve the uptake of the service. Further research is needed to explore the effectiveness of implementing these guidelines.\nKeywords: telehealth, telemedicine, policy, e-health\n\nINTRODUCTION\nTelemedicine, according to the World Health Organization (WHO), is the provision of health care to individuals who are not physically present in the physician's location. Telemedicine, which was initially used to monitor the health of astronauts, has seen a rapid increase in usage since the COVID-19 pandemic. In the United States of America, telehealth use increased by 776% in the first 3 months of the pandemic. An increase in interest and demand for telemedicine was also noticed in 50 countries most affected by the COVID-19 pandemic.\nHowever, a rise in the use of telemedicine was also accompanied by a rise in data breaches. Cyberattacks have resulted in the interruption of services, economic losses, and even loss of life. In 2022, a cyberattack at the All-India Institute of Medical Sciences, Delhi, one of the biggest health care institutes in South East Asia, resulted in a loss of 1.4 terabytes of data and an interruption of services for 15 days., Telemedicine is also associated with medical errors such as misdiagnosis, leading to unnecessary prescriptions.\nData safety issues, along with low technical literacy and high costs, have acted as barriers to telemedicine uptake. Various ethical and legal issues related to telemedicine, such as inappropriate informed consent, patient privacy and confidentiality, data protection, malpractice and professional liability, equity of access, and quality of care, also act as barriers. It is essential to have a backbone of good governance for a digital ecosystem to thrive. According to WHO, it is essential to combine strategic policy frameworks with oversight, coalition building, regulation, attention to system design and accountability for good governance. National telemedicine guidelines play a crucial role in addressing existing barriers by facilitating accountability and governance.\nKeeping this is mind, the WHO released the “Recommendations on digital interventions for health system strengthening.” However, it is important to have decentralized guidelines that address the local specific needs of the community. In this review, we compared the latest telemedicine guidelines published by governments of countries belonging to the South-East Asia Region (SEAR) of the WHO, as this region shares socioeconomic and cultural conditions to a great extent.\n\nMETHODS\nA search for telemedicine guidelines was performed using a sequential approach. At first, a simple Google search was performed using the keywords “Telemedicine Guidelines” along with the country's name. After this, a PubMed search was done to identify published literature on guidelines using the same keywords, and references cited in the published literature were examined to look for the country's latest national guidelines specific for telemedicine. If the guidelines were not found using the first two approaches, the latest guidelines were searched on the websites of the concerned ministries of health of the countries.\nThe guidelines that were not in the English language were translated into English using Google Translate. Data from the last published telemedicine guidelines were extracted in Microsoft Excel (Microsoft 365) and a comparison between the guidelines of the countries was done. The guidelines were analyzed and presented under the following subheadings: (1) Definitions, Purpose, and Tools of Telemedicine; (2) Clinical Aspects of Telemedicine; and (3) Operational and Technical Aspects of Telemedicine.\n\nRESULTS\nAs of May 2023, out of the 11 WHO SEAR countries, the Maldives, Myanmar, Timor Lester, Bhutan, Democratic People's Republic of Korea, and Sri Lanka did not have any separate national telemedicine guidelines. While Thailand published its last telemedicine guidelines in 2017, India, Nepal, and Bangladesh published their guidelines in 2020, whereas Indonesia revised its existing guidelines in 2021, highlighting the impact of the COVID-19 pandemic on telemedicine guidelines.\n\nDEFINITIONS, PURPOSE, AND TOOLS OF TELEMEDICINE",
+ "sections": [
+  {
+   "title": "Title",
+   "start": 0
+  },
+  {
+   "title": "Abstract",
+   "start": 73
+  },
+  {
+   "title": "Introduction:",
+   "start": 84
+  },
+  {
+   "title": "Methodology:",
+   "start": 729
+  },
+  {
+   "title": "Results:",
+   "start": 1213
+  },
+  {
+   "title": "Conclusion:",
+   "start": 1740
+  },
+  {
+   "title": "Introduction",
+   "start": 1981
+  },
+  {
+   "title": "Methods",
+   "start": 4321
+  },
+  {
+   "title": "Results",
+   "start": 5460
+  },
+  {
+   "title": "Definitions, purpose, and tools of telemedicine",
+   "start": 5945
+  }
+ ]
+}

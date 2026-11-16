@@ -1,0 +1,45 @@
+{
+ "about": "Start of an open-access article's full text, from Europe PMC (fullTextXML), converted to plain text by the app's JATS parser and cut at the end of a paragraph. Used as the stored source text of a fixture article.",
+ "pmcid": "PMC11319860",
+ "pmid": "39143956",
+ "title": "Telemedicine Utilization in Tertiary, Specialized, and Secondary Hospitals in Thailand.",
+ "license": "cc by",
+ "url": "https://europepmc.org/article/PMC/PMC11319860",
+ "fetchedAt": "2026-11-16",
+ "originalLength": 23901,
+ "text": "TITLE\nTelemedicine Utilization in Tertiary, Specialized, and Secondary Hospitals in Thailand\n\nABSTRACT\n\n\nINTRODUCTION:\nCOVID-19 has accelerated the adoption of telemedicine for counseling, follow-up examination, and treatment purposes. The official guidelines in Thailand were launched to regulate or frame the protocols for health care professions and teams in different organizations.\n\nOBJECTIVES:\nTo explore the trend of telemedicine utilization in selected hospitals in Thailand and to understand the characteristics of patients who used telemedicine from 2020 to 2023.\n\nMETHODS:\nThis retrospective secondary data analysis was conducted in four hospitals in Thailand: two tertiary care (T1 and T2) hospitals, one secondary care (SN) hospital, and one specialized (SP) hospital. Data were routinely collected when services were provided and were categorized into telemedicine outpatient department (OPD) visits or onsite OPD visits. The data included demographic information (age, sex), date and year of service, location (province and health region), and primary diagnosis (using International Statistical Classification of Diseases and Related Health Problems 10th Revision codes). Descriptive analysis was conducted using R and STATA software.\n\nRESULTS:\nAll four hospitals reported an increase in telemedicine use from 2020 to 2023. The majority of telemedicine users were female (>65%) at all hospitals except for the SP hospital (44%). Participants aged 25–59 years reported greater utilization of telemedicine than did the other age-groups. The within-hospital comparison between OPD visits before and after telemedicine was significant (p < 0.001).\n\nCONCLUSION:\nThe situation during the COVID-19 pandemic and the transition to the post-COVID-19 era impacted telemedicine utilization, which could support national monitoring and evaluation policies. However, further studies are needed to explore other aspects, including changes in telemedicine utilization over time for longer timeframes, effectiveness of telemedicine, and consumer satisfaction.\n\nINTRODUCTION\nTelemedicine is defined as “the delivery of healthcare services where distance is a critical factor by all healthcare professionals using information and communication technologies for the exchange of valid information for diagnosis, treatment and prevention of disease and injuries in the interest of advancing the health of individuals and their communities,”, which could help to increase access to health care services and enhance health care delivery. However, prior to the coronavirus disease (COVID-19) pandemic, there was slow progress in adopting telemedicine in practice, especially in developing countries where the technology was unavailable or inconvenient. COVID-19 accelerated the acceptance of telemedicine utilization in both medical providers and patients. In addition, the World Health Organization has provided recommendations on digital interventions for health system strengthening, which include examples of interventions such as monitoring procedures between patients and physicians and education and training tools among health care workers. These interventions could reduce the limitation of resources and improve access to health care in the population, especially among those who live in rural areas or who are experiencing a barrier to health care utilization. In addition, a previous review of telemedicine in Southeast Asia region in 2023 revealed that only a few countries, including Singapore, Malaysia, Vietnam, Philippines, and Thailand, have guidelines for telemedicine utilization but not in detail, especially regarding training in telemedicine usage; moreover, an e-health foundation is needed for infrastructure development to enable telemedicine and e-health services.\nDuring the COVID-19 pandemic, COVID-19 accelerated the use of telemedicine instead of onsite hospital visits, as did the National Health Security Office (NHSO) policy, which encouraged hospitals and health care professionals to provide telemedicine services., Similarly, in Thailand, the use of mobile technology or telemedicine for consulting was a concern in terms of implementation during the prepandemic period due to a lack of supportive systems and technical expertise. Then, COVID-19 was first detected in Thailand in the first trimester of 2020. The Thai government implemented lockdown measures, including limiting travel across the country and restricting group gatherings. Additionally, during the COVID-19 pandemic, the population had to practice physical distancing in general as well as in health care services. In-person health care services were allowed only for essential cases. Telemedicine was mostly adopted for symptom screening to confirm the risk of COVID-19, and follow-up examinations, as social distancing measures, were used to quarantine individuals with COVID-19.,\nAdditionally, telemedicine was utilized for specific procedures, such as lab result notifications, physical examinations, and consulting services. Moreover, some private hospitals provided telemedicine for follow-up visits or consultation services in light of social distancing measures and the necessity of hospital visits. The NHSO reported on telemedicine utilization via mobile phones used to contact patients for screening, follow-up communication, and emergency notifications. Additionally, in 2021, the NHSO launched a policy related to telemedicine, and telemedicine was encouraged to improve communication, assist elderly individuals, and strengthen health care services, which officially started in January 2023. After the implementation of telemedicine, guidelines related to telemedicine were launched via official organizations, including the Department of Medical Services, the Thai Medical Council, and the Thai Traditional Medical Council.,,",
+ "sections": [
+  {
+   "title": "Title",
+   "start": 0
+  },
+  {
+   "title": "Abstract",
+   "start": 94
+  },
+  {
+   "title": "Introduction:",
+   "start": 105
+  },
+  {
+   "title": "Objectives:",
+   "start": 388
+  },
+  {
+   "title": "Methods:",
+   "start": 575
+  },
+  {
+   "title": "Results:",
+   "start": 1251
+  },
+  {
+   "title": "Conclusion:",
+   "start": 1660
+  },
+  {
+   "title": "Introduction",
+   "start": 2059
+  }
+ ]
+}

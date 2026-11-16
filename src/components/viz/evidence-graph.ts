@@ -1,5 +1,5 @@
 // Layout for the evidence network: statements (known / contested / unknown) on one side, the papers whose
-// quotes support them on the other, joined by the quotes. Shared by the 3D and 2D versions.
+// quotes support them on the other, joined by the quotes. Used by the evidence network chart.
 import { studyGroupOf } from "@/lib/shared/categories";
 
 export interface EvStatement { id: string; kind: "known" | "contested" | "unknown"; text: string; paperIds: string[] }
