@@ -34,6 +34,42 @@ export function tokensFrom(css: string, selector: RegExp): Record<string, string
   throw new Error(`No CSS block for ${selector}`);
 }
 
+/** `pct`% of `fg` laid over `bg`, as a colour. Close to CSS `color-mix(in oklab, fg pct%, transparent)` on that
+ *  surface for the small percentages the tints use (mixed here in sRGB, which is a little darker: the safe side
+ *  on light surfaces, and within a few hundredths of a ratio on dark ones). */
+export function tint(fg: string, bg: string, pct: number): [number, number, number] {
+  const a = parseHex(fg);
+  const b = parseHex(bg);
+  return [0, 1, 2].map((i) => Math.round(a[i] * (pct / 100) + b[i] * (1 - pct / 100))) as [number, number, number];
+}
+
+/** The tinted surfaces of globals.css (@theme): [token whose tint it is, percentage, the surfaces it is laid on]. */
+export const TINTS: [name: string, token: string, pct: number, on: string[]][] = [
+  // "You are here" in the stage rail (on the rail, bg-1) and in the phone header.
+  ["accent-soft", "accent", 10, ["bg-1"]],
+  // State banners sit on the page (bg-0) or inside a card (bg-1).
+  ["ok-soft", "ok", 9, ["bg-0", "bg-1"]],
+  ["warn-soft", "warn", 10, ["bg-0", "bg-1"]],
+  ["err-soft", "err", 8, ["bg-0", "bg-1"]],
+  ["run-soft", "run", 9, ["bg-0", "bg-1"]],
+];
+
+/**
+ * Text and icons on the tinted surfaces: body text (fg-0, fg-1) and the hint colour (fg-2) at 4.5:1, and the
+ * tint's own colour (the status icon, or the accent bar) at 3:1.
+ */
+export function tintedPairs(tokens: Record<string, string>): { label: string; ratio: number; min: number }[] {
+  const out: { label: string; ratio: number; min: number }[] = [];
+  for (const [name, token, pct, surfaces] of TINTS) {
+    for (const bg of surfaces) {
+      const surface = tint(tokens[token], tokens[bg], pct);
+      for (const fg of ["fg-0", "fg-1", "fg-2"]) out.push({ label: `--${fg} on ${name} over --${bg}`, ratio: contrast(parseHex(tokens[fg]), surface), min: 4.5 });
+      out.push({ label: `--${token} on ${name} over --${bg}`, ratio: contrast(parseHex(tokens[token]), surface), min: 3 });
+    }
+  }
+  return out;
+}
+
 /** The pairs the design actually uses: [foreground, background, minimum ratio]. */
 export const TEXT_SURFACES = ["bg-0", "bg-1", "bg-2", "bg-3"] as const;
 export const TEXT_TOKENS = ["fg-0", "fg-1", "fg-2", "ok", "warn", "err", "run", "accent"] as const;
