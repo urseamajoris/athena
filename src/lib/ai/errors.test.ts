@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AiDeclinedError, AiPausedError, AiUnavailableError, BudgetError, CreditsError, aiRefusal, isAiStop } from "./errors";
+import { AiDeclinedError, AiPausedError, AiUnavailableError, BudgetError, CreditsError, NO_CREDITS_MESSAGE, aiRefusal, isAiStop, pauseReason } from "./errors";
 
 test("no key: the call is refused before it is sent, logged as paused, and stops the job like the AI switch", () => {
   const r = aiRefusal({ enabled: true, key: "" });
@@ -53,4 +53,15 @@ test("a declined request is an ordinary failure with a plain message, not a paus
   const e = new AiDeclinedError();
   assert.equal(e.message, "The AI declined this request. Your work is saved; try again or edit the text.");
   assert.equal(isAiStop(e), false);
+  assert.equal(pauseReason(e), null);
+});
+
+test("each kind of pause has its own reason", () => {
+  assert.equal(pauseReason(new CreditsError()), "no_credits", "not ai_off, although it is an AiPausedError");
+  assert.equal(pauseReason(new AiUnavailableError()), "no_key");
+  assert.equal(pauseReason(new AiPausedError()), "ai_off");
+  assert.equal(pauseReason(new BudgetError("budget reached")), "budget");
+  assert.equal(pauseReason(new Error("network")), null);
+  for (const e of [new CreditsError(), new AiUnavailableError(), new AiPausedError(), new BudgetError("x")]) assert.equal(isAiStop(e), true);
+  assert.equal(new CreditsError().message, NO_CREDITS_MESSAGE, "the message jobs are filtered on when credits are added");
 });

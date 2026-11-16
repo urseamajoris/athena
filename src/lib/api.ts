@@ -107,8 +107,8 @@ function stageParam(raw: string): number {
 
 /** Every stage before `n` must be confirmed. The message names the first one that is not, by its title. */
 async function requireUpstreamApproved(projectId: string, n: number) {
-  // Paper summaries (5) have no checkpoint of their own: confirm summaries left waiting before checking.
-  if (n > 5) await settleSummaries(projectId, { jobFinished: false });
+  // Paper summaries (5) have no checkpoint of their own: confirm any left waiting, and start a ranking that is due.
+  if (n > 5) await settleSummaries(projectId);
   const block = upstreamBlock((await getProject(projectId)).stageStates, n);
   if (block) throw new HttpError(409, block);
 }
@@ -138,8 +138,8 @@ on("POST", "stages/:n/approve", async ({ projectId, params }) => {
   if (JOB_STAGES[next] && (await getProject(projectId)).stageStates[String(next)] === "not_started") {
     (await startJob(projectId, JOB_STAGES[next], next));
   } else if (n < 5) {
-    // Summaries from an earlier run that were waiting on this stage need no review of their own.
-    (await settleSummaries(projectId, { jobFinished: false }));
+    // Summaries from an earlier run that were waiting on this stage are confirmed; ranking starts if it never ran.
+    (await settleSummaries(projectId));
   }
   if (n === 9) (await db.update(schema.projects).set({ status: "complete", updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run());
   return (await projectView(projectId));
@@ -177,7 +177,8 @@ on("POST", "stages/:n/keep", async ({ projectId, params }) => {
     (await setStageState(projectId, k, "needs_review"));
     (await logDecision(projectId, k, "stale_results_kept", p.staleReasons[String(k)] ?? null));
   });
-  if (stale.includes(5)) (await settleSummaries(projectId, { jobFinished: false }));
+  // Kept summaries are confirmed as they are stored; ranking that never ran starts now.
+  if (stale.includes(5)) (await settleSummaries(projectId));
   return (await projectView(projectId));
 });
 

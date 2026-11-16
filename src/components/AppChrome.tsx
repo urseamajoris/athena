@@ -114,7 +114,7 @@ export function PageShell({ children, width = "medium" }: { children: ReactNode;
 export function PageHeader({ title, lead, action }: { title: string; lead?: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-      <div className="min-w-0 max-w-2xl">
+      <div className="min-w-0 max-w-2xl flex-1 basis-80">
         <h1 className="text-headline font-semibold">{title}</h1>
         {lead && <p className="mt-2 text-fg-1">{lead}</p>}
       </div>

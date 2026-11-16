@@ -9,59 +9,51 @@ export const IDEA = "What is the knowledge gap in implementing telemedicine in S
 
 // ---------------------------------------------------------------- stage 2: chat
 
-export type Coverage = Record<"population" | "setting" | "phenomenon" | "outcome" | "timeframe" | "studyTypes", string | null>;
+/** What is known so far, per element (ScopingTurn.coverage in src/lib/stages/ai-schemas.ts). */
+export type Coverage = Record<"population" | "phenomenon" | "comparison" | "outcome" | "setting" | "timeframe" | "studyTypes", string | null>;
 
 export interface ChatTurn {
   /** What the question asks about (ScopingTurn.questionTarget). */
   target: keyof Coverage;
   question: string;
   answer: string;
-  /** What the AI had understood when it asked this question (ScopingTurn.coverage). */
+  /** What the AI had understood when it asked this question. */
   coverage: Coverage;
-  draftTopics: string[];
 }
+
+const POPULATION = "Health services and the health workers who set up and run telemedicine; patients as one factor";
+const SETTING = "ASEAN countries, with a focus on public services and rural or remote areas";
+const OUTCOME = "Services that are used and keep running after a pilot or the pandemic; health outcomes are secondary";
 
 export const CHAT: ChatTurn[] = [
   {
     target: "population",
     question: "Who is your review mainly about: patients, health workers, or the health services that run telemedicine?",
     answer: "Mostly the health services and the people who work in them: the doctors, nurses and managers who have to set telemedicine up and keep it running. Patients' views matter too, but as one of the factors.",
-    coverage: { population: null, setting: "Southeast Asia", phenomenon: "Implementing telemedicine", outcome: null, timeframe: null, studyTypes: null },
-    draftTopics: ["Telemedicine implementation", "Southeast Asian health systems"],
+    coverage: { population: null, phenomenon: "Implementing telemedicine", comparison: null, outcome: null, setting: "Southeast Asia", timeframe: null, studyTypes: null },
   },
   {
     target: "setting",
     question: "Which countries or kinds of service do you want to cover? All of Southeast Asia, or particular countries or levels of care?",
     answer: "All ASEAN countries if possible. I am most interested in public services and in rural or remote areas, where telemedicine is supposed to help most.",
-    coverage: { population: "Health services and health workers who set up and run telemedicine; patients as one factor", setting: "Southeast Asia", phenomenon: "Implementing telemedicine", outcome: null, timeframe: null, studyTypes: null },
-    draftTopics: ["Barriers and enablers of implementation", "Health worker acceptance", "Patient acceptance"],
+    coverage: { population: POPULATION, phenomenon: "Implementing telemedicine", comparison: null, outcome: null, setting: "Southeast Asia", timeframe: null, studyTypes: null },
   },
   {
     target: "outcome",
     question: "What should count as implementation going well? For example use by patients, services that keep running after a pilot, or better health outcomes?",
     answer: "Services that are actually used and that keep running after the pilot or the pandemic. Health outcomes are useful to know about, but they are not my main interest.",
-    coverage: { population: "Health services and health workers who set up and run telemedicine; patients as one factor", setting: "ASEAN countries, with a focus on public services and rural or remote areas", phenomenon: "Implementing telemedicine", outcome: null, timeframe: null, studyTypes: null },
-    draftTopics: ["Barriers and enablers of implementation", "Acceptance by patients and health workers", "Infrastructure in rural areas"],
+    coverage: { population: POPULATION, phenomenon: "Implementing telemedicine", comparison: null, outcome: null, setting: SETTING, timeframe: null, studyTypes: null },
   },
   {
     target: "timeframe",
     question: "From which year should the review start? Telemedicine changed a lot with smartphones, and again during COVID-19.",
     answer: "From 2015. Earlier systems were too different to compare.",
-    coverage: { population: "Health services and health workers who set up and run telemedicine; patients as one factor", setting: "ASEAN countries, with a focus on public services and rural or remote areas", phenomenon: "Implementing telemedicine", outcome: "Services that are used and keep running after a pilot or the pandemic; health outcomes are secondary", timeframe: null, studyTypes: null },
-    draftTopics: ["Barriers and enablers of implementation", "Acceptance by patients and health workers", "Policy and regulation", "Infrastructure in rural areas", "Service outcomes"],
+    coverage: { population: POPULATION, phenomenon: "Implementing telemedicine", comparison: null, outcome: OUTCOME, setting: SETTING, timeframe: null, studyTypes: null },
   },
 ];
 
-/** What the AI had understood at the end of the chat. */
-export const FINAL_COVERAGE: Coverage = {
-  population: "Health services and health workers who set up and run telemedicine; patients as one factor",
-  setting: "ASEAN countries, with a focus on public services and rural or remote areas",
-  phenomenon: "Implementing telemedicine",
-  outcome: "Services that are used and keep running after a pilot or the pandemic; health outcomes are secondary",
-  timeframe: "2015 onwards",
-  studyTypes: null,
-};
-export const FINAL_DRAFT_TOPICS = ["Barriers and enablers of implementation", "Acceptance by patients and health workers", "Policy, regulation and financing", "Infrastructure and digital readiness", "Effectiveness and service outcomes"];
+/** What the AI had understood when it closed the chat. */
+export const FINAL_COVERAGE: Coverage = { population: POPULATION, phenomenon: "Implementing telemedicine", comparison: null, outcome: OUTCOME, setting: SETTING, timeframe: "2015 onwards", studyTypes: null };
 
 // ---------------------------------------------------------------- stage 2: the research question
 

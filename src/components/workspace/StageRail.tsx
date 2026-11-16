@@ -16,7 +16,8 @@ export interface StageListProps {
   states: Record<string, StageState | undefined>;
   /** The screen that is open: marked "you are here". */
   open: StepKey;
-  /** Where a screen's row leads. Leave out for a list that only shows the journey (the new-review page). */
+  /** Where a screen's row leads. Leave out for a list that only shows the journey (the new-review page): the
+   *  rows are then plain text, and each stage carries its one-line description. */
   hrefFor?: (step: StepKey) => string;
   /** Called when a row is followed (the phone header closes itself). */
   onNavigate?: () => void;
@@ -26,18 +27,18 @@ export interface StageListProps {
 export function StageList({ states, open, hrefFor, onNavigate }: StageListProps) {
   const firstLocked = STEPS.find((s) => stepStatus(s, states) === "locked")?.key;
   return (
-    <ol className="space-y-5">
+    <ol className="space-y-4">
       {PHASES.map((ph) => (
         <li key={ph.key}>
           <div className="flex items-start gap-3 px-3">
-            <span aria-hidden className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-line-control text-small font-semibold tabular-nums text-fg-1">{ph.n}</span>
+            <span aria-hidden className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-line-control text-small font-semibold tabular-nums text-fg-1">{ph.n}</span>
             <p className="min-w-0">
               <span className="sr-only">Stage {ph.n}: </span>
               <span className="block font-semibold text-fg-0">{ph.title}</span>
-              <span className="block text-small text-fg-2">{ph.blurb}</span>
+              {!hrefFor && <span className="block text-small text-fg-2">{ph.blurb}</span>}
             </p>
           </div>
-          <ul className="mt-2 space-y-0.5">
+          <ul className="mt-1 space-y-0.5">
             {stepsOfPhase(ph.key).map((s) => {
               const status = stepStatus(s, states);
               const here = s.key === open;
@@ -55,7 +56,7 @@ export function StageList({ states, open, hrefFor, onNavigate }: StageListProps)
                   </span>
                 </>
               );
-              const cls = cx("flex min-h-12 items-start gap-3 rounded-sm border-l-[3px] py-2 pl-[13px] pr-3", here ? "border-accent bg-accent-soft" : "border-transparent");
+              const cls = cx("flex min-h-11 items-start gap-3 rounded-sm border-l-[3px] py-1.5 pl-[13px] pr-3", here ? "border-accent bg-accent-soft" : "border-transparent");
               return (
                 <li key={s.key}>
                   {hrefFor ? (
@@ -86,7 +87,7 @@ export interface StageRailProps extends StageListProps {
 /** The rail as the left column (wide screens). */
 export function StageRail({ name, ...list }: StageRailProps) {
   return (
-    <nav aria-label="Stages of this review" className="flex flex-col gap-6 px-3 py-6">
+    <nav aria-label="Stages of this review" className="flex flex-col gap-5 px-3 py-5">
       {name && (
         <div className="px-3">
           <p className="eyebrow">This review</p>

@@ -243,7 +243,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
 
   // After any change, every cached request for this review revalidates (and the credits, which AI steps spend).
   const { mutate: mutateAll } = useSWRConfig();
-  const refresh = useCallback(() => mutateAll((key) => typeof key === "string" && (key.startsWith(projectPath(projectId)) || key === "/api/billing")), [mutateAll, projectId]);
+  const refresh = useCallback(() => mutateAll((key) => typeof key === "string" && (key.startsWith(projectPath(projectId)) || key.startsWith("/api/billing"))), [mutateAll, projectId]);
 
   // Tell screen-reader users when a screen changes state, and refresh the project when stages move.
   const prevStates = useRef<Record<string, StageState> | null>(null);

@@ -37,6 +37,16 @@ export class AiDeclinedError extends Error {
 /** Errors that must stop a whole job (not just one batch): it pauses or fails cleanly and can be resumed. */
 export const isAiStop = (e: unknown) => e instanceof BudgetError || e instanceof AiPausedError;
 
+export type PauseReason = "no_credits" | "no_key" | "ai_off" | "budget";
+/** Why a job pauses on this error (recorded in the decision log), or null when the error is not a pause. */
+export function pauseReason(e: unknown): PauseReason | null {
+  if (e instanceof CreditsError) return "no_credits";
+  if (e instanceof AiUnavailableError) return "no_key";
+  if (e instanceof AiPausedError) return "ai_off";
+  if (e instanceof BudgetError) return "budget";
+  return null;
+}
+
 /**
  * Why an AI call must not be sent, checked before any network request: the ai_calls row to log (no cost) and
  * the error to throw, or null when the call may go ahead. Checked in this order: the AI switch, the key, then

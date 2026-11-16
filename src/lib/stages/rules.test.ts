@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { approvalBlock, clipTitle, keepTogether, normalizeQuestion, questionText, retitle, sameQuestion, summariesStep, topicsWithoutQueries, upstreamBlock, workingQuestion, workingQuestionCandidate, type ApprovalFacts } from "./rules";
+import { approvalBlock, clipTitle, keepTogether, normalizeQuestion, questionText, rankAfterSummaries, retitle, sameQuestion, storedStageState, summariesStep, topicsWithoutQueries, upstreamBlock, workingQuestion, workingQuestionCandidate, type ApprovalFacts } from "./rules";
 import { isWorkingQuestionCandidate, STAGES, WORKING_QUESTION_GAP, type StageState } from "../shared/stages";
 import { STEPS, stepStatus } from "../shared/flow";
 
@@ -55,37 +55,58 @@ test("a stage with background work cannot be confirmed while it runs or before i
   assert.equal(approvalBlock(9, "needs_review", facts({ questionChosen: true }), true), null);
 });
 
-test("summaries confirm themselves and ranking follows when a summaries job finishes", () => {
-  // First run: 1-4 confirmed, the runner has just set stage 5 to "needs review", ranking never ran.
-  assert.deepEqual(summariesStep(states(4, { 5: "needs_review" }), { jobFinished: true }), { approve: true, rank: true });
-  // Re-run of out-of-date summaries: ranking is out of date too and runs again.
-  assert.deepEqual(summariesStep(states(4, { 5: "needs_review", 6: "stale", 7: "stale" }), { jobFinished: true }), { approve: true, rank: true });
-  assert.deepEqual(summariesStep(states(4, { 5: "needs_review", 6: "approved" }), { jobFinished: true }), { approve: true, rank: true });
-  // Ranking already running (started by an earlier chain): confirm, but do not start it twice.
-  assert.deepEqual(summariesStep(states(4, { 5: "needs_review", 6: "running" }), { jobFinished: true }), { approve: true, rank: false });
+test("stage 5 never waits for a review while stages 1-4 are confirmed: 'needs review' is stored as confirmed", () => {
+  // What the job runner writes when a summaries job finishes.
+  assert.equal(storedStageState(states(4, { 5: "running" }), 5, "needs_review"), "approved");
+  // Keeping out-of-date summaries.
+  assert.equal(storedStageState(states(4, { 5: "stale", 6: "stale" }), 5, "needs_review"), "approved");
+  // With an earlier stage open, nothing after it is confirmed: the summaries wait.
+  assert.equal(storedStageState(states(3, { 4: "needs_review", 5: "running" }), 5, "needs_review"), "needs_review");
+  assert.equal(storedStageState(states(1, { 2: "needs_review", 3: "stale", 4: "stale", 5: "running" }), 5, "needs_review"), "needs_review");
+  // Every other state of stage 5, and every other stage, is stored as given.
+  for (const st of ["running", "failed", "stale", "approved", "not_started"] as StageState[]) assert.equal(storedStageState(states(4), 5, st), st);
+  for (const n of [1, 2, 3, 4, 6, 7, 8, 9]) assert.equal(storedStageState(states(n - 1), n, "needs_review"), "needs_review", `stage ${n}`);
 });
 
-test("a failed, paused, cancelled or still-running summaries job never starts ranking", () => {
-  // Failed and cancelled jobs leave the stage "failed"; a paused job leaves it "running".
-  for (const five of ["failed", "running", "not_started", "stale", "approved"] as StageState[]) {
-    assert.deepEqual(summariesStep(states(4, { 5: five }), { jobFinished: true }), { approve: false, rank: false }, five);
-  }
+test("when a summaries job has done its work, ranking starts at once", () => {
+  // First run: 1-4 confirmed, stage 5 still running (the runner has not recorded the job yet), ranking never ran.
+  assert.equal(rankAfterSummaries(states(4, { 5: "running" })), true);
+  // Re-run of out-of-date summaries: the ranking made from the old ones runs again, whatever state it is in.
+  for (const six of ["stale", "needs_review", "approved", "failed"] as StageState[]) assert.equal(rankAfterSummaries(states(4, { 5: "running", 6: six, 7: "stale" })), true, six);
+  // Ranking already running: never started twice.
+  assert.equal(rankAfterSummaries(states(4, { 5: "running", 6: "running" })), false);
 });
 
-test("summaries wait while an earlier stage is open, and continue once it is confirmed again", () => {
-  // The idea was edited while the summaries ran: stages 2-4 are open, so nothing continues by itself.
-  const reopened = { ...states(1, { 2: "needs_review", 3: "stale", 4: "stale", 5: "needs_review" }) };
-  assert.deepEqual(summariesStep(reopened, { jobFinished: true }), { approve: false, rank: false });
-  // Later, with 1-4 confirmed again (no job has just finished): confirm, and rank only if ranking never ran.
-  assert.deepEqual(summariesStep(states(4, { 5: "needs_review" }), { jobFinished: false }), { approve: true, rank: true });
-  assert.deepEqual(summariesStep(states(4, { 5: "needs_review", 6: "stale" }), { jobFinished: false }), { approve: true, rank: false });
-  assert.deepEqual(summariesStep(states(4, { 5: "needs_review", 6: "needs_review" }), { jobFinished: false }), { approve: true, rank: false });
+test("a cancelled summaries job, or one overtaken by an earlier edit, does not start ranking", () => {
+  // Cancelled: the stage route has set stage 5 to "failed". Edited upstream meanwhile: stage 5 is "stale".
+  for (const five of ["failed", "stale", "not_started", "needs_review", "approved"] as StageState[]) assert.equal(rankAfterSummaries(states(4, { 5: five })), false, five);
+  // An earlier stage was reopened while the summaries ran.
+  assert.equal(rankAfterSummaries(states(3, { 4: "needs_review", 5: "running" })), false);
+  assert.equal(rankAfterSummaries(states(1, { 2: "needs_review", 3: "stale", 4: "stale", 5: "running" })), false);
+  // (A failed or paused job never reaches this rule: its handler throws. At rest it leaves stage 5 "failed" or
+  // "running", and the at-rest rule below does nothing for either.)
+  for (const five of ["failed", "running", "stale", "not_started"] as StageState[]) assert.deepEqual(summariesStep(states(4, { 5: five })), { approve: false, rank: false }, five);
+});
+
+test("at rest: summaries left waiting are confirmed, and ranking starts only if it never ran", () => {
+  // Stages 1-4 confirmed again after the summaries had to wait: confirm, and rank because ranking never ran.
+  assert.deepEqual(summariesStep(states(4, { 5: "needs_review" })), { approve: true, rank: true });
+  // Ranking has results (even out-of-date ones): confirm the summaries, leave the ranking for the user.
+  for (const six of ["stale", "needs_review", "approved", "failed", "running"] as StageState[]) assert.deepEqual(summariesStep(states(4, { 5: "needs_review", 6: six })), { approve: true, rank: false }, six);
+  // Summaries confirmed but ranking never started (kept summaries, or a start that failed): start it.
+  assert.deepEqual(summariesStep(states(5)), { approve: false, rank: true });
+  assert.deepEqual(summariesStep(states(5, { 6: "needs_review" })), { approve: false, rank: false });
+  // An earlier stage is open: nothing happens until it is confirmed.
+  assert.deepEqual(summariesStep(states(3, { 4: "needs_review", 5: "needs_review" })), { approve: false, rank: false });
+  assert.deepEqual(summariesStep({ ...states(3, { 4: "stale" }), "5": "approved" }), { approve: false, rank: false });
 });
 
 test("the choose screen (stages 5 and 6) reads as one checkpoint through the chain", () => {
   const choose = STEPS.find((s) => s.key === "choose")!;
   assert.equal(stepStatus(choose, states(4, { 5: "running" })), "working");
-  // Between the two jobs stage 5 is confirmed and stage 6 is running: still "working", never "your turn".
+  // Ranking starts while the summaries job is still being recorded, then stage 5 is confirmed: the screen reads
+  // "working" all the way through and never "your turn" before the ranking is ready.
+  assert.equal(stepStatus(choose, states(4, { 5: "running", 6: "running" })), "working");
   assert.equal(stepStatus(choose, states(5, { 6: "running" })), "working");
   assert.equal(stepStatus(choose, states(5, { 6: "needs_review" })), "review");
   assert.equal(stepStatus(choose, states(6)), "done");

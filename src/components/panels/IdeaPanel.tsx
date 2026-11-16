@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, projectPath, useApi } from "../api";
 import { Badge, ErrorState, Loading, Spinner, aiStopKind, cx, isOutOfCredits } from "../ui";
 import { Disclosure } from "../disclosure";
 import { useSession } from "../session/SessionContext";
+import { noCredits } from "../credits";
 import { PanelFooter, SectionTitle } from "./common";
 import { ConceptMap } from "./ConceptMap";
 import dynamic from "next/dynamic";
@@ -19,12 +20,12 @@ export interface ScopingData {
   asked: number;
   maxQuestions: number;
   coverage: Record<string, string | null> | null;
-  draftTopics: string[];
+  draftTopics?: string[];
   done: boolean;
   awaitingAnswer: boolean;
-  topics: Topic[];
-  conceptMap: { nodes: { id: string; label: string; kind: string }[]; edges: { from: string; to: string; label: string }[] } | null;
-  summary: Record<string, string> | null;
+  topics?: Topic[];
+  conceptMap?: { nodes: { id: string; label: string; kind: string }[]; edges: { from: string; to: string; label: string }[] } | null;
+  summary?: Record<string, string> | null;
 }
 
 /** The scope, in plain words (the PICO-style fields: population, setting, phenomenon, outcome…). */
@@ -42,8 +43,12 @@ const COVERAGE_LABEL: Record<string, [string, string]> = {
  * `chatOnly` leaves out the topic list and the idea editor, for the Question screen.
  */
 export function IdeaPanel({ chatOnly = false }: { chatOnly?: boolean }) {
-  const { projectId, project, states, refresh, confirmEdit } = useSession();
-  const { data, error, isLoading, mutate } = useApi<ScopingData>(projectPath(projectId, "scoping"));
+  const { projectId, project, states, refresh, confirmEdit, ai, credits } = useSession();
+  // No request is sent while it is known that AI cannot run: the step frame's banner already says why.
+  const canAi = ai.enabled && !ai.keyMissing && !ai.budgetReached && !noCredits(credits);
+  const { data: raw, error, isLoading, mutate } = useApi<ScopingData>(projectPath(projectId, "scoping"));
+  // The server's view may or may not carry topics (they belong to the search plan): none is the same as an empty list.
+  const data = useMemo(() => (raw ? { ...raw, topics: raw.topics ?? [], draftTopics: raw.draftTopics ?? [], conceptMap: raw.conceptMap ?? null } : raw), [raw]);
   const [idea, setIdea] = useState(project.idea);
   const [answer, setAnswer] = useState("");
   // The answer just sent, shown as the user's message until the server returns the conversation with it.
@@ -77,12 +82,12 @@ export function IdeaPanel({ chatOnly = false }: { chatOnly?: boolean }) {
 
   // The first scoping question is asked as soon as the idea is approved.
   useEffect(() => {
-    if (data && ideaApproved && data.messages.length === 0 && !started.current) {
+    if (data && ideaApproved && canAi && data.messages.length === 0 && !started.current) {
       started.current = true;
       call("start", "scoping/start");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, ideaApproved]);
+  }, [data, ideaApproved, canAi]);
   // A new question puts the cursor in the answer box, once the request that brought it has finished (`local`).
   // The conversation scrolls inside its own box; the panel scrolls to the answer box (not to the last message,
   // which left the box behind the pinned footer on short screens).
@@ -386,7 +391,7 @@ function ManageTopics({ topics, onChange }: { topics: Topic[]; onChange: (d: Sco
 /** Edit one search topic: its name, synonyms and MeSH terms. */
 export function TopicPanel({ topicId }: { topicId: string }) {
   const { projectId, confirmEdit, refresh } = useSession();
-  const { data, mutate } = useApi<ScopingData>(projectPath(projectId, "scoping"));
+  const { data, mutate } = useApi<{ topics: Topic[] }>(projectPath(projectId, "search"));
   const [err, setErr] = useState<unknown>(null);
   const t = data?.topics.find((x) => x.id === topicId);
   if (!data) return <Loading />;
@@ -395,7 +400,7 @@ export function TopicPanel({ topicId }: { topicId: string }) {
     if (!(await confirmEdit(3))) return;
     setErr(null);
     try {
-      mutate(await api<ScopingData>(projectPath(projectId, `topics/${topicId}`), { method: "PATCH", body }), { revalidate: false });
+      mutate(await api<{ topics: Topic[] }>(projectPath(projectId, `topics/${topicId}`), { method: "PATCH", body }), { revalidate: false });
       await refresh();
     } catch (e) {
       setErr(e);

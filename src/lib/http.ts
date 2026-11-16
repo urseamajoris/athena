@@ -3,7 +3,7 @@ import { NextResponse, after } from "next/server";
 import { db, schema } from "./db";
 import { HttpError } from "./project";
 import { AiPausedError, AiValidationError, BudgetError } from "./ai/client";
-import { CreditsError } from "./ai/errors";
+import { AiDeclinedError, CreditsError } from "./ai/errors";
 import { assertSameOrigin, currentUser } from "./auth/server";
 import { redactSecrets } from "./auth/secrets";
 import { config } from "./config";
@@ -19,14 +19,16 @@ export function errorResponse(e: unknown) {
   if (e instanceof AiPausedError) return NextResponse.json({ error: e.message, kind: "ai_paused" }, { status: 503 });
   if (e instanceof BudgetError) return NextResponse.json({ error: e.message, kind: "budget" }, { status: 402 });
   if (e instanceof AiValidationError) return NextResponse.json({ error: e.message, kind: "ai_validation" }, { status: 502 });
+  // The model would not answer this text. The server and the key are fine, so it is not a server error.
+  if (e instanceof AiDeclinedError) return NextResponse.json({ error: e.message, kind: "ai_declined" }, { status: 422 });
   const msg = safeError(e);
   console.error("[athena] API error", msg);
   return NextResponse.json({ error: msg }, { status: 500 });
 }
 
-/** An error message with any API key removed (env key, admin-set key, and anything key-shaped). */
+/** An error message with every server secret removed (the API keys, the Stripe secrets, the settings key) and anything key-shaped. */
 export function safeError(e: unknown): string {
-  return redactSecrets(errMsg(e), [config.anthropicApiKey, config.openalexApiKey, process.env.SETTINGS_ENCRYPTION_KEY]);
+  return redactSecrets(errMsg(e), [config.anthropicApiKey, config.openalexApiKey, process.env.SETTINGS_ENCRYPTION_KEY, process.env.STRIPE_SECRET_KEY?.trim(), process.env.STRIPE_WEBHOOK_SECRET?.trim()]);
 }
 
 let lastPrune = 0;
