@@ -183,7 +183,12 @@ export function IdeaPanel({ chatOnly = false }: { chatOnly?: boolean }) {
         </div>
       ) : null}
 
-      {ideaApproved && (chatOpen ? (
+      {ideaApproved && chatOpen && data.messages.length === 0 && !local ? (
+        // Nothing asked yet: say why, instead of an empty conversation with a box that cannot be typed in.
+        <p className="flex items-center gap-2 text-fg-1">
+          {canAi ? <><Spinner /> Preparing the first question…</> : "The questions appear here when AI is available. You can write your own research question below without them."}
+        </p>
+      ) : ideaApproved && (chatOpen ? (
         <section aria-label="Scoping conversation" className="rounded-md border border-line">
           <div ref={chatList} className="max-h-80 space-y-3 overflow-y-auto px-3 py-3" aria-live="polite">
             {data.messages.map((m) => (
@@ -257,7 +262,7 @@ export function IdeaPanel({ chatOnly = false }: { chatOnly?: boolean }) {
       )}
       {!chatOnly && <TopicUndo />}
 
-      {ideaApproved && (chatOnly || !data.topics.length) && (
+      {ideaApproved && (data.messages.length > 0 || !!local) && (chatOnly || !data.topics.length) && (
         <section aria-label="What we know so far">
           <SectionTitle right={<span className="text-12 tabular-nums text-fg-2">{chatOpen ? `question ${Math.max(1, Math.min(data.asked, data.maxQuestions))} of up to ${data.maxQuestions}` : "questions done"}</span>}>What we know so far</SectionTitle>
           {chatOpen ? (

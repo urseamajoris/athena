@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { api, projectPath, useApi } from "../api";
 import { Button, Card } from "../ui";
+import { noCredits } from "../credits";
 import { Section, StepActions, StepFrame, useSession, type QuestionDraft } from "../workspace";
 import { IdeaPanel, type ScopingData } from "../panels/IdeaPanel";
 
@@ -13,7 +14,9 @@ import { IdeaPanel, type ScopingData } from "../panels/IdeaPanel";
  * framework?, structure? } (saves `project.question`), POST stages/2/approve (needs a question).
  */
 export function QuestionStep() {
-  const { projectId, project, refresh, confirmEdit, track, run, busy, actionFor, pending } = useSession();
+  const { projectId, project, refresh, confirmEdit, track, run, busy, actionFor, pending, ai, credits } = useSession();
+  // The banner under the headline says why AI cannot run; the button that needs it is not offered meanwhile.
+  const canAi = ai.enabled && !ai.keyMissing && !ai.budgetReached && !noCredits(credits);
   const { data: scoping } = useApi<ScopingData>(projectPath(projectId, "scoping"));
   const saved = (project.question ?? "").trim();
   const [text, setText] = useState(saved);
@@ -81,7 +84,7 @@ export function QuestionStep() {
         {error && <p role="alert" className="mt-2 text-small font-medium text-err">{error}</p>}
         <div className="mt-3 flex flex-wrap gap-2">
           {dirty && <Button onClick={() => save()} busy={saving}>Save this question</Button>}
-          <Button onClick={draftWithAi} aria-disabled={!!pending || undefined}>{drafts.length ? "Draft 3 new wordings" : "Draft 3 wordings with AI"}</Button>
+          {canAi && <Button onClick={draftWithAi} aria-disabled={!!pending || undefined}>{drafts.length ? "Draft 3 new wordings" : "Draft 3 wordings with AI"}</Button>}
         </div>
       </Section>
 
