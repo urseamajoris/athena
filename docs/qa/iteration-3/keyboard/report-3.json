@@ -1,0 +1,229 @@
+{
+ "persona": "keyboard",
+ "completed": true,
+ "stage_reached": 9,
+ "findings": [
+  {
+   "severity": "major",
+   "category": "bug",
+   "page": "Step 2 Scoping conversation",
+   "what_happened": "The scoping chat ended after four answers (who, where, outcome, years). Focus jumped to the heading 'Turn your answers into search topics', so my fifth answer (study designs) was typed into nothing and Enter did nothing. No message said the answer was not saved. The summary still says 'Which kinds of studies: not answered yet' while the counter says '5 of 5 questions' and '5 of 6 answered'. 'South Asia' from my 'where' answer never became a search topic, only 'Sub-Saharan Africa'.",
+   "expected": "Either ask the fifth question or say plainly that the chat is over. Focus should land somewhere that accepts typing, or typed text should never vanish silently. Counts should agree with what is shown, and every place in my answer should appear in the topics (or the app should say which ones were left out).",
+   "evidence": "docs/qa/iteration-3/keyboard/06c-q4.jpg, docs/qa/iteration-3/keyboard/07-topics.jpg",
+   "suggested_fix": "When the last question is answered, announce 'Questions finished' and move focus to a clearly named next control. Keep the typed text if focus is not in a field. Make the counter reflect answered questions only, and list dropped places or terms with an option to add them."
+  },
+  {
+   "severity": "major",
+   "category": "clarity",
+   "page": "Step 3 Search builder",
+   "what_happened": "After 'Write the searches' the open panel still said 'Viewing step 2 of 9 \u00b7 Scoping \u00b7 Edit this search topic' with the topic-name fields, but its primary button read 'Run all 10 searches'. I could not see the searches that had been written. Only after pressing Escape did the canvas offer 'Open step 3: Check the searches before they run'. I almost ran 10 searches I had never seen.",
+   "expected": "The panel should switch to the written searches (the plain-language concept blocks I saw later), or offer 'Go to step 3', as docs/ux-intent.md says a non-current panel should. The button should match the heading.",
+   "evidence": "docs/qa/iteration-3/keyboard/11-searches.jpg, docs/qa/iteration-3/keyboard/11b-after-esc.jpg, docs/qa/iteration-3/keyboard/12-step3-panel.jpg",
+   "suggested_fix": "After 'Write the searches' succeeds, navigate the panel to the query node and move focus to its heading. Never show a step-3 primary action on a step-2 panel."
+  },
+  {
+   "severity": "major",
+   "category": "a11y",
+   "page": "All step panels at 200% zoom",
+   "what_happened": "At 200% zoom the step panel fills the whole window, and the sticky title block plus the sticky footer leave a reading window of roughly 150 to 350 px. The focused answer box in the scoping chat is half hidden behind the footer. The 'Start my review' button is cut off at the bottom on the first page. Opening 'How this works' expands content that is out of sight below the fold, so nothing shows that anything happened.",
+   "expected": "A focused control should never be covered by sticky bars (WCAG 2.4.11). Expanded content should scroll into view. A fixed footer should not eat a third of a zoomed screen.",
+   "evidence": "docs/qa/iteration-3/keyboard/06-questions.jpg, docs/qa/iteration-3/keyboard/03c-startfocus.jpg, docs/qa/iteration-3/keyboard/05b-howthisworks.jpg",
+   "suggested_fix": "Add scroll-padding equal to the sticky footer and header height, call scrollIntoView on the focused element and on newly expanded sections, and make the footer non-sticky or compact when the viewport height is under about 500 CSS px."
+  },
+  {
+   "severity": "major",
+   "category": "a11y",
+   "page": "Appraisal, Ranking, Research question (long lists)",
+   "what_happened": "After keyboard actions, focus is moved inconsistently. Pressing Reject on a quote sent focus to the panel heading at the top of a long paper, so I lost my place and had to Tab through about 30 stops to find the next quote (4 left to decide). Choosing candidate 1 also sent focus to the heading. Pressing 'Rank the papers' left the page scrolled to the bottom of the list with focus on 'Appraise selected papers', not on the new step's heading. Home and PageDown did nothing right after that.",
+   "expected": "After a decision, focus stays on, or moves to the next undecided item and the change is announced. After a step changes, focus and scroll go to the new heading.",
+   "evidence": "docs/qa/iteration-3/keyboard/26b-after-reject.jpg, docs/qa/iteration-3/keyboard/29-chosen.jpg, docs/qa/iteration-3/keyboard/19-ranking.jpg",
+   "suggested_fix": "Move focus to the next 'Accept anyway/Reject' pair (or to the 'Decided' status of the same card) after a decision. Reset scroll to top and focus the h2 on every step change. Add an aria-live message for each decision."
+  },
+  {
+   "severity": "major",
+   "category": "clarity",
+   "page": "Step 7 Appraisal",
+   "what_happened": "The checklist says 'Decide every quote the check could not find (0 decided, 5 left)', but the quotes I saw first in the quality checklist all carry a green 'found word for word'. The five undecided quotes are far down under 'Key findings'. Pressing 'Summarise the evidence' warns '5 quotes not decided yet', and I could not tell where they were. Tab order also puts 'Next paper' before the paper content, and the filter checkbox has no name.",
+   "expected": "The checklist item should link me straight to the first undecided quote. 'Show only quotes I need to decide' should be easy to find and clearly named.",
+   "evidence": "docs/qa/iteration-3/keyboard/21-appraise-run.jpg, docs/qa/iteration-3/keyboard/22b-quotes.jpg, docs/qa/iteration-3/keyboard/24-synthesis.jpg",
+   "suggested_fix": "Make '5 left' a button that jumps to and focuses the first undecided quote. Label the checkbox. Put 'Next paper' after the paper in DOM order."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Sign up, step 3 topic fields, step 7",
+   "what_happened": "The focus helper reports an empty accessible name for the topic-name and synonym inputs and for the 'Show only quotes I need to decide' checkbox. The idea textarea is named by its placeholder, not by its visible label 'Your research idea'. On sign-up focus started on Email, not Your name.",
+   "expected": "Every field has a programmatic label that matches the visible one.",
+   "evidence": "docs/qa/iteration-3/keyboard/10-builder.jpg, docs/qa/iteration-3/keyboard/05-step1.jpg",
+   "suggested_fix": "Associate each visible label with its input (for/id or aria-labelledby). Do not rely on placeholders."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Step panels over the canvas",
+   "what_happened": "The panel is not modal. From the panel heading, Shift+Tab goes to the hidden canvas controls (Zoom out, Fit view, Minimap) behind it, and Tab past the last button leaves the panel for the page behind. The panel hides those controls visually, so I was sometimes tabbing through controls I could not see. By contrast, the confirm dialogs (fewer than 3 papers, undecided quotes) trap focus and restore it on Escape correctly.",
+   "expected": "A panel that covers the screen should contain focus (or the page behind should be inert), like the dialogs do.",
+   "evidence": "docs/qa/iteration-3/keyboard/07-topics.jpg, docs/qa/iteration-3/keyboard/20-appraisal.jpg",
+   "suggested_fix": "Set inert or aria-hidden on the canvas and header while a full-width panel is open."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Step 4 Retrieval, 3D chart",
+   "what_happened": "The 3D scatter of papers cannot be reached or read by keyboard. Its dots have no tab stops. The legend buttons filter it well and a status line says 'Showing 5 of 94 papers', but I cannot find out which papers the dots are. Unselected legend entries are dimmed grey on dark, which is low contrast at 200% zoom.",
+   "expected": "Every paper in the chart can be reached by keyboard or the chart has a text alternative (the table in step 5 partly serves this).",
+   "evidence": "docs/qa/iteration-3/keyboard/14b-chart.jpg, docs/qa/iteration-3/keyboard/14-filter-trial.jpg",
+   "suggested_fix": "Link to the paper table from the chart caption ('See these papers as a list') and raise the contrast of dimmed legend entries."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Table, paper details drawer",
+   "what_happened": "Within the paper details drawer, PageDown from the Close button did not scroll the drawer, so I could not read the abstract section by keyboard except by tabbing through its links. The drawer overlay leaves the table rows behind it in the Tab order. Focus did return correctly to the row on Escape.",
+   "expected": "The drawer body scrolls with the keyboard, and the rows behind are not reachable while it is open.",
+   "evidence": "docs/qa/iteration-3/keyboard/18b-paper-abstract.jpg",
+   "suggested_fix": "Give the scrollable region tabindex 0 and an accessible name, and set the table inert while the drawer is open."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Progress strip (all steps)",
+   "what_happened": "The 9-segment strip is only coloured bars: green for done, white for current, dark for later. At 200% zoom I see no numbers, ticks or labels, so I rely on colour alone. docs/ux-intent.md says the strip should be numbered with done shown as a tick and never colour alone.",
+   "expected": "Numbers or ticks on the segments (and for 'out of date').",
+   "evidence": "docs/qa/iteration-3/keyboard/10-builder.jpg, docs/qa/iteration-3/keyboard/11b-after-esc.jpg",
+   "suggested_fix": "Add step numbers and a check icon in each segment, with an accessible name like 'Step 3, done'."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Steps 5 to 9 (demo mode)",
+   "what_happened": "All 94 papers are about telemedicine in Southeast Asia, none about postpartum depression. The app is honest about this in many places (the banner, the step 3 notice, the step 6 'matches no topic', the step 8 'This review can say nothing about them', the novelty-check disclaimer). But the headlines still say 'Check which papers go forward', and the chosen question text begins '(mock)', which would be carried into the report. The '(mock)' tag is jargon, and the green 'found word for word' badge stays next to '(mock)' quotes. The banner can be dismissed with one key press.",
+   "expected": "A demo-mode user is never left thinking the sample papers are real results. A '(mock)' prefix should not become part of the chosen question.",
+   "evidence": "docs/qa/iteration-3/keyboard/16-table.jpg, docs/qa/iteration-3/keyboard/19e.jpg, docs/qa/iteration-3/keyboard/30-export.jpg",
+   "suggested_fix": "Keep a small permanent 'Demo data' chip in the header after the banner is dismissed, replace '(mock)' with 'Example:' in the UI, and strip it from the editable question."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Step 7 Appraisal",
+   "what_happened": "A quote can be 'found word for word' while the AI's answer is 'Unclear' and the quote is just the paper's title, so a green tick sits beside weak evidence. The caveat 'Found means the words are in the paper, not that they prove the answer' is only in a collapsed note.",
+   "expected": "The green tick should not look like approval of the answer.",
+   "evidence": "docs/qa/iteration-3/keyboard/22-quotes.jpg",
+   "suggested_fix": "Word the badge 'quote is in the paper' and show the caveat inline under the first quote."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Project overview and step 1",
+   "what_happened": "After 'Start my review' I land on a project page that only repeats my idea and offers 'Open step 1'. Opening it shows 'Check your idea, then start' with another button 'Sharpen my idea'. That is two extra stops for the same sentence I just typed. 'What happens in this step' shows '8 s' with no explanation, and 'Hide this note' has no stated subject.",
+   "expected": "One typed idea leads straight to the first question.",
+   "evidence": "docs/qa/iteration-3/keyboard/04-questions.jpg, docs/qa/iteration-3/keyboard/05-step1.jpg",
+   "suggested_fix": "Start the scoping chat directly after step 1. Label the timer 'Video, 8 seconds'."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Steps 2 and 3 (topics, builder)",
+   "what_happened": "Jargon without explanation: '0 MeSH' on every topic card, 'Controlled vocabulary (MeSH)' with the value 'none', PICo and PECO on candidate questions. A synonym 'whether peer-led groups' (mock) is nonsense.",
+   "expected": "A social-work lecturer should understand each term. MeSH should be explained once where it is first used.",
+   "evidence": "docs/qa/iteration-3/keyboard/09-after-keep.jpg, docs/qa/iteration-3/keyboard/10-builder.jpg",
+   "suggested_fix": "Use an inline 'What is MeSH?' help text on first use, and write 'no official keywords found' instead of 'none'."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Step 9 Export",
+   "what_happened": "I pressed 'Download the report (Markdown)' and nothing on screen confirmed it. The three format cards are radio buttons whose descriptions mix grey and white text. 'Larger preview' only navigates to the same panel content on a new page. A label reads 'Found in openalex' in lowercase.",
+   "expected": "A visible confirmation such as 'Report downloaded' that is also announced to a screen reader. Consistent label casing.",
+   "evidence": "docs/qa/iteration-3/keyboard/32-download.jpg, docs/qa/iteration-3/keyboard/31b-preview.jpg",
+   "suggested_fix": "Show an aria-live toast after download. Capitalise source names (OpenAlex, PubMed)."
+  }
+ ],
+ "three_second_test": [
+  {
+   "page": "Landing",
+   "understood_in_3s": true,
+   "note": "A guided literature review that turns a rough idea into a research question with real papers. I would press 'Start a review', then sign up. Focus ring is clear, and the skip link works."
+  },
+  {
+   "page": "Sign up",
+   "understood_in_3s": true,
+   "note": "Create an account. First I would type my email, then a password, then press Create account. The password rule is clear. Focus started on Email, skipping the optional name."
+  },
+  {
+   "page": "New review (step 1)",
+   "understood_in_3s": true,
+   "note": "Describe my idea in a sentence. I would type it, then press 'Start my review'. At 200% the Start button is partly cut off and three example chips sit in the Tab order before it."
+  },
+  {
+   "page": "Project overview (list)",
+   "understood_in_3s": true,
+   "note": "The page shows the project at step 1 with one big button 'Open step 1'. It repeats the idea I just typed, which felt like an extra stop."
+  },
+  {
+   "page": "Step 1 panel (check your idea)",
+   "understood_in_3s": true,
+   "note": "Check my saved idea then press 'Sharpen my idea'. The panel covers the screen at 200%, and the focus moved to the heading, which is good."
+  },
+  {
+   "page": "Step 2 scoping chat",
+   "understood_in_3s": true,
+   "note": "Answer short questions in my own words and press Enter. Easy, but the answer box is half hidden by the footer and a '(mock)' prefix in the question is jargon."
+  },
+  {
+   "page": "Step 2 search topics",
+   "understood_in_3s": true,
+   "note": "Keep or delete suggested topics, then press 'Keep 5 suggested topics', then 'Use these topics'. The keyboard flow worked, but 'South Asia' was missing."
+  },
+  {
+   "page": "Step 3 after 'Write the searches'",
+   "understood_in_3s": false,
+   "note": "The panel said 'Edit this search topic / Viewing step 2' but offered 'Run all 10 searches'. I did not know what the searches were. I only found them by closing the panel."
+  },
+  {
+   "page": "Step 3 Check the searches",
+   "understood_in_3s": true,
+   "note": "Read the PubMed and OpenAlex searches in plain words, then press 'Run all 10 searches'. The demo-mode notice here is clear and honest."
+  },
+  {
+   "page": "Step 4 Retrieval",
+   "understood_in_3s": true,
+   "note": "See how many papers were found and how many duplicates, then press 'Summarise the papers'. The counts and the legend are clear, and every filter button works by keyboard."
+  },
+  {
+   "page": "Step 5 Summary table (full page)",
+   "understood_in_3s": true,
+   "note": "Skim the papers and fix wrong cells, then press 'Rank the papers'. The to-do list helps. Rows are buttons, so I can open a paper by keyboard."
+  },
+  {
+   "page": "Step 6 Ranking and warning dialog",
+   "understood_in_3s": true,
+   "note": "Check which papers go forward, then press 'Appraise selected papers'. The dialog warning '4 topics have fewer than 3 papers' is very clear, and focus is trapped correctly."
+  },
+  {
+   "page": "Step 7 Appraisal",
+   "understood_in_3s": false,
+   "note": "I could not tell which quotes needed my decision: the counter said 5 left but everything I saw was green 'found'. The undecided ones were far down the page."
+  },
+  {
+   "page": "Step 8 Synthesis",
+   "understood_in_3s": true,
+   "note": "Read what is known, contested and unknown, then press 'Suggest research questions'. The notice 'This review can say nothing about them' is excellent."
+  },
+  {
+   "page": "Step 9 Research question",
+   "understood_in_3s": true,
+   "note": "Compare three candidates and press 'Choose this question', then 'Finish and export'. 'Finish and export' is locked until I choose, with a reason shown."
+  },
+  {
+   "page": "Export",
+   "understood_in_3s": true,
+   "note": "The review is ready: check the question, pick Report, CSV or BibTeX, and press Download. The preview begins with 'Demo: ... not a real review'. After downloading nothing confirmed it."
+  }
+ ],
+ "categories_and_colours": "Study type has a colour and a shape for each category. The legend and counts match in the retrieval step, the table filter chips and the 3D chart: Trial is a blue circle, Cohort/case-control an orange square, Cross-sectional a green triangle, Qualitative/mixed methods an amber diamond, Systematic/scoping review a pink star, Other design a green cross, and Not reported a grey ring. I understood these without being told, because every shape sits next to a text label and a count, and the 'Colour by' menu says which dimension the colours show. Article type (Journal article 72, Review article 11, Preprint 4, Editorial/letter/comment 7) is plain grey, so colour never means two things on one screen. By keyboard I could find and filter papers by study type and by article type in step 4, step 5 and step 6. Pressing Enter on a chip showed an explicit message ('Showing 11 of 94: review article. 83 papers are hidden by your filters') and a 'Reset filters' button. Counts add up: study type 5+1+7+81 = 94 and article type 72+11+4+7 = 94. At step 4 the study-type bars show 81 'Not reported', but after AI summarising in step 5 only 13 are 'Not reported' and 39 'Other design', so the numbers change between steps (the page says so). Two different taxonomies can confuse: 'Review article' (11) versus 'Systematic / scoping review' (8) are different counts and one review-article paper is labelled 'Other design'. In the 3D chart, the dimmed legend entries are low contrast. The chart's dots cannot be reached by keyboard.",
+ "validity_assessment": "Within demo mode the workflow is mostly traceable and honest. Every paper has DOI, PMID and OpenAlex identifiers and an open-access status. AI-drafted cells are labelled 'AI \u00b7 abstract'. The app deliberately plants an altered quote ('clearly proves the intervention works everywhere') to show the verification: it is flagged 'not found, you decide' with the closest passage and a 54% word match, and only accepted quotes are used. Undecided quotes are excluded from the synthesis, and the exported report states 'Quotes found: 47; not found: 5 (accepted by you 0, rejected by you 1, undecided 4)'. The app never overclaims novelty: 'Finding no similar study does not prove a question is new', and the demo novelty check says it says nothing about novelty. The step 6 and step 8 warnings say my topics have no evidence ('This review can say nothing about them'). Weak points: (1) all papers are about telemedicine in Southeast Asia, so the chosen question '(mock) How do mothers with postpartum depression experience peer support groups...' is not backed by any real paper on the topic, and the '(mock)' prefix ends up in the question and report. The mock supporting quote comes from a smart-home review. (2) The 'found word for word' green tick appears on quotes that do not support the AI's answer, such as the title quoted for 'Unclear'. (3) 'South Asia' vanished from the topics and the study-type answer was lost without notice, so the search does not reflect what I said. (4) The report says it is a scoping aid with a single reviewer and no second check, which is honest. I could not test real mode, so I cannot say whether a real run would produce valid questions.",
+ "would_have_quit_at": "I reached the exported report and would not have quit. The closest points were (1) Step 3, where the panel still showed 'Edit this search topic' next to a 'Run all 10 searches' button and I could not see the searches, and (2) Step 7, where I could not find the five quotes needing a decision and each Reject sent focus back to the top of a long page. A real keyboard user with a tremor would likely give up around the quote decisions (5 decisions each costing about 30 Tab presses) or accept 'Summarise without them', as I did.",
+ "activity": "Created one account (name Ruth Okafor, email ruth.keyboard.qa3@example.com) and one project (prj_fd4fbd0924b24ade) titled 'Peer support groups for postpartum depression in low-income countries'. Ran all 9 steps in demo mode by keyboard: answered 4 scoping questions (the 5th answer was lost), kept 5 topics, wrote and ran 10 searches (94 papers after removing 12 duplicates), summarised 94 papers (11 of 11 batches), ranked and appraised 5 papers with the 'fewer than 3 papers' warning dismissed with 'Appraise anyway', rejected 1 of the 5 'not found' quotes and chose 'Summarise without them' for the other 4, synthesised the evidence, chose candidate 1 of 3 research questions, finished and exported, viewed the report preview (first 200 of 420 lines) and pressed 'Download the report (Markdown)'. No console errors or failed requests at any step. About 160 helper commands used. Screenshots 01 to 32 are in docs/qa/iteration-3/keyboard/.",
+ "narrative": "I'm Ruth, keyboard only, at 200% zoom. The landing page was clear and the focus ring was thick and easy to see, with a skip link first. Sign-up went fine by Tab and typing. I only noticed on step 1 that the first Tab landed on Email, not my name.\n\nThe nine-step panels were readable, but at 200% each one fills the screen and the sticky header and footer leave a thin reading window. The answer box in the scoping chat was half hidden, and expanded sections opened below the fold. Focus usually moved to the panel heading, which helped, and the 'Skip to the next action' button was a nice shortcut that I only found late.\n\nI got lost twice. In the scoping chat the questions stopped after four answers, and my fifth answer was typed into nothing. Then at step 3 the panel still said 'Edit this search topic' while the button said 'Run all 10 searches', and I had to press Escape to find the real step.\n\nRetrieval was my favourite part. The counts, shapes and colours were understandable, and every filter chip worked by Enter with a clear 'Showing X of Y' message. Ranking and the quote check were honest to a fault: the warning dialog trapped focus properly, and a deliberately altered quote was flagged 'not found, you decide'. But every decision threw focus to the top of a long page, so five decisions would be very tiring.\n\nI chose candidate 1, finished, previewed the report and pressed Download. Nothing confirmed the download. All papers were about telemedicine in Southeast Asia, not my topic. The app says so in several places, but the '(mock)' prefix now sits inside my chosen question."
+}

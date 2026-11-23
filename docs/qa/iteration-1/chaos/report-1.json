@@ -1,0 +1,299 @@
+{
+ "persona": "chaos",
+ "completed": true,
+ "stage_reached": 9,
+ "findings": [
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Search builder (step 3)",
+   "what_happened": "For my topic (short-form video, teenagers) the generated PubMed search required 'telemedicine' (index term) AND 'Asia, Southeastern / Thailand / Vietnam / Indonesia / Malaysia'. OpenAlex had three AND groups: telemedicine/telehealth, video, Southeast Asia. The only explanation is a tiny grey line '(mock) Topic synonyms AND Southeast Asia block.' Nothing warns that these terms do not come from my idea.",
+   "expected": "Search terms that come from my idea and my scoping answers (teenagers, attention). In demo mode, a clear flag next to the search that these terms are sample terms and not mine.",
+   "evidence": "docs/qa/iteration-1/chaos/25-searches.jpg, docs/qa/iteration-1/chaos/26-searches-bottom.jpg",
+   "suggested_fix": "In demo mode put a visible 'sample search, not built from your idea' badge on each query. In real mode, test that every concept block traces back to a topic or a scoping answer, and show which one."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Export / Research question",
+   "what_happens": "",
+   "what_happened": "The chosen question is '(mock) What video factors shape telemedicine implementation in rural Southeast Asia?' (population 'Patients and providers'). The exported report preview says 'Every paper below comes from a database API record ... AI-extracted claims carry verbatim quotes that were checked' and has no demo-mode disclosure; only '(mock)' tags on some AI text. The page text says 'Download the report to share with your supervisor'.",
+   "expected": "A report that leaves the app should state in its own header that it was built from scripted AI and sample papers unrelated to the topic, so it cannot be mistaken for a real review.",
+   "evidence": "docs/qa/iteration-1/chaos/59-export.jpg, docs/qa/iteration-1/chaos/60-preview.jpg, docs/qa/iteration-1/chaos/55-step9.jpg",
+   "suggested_fix": "When demo mode is on, add a bold first line to the Markdown, CSV and BibTeX exports: 'DEMO DATA: scripted AI and recorded sample papers on a different topic. Not a real review.' Also add it to the export page next to Download."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Appraisal (step 7)",
+   "what_happened": "A 'verified' badge sits on quotes that only exist in the text and do not support the answer. For 'Follow-up complete and long enough' (AI: Unclear) the quote is 'FUNDING: Ministry of Health, Singapore.' marked verified. For 'Cohort clearly defined' the quote is the paper TITLE, also verified. The checklist title says 'Quality questions for a cohort study' on an economic modelling study.",
+   "expected": "Verified to mean 'this quote is in the paper', clearly separated from 'this quote supports the answer'. A checklist that fits the study design.",
+   "evidence": "docs/qa/iteration-1/chaos/48-step7.jpg, docs/qa/iteration-1/chaos/49-show-source.jpg",
+   "suggested_fix": "Label the badge 'quote found in text' and add a separate 'does it support the answer?' cue or user check. Choose the checklist from the AI-detected study design, or say 'no checklist fits this design'. Do not attach quotes to 'Unclear' answers unless they are relevant."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Appraisal (step 7) to Synthesis (step 8)",
+   "what_happened": "Step 7 says 'Decide every quote the check could not find (11 left)'. After rejecting one, I clicked Summarise the evidence. It went straight through with 10 undecided unverified quotes (badge still \u2717 10) and step 7 showed 'Approved'. No warning that undecided quotes would flow into the synthesis or be left out.",
+   "expected": "Either a gate or a warning: '10 quotes are still undecided. Decide them or continue knowing they will be [included/excluded]'. A step marked Approved should not carry open items.",
+   "evidence": "docs/qa/iteration-1/chaos/52-summarise-early.jpg, docs/qa/iteration-1/chaos/54-rq.jpg",
+   "suggested_fix": "Block 'Summarise the evidence' until every flagged quote is accepted or rejected, or show a confirm dialog that lists the count and states how undecided quotes are treated. Keep the step as 'needs attention', not Approved."
+  },
+  {
+   "severity": "major",
+   "category": "bug",
+   "page": "Appraisal (step 7)",
+   "what_happened": "I rejected the only flagged quote on paper 1. The paper's own checklist then said 'Nothing to decide' and the canvas badge fell from \u2717 11 to \u2717 10. But the panel still said 'Decide every quote ... (11 left)' and '11 unverified quotes to decide', also after a reload. There was no confirmation, toast or undo for the reject.",
+   "expected": "The counters in the panel and on the canvas agree, and a rejected quote leaves the 'to decide' count. A short confirmation of what I did, and a way to undo.",
+   "evidence": "docs/qa/iteration-1/chaos/51-rejected.jpg",
+   "suggested_fix": "Count only quotes with no decision, from one shared source used by the panel and the canvas badge. Show 'Rejected: left out of the synthesis (Undo)'."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Scoping (step 2)",
+   "what_happened": "I answered the 'who' question ('Teenagers aged 13 to 18 in school, any country') and a second question about outcome measurement. The 'What we know so far' box first showed my answer under both Who and Where, truncated. After 'Skip the rest' it showed every item as 'not answered yet' and '0 of 6 answered'. The topics and later steps never used 'teenagers': Context and setting later pulled in Southeast Asia.",
+   "expected": "What I typed is kept, shown correctly and used to build the topics and searches.",
+   "evidence": "docs/qa/iteration-1/chaos/12-scoping-q2.jpg, docs/qa/iteration-1/chaos/13-topics.jpg, docs/qa/iteration-1/chaos/14-topics-suggested.jpg",
+   "suggested_fix": "Persist the answers and map each to its slot (Who, Where, Outcome). Do not copy one answer into two slots. Feed the answers into topic generation, and show 'your answers' next to each suggested topic."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Retrieval (step 4) and Map",
+   "what_happened": "I wanted to colour and filter by article type. The 'Colour by' list on the retrieval chart and the step 5 map only offers Study type, Topic, Source database (the table's Group by has Article type). In step 4, clicking the 'Review article' bar did nothing and the article type bars are plain grey. At step 5 I could filter by article type with chips, and an AND of Trial + Review article correctly said 'Showing 0 of 73' with a Reset link.",
+   "expected": "The same filtering on every view that lists papers, so I do not need to know it only works at step 5. Chip counts that update to show what a combination would give.",
+   "evidence": "docs/qa/iteration-1/chaos/30-corpus-list.jpg, docs/qa/iteration-1/chaos/33-filter-review.jpg, docs/qa/iteration-1/chaos/38-filtered.jpg, docs/qa/iteration-1/chaos/41-map-article.jpg",
+   "suggested_fix": "Make the article-type bars in step 4 clickable like the study type legend, or say they are read-only. Add article type to the map's Colour by, or state it is shown in ink only. Show the remaining count on each chip when other filters are active."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Retrieval (step 4) and Ranking (step 6)",
+   "what_happened": "Counts disagree across views. The ranking map legend says Video 5 / Apps 40 / Attention 12 / Measurement 16, but clicking the 'Video' topic shows 'Showing all 40'. The Review step says 'Attention 4 of 60' while the other topics say 'of 40' (73 papers in total). Appraisal says '10 papers' while the step 6 header says 16 selected.",
+   "expected": "One meaning for each count, or labels such as 'primary topic' versus 'scored against this topic'.",
+   "evidence": "docs/qa/iteration-1/chaos/44-video-topic.jpg, docs/qa/iteration-1/chaos/47-overview-7.jpg, docs/qa/iteration-1/chaos/42-rank.jpg",
+   "suggested_fix": "Label the legend counts 'papers assigned to this topic', and the ranking counts 'papers scored for this topic'. Explain why 16 selected become 10 appraised (the same paper can be picked for two topics?). Fix the 60."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Overview and 3D chart",
+   "what_happened": "A JavaScript page error 'Failed to execute removeChild on Node: The node to be removed is not a child of this node' fired when I pressed Back and reopened the project (after the 3D chart step), and again when switching from Map to Table on the ranking page. No visible damage.",
+   "expected": "No console exceptions when leaving the 3D chart.",
+   "evidence": "docs/qa/iteration-1/chaos/36-step5.jpg and docs/qa/iteration-1/chaos/44-video-topic.jpg (the 'problems' output after each)",
+   "suggested_fix": "Guard the 3D chart teardown (dispose once, check parentNode before removeChild)."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Several pages",
+   "what_happened": "Repeated 'Failed to load resource: 404' console errors on the new-review page and on every project page I probed (12 in a row on one run).",
+   "expected": "No failed requests on normal pages.",
+   "evidence": "docs/qa/iteration-1/chaos/07-new.jpg, docs/qa/iteration-1/chaos/62-admin-probe.jpg",
+   "suggested_fix": "Find the 404 resource (probably a missing icon, video or poster) and fix or remove the reference."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Sign up",
+   "what_happened": "The password hint ('At least 10 characters, not containing the name part of your email') is drawn on top of the bottom of the password box, cutting through the dots I typed. It stays that way when the error appears.",
+   "expected": "The hint sits below the field without touching it.",
+   "evidence": "docs/qa/iteration-1/chaos/03-signup.jpg, docs/qa/iteration-1/chaos/04-signup-short.jpg",
+   "suggested_fix": "Give the field a bottom margin or put the hint in normal flow after the input."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Project not found",
+   "what_happened": "Someone else's project (and a made-up id) both give 'Could not open this session / Project not found' with 'Try again' and 'All sessions'. No header or nav. The /table and /export variants have 'Try again' only and no link out. The words 'session', 'project' and 'review' are mixed.",
+   "expected": "A not-found page that offers 'Back to My projects', no pointless Try again, consistent wording.",
+   "evidence": "docs/qa/iteration-1/chaos/05-after-signup.jpg",
+   "suggested_fix": "Use a not-found layout: 'This project does not exist or is not yours', with a 'My projects' button on every sub-route. Remove Retry for 404."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Scoping topics (step 2)",
+   "what_happened": "'Delete' on a suggested topic removed it instantly with no confirmation or undo. The topic I deleted ('Short-form') was the most important one for my idea. The remaining suggestions are single split words: Video, Apps, Attention.",
+   "expected": "An undo, and topics that are concepts (e.g. 'short-form video apps') and not words cut from my sentence.",
+   "evidence": "docs/qa/iteration-1/chaos/14-topics-suggested.jpg, docs/qa/iteration-1/chaos/16-after-delete.jpg",
+   "suggested_fix": "Add a 5-second Undo toast. Generate multi-word concepts."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Topic editor / canvas",
+   "what_happened": "I added synonyms (TikTok, Reels) to an approved topic. The change saved silently ('6 synonyms'), but step 2 flipped back to 'Your turn' and the progress marker moved from step 3 to step 2 with no message about why. Later the Search step warned 'Editing one marks the later steps out of date' only after the fact.",
+   "expected": "A warning before the edit, or a message after it saying 'Editing this reopened step 2; approve again to continue', with the out-of-date state shown.",
+   "evidence": "docs/qa/iteration-1/chaos/19-edit-topic.jpg, docs/qa/iteration-1/chaos/20-searches.jpg, docs/qa/iteration-1/chaos/21-step2-reopened.jpg",
+   "suggested_fix": "Show an inline notice 'Saved. Step 2 needs approving again' with a button to the step. Use the out-of-date (warning) status the intent doc describes."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Search builder / Retrieval",
+   "what_happened": "After running the 10 searches (73 papers found), every query card still said 'PubMed \u2013 \u00b7 OpenAlex \u2013' and the panel still said 'Not counted yet'. The totals only appear on the retrieval page.",
+   "expected": "Per-search counts after the run.",
+   "evidence": "docs/qa/iteration-1/chaos/28-after-reload-running.jpg, docs/qa/iteration-1/chaos/29-step4.jpg",
+   "suggested_fix": "Fill the per-query counts when the run finishes."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Ranking to Appraisal (step 6 to 7)",
+   "what_happened": "After clicking 'Appraise selected papers' the header switched to 'Now: step 7/9 \u00b7 Appraisal' but the page stayed on the step 6 table, the primary button disappeared, and nothing said what happened or where to go. I had to click Overview and then 'Go to step 7'.",
+   "expected": "Move to the appraisal page, or show 'Appraisal started, open step 7'.",
+   "evidence": "docs/qa/iteration-1/chaos/46-appraise.jpg, docs/qa/iteration-1/chaos/47-overview-7.jpg",
+   "suggested_fix": "Navigate to step 7 (or show a banner with a 'Go to step 7' button) after the action."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Research question (step 9)",
+   "what_happened": "The three candidates share identical Gap, Feasibility and Weakness lines. Candidate 2 is labelled 'effect of an exposure (PECO)' but its text is the same kind of implementation question. The text says 'you can edit it' but I saw no Edit control after choosing. The novelty check shows real search strings and counts (PubMed 2,207 records) but gives no plain verdict. The caveat 'Finding none does not prove a question is new' is good, though nothing says novel.",
+   "expected": "Candidates that differ, labels that match their wording, a visible Edit, and a plain sentence on what 2,207 hits mean.",
+   "evidence": "docs/qa/iteration-1/chaos/55-step9.jpg, docs/qa/iteration-1/chaos/56-reasoning.jpg, docs/qa/iteration-1/chaos/57-reasoning2.jpg, docs/qa/iteration-1/chaos/58-chosen.jpg",
+   "suggested_fix": "Make each candidate's gap/weakness specific, add an Edit button on the chosen card, and write 'Many similar studies exist (2,207). This may not be new.' when counts are high."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Export",
+   "what_happened": "'Markdown ... opens in Word, Google Docs or any text editor' is misleading, since Word does not open .md natively. After clicking Download there was no confirmation of any kind.",
+   "expected": "A format line I can trust, and feedback that a file was saved.",
+   "evidence": "docs/qa/iteration-1/chaos/59-export.jpg, docs/qa/iteration-1/chaos/61-downloaded.jpg",
+   "suggested_fix": "Say 'plain text; open it in any text editor or paste into Word/Docs' and show a toast 'Downloaded literature-review.md'."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Summary table (step 5)",
+   "what_happened": "Several AI 'Key finding' cells are junk, e.g. '(mock) Ministry of Health, Singapore.', '(mock) NCT07198828.' and 'The LvL UP Pilot trial was prospectively registered...'. The text says to correct anything that looks wrong, but there is no hint on how many are likely wrong.",
+   "expected": "Key findings that state a finding.",
+   "evidence": "docs/qa/iteration-1/chaos/37-table.jpg, docs/qa/iteration-1/chaos/44-video-topic.jpg",
+   "suggested_fix": "Flag low-quality key findings (very short, an ID, funding line) for review."
+  },
+  {
+   "severity": "polish",
+   "category": "clarity",
+   "page": "Canvas and panels",
+   "what_happened": "After the first project opens, the canvas Idea card still says 'Your turn' / 'Sharpen my idea' beside a green tick on step 1. Three entry points (Open step 1, Sharpen my idea, circle 1) for one action. '8 s' beside 'What happens in this step' is unlabeled. 'MeSH' ('0 MeSH') is explained only on a later page.",
+   "expected": "One obvious next action, labelled durations ('8 s video') and plain-word jargon.",
+   "evidence": "docs/qa/iteration-1/chaos/08-after-start.jpg, docs/qa/iteration-1/chaos/10-step1.jpg, docs/qa/iteration-1/chaos/17-topics-kept.jpg",
+   "suggested_fix": "Show one primary button per card, label '8 s video', and expand MeSH on first use ('MeSH, PubMed's official subject keywords')."
+  },
+  {
+   "severity": "polish",
+   "category": "copy",
+   "page": "Log in redirect",
+   "what_happened": "Following a link to someone else's project when logged out shows 'Log in to continue your review', implying the project is mine. After signup the redirect sends me into the same foreign URL.",
+   "expected": "Neutral wording ('Log in to continue') and no suggestion that the project exists.",
+   "evidence": "docs/qa/iteration-1/chaos/02-foreign-anon.jpg, docs/qa/iteration-1/chaos/05-after-signup.jpg",
+   "suggested_fix": "Use neutral copy on the next-url login and send new accounts to My projects if the next URL is not found."
+  }
+ ],
+ "three_second_test": [
+  {
+   "page": "Landing",
+   "understood_in_3s": true,
+   "note": "Guided literature review that turns a rough idea into a research question with real papers; click Start a review; then sign up. Clear headline and three stage cards."
+  },
+  {
+   "page": "Log in (redirected from foreign project URL)",
+   "understood_in_3s": true,
+   "note": "Log in page. Fill email and password. Wording says 'continue your review', which implied the project was mine."
+  },
+  {
+   "page": "Sign up",
+   "understood_in_3s": true,
+   "note": "Create account: fill name, email, password. Password hint overlaps the box and confuses a little."
+  },
+  {
+   "page": "My projects (empty)",
+   "understood_in_3s": true,
+   "note": "List of my reviews, empty; click Start your first review."
+  },
+  {
+   "page": "New review (step 1)",
+   "understood_in_3s": true,
+   "note": "Type a research idea (examples offered) then Start my review. The button says it is disabled until a sentence is entered, with a reason."
+  },
+  {
+   "page": "Canvas / overview",
+   "understood_in_3s": false,
+   "note": "I saw a canvas with an Idea card and a demo banner. Three ways to proceed (Open step 1, Sharpen my idea, circle 1) and the idea card repeated what I already typed."
+  },
+  {
+   "page": "Step 1 panel",
+   "understood_in_3s": true,
+   "note": "Confirm or edit the idea, then Start scoping."
+  },
+  {
+   "page": "Scoping questions",
+   "understood_in_3s": true,
+   "note": "Answer up to five questions, or skip. The 'What we know so far' box was confusing and later contradicted my answers."
+  },
+  {
+   "page": "Topics",
+   "understood_in_3s": true,
+   "note": "Keep, edit or delete suggested topics; then use them."
+  },
+  {
+   "page": "Topic editor (after approving)",
+   "understood_in_3s": false,
+   "note": "A single topic edit form labelled step 2 'Viewing' while the header said step 3. I expected a step 3 search page."
+  },
+  {
+   "page": "Search builder",
+   "understood_in_3s": true,
+   "note": "Shows the database searches with AND groups before they run; Run all 10 searches. The telemedicine terms were baffling."
+  },
+  {
+   "page": "Retrieval",
+   "understood_in_3s": true,
+   "note": "'215 fetched, 142 duplicates, 73 remain' with article type and study type bars; Summarise the papers."
+  },
+  {
+   "page": "Summary table",
+   "understood_in_3s": true,
+   "note": "Table of papers with chips for study type and article type, and a 3-item checklist; open one paper then Rank."
+  },
+  {
+   "page": "Ranking",
+   "understood_in_3s": true,
+   "note": "Pick papers per topic from scored list; Appraise selected papers. 0 selected for one topic was unexplained."
+  },
+  {
+   "page": "Appraisal",
+   "understood_in_3s": false,
+   "note": "A long panel with checklist, quotes, verified badges and unverified decisions per paper; the 'Do these things' list helped but the page is dense and the counters disagreed."
+  },
+  {
+   "page": "Synthesis",
+   "understood_in_3s": true,
+   "note": "What the evidence says per topic, with conflicts and quote chips; Suggest research questions."
+  },
+  {
+   "page": "Research question",
+   "understood_in_3s": true,
+   "note": "Three candidate questions with gap, feasibility and weakness; choose one then Finish and export."
+  },
+  {
+   "page": "Export",
+   "understood_in_3s": true,
+   "note": "Pick report, spreadsheet or references; Download. Preview is clear."
+  },
+  {
+   "page": "Project not found",
+   "understood_in_3s": true,
+   "note": "Could not open this session. It is clear, but the Try again button is pointless."
+  }
+ ],
+ "categories_and_colours": "Study type has a colour and a shape and a text label in every view I checked, and the legend is always shown. Trial = blue circle, Systematic/scoping review = pink star, Other design = green plus, Cohort/case-control = orange square, Cross-sectional = green triangle, Qualitative/mixed methods = amber diamond, Not reported = grey ring. I understood it without being told: the shape plus the text label in the legend and chips made the colours safe to read, and zero-count categories are greyed. Click-to-isolate is stated ('hover to highlight, click to show only that category'); I verified filtering through the chips in the table, with a clear 'Showing 0 of 73' message and Reset. Topic colouring (Video blue circle, Apps orange square, Attention green triangle, Measurement amber diamond, Context and setting pink star) also works with shapes. Weak spots: (1) Article type has no colour or shape at all in the retrieval bars (plain grey) and is missing from the 'Colour by' list on the maps, although it is filterable by chips in the table; clicking the article-type bars in step 4 does nothing. (2) 'Review article 8' versus 'Systematic / scoping review 5' are two different measures of review papers, which looks contradictory without a note. (3) 'Other design' is vague and its colour (green) is close to the green triangle for Cross-sectional in some lights. (4) Counts across views differ (Video 5 in the legend vs 40 in the topic view). (5) Study type counts change from step 4 (Not reported 56) to step 5 (Not reported 14) because the AI read abstracts; step 4 says so in one line, which is honest. (6) 3D points are very small, and the topic legend scrolled out of view in the panel.",
+ "validity_assessment": "Strong on traceability mechanics, weak on topical relevance in this demo. Good: the demo-mode banner is announced and dismissible, AI text is tagged '(mock)', the AI-drafted label sits next to each table row, the abstract expands in place, the scoring rubric is visible (weights sum to 100), every quote chip opens the exact words with a 'verified' status and 'Open paper', Show source highlights the passage in the paper text, and a planted fabricated quote was flagged as unverified with the closest real passage (54% word match) so I could Reject it. The novelty check shows real search strings and counts and carries the caveat 'Finding none does not prove a question is new'; nothing is called novel. Duplicate arithmetic checked out (160 + 55 = 215, 56 + 17 = 73, 215 \u2212 142 = 73; type and topic counts sum to 73). Not good: (a) the whole review is about telemedicine in Southeast Asia while my topic was teenagers and short-form video. The banner explains it, but the search strings, topics, final question and exported report all present telemedicine as if it were my review, and the export does not say it is demo data. (b) My scoping answers were dropped and never used. (c) 'verified' only means the quote is in the text; some verified quotes (FUNDING, TITLE) do not support the answer they are attached to, and the checklist type (cohort) does not fit an economic modelling study. (d) I could skip 10 unresolved flagged quotes and still reach step 9 and export with step 7 'Approved'. (e) The three candidate questions are templated and nearly identical. (f) Counts in places are inconsistent (11 left vs 10, 40 vs 5, 60). So the workflow could produce a traceable review in real mode, but in this build the checks can be bypassed and the result would look more validated than it is. Privacy: the other person's project (and variants /table and /export) shows the same 'Project not found' as a made-up id, when logged out it redirects to login, and /admin sent me to My projects, so I found no leak.",
+ "would_have_quit_at": "I did not quit. A real student would most likely have hesitated or quit at the search builder (step 3) on seeing 'telemedicine' and 'Southeast Asia' in the search for a teenagers and short-form video topic, and again at step 7 where the checklist, counters and 'verified' badges do not agree. Without the demo banner they would have left there.",
+ "activity": "Created account leo.chaos@example.com (name Leo); one rejected signup (short password), then a valid one (clicked Create account once, second click found no button because it had already navigated). Opened the foreign project URL anonymously (login redirect) and as a logged-in user (Project not found, also /table, /export, a made-up id), and /admin (bounced to My projects). Created one project, 'Effects of short-form video apps on attention span in teenagers' (project id prj_16d06c4979de49cb); double-click on Start my review made no duplicate (the list showed 1 of 1). Ran the whole flow: answered 2 scoping questions and skipped the rest, deleted 1 of 6 suggested topics, edited a synonym list on an approved topic (which reopened step 2), approved topics, wrote and ran 10 searches (73 papers), summarised, filtered and viewed the table and map, ranked (16 selected), appraised, rejected 1 of 11 unverified quotes, skipped the other 10, synthesised, got 3 candidate questions, chose candidate 1, reached export and previewed the report (681 lines), clicked Download the report (Markdown) once. Disruptive actions: double-clicks on Start my review, Create account, Start scoping, Write the searches, Rank the papers and Reject; reload on the topics step and on the running search step; browser Back after the topics and after summarising (returned to My projects, reopened from the list, state kept); edited an approved step later; abandoned and came back from the project list. Errors seen: 400 (short password), repeated 404 resource errors on most pages, and two 'removeChild' page errors. About 110 helper commands used; screenshots 01 to 63 in docs/qa/iteration-1/chaos/. Browser stopped.",
+ "narrative": "I landed on Athena and understood it in a few seconds: type a rough idea, get a research question backed by real papers. Before signing up I tried the other person's project URL and got sent to a login page. After I signed up (short password first, rejected clearly, though the hint overlaps the box), the app sent me straight into that foreign URL and showed 'Project not found', the same message as for a made-up id, so I could not tell it exists. Good. I started a review and double-clicked everything: no duplicate projects, no double sends. The canvas felt busy, with three ways to go on. Scoping lost my answers, and the topics were just single words from my sentence. Editing an approved topic quietly reopened step 2 without telling me why. The search builder shocked me: telemedicine and Southeast Asia terms in a search about teenagers and TikTok. The demo banner explained it, but a real user would be lost. I liked the retrieval page and the table: counts add up, study type has colour plus shape plus label, and chips filter well. Article type could not be coloured on the maps. Ranking showed a clear rubric. Appraisal was the best idea and the most confusing page: the fabricated quote was flagged with the closest passage and I rejected it, but the counter stayed at 11, 'verified' quotes did not always support the answer, and I could skip 10 open quotes and still finish. Step 9 candidates were templated. The export previewed fine, though it never says it is demo data. I reloaded, went back, abandoned and returned: state always came back, with two silent JavaScript errors in the console."
+}

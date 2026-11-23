@@ -1,0 +1,192 @@
+{
+ "persona": "undergrad",
+ "completed": true,
+ "stage_reached": 9,
+ "findings": [
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 9 Research question (candidate 2 reasoning)",
+   "what_happened": "The PECO breakdown for the candidate question 'association between grades and sleep' had Exposure = Grades, Comparison = 'Less or no grades', Outcome = Sleep. This reverses my idea (sleep affecting grades) and the comparison is meaningless. I only spotted it because I opened 'Full reasoning'. I fixed it by hand. A first-year would not know PECO well enough to catch it, and the chosen question would have gone into the report.",
+   "expected": "Exposure and outcome match the question's direction, and the comparison is a sensible contrast (for example 'adequate sleep').",
+   "evidence": "docs/qa/iteration-2/undergrad/32-reasoning.jpg, docs/qa/iteration-2/undergrad/33-chosen.jpg",
+   "suggested_fix": "Derive the PECO fields from the same parse as the question wording. Add a validation that Exposure and Outcome appear in the question in the right order. Show the PECO breakdown next to the question on the card, not only inside the collapsed reasoning."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 7 Appraisal",
+   "what_happened": "Quote chips for quality questions show a green 'found word for word' tick even when the quote does not answer the question. For example 'Follow-up complete and long enough' is backed by 'FUNDING: Ministry of Health, Singapore.', and 'Cohort clearly defined' is backed by the paper's own title. The caveat 'found means the words are in the paper, not that they prove the answer' is only in grey text above the list. A newcomer reads a green tick as 'verified'. The first appraised paper was also an economic modelling study judged against a 'cohort study' checklist.",
+   "expected": "A tick means the quote supports the answer, or the badge wording makes clear it only means the text exists. A paper's appraisal checklist matches its design.",
+   "evidence": "docs/qa/iteration-2/undergrad/24c.jpg, docs/qa/iteration-2/undergrad/25-source.jpg",
+   "suggested_fix": "Rename the badge to 'quote exists in the text' or add a separate 'supports the answer?' check. Warn when the quote is only the title or funding line. Pick the checklist from the paper's detected design."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Steps 6 to 9 (ranking, appraisal, synthesis, question)",
+   "what_happened": "In demo mode nothing about the final question is grounded in sleep or grades. The sleep topic matched 0 papers and the three appraised papers were about diabetic eye screening, telehealth literacy and an HIV app. The synthesis 'Known' statements say only '(mock) 2 key findings were extracted for this topic', and the 'Unknown' statements say only '(mock) Gaps signalled by the studies' own limitations'. Gap statements for my sleep and grades question cite 'Triana et al. 2020'. The demo banner and the '(mock)' labels are honest, but the finished review cannot be shown to a tutor, and I could not judge whether the real workflow would produce useful synthesis text.",
+   "expected": "Either a demo that matches a plausible topic, or an explicit end-of-run statement that no statement in this review can be used. Synthesis statements should have real content tied to their quotes.",
+   "evidence": "docs/qa/iteration-2/undergrad/29-synthesis.jpg, docs/qa/iteration-2/undergrad/30-conflict.jpg, docs/qa/iteration-2/undergrad/31-rq.jpg",
+   "suggested_fix": "In demo mode, add a recorded sample set for common student topics such as sleep and grades. Make the synthesis mock statements quote-specific. Add a 'not usable as a real review' reminder on the export step, not only in the report header."
+  },
+  {
+   "severity": "major",
+   "category": "clarity",
+   "page": "Step 3 / Step 6 consequence: topics with no matching papers",
+   "what_happened": "Ranking ended with Sleep and Academic performance at 0 papers selected and only 3 papers in total. The checklist item 'Keep 3-5 papers per topic' was ticked as done while the warning said 4 topics had fewer than 3 papers. The ranking table's top rows said 'does not match the topic' next to scores of 58 and 54, and they were not selected. A confirm dialog did catch the problem, which was good, but I had no obvious recovery path other than 'Appraise anyway'.",
+   "expected": "A contradictory tick is not shown. The user is told clearly how to recover, for example by editing the topic or search words.",
+   "evidence": "docs/qa/iteration-2/undergrad/20-rank.jpg, docs/qa/iteration-2/undergrad/22-rank-grades.jpg, docs/qa/iteration-2/undergrad/23-after-rank.jpg",
+   "suggested_fix": "Tick 'Keep 3-5 per topic' only when it is true. In the dialog, offer 'Edit searches (step 3)' as a button alongside 'Go back' and 'Appraise anyway'. Explain what 'does not match the topic' means next to a score."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Step 2 Scoping topics",
+   "what_happened": "The automatic search topics were a poor reading of my answers. 'Whether people' was created as a topic from my sentence 'Whether people who sleep less get lower grades'. The 'Who' field kept my whole answer, including 'I'm not sure about age'. Sleep, my main topic, started with 0 synonyms and 0 MeSH. Topic edits were also easy to lose: 'Delete' appears on every row, I could not tell which row would be hit, and Sleep disappeared with no undo or confirmation (Ctrl+Z did nothing). The step also reads 'Aim for 4-8 topics. You have 3.'",
+   "expected": "Short, sensible noun-phrase topics. A visible undo, or a confirm, when deleting a topic.",
+   "evidence": "docs/qa/iteration-2/undergrad/09-q5.jpg, docs/qa/iteration-2/undergrad/10-topics.jpg, docs/qa/iteration-2/undergrad/10b-after-delete.jpg",
+   "suggested_fix": "Trim the answers into noun phrases before making topics. Show an 'Undo' toast after deleting a topic. Give each Delete button an accessible name that includes the topic, for example 'Delete Sleep'."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 3 Search builder",
+   "what_happened": "The step uses unexplained jargon: 'Controlled vocabulary (MeSH)', '0 MeSH', 'title/abstract', 'Query', 'Count matches', 'group 1: any of ... AND group 2'. The topic cards show 'Done' while the step panel says 'Not started'. The query for 'Grades' shows 'grades, grade AND Sleep', so the topic name is merged with another topic's words. Counts of 7,629 or 9,245 papers look authoritative, although the banner explains they are recorded samples.",
+   "expected": "Plain-language labels, or a one-line gloss for MeSH. Status words that agree across card and panel.",
+   "evidence": "docs/qa/iteration-2/undergrad/12-step3.jpg, docs/qa/iteration-2/undergrad/13-searches.jpg",
+   "suggested_fix": "Add one-line plain explanations for MeSH and 'title/abstract' as help text. Use 'Search' rather than 'Query'. Align the status labels between the card and the panel."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 1 / canvas overview",
+   "what_happened": "After typing my idea on the New review page, the canvas asked me again 'Tell us what you want to research' (step 1 of 9) with the same text pre-filled and a 'Start scoping' button. The idea card still said 'Your turn / Draft idea' while the active step was Scoping. I wondered whether my first entry had been lost. 'Canvas' and 'List' toggles are unexplained. The List view was much clearer to me than the Canvas.",
+   "expected": "Step 1 counts as done once I typed my idea, or the step is a clear confirm step. List view is perhaps the default for newcomers.",
+   "evidence": "docs/qa/iteration-2/undergrad/04-questions.jpg, docs/qa/iteration-2/undergrad/05-step1.jpg, docs/qa/iteration-2/undergrad/40-list.jpg",
+   "suggested_fix": "Skip or merge step 1 when the idea was already entered. Alternatively say 'Check your idea' and name the card 'Your idea: approve to continue'. Consider defaulting to List view for first-time users."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Sign up",
+   "what_happened": "On the sign-up page the password hint ('At least 10 characters, not containing the name part of your email.') is drawn on top of the password input and overlaps the field's border. Keyboard focus starts in Email, so the optional name field is skipped. The 'Create account' button looks active while the helper reports it as disabled until the fields are filled.",
+   "expected": "Hint below the field, not overlapping. A disabled button looks disabled, or stays enabled and validates on submit.",
+   "evidence": "docs/qa/iteration-2/undergrad/02-signup.jpg",
+   "suggested_fix": "Move the hint into normal flow below the input. Style the disabled state, or validate on submit."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 5 / 6 filters and map legend",
+   "what_happened": "Study type and article type filters work and are easy to find. The colours plus shapes in the legend are readable and consistent between table, map and chart. However, the legend does not say what each study type means (no gloss such as 'Cross-sectional: a snapshot survey'), and it does not explain the difference between 'Review article 12' and 'Systematic / scoping review 8'. Selecting one chip from each row gave 'Showing 5 of 96' (an intersection) and nothing said 'AND'. Cohort (orange square) and Qualitative (amber diamond) are close in hue. The 3D plot says 'Height has no meaning yet', which looks unfinished. Step 4 says 79 papers are 'Not reported' while step 5 says 16, with only a one-line explanation.",
+   "expected": "A first-timer can tell what each category means without outside knowledge, and understands how two filters combine.",
+   "evidence": "docs/qa/iteration-2/undergrad/14b-scroll.jpg, docs/qa/iteration-2/undergrad/16-table.jpg, docs/qa/iteration-2/undergrad/17-filtered.jpg, docs/qa/iteration-2/undergrad/19-map.jpg",
+   "suggested_fix": "Add hover or tooltip glosses for each study type, using the meanings table. Write 'Showing 5 of 96 that are BOTH ...'. Remove 'Height has no meaning yet' or give height a meaning. Separate the cohort and qualitative hues further."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Step 7 Appraisal / Step 9 candidates",
+   "what_happened": "Demo scripting leaks into the user-facing text: 'Paraphrase presented as a quote \u2014 should be flagged' and 'deliberately altered' appear beside the not-found quotes, and the synthesis has a '(mock) sample conflict ... paired at random'. These are honest but make the review feel staged. Jargon such as PICo and PECO, 'quality questions for a cohort study', 'Rejected quotes are left out of the synthesis', 'Markdown' and 'BibTeX' is only partly glossed. The chosen question title still shows '(mock)' until edited. The export lists 'Markdown, plain text with formatting marks such as # for headings', which would put a first-year off.",
+   "expected": "Plain wording a first-year understands, with a 'what this means' line. A flagged-demo label that does not read like a test script.",
+   "evidence": "docs/qa/iteration-2/undergrad/26-decide.jpg, docs/qa/iteration-2/undergrad/30-conflict.jpg, docs/qa/iteration-2/undergrad/33-chosen.jpg, docs/qa/iteration-2/undergrad/38-larger.jpg",
+   "suggested_fix": "Strip internal annotations from the demo text. Add short glosses for PECO, PICo, BibTeX and Markdown. Default to the printable report for people who want to read it, and keep Markdown as secondary."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Step 9 / Export report",
+   "what_happened": "After I edited the chosen question to 'Do university students who sleep less get lower grades?', the report still carried the old '(mock) Sample gap', '(mock) Feasible with an online survey of about 300 people' and the novelty check run for the old question wording, listing telemedicine papers as 'what was found'. The novelty section is correctly worded 'not proof of novelty', but the edit did not mark the gap, feasibility or novelty check as out of date.",
+   "expected": "Editing the question flags the gap, feasibility and novelty check as needing a re-run, or re-runs them.",
+   "evidence": "docs/qa/iteration-2/undergrad/35c.jpg, docs/qa/iteration-2/undergrad/36-export.jpg, docs/qa/iteration-2/undergrad/38-larger.jpg",
+   "suggested_fix": "After a question edit, show an 'out of date' badge on the gap, feasibility and novelty items. Offer 'Re-run novelty check' next to the Save button."
+  },
+  {
+   "severity": "polish",
+   "category": "copy",
+   "page": "Step 2 Scoping",
+   "what_happened": "The progress text is inconsistent: '1 of 5 questions' next to '5 more to cover' (6 in total). Only 5 questions were asked, so 'which kinds of studies' was never asked and showed 'not answered yet'. 'Rank the papers' is the label, the panel is called 'Summary & ranking', and the page header says 'Table'. The My projects card keeps the raw first sentence as its title even after a question is chosen.",
+   "expected": "Consistent counts and names. The project title or subtitle shows the chosen research question.",
+   "evidence": "docs/qa/iteration-2/undergrad/06-scoping.jpg, docs/qa/iteration-2/undergrad/09-q5.jpg, docs/qa/iteration-2/undergrad/41-projects.jpg",
+   "suggested_fix": "Fix the counter arithmetic. Ask about study types within the five questions, or drop it from the 'what we know' list. Show the chosen question as the project subtitle."
+  }
+ ],
+ "three_second_test": [
+  {
+   "page": "Landing /",
+   "understood_in_3s": true,
+   "note": "The page is for turning a rough idea into a research question backed by real papers. I would click 'Start a review' first, then sign up. The 9-steps-in-3-stages cards make the whole journey clear. The animated demo further down is dark and slow, and the first thing in it ('How do health systems in South...') is unrelated to my topic."
+  },
+  {
+   "page": "Sign up",
+   "understood_in_3s": true,
+   "note": "Page for making an account. I would type email and password, then click Create account. The password hint overlaps the field."
+  },
+  {
+   "page": "New review /s/new (step 1)",
+   "understood_in_3s": true,
+   "note": "Page for typing my idea in a sentence or two. I would write my sentence or click an example chip, then click 'Start my review'. Very clear and reassuring ('does not need to be polished')."
+  },
+  {
+   "page": "Review overview (canvas)",
+   "understood_in_3s": false,
+   "note": "A dark canvas with one card and a 9-step strip. I would click 'Open step 1', but I did not understand why my idea was being asked for again, and what the card 'Your turn' / 'Sharpen my idea' meant versus the blue button."
+  },
+  {
+   "page": "Step 2 Scoping questions",
+   "understood_in_3s": true,
+   "note": "The page is for answering short questions about my idea. I would type an answer, then press 'Send answer'. The 'What we know so far' box helped, and 'Skip the rest' was reassuring."
+  },
+  {
+   "page": "Step 2 Keep the search topics",
+   "understood_in_3s": true,
+   "note": "Page for keeping or deleting suggested topics. I would click 'Keep' on the ones I like, then 'Keep N suggested topics'. The identical Keep and Delete buttons on every row made me worry about clicking the wrong one."
+  },
+  {
+   "page": "Step 3 Search builder",
+   "understood_in_3s": false,
+   "note": "I understood this turns topics into database searches, and that I click 'Write the searches' then 'Run all 8 searches'. I did not understand 'MeSH', 'controlled vocabulary', or the AND/group logic. A cautious student would just press the big button."
+  },
+  {
+   "page": "Step 4 Retrieval",
+   "understood_in_3s": true,
+   "note": "Page showing how many papers were found and how many were duplicates. I would read the big numbers, then click 'Summarise the papers'. The article-type and study-type bars were useful."
+  },
+  {
+   "page": "Step 5 Summary table",
+   "understood_in_3s": true,
+   "note": "Page for skimming papers and fixing wrong cells. I would tick through the 3-item checklist, then 'Rank the papers'. Filter chips with shapes and counts were easy to use."
+  },
+  {
+   "page": "Step 6 Ranking",
+   "understood_in_3s": false,
+   "note": "A warning about fewer than 3 papers and topics with 0 selected. I understood something was wrong, but not what I could do about it, and a checklist tick contradicted the warning."
+  },
+  {
+   "page": "Step 7 Appraisal",
+   "understood_in_3s": false,
+   "note": "Dense: quality checklists, AI answers, quotes, ticks and a 'show only quotes I need to decide' option. I understood I had to decide the red 'not found' quotes and then click 'Summarise the evidence', but I could not tell why a funding line counted as evidence."
+  },
+  {
+   "page": "Step 8 Synthesis",
+   "understood_in_3s": true,
+   "note": "Known / contested / unknown per topic, with quote chips. I would read each tab, then click 'Suggest research questions'. The statements themselves were empty placeholders."
+  },
+  {
+   "page": "Step 9 Choose your research question",
+   "understood_in_3s": true,
+   "note": "Three candidate questions with gap, feasibility and weakness on each card. I would compare them, click 'Choose this question', then 'Finish and export'. Very clear."
+  },
+  {
+   "page": "Export",
+   "understood_in_3s": true,
+   "note": "The page says my review is ready. I would check the question and click 'Download the report (Markdown)'. The format names (Markdown, CSV, BibTeX) were confusing but the printable-report option helped."
+  }
+ ],
+ "categories_and_colours": "Found and filtered by study type and by article type in the Step 4 retrieval mix, and in the Step 5 and Step 6 tables and maps, via two rows of chips with counts (Study type: Trial, Cohort / case-control, Cross-sectional, Qualitative / mixed methods, Systematic / scoping review, Other design, Not reported; Article type: Journal article, Review article, Preprint, Editorial / letter / comment, Other publication). Filtering was easy. Clicking a chip shows 'Showing X of Y: ...', says how many papers are hidden and keeps 'Reset filters' visible. The map and chart legends use colour plus shape plus a label: blue circle = Trial, orange square = Cohort, green triangle = Cross-sectional, amber diamond = Qualitative / mixed methods, pink star = Systematic / scoping review, green cross = Other design, grey ring = Not reported. I understood that colour and shape show the kind of study and that clicking a legend item isolates it, because the legend text says 'hover or focus to highlight, click to show only that category'. It did not say what each study type means. Study type counts differ between step 4 (79 Not reported) and step 5 (16), which is explained only in one line. Two filters from different rows combined as AND without saying so (5 of 96). Cohort and Qualitative have similar orange and amber hues. Counts in the legends matched the bars. The 3D plot note 'Height has no meaning yet' looks unfinished.",
+ "validity_assessment": "Traceability is good. Every quote can be opened with 'Show source' and is highlighted in the retrieved abstract. Altered quotes are flagged 'not found, you decide' with the closest passage and a 54% word match, and I could reject them with an undo. Papers come with real DOIs and abstracts. The report header states 'Demo: scripted AI and recorded sample papers; not a real review', says a found quote 'shows the words are in the paper, not that they prove the claim', and labels the novelty check 'what was found, not proof of novelty'. The question step says 'Finding none does not prove a question is new'. I found no calling the question 'novel'. Weaknesses: (1) the green 'found word for word' tick can sit on quotes irrelevant to the quality question (title, funding line); (2) the PECO fields for my chosen candidate were reversed and nonsensical (Exposure = Grades, Outcome = Sleep); (3) in demo mode the three appraised papers, the synthesis statements and the gap text have nothing to do with sleep and grades, so I could not tell whether the real workflow gives a usable synthesis; (4) editing the question did not mark gap, feasibility and novelty check as out of date; (5) an inconsistent 'Keep 3-5 papers per topic' tick while 4 topics had fewer than 3 papers. Overall: honest about being a demo and the evidence trail is real, but the output is not something I could show my tutor, and I would not know that the PECO error needed fixing.",
+ "would_have_quit_at": "Step 6 Ranking. The screen told me 'Fewer than 3 papers selected in 4 topics', two of my topics had 0 papers, and the top-scored papers said 'does not match the topic'. As an anxious first-year I would worry I had done something wrong, with no clear way to fix it except 'Appraise anyway'. I only kept going because the task asked me to finish. The next-worst point was Step 7, where the checklists and quotes felt too technical, and the papers were unrelated to my topic.",
+ "activity": "Created one account (Mai, mai.undergrad.qa2@example.com) and one project ('I'm interested in sleep and grades', id prj_c4a4f211227c40ae). Answered 5 scoping questions, kept 4 topics (I accidentally deleted the suggested Sleep topic, removed 'Whether people', and added Sleep and Academic performance by hand), ran 8 searches (96 unique papers from 136), generated summaries (10 of 10 batches) and ranking, appraised 3 papers, rejected 3 altered quotes, generated synthesis and 3 candidate questions, chose candidate 2 and edited its wording and PECO fields, finished the export and clicked 'Download the report (Markdown)'. The app showed 'Downloading the report', and I did not open the file. I could not open the printable report in a new view with the helper (the click did not change the visible URL). No console errors or failed requests were reported by the problems command at any step. About 105 helper commands used.",
+ "narrative": "I landed on Athena feeling nervous, but the headline and the nine steps in three stages made sense straight away, so I signed up. The password hint sat on top of the password box, which looked sloppy. Typing my vague idea felt safe, and then the canvas asked for the same idea again, which confused me. The scoping questions were friendly and let me say 'I'm not sure'. The suggested topics included a nonsense one ('Whether people'), and when I clicked Delete I lost Sleep, my main topic, with no undo. The search step threw MeSH and 'controlled vocabulary' at me, so I just pressed the big button. The demo banner told me the papers are about telemedicine, which I appreciated, but it meant every later step felt unreal. The retrieval and table pages were my favourite part: the chips with shapes and counts made filtering by study type and article type easy. Ranking worried me, because Sleep had no papers and a tick said I was fine while a warning said I was not. In appraisal I liked being able to open a source quote and see it highlighted, and I rejected the altered quotes. But a green tick on a funding line as 'evidence' made me trust the ticks less. The synthesis was empty placeholders. The three candidate questions were clear, but when I opened the reasoning I saw sleep and grades swapped round, so I edited it. Export was straightforward, though 'Markdown' and 'BibTeX' meant nothing to me. I finished, but I would not show this to my tutor."
+}

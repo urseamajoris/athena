@@ -1,0 +1,20 @@
+{
+  "empty-375": {
+    "what": "Create-account form",
+    "url": "/signup?next=/s/new",
+    "width": 375,
+    "theme": "dark"
+  },
+  "empty-768": {
+    "what": "Create-account form",
+    "url": "/signup?next=/s/new",
+    "width": 768,
+    "theme": "dark"
+  },
+  "empty-1366": {
+    "what": "Create-account form",
+    "url": "/signup?next=/s/new",
+    "width": 1366,
+    "theme": "dark"
+  }
+}

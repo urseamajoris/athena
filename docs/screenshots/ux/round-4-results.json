@@ -1,0 +1,857 @@
+{
+ "threeSecond": [
+  {
+   "shot": "home/v4/landing-1366.jpg",
+   "purpose": "Athena is a guided tool that helps you turn a rough idea into a research question backed by real papers from PubMed and OpenAlex, through a 9-step process.",
+   "first": "Click the bright blue \"Start a review\" button.",
+   "next": "Type in my rough idea and answer the few short questions it asks, then confirm each step as it finds and ranks papers. I might scroll down first to skim the \"How it works\" cards.",
+   "confusing": [
+    "The three step cards show tiny diagrams with text too small to read, so I could not tell what they show.",
+    "The cards are labelled step 2, 6 and 7 of 9 but sit under 'Stage 1, 2, 3', so the steps versus stages numbering is confusing at a glance.",
+    "Words like 'appraise', 'synonyms', 'OpenAlex' and 'quotes checked against source' are jargon.",
+    "The faint scattered dots behind the headline looked like decoration or noise, and I could not tell what they mean.",
+    "It is not clear what 'I have an instruction' vs 'Start a review' means beyond new vs returning user (I read it as returning user).",
+    "The cards are cut off at the bottom of the screen."
+   ],
+   "colors": "Bright blue/periwinkle marks the main action (the Start a review button) and the selected bars in the mock chart. Green seems to mean 'found/ok' and red 'not found/problem' in the third card. Orange or yellow outlines and highlights look like edited or highlighted items. The scattered multicoloured dots in the background have no clear meaning to me and look decorative."
+  },
+  {
+   "shot": "home/v4/landing-375.jpg",
+   "purpose": "Athena is a guided tool that helps you turn a rough idea into a research question backed by real papers from PubMed and OpenAlex, through a 9-step process.",
+   "first": "Tap the blue \"Start a review\" button, since it is the most prominent action and the page says it is free to try.",
+   "next": "Type in my rough research idea and go through the steps. If I was unsure, I would scroll down to \"How it works: 9 steps, 3 stages\" to see what the process looks like before committing.",
+   "confusing": [
+    "PubMed and OpenAlex: the page explains them as free research libraries, so I mostly got it",
+    "\"Every quote checked against its source\": unclear how that is done or what a quote is here",
+    "\"9 steps, 3 stages\": not clear what the stages are at first glance",
+    "The scattered tiny coloured dots in the background: decorative, but I could not tell if they meant anything",
+    "The preview card at the bottom (\"Step 2 of 9: Turn it into search topics\") is cut off, with tiny text (\"Sleep duration\", \"Accept\") that I could not read or understand",
+    "\"Log in\" versus \"I have an account\": two similar options for returning users"
+   ],
+   "colors": "The blue/periwinkle button marks the main action (start). The grey outlined button is secondary (existing account). The faint multi-coloured dots in the background look decorative, perhaps suggesting papers or data points, and I assign no specific meaning to them. In the preview card at the bottom, the small blue/orange/red outlined boxes look like labels or states, perhaps accepted or rejected items, but I cannot tell."
+  },
+  {
+   "shot": "signup/v4/empty-1366.jpg",
+   "purpose": "A sign-up page for Athena, a tool that guides you from a rough idea to a research question backed by real papers in 9 steps.",
+   "first": "Click into the Email field, which already looks focused, and type my email address. I might skip the optional name.",
+   "next": "Type a password of at least 10 characters that avoids the name part of my email, then click the blue \"Create account\" button.",
+   "confusing": [
+    "What a '9 steps' process involves is not clear from this page.",
+    "'Your reviews are private to your account' - I did not know what 'reviews' meant (literature reviews?).",
+    "The Email field has a bright white outline, which looks odd until I realise it is the focus state.",
+    "The labels and password hint are small and low-contrast grey, so I would have to squint.",
+    "There is no show-password toggle, no sign-up alternative such as Google, and no sign of terms or a privacy policy.",
+    "The 'A' logo mark is tiny and says nothing about what the product does beyond its name."
+   ],
+   "colors": "The blue-purple button is the main call to action. The white outline on the Email field means it is active or selected. Everything else is dark background with grey and white text, with no other meaningful colours."
+  },
+  {
+   "shot": "login/v4/error-1366.jpg",
+   "purpose": "A login page for Athena, a literature-review tool, where a returning user signs in to continue their saved review.",
+   "first": "Read the red error box: my email and password did not match an account. I would re-check the email I typed (nobody@example.org looks like a placeholder) and retype my password.",
+   "next": "Click the blue \"Log in\" button again with corrected details. If I still could not get in, I would read the small grey text about forgetting a password, or click \"Create an account\" if I had never signed up.",
+   "confusing": [
+    "The grey 'Forgot your password' text is small and low contrast, and says to ask 'the person who runs this Athena server', which is odd. There is no reset link.",
+    "Which Athena this is (what it does beyond 'literature reviews') is not clear from the page.",
+    "The password dots are shown, but there is no show-password control.",
+    "The error does not say which field is wrong.",
+    "The logo is just a small 'A' icon with no explanation."
+   ],
+   "colors": "Red outline, red circled exclamation icon and red-tinted box mean an error or something wrong. The blue/periwinkle button is the main action I should click. The rest is dark with white and grey text, where white is important and grey is secondary help text."
+  },
+  {
+   "shot": "projects/v4/populated-1366.jpg",
+   "purpose": "A dashboard called Athena listing \"My projects\", where each project is a 9-step literature review (idea to research question) that you open to continue where you left off.",
+   "first": "Click the blue \"Start a new review\" button, or, to continue existing work, open the card that says \"Your turn: step 9, research question\" (or the one with the orange warning).",
+   "next": "Open a project card and carry on with the step it says is my turn. If I had made a new review, I would fill in my topic. I might also look at the orange-warning card to fix the changed step, or use \"Sort and filter\" to tame the list.",
+   "confusing": [
+    "Nine of the ten cards have identical titles ('What is the knowledge gap in implementing telemedicine in Southeast Asia?'), so I can't tell them apart except by progress bar and step.",
+    "The row of small bars: I can guess it is 9 steps of progress, but I don't know what the grey segment (vs. the dark ones) means.",
+    "Step names like 'scoping', 'appraisal', 'synthesis', 'summary table', 'ranking', 'search builder' are jargon I don't understand.",
+    "The '...' menu on each card: I don't know what it offers until I open it.",
+    "'Sort and filter' is collapsed and '10 of 10' is slightly unclear at a glance.",
+    "'Step 2 changed, so 7 later steps need updating' is a worrying message and I'm not sure what to do about it.",
+    "Several cards show 'Your turn' with a clock-like icon, and I'm not sure what the icon means.",
+    "The last card is cut off at the bottom of the screen."
+   ],
+   "colors": "Green bar segments = completed steps. A grey/light segment = the current step (where it's my turn). Dark/empty segments = steps not yet done. Orange/amber on one card (bars and text with a warning triangle) = a warning or problem: something changed and needs attention. The blue button = the main call to action. Everything else is a dark neutral theme with no meaning."
+  },
+  {
+   "shot": "projects/v4/populated-375.jpg",
+   "purpose": "A dashboard called Athena listing my literature review projects, each a guided 9-step process from idea to research question, where I can continue one or start a new one.",
+   "first": "Tap the blue \"Start a new review\" button if I'm new, or open the top project to continue, since it says \"Your turn: step 9\".",
+   "next": "Open one of the project cards to continue where I left off, or use \"Sort and filter\" to find a specific project among the 10.",
+   "confusing": [
+    "Three project cards have the identical title, so I can't tell them apart except by the step label",
+    "What the 9 progress segments each stand for is unclear, and some bars show a grey segment while others are fully green",
+    "'Your turn: step 9, research question' is unclear: whose turn is it otherwise, and does the app do some steps for me?",
+    "The 'Sort and filter' row is collapsed, and '10 of 10' isn't obvious at a glance",
+    "The three-dot menu on each card has no visible meaning until tapped",
+    "The clock-like icon next to 'Your turn' is unclear",
+    "What a 'review' involves in terms of steps, since step names such as 'synthesis' and 'appraisal' are jargon to a newcomer"
+   ],
+   "colors": "Green segments mean completed steps and a lighter grey segment means the current step. Dark grey segments are steps still to do. The blue button is the main call to action. It's a progress bar, not an error or warning scheme."
+  },
+  {
+   "shot": "new/v4/empty-1366.jpg",
+   "purpose": "A dark, minimal start screen for a tool called Athena where you type a research idea and begin a guided literature review.",
+   "first": "Click into the text box and type my research idea in a sentence or two (or click one of the example chips to see how it works).",
+   "next": "Click the blue \"Start my review\" button, then answer the up-to-five short questions that follow to refine the idea into search topics.",
+   "confusing": [
+    "What exactly 'my review' is (literature review? peer review?) and what Athena produces at the end",
+    "'Step 1 of 9' implies a long process, but only the first step is explained",
+    "'Athena helps you sharpen it next' / 'search topics' is vague about what is searched",
+    "The 'My projects' header and the round user icon, since this is an empty first-time state and it is unclear if projects already exist",
+    "The 'A' logo is unexplained, as is the faint dotted background",
+    "The 'Write at least a sentence to start.' hint is quiet and I did not notice at once that the button is probably disabled"
+   ],
+   "colors": "Blue/periwinkle on the main button marks the primary action to click. The white outline on the text box means it is focused and ready to type in. Everything else is grey on black with no other coloured meaning; the grey outlined pills are clickable example suggestions."
+  },
+  {
+   "shot": "new/v4/empty-375.jpg",
+   "purpose": "A mobile, dark-themed first step of a 9-step guided flow (Athena) where you type a research idea and it helps you turn it into a literature review.",
+   "first": "Click the big text box and type my research idea in a sentence, or tap one of the \"Try:\" example chips to fill it in.",
+   "next": "Press the blue \"Start my review\" button, then answer the up-to-five short questions that follow to sharpen the idea.",
+   "confusing": [
+    "What Athena is: the name appears only in the helper text, with no description of what it does or produces",
+    "What my review means (literature review? peer review?) and what the end result will be",
+    "What the 9 steps involve, since only step 1 is shown",
+    "What search topics refers to in the Next hint",
+    "The round profile icon at top right and the A logo with My projects header: unclear if I have existing projects or need to sign in",
+    "Whether the Try chips fill the box or immediately start something",
+    "The Start my review button looks active, but the hint below says to write at least a sentence first, so it is unclear if it is disabled"
+   ],
+   "colors": "Mostly a dark background with white text. The bright blue/periwinkle button is the main call to action (go). The white outline around the text box means it is focused or active, ready for typing. The grey outlined pills are optional suggestions. Grey text is secondary hint information. No colour seems to signal status such as error or success."
+  },
+  {
+   "shot": "idea/v4/chat-1366.jpg",
+   "purpose": "A guided research tool (Athena) that walks you through a 9-step process; right now it asks scoping questions to sharpen a research idea about sleep and grades in university students, in a demo mode with scripted AI.",
+   "first": "Type an answer to \"Who do you want to study?\" in the highlighted text box on the right (for example age, year of study, country).",
+   "next": "Press Send answer (or Enter) and answer the following questions, or click \"Skip the rest\" to go straight to the search topics.",
+   "confusing": [
+    "What Canvas vs List means, and what the card on the canvas adds beyond the right panel",
+    "The numbered circles 1-9 at the top; I only guess they are workflow steps",
+    "What the (mock) label means, and why the demo banner says results will be about telemedicine in Southeast Asia",
+    "The 8 s next to What happens in this step",
+    "The Your turn label and the cmd+K button",
+    "The Search topics taking shape chips (Sleep, Grades) and what Edit the idea does",
+    "Whether the left canvas, with its dot grid and zoom controls, is something I need to use",
+    "The small ... and close X buttons in the panel"
+   ],
+   "colors": "Green check on step 1 means done. The white-ringed circle 2 is the current step, and the grey circles are upcoming steps. The orange/amber Your turn label means it is waiting on me. The blue Send answer button is the main action. The page is otherwise dark with grey text."
+  },
+  {
+   "shot": "idea/v4/chat-375.jpg",
+   "purpose": "A guided chat step where an assistant called Athena asks a few short questions to refine a research idea (sleep and grades in university students) into search topics.",
+   "first": "Click the text box and type an answer to \"Who do you want to study?\", e.g. \"university undergraduates\", then press Send answer.",
+   "next": "Answer the following questions (up to 5) about where and what I want to know, or tap \"Skip the rest\" to go straight to search topics, then move on to step 3 of 9.",
+   "confusing": [
+    "What 'Scoping' and the 9-step progress bar mean as a whole process",
+    "The '(mock)' prefix in the question looks like placeholder or test text",
+    "'What happens in this step' with '8 s' - unclear what the 8 s is (a time? a duration?)",
+    "The '...' menu and the X close button - unclear what they do",
+    "Content is cut off at the bottom of 'What we know so far', so I cannot see the rest",
+    "'Search topics' - not clear what these will be or what gets searched",
+    "Small grey text is hard to read"
+   ],
+   "colors": "Orange 'Your turn' with a clock icon means it is my turn to act. The progress bar is green for the completed step, white for the current one, and grey for the remaining ones. The blue/purple 'Send answer' button is the main action; the grey 'Skip the rest' is secondary. The white-outlined box is the active input field."
+  },
+  {
+   "shot": "scoping/v4/topics-1366.jpg",
+   "purpose": "A step-by-step research tool (Athena) where, at step 2 of 9 (Scoping), I review AI-suggested search topics for a telemedicine question and keep, edit or delete them.",
+   "first": "Click the blue \"Keep 5 suggested topics\" button at the bottom right, since it looks like the main action and the topics seem reasonable.",
+   "next": "Move on to step 3, the search builder, as the panel says. Before that I might glance at \"What happens in this step\" or edit a topic.",
+   "confusing": [
+    "The numbered circles 1-9 at the top: I guessed they are workflow steps, with the check mark meaning step 1 is done.",
+    "Whether 'Canvas' vs 'List' are two views of the same content. The canvas on the left is cut off by the side panel.",
+    "The same action appears in several places (Keep per row, 'Keep 5 suggested topics' in the card and at the bottom, 'Accept' on each canvas node). It is unclear how they differ.",
+    "The 'Accept' and 'Dis...' buttons on the canvas cards are truncated, so I cannot tell what the second one says.",
+    "'8 s' next to 'What happens in this step' (probably a duration or a reading time?)",
+    "The \u2318K control and the person icon at the top right.",
+    "'Demo mode ... (mock)' wording: I understood it means the data is sample data, but it is a lot of small text.",
+    "The 'Idea' and 'Topic' node labels, and 'subtopic'.",
+    "'Scoping conversation: 3 questions' and 'What we know so far: 6 of 6 answered': I could not tell what these contain or whether I need to do anything.",
+    "The bottom of the panel has a cut-off collapsed section that I could not read."
+   ],
+   "colors": "[\"Orange/amber: 'Your turn' and the 'suggested' tags mean something is waiting on me or is not yet confirmed. Blue: the primary button, so the main action. Green check on step 1: done. Dashed outlines on canvas topic cards: provisional, which the panel text confirms ('stay dashed until you keep or delete'). White outline on the Idea node and on step 2: currently selected or active.\"]"
+  },
+  {
+   "shot": "scoping/v4/topics-375.jpg",
+   "purpose": "It is a step in a guided research workflow (step 2 of 9, \"Scoping\") where I review five suggested search topics for a telemedicine knowledge-gap question and keep, edit or delete each one.",
+   "first": "Tap the big blue \"Keep 5 suggested topics\" button at the bottom to accept everything, since it is the most prominent action and the text says it is my turn.",
+   "next": "Scroll down to see the remaining topics, or use Edit or Delete on any topic that does not fit. After that I would move on to step 3, the search builder.",
+   "confusing": [
+    "What the nine-segment progress bar means beyond 'step 2 of 9'",
+    "'What happens in this step' with '8 s' - unclear whether that is a duration or something else",
+    "'Scoping conversation: 3 questions' - I did not know what it holds or whether I need to open it",
+    "The '...' and 'X' icons at the top - unclear what they do, and whether X discards my progress",
+    "Whether 'suggested' is a status I must change, and what 'Keep' does differently from the bottom button",
+    "The lightbulb icon and the truncated quote of the research question",
+    "The fourth topic is cut off at the bottom, so I cannot see all five",
+    "Narrow column makes topic names wrap onto many lines"
+   ],
+   "colors": "The green and white progress segments show steps done and current. The orange 'Your turn' and orange 'suggested' tags read as 'needs my attention or not yet confirmed'. The bright blue button is the main action. The dark background has no meaning of its own."
+  },
+  {
+   "shot": "search/v4/review-1366.jpg",
+   "purpose": "It is a research tool (Athena) where you check and run literature searches (PubMed and OpenAlex) for a topic, step 3 of 9, in a demo mode with sample data.",
+   "first": "Read the big heading \"Check the searches before they run\" and look at the PubMed result: 979 papers match, with an orange warning that it is too broad and I should add a term to focus it.",
+   "next": "Click the blue \"Run all 10 searches\" button at the bottom right to move on to step 4. Or first try \"Count again\" or add a term to narrow the search.",
+   "confusing": [
+    "What 'Athena' does overall and what the 9 numbered steps are",
+    "'Canvas' vs 'List' toggle",
+    "The 'Done' and 'Your turn' labels on the cards at the left",
+    "'Index term' vs 'title/abstract' tags",
+    "'group 1: any of' and 'AND group 2' logic",
+    "'OpenAlex' (what it is) and why PubMed has 979 and OpenAlex 1,630",
+    "'MeSH' and 'synonyms' on the left cards",
+    "What 'Count again' does",
+    "'(mock)' text and what 'Demo mode' means for my results",
+    "The cards are cut off on the left, and the unlabelled buttons at the bottom left and the 'K' shortcut",
+    "'8 s' next to 'What happens in this step'"
+   ],
+   "colors": "Green check marks and 'Done' mean finished steps. Orange/amber with a clock icon and 'Your turn' mean it is waiting for me to act or review. The orange warning text means a caution (search too broad). The blue button is the main action to press. The white-outlined circle with 3 and the highlighted card mean the current step and selected item. Grey circles 4 to 9 are steps still to come."
+  },
+  {
+   "shot": "search/v4/review-375.jpg",
+   "purpose": "It is step 3 of 9 in a research-paper search tool: you check the literature searches (PubMed counts) and then run them all before papers are retrieved.",
+   "first": "Read the heading and intro, then tap the big blue \"Run all 10 searches\" button, or glance at the PubMed card first.",
+   "next": "Read the orange PubMed warning and maybe tap \"Count again\" or add a term to narrow it. Then scroll to see the other searches and run them all, moving on to step 4 (retrieval).",
+   "confusing": [
+    "What 'Count again' does exactly, and whether it re-runs the search or only refreshes the number",
+    "The 'Demo mode' box says my edits to the search text, years or languages are ignored, but I can't see where I would edit anything",
+    "The orange 'Broad: only the 40 most relevant will be collected' text: unclear whether it is an error I must fix or just advice",
+    "Jargon such as 'index term', 'retrieval' and 'OpenAlex'",
+    "What the '8 s' next to 'What happens in this step' means (a timer? reading time?)",
+    "The 'Your turn' label and the small '...' menu",
+    "The card is cut off, so I can't see the other 9 searches",
+    "The tiny dot next to 'Search builder' at the top"
+   ],
+   "colors": "The progress bar has 9 segments: two green (steps done), one white (current step 3), the rest grey (still to come). Orange/amber text and the 'Your turn' label read as a warning or a call for my attention, here that the search is too broad. The blue button is the main action to go ahead. White and grey text is normal or secondary information."
+  },
+  {
+   "shot": "retrieval/v4/done-1366.jpg",
+   "purpose": "It's a research tool (Athena) where an AI walks you step by step through a literature search; this screen shows the results of step 4 (papers retrieved from databases, duplicates removed) before moving on to a summary table.",
+   "first": "Read the sentence \"400 results fetched, 205 were the same paper found twice, so 195 different papers remain\", then glance at the bar chart of article types.",
+   "next": "Click the blue button \"Go to step 5: Summary table\" to continue to ranking and summarising the papers.",
+   "confusing": [
+    "Why the top bar says 'Current step: 5 of 9' while the panel says 'Viewing step 4 of 9', and the button says 'Go to step 5' (step numbering feels inconsistent)",
+    "The left canvas of boxes and connecting lines is cut off and its meaning (query boxes feeding 'Retrieved papers' then 'Summary & ranking') is not clear at a glance",
+    "'Corpus' and 'dupes' jargon",
+    "'Canvas' vs 'List' toggle",
+    "The '\u2318 K' button and the '...' menu",
+    "The orange 'You...' label on the Table box is truncated",
+    "Study type chart is cut off at the bottom of the panel, so the 'AI-derived' study types are only partly visible",
+    "'Demo mode' banner text is small and dense; 'mock' is unclear",
+    "'PubMed 979 \u00b7 OpenAlex 1,630' numbers without explanation"
+   ],
+   "colors": "Green checkmarks and green 'Done' labels mean completed. The highlighted ringed circle (5) is the current step, and grey circles 6-9 are upcoming steps. The orange 'You...' label on the Table box seems to mean it's waiting for me or needs my action. The blue button is the main action. In the study-type chart, blue, orange and green dots/bars are different study categories (Trial, Cohort, and another), and the grey bars are article-type counts. Nothing red, so nothing seems wrong."
+  },
+  {
+   "shot": "summary/v4/review-1366.jpg",
+   "purpose": "A step in a guided research workflow (step 5 of 9) where you skim a table of AI-summarised papers, correct mistakes, then rank the papers.",
+   "first": "Read the checklist at top right and click a paper title in the table to open it and compare the row with its abstract (or click a study type chip to filter).",
+   "next": "Double-click any wrong study type, setting or key finding cell to fix it, then click the blue \"Rank the papers\" button to move on.",
+   "confusing": [
+    "What 'Rank the papers' actually ranks by, and how that differs from this step",
+    "'What happens in this step 8 s' - unclear what the 8 s means (time? seconds to read?)",
+    "'(mock)' in the findings, only explained in the thin demo banner",
+    "'Study type' versus 'Article type' versus the 'Study type' column, which also has a grey sub-label like 'Protocol' or 'Qualitative'",
+    "'Group by', 'Columns', and 'More filters' purpose without clicking",
+    "Large empty black area between the heading and the checklist",
+    "The 9-segment progress bar has no labels for the other steps",
+    "The Table/Map toggle: what the map shows",
+    "The avatar icon at top right"
+   ],
+   "colors": "Green segments in the top bar mean completed steps, and the grey one means the current step (4 done, on the 5th). The blue button is the main call to action. The coloured shapes on the study-type chips (blue circle, red square, green triangle, orange diamond, pink star, green plus, hollow circle) are category markers that repeat in the table rows, a legend for study type. Colour alone does not tell me what each design means."
+  },
+  {
+   "shot": "summary/v4/review-375.jpg",
+   "purpose": "A guided step (5 of 9) in a literature-review tool where you check an AI-drafted table of papers, fix wrong cells, then rank the papers.",
+   "first": "Read the headline and the \"Do these 3 things\" checklist, then try the first item: look at the study types, or switch to the Map view. I would probably also glance at the Demo mode banner to see that this is sample data.",
+   "next": "Open one paper from the table by clicking its title, compare its row with the abstract, and fix any wrong cell. Then press the blue \"Rank the papers\" button to go to the next step.",
+   "confusing": [
+    "The table itself is not visible. Only the checklist, the Table/Map toggle and the search box show, so I could not see the papers.",
+    "\"AI \u00b7 abstract\" badge: I guessed it means the AI drafted the cell from the abstract only, but it was not obvious at a glance.",
+    "\"Cells\" and \"study type, setting, key finding\": unclear what the columns are until I see the table.",
+    "\"What happens in this step\" with \"8 s\": I could not tell whether 8 s is the time it takes or something else.",
+    "\"Rank the papers\": unclear what the ranking is based on.",
+    "The step counter appears twice, as \"Now: step 5/9\" in the top bar and as \"Step 5 of 9\" in the text, which is a bit redundant.",
+    "\"Demo mode\" banner: dense text, and I did not know whether the \"(mock)\" labels will matter to me.",
+    "The empty circles with \"0 of 3 done\": I was not sure whether they are tickable or tick themselves as I act.",
+    "The map option: I did not know what a map would show."
+   ],
+   "colors": "The progress bar at the top has green segments for done steps, a light segment for the current step and dark grey for the remaining steps. The blue button is the main action. The dark background is the app's theme and carries no meaning. The \"Demo mode\" banner is muted grey, so I read it as informational rather than a warning. Everything else is grey and white."
+  },
+  {
+   "shot": "ranking/v4/review-1366.jpg",
+   "purpose": "A step in a guided research workflow (step 6 of 9) where you review AI-scored papers per topic, adjust which ones are selected, then send them on to be appraised.",
+   "first": "Read the heading and the 'Before you continue' checklist, then click one of the topic buttons (e.g. 'Telemedicine adoption and use') to see its ranked papers.",
+   "next": "Open a selected paper with the arrow at the start of its row to see why it scored high, adjust the Keep checkboxes if I disagree, then click the blue 'Appraise selected papers' button at top right.",
+   "confusing": [
+    "What 'Appraise' means and how it differs from ranking",
+    "Whether 'selected' means kept or already chosen by the AI; '4 selected' vs '20 selected' vs '195 papers' is a lot of numbers",
+    "The checklist: two empty circles and a struck-through item; unclear why it says '1 of 3 done' and whether it is mandatory",
+    "Study-type symbols (circle, square, triangle, diamond, star, plus) and whether those chips are filters or just counts",
+    "Table/Map toggle, 'Group by' and 'Columns' purpose",
+    "The Key finding column is a messy blob of citation text starting with '(mock)'",
+    "'8 s' next to 'What happens in this step'",
+    "The score: what the grey bar means versus the number 92",
+    "So much sits above the table that the actual papers are barely visible below the fold",
+    "Demo mode banner and what '(mock)' means"
+   ],
+   "colors": "Top progress bar: green segments are completed steps, the light grey segment is the current step, dark ones are upcoming. The blue button is the main action. Green text or check means done or selected (e.g. 'selected in 2 topics', the checked checklist item). The coloured shapes beside study types (blue circle, orange square, green triangle, yellow diamond, pink star, green plus, hollow circle) look like a legend categorising study design, but I do not know what each means; the pink star next to the Systematic review row suggests they also mark types in the table."
+  },
+  {
+   "shot": "ranking/v4/map-1366.jpg",
+   "purpose": "A research-workflow step (step 6 of 9) where I review AI-scored papers per topic, adjust which ones are selected, then click \"Appraise selected papers\" to continue.",
+   "first": "Read the heading \"Check which papers go forward\", then click one of the topic buttons (e.g. \"Telemedicine adoption and use\") to see its ranked papers.",
+   "next": "Open a selected paper to see why it scored high, change the Keep checkboxes if I disagree, then click the blue \"Appraise selected papers\" button at the top right.",
+   "confusing": [
+    "What 'Appraise' means as an action",
+    "The scatter chart is cut off at the bottom, so its axes and what each dot is are unclear",
+    "Why 20 are selected out of 195, and how '4 selected' per topic relates to the 'Keep 3-5 papers per topic' checklist item",
+    "Table vs Map toggle: what 'Map' shows",
+    "Group by and Columns controls: unclear what they change",
+    "Demo mode banner: results are not for my topic and AI text is marked (mock)",
+    "Checklist shows 1 of 3 done though I have done nothing",
+    "'What happens in this step' with '8 s': unclear if it is a video or a read time",
+    "Progress bar segments: unclear whether they are clickable"
+   ],
+   "colors": "Top progress bar: green segments mean completed steps, grey is the current step, dark is remaining steps. Blue button is the main action. In the chart, coloured shapes (blue circle, orange square, teal triangle, amber diamond, pink star, green plus, hollow circle) are the study types, per the key. Green tick on the checklist means done."
+  },
+  {
+   "shot": "appraisal/v4/review-1366.jpg",
+   "purpose": "A step-by-step research tool (Athena) where, at step 7 of 9 (Appraisal), I review AI-checked quality answers for each of 16 papers and decide on 17 quotes the AI could not find, before moving to synthesis.",
+   "first": "Read the right-hand panel's \"Do these things\" checklist, then start with Paper 1 of 16 and look at its quality checklist and any quotes marked \"not found, you decide\".",
+   "next": "Accept or reject each undecided quote, click \"Next paper\" to move through all 16, then click \"Summarise the evidence\" to go to step 8.",
+   "confusing": [
+    "Canvas vs List toggle and the node diagram on the left: unclear how it relates to the panel",
+    "The paragraph explaining Yes/No/Unclear/Not reported and 'found word for word' is dense small text",
+    "'Appraisal' and 'quality checklist' jargon, and what a 'quote' is here",
+    "'8 s' next to 'What happens in this step'",
+    "Why 'Summarise the evidence' appears twice (on the canvas node and in the panel), and the warning that undecided quotes are left out",
+    "'Demo mode' banner and '(mock)' text",
+    "The numbered circles 8 and 9 and the \u2318K shortcut",
+    "The '...' menu and the unchecked 'Show only quotes I need to decide' box"
+   ],
+   "colors": "Green check marks and 'found word for word' mean done or found, good. Red cross and 'not found, you decide' mean a problem needing my decision. Orange or yellow 'Your turn' means it is my action now. The blue 'Next paper' button is the main action. The highlighted, outlined step circle (7) and canvas card mean the current step. Green 'Full text' badge means the full paper is available."
+  },
+  {
+   "shot": "appraisal/v4/review-375.jpg",
+   "purpose": "A guided step (7 of 9) in a research-review tool where I check each paper's quality appraisal, decide on quotes the AI could not find in the paper, then move on to summarising the evidence.",
+   "first": "Click the blue \"Next paper\" button to start going through the papers one by one (or tick \"Show only quotes I need to decide\" to jump to the quotes needing a decision).",
+   "next": "Keep clicking \"Next paper\" through all 16 papers, accept or reject each undecided \"not found\" quote, then press \"Summarise the evidence\" to go to step 8.",
+   "confusing": [
+    "What an 'appraisal' and 'quality checklist' are in this context",
+    "'Quote' and 'not found, you decide' - unclear whose quote it is and what accepting or rejecting does",
+    "'Synthesis' and 'Summarise the evidence' - what comes out of it",
+    "The '8 s' next to 'What happens in this step' - is it a time estimate?",
+    "Who or what 'Athena' is (named in the small text)",
+    "The '...' and 'x' icons at the top right and the small icon at the top left",
+    "17 quotes 'left out' warning versus 'Summarise the evidence' button - unclear if I can proceed without deciding",
+    "Two counts (0 of 16 looked at, 17 left) shown at once make progress feel heavy"
+   ],
+   "colors": "Green segments in the top progress bar mean steps done, the white segment is the current step (7), and grey ones are steps still to come. Green tick text means 'found word for word' (good); red cross text means 'not found, you decide' (problem needing my attention). The orange 'Your turn' label means it is my action now. The blue-purple button is the main action, and the grey-outlined button is secondary."
+  },
+  {
+   "shot": "synthesis/v4/review-1366.jpg",
+   "purpose": "A research-assistant app (Athena) that walks you through a 9-step literature review, and this screen is step 8 where you review AI-generated evidence statements (known, contested, unknown) linked to paper quotes before moving to research questions.",
+   "first": "Read the heading \"Read what the evidence says\" and the checklist, then start on the first item: read the topic tab \"Telemedicine adoption and use\" and its conflict card. If in a hurry, I would just click the blue \"Suggest research questions\" button.",
+   "next": "Click through the other topic tabs (e.g. \"Barriers and facilitators\") and click a green quote chip such as \"Noceda et al. 2023 \u00b7 finding 2\" to check the exact words, fix any statement that overreaches, then press \"Suggest research questions\" to go to step 9.",
+   "confusing": [
+    "What a 'conflict' means here and how 'Contradictions between papers' differs from 'Known'",
+    "The green check and red X counts (153 / 17) on the canvas cards, with no label saying what they count",
+    "What 'Canvas' vs 'List' really means and what the canvas cards and the line between them are for",
+    "The 'What happens in this step' collapsed row with '8 s'; unclear what 8 s refers to",
+    "The row of 9 numbered circles at the top, since the checks are small and I would not know I can click them",
+    "The long paragraph explaining chips ('found word for word'), which is dense and small",
+    "'(mock)' labels and the Demo mode banner, which are a bit confusing at first glance",
+    "The scale/balance icon and the cmd-K shortcut button, which I would not recognise at once",
+    "The 'Known' section cut off at the bottom of the panel, so it is unclear there is more to scroll",
+    "The truncated question title 'What is the knowledge gap in imple...' and the clipped tab 'Barriers and facilitators to imple...'"
+   ],
+   "colors": "Green means done, passed or verified (completed step circles, the 'Done' tag, the 153 count, check marks on quote chips, 'Known'). Orange/amber with a clock icon means 'Your turn', so I need to act. Red means rejected or failed (the 17 with an X). Purple/violet means conflict or contradiction (the 'conflict' tag and the purple-outlined card). Blue is the main button to press next. The white-ringed circle is the current step 8."
+  },
+  {
+   "shot": "synthesis/v4/network-1366.jpg",
+   "purpose": "An AI-assisted research tool (Athena) that walks you through a 9-step literature review; this screen is step 8, Synthesis, showing an evidence network linking statements to papers.",
+   "first": "Read the right panel title \"Read what the evidence says\" and glance at the network diagram to see which statements are known, contested or unknown.",
+   "next": "Click the blue \"Suggest research questions\" button to move on to step 9.",
+   "confusing": [
+    "The network diagram: the lines from statements to papers are a dense tangle with no clear meaning",
+    "The \"Statements\" label overlaps the green shapes and is hard to read",
+    "The left canvas card is cut off and partly unreadable (\"praisal\", \"aisal\")",
+    "\"153 / 17\" with a tick and a cross on the cards: what is being counted?",
+    "\"5 conflicts\" versus the \"Contested (5)\" legend: I couldn't tell if they are the same thing",
+    "Why there are two \"Suggest research questions\" buttons (one on the card, one in the panel)",
+    "The Canvas / List toggle, the \u2318K shortcut and the numbered circles at the top",
+    "The many different shapes (star, plus, triangle, diamond) for study types are small and the legend is cut off at the bottom",
+    "The dark canvas is mostly empty"
+   ],
+   "colors": "[\"Green ticks and green squares mean done, good or \\\"known/agree\\\".\", \"Purple diamonds mean \\\"contested / papers disagree\\\".\", \"Grey hollow circles mean \\\"unknown / not yet studied\\\".\", \"Orange \\\"Your turn\\\" means it is waiting for me to act.\", \"Red cross with 17 means something rejected or excluded.\", \"The coloured paper shapes (pink stars, green plus signs, blue circle, orange diamonds, teal triangles) are study types, per the legend.\", \"Blue button is the main action.\"]"
+  },
+  {
+   "shot": "questions/v4/review-1366.jpg",
+   "purpose": "A guided research tool (Athena) where you pick one of three AI-suggested research questions as the last step of a literature-review workflow, then export your review.",
+   "first": "Read the heading \"Choose your research question\", then read Candidate 1 and click \"Choose this question\" (or scroll to compare the other two candidates first).",
+   "next": "Scroll to compare Candidates 2 and 3, pick the best one (optionally edit its wording), then click \"Finish and export\" to download the review.",
+   "confusing": [
+    "The row of nine green check circles at the top: I guess they are progress steps, but I did not know what each stands for.",
+    "The Canvas / List toggle and the node-graph canvas on the left: I was not sure why there is a canvas or what the box labelled Questions / Research questions is.",
+    "The partly cut-off 'Synthesis' card with '5 conflicts' and '153': unclear what those numbers mean.",
+    "'PICo' and 'Novelty check': jargon I did not understand at a glance.",
+    "'(mock)' labels everywhere: only the Demo mode banner explained them.",
+    "'What happens in this step 8 s': unclear whether the time is a duration or a countdown.",
+    "The lock icon on 'Finish and export': it looks disabled, and only the small grey hint 'Choose one research question first' explains why.",
+    "The \u2318K shortcut and the profile icon at the top right."
+   ],
+   "colors": "Green check marks mean completed steps (and 'Done'). The orange 'Your turn' label with a clock-like icon means it is waiting for me to act. The white-ringed circle 9 is the current step. The white outline on the Questions card means it is selected or active. Everything else is dark grey and neutral."
+  },
+  {
+   "shot": "final/v4/done-1366.jpg",
+   "purpose": "It is the final screen of a tool that has finished a literature review, letting me download the report, a spreadsheet of papers, or a reference list.",
+   "first": "Click the blue \"Download the report (Markdown)\" button, since it is the only filled, bright button and the heading says the review is ready.",
+   "next": "Either open the printable report to read it, or pick the Spreadsheet or Reference list option and download that. I would also scroll down to the preview.",
+   "confusing": [
+    "Why 'Open printable report' and 'Download the report (Markdown)' are two separate actions for the same report",
+    "What Markdown means; the Report option's text is long and cramped",
+    "The three radio-style cards: it is unclear that they choose what the blue button downloads",
+    "'(mock)' and 'Demo mode' wording: I could not tell if the results are real, and the banner text is small",
+    "The row of green segments at the top and 'Overview': I did not know what the 9 steps were",
+    "'Edit the question' is small and easy to miss",
+    "Greyed-out text inside the cards is low contrast and hard to read",
+    "The preview shows 'first 200 of 988 lines', which is a lot of text with no clear purpose"
+   ],
+   "colors": "Green segments across the top mean steps completed (progress finished). The blue button is the main action to take. The dark background is neutral. The white filled radio dot marks the selected option (Report). Everything else is grey or white with no other meaning I can see."
+  },
+  {
+   "shot": "final/v4/done-375.jpg",
+   "purpose": "A page telling you your literature review is finished, where you can download or open the report (and spreadsheet and reference list) to share with your supervisor.",
+   "first": "Tap \"Open printable report\" or the bright blue \"Download the report (Markdown)\" button to get the report.",
+   "next": "Scroll down to the other download options (the spreadsheet of papers and the reference list for my citation manager), and perhaps check or edit my research question.",
+   "confusing": [
+    "Demo mode banner: I would need to re-read it to grasp that the AI is scripted and the sample papers are not about my topic",
+    "\"(mock)\" prefix in the question and what it implies",
+    "\"Markdown\" - unclear to a non-technical person, though the text explains it is a text file",
+    "Why there are two report options (printable report vs Markdown download)",
+    "The radio button next to \"Report\" - unclear whether it is a choice among formats or just a selected item",
+    "The row of green segments at the top (presumably step progress)",
+    "Cut-off card at the bottom hidden behind the sticky download button"
+   ],
+   "colors": "Green segments at the top read as progress/all steps complete, matching \"Review finished\" and \"All 9 steps done\". The bright blue-purple button is the main call to action. The rest is dark with grey text, so no other colour appears to carry meaning."
+  },
+  {
+   "shot": "canvas/v4/mid-1366.jpg",
+   "purpose": "A guided research tool (Athena) that walks you through a 9-step literature review on a question, showing each step's results as cards on a canvas, and currently waiting on you at step 7, Appraisal.",
+   "first": "Click the blue \"Open step 7\" button, since the page clearly says that is my next step (check each paper's appraisal).",
+   "next": "Review the appraisal results, then click \"Summarise the evidence\" on the Appraisal card, and continue to steps 8 and 9.",
+   "confusing": [
+    "Appraisal card: '16 papers \u00b7 7 full text' next to '153 \u2713 17 \u2717' - 16 papers but 153 and 17 do not add up, so I could not tell what is being counted",
+    "'195 papers, 205 dupes removed' - unclear whether that is good or bad",
+    "'195 rows \u00b7 20 selected' vs '16 papers' - unclear how 20 became 16",
+    "The Canvas / List toggle - I did not know what the difference is",
+    "The \u2318 K button and the person icon - not sure what they do",
+    "The bottom-left zoom and map controls and the curved lines trailing off the left edge - I did not know what is off-screen",
+    "Why the demo banner says results will not match my topic (the topic in the header is cut off)",
+    "Steps 8 and 9 are grey circles with no names",
+    "Whether the 'Summarise the evidence' button and the 'Open step 7' button do the same thing"
+   ],
+   "colors": "Green checkmarks and green 'Done' mean finished or good. The blue button is the main action to click. Orange 'Your turn' means it is waiting for me. In the Appraisal card, green 153 with a check looks like included or passed and red 17 with a cross looks like excluded or failed. The grey numbered circles 8 and 9 are upcoming or not yet done, and the white-ringed 7 is the current step."
+  },
+  {
+   "shot": "canvas/v4/mid-375.jpg",
+   "purpose": "A research tool that uses an AI to search medical papers on a topic (telemedicine in Southeast Asia), showing a step-by-step checklist of the search process, running in a demo mode with sample data.",
+   "first": "Tap the blue \"Open step 7\" button, since the page says my next step is to check each paper's appraisal.",
+   "next": "Go on through the remaining steps (up to step 9), or scroll the list to see which items are done. I might also dismiss the Demo mode banner after reading it.",
+   "confusing": [
+    "Top bar 'Now: step 7/...' is truncated, and the small progress bar segments are unclear",
+    "The three icons in the top bar (grid, list, command symbol) have no labels",
+    "'Idea', 'Topic', 'Query' as item types and how they relate (the nesting and indentation)",
+    "'5 synonyms \u00b7 1 MeSH' and 'Ran: PubMed 979 \u00b7 OpenAlex \u2026' are jargon and truncated",
+    "Why every item is already 'Done' while the next step is only step 7",
+    "Demo mode note mentions '(mock)' AI text, which is a bit wordy",
+    "The chevron arrows on the right: unclear whether they expand or open details",
+    "The round avatar icon at top right"
+   ],
+   "colors": "Green means done or success (the 'Done' labels and most of the progress bar segments). Blue/purple is the main call to action ('Open step 7'). Grey/dim segments in the progress bar mean steps not yet done. The page is dark-themed, and the rest is mostly neutral grey and white."
+  },
+  {
+   "shot": "canvas/v4/stale-1366.jpg",
+   "purpose": "Athena looks like a 9-step research workflow tool (literature review/knowledge-gap analysis); this screen warns that step 5, a summary table of papers, is out of date because an earlier step (topic scoping) was edited.",
+   "first": "Read the big orange \"This step is out of date\" banner, then click \"Go to step 2\" (or the blue \"Go to step 2: Scoping\" button) to re-approve the earlier step.",
+   "next": "After re-approving scoping, step through the later numbered steps (3 to 9) to refresh them. Or open the full table to look at the existing results.",
+   "confusing": [
+    "What 'Scoping' and 'approve step 2 again' mean in practice, and whether re-approving will redo or discard work",
+    "The numbered circles at the top: why 7 of them have warning triangles and what 'current step 2' versus 'viewing step 5' means",
+    "Canvas vs List toggle",
+    "The 'K' command icon and the unlabeled profile icon",
+    "'4 of 60' on each ranked topic row (4 papers of 60?)",
+    "'16 papers, 153 tick, 17 cross' on the Appraisal card (what is being judged?)",
+    "'Summarised by AI' and 'Summarised 23/23 batches'",
+    "The map/fit icons at bottom left",
+    "'Demo mode' banner: reassuring but the '(mock)' note is unclear",
+    "Cards on the canvas are cut off at the edges"
+   ],
+   "colors": "Orange/amber with warning triangles means out of date or needs attention (the stale step cards, the step circles, the notice box). Green means good/done (the checkmark on step 1, the tick and the 153 count). Red means bad/rejected (the cross and the 17). Blue is the main call-to-action button. A white ring marks the currently selected step or card."
+  },
+  {
+   "shot": "account/v4/populated-1366.jpg",
+   "purpose": "An account settings page (\"Your account\") for a product called Athena, where you can see your profile, change your name or password, and review your AI usage and cost per project.",
+   "first": "Type my name into the empty Name box and click \"Save name\", since it is the first and most obvious empty field at the top.",
+   "next": "Scroll down to the AI usage table to see which projects used AI calls, or use \"My projects\" at the top left to go back.",
+   "confusing": [
+    "What Athena actually is; the page gives no product context beyond the small logo.",
+    "\"AI calls\" and what counts as one, though the paragraph explains it. \"Demo mode\" is also unclear: am I in it, and what changes when I leave it?",
+    "The \"Researcher\" role is shown as plain text with no sign of whether it can be changed.",
+    "The email looks like a test address (ux-1793267097866@example.org), so it is unclear whether this is real data.",
+    "Two project rows share the same long title, so I cannot tell the projects apart apart from the dates.",
+    "The Save name and Change password buttons look greyed out or disabled, so I am not sure they are clickable.",
+    "The round person icon at the top right is unlabelled, and I would guess it is an account menu."
+   ],
+   "colors": "none; the page is almost entirely dark with grey and white text, and nothing is coloured. The greyed buttons read to me as disabled or inactive."
+  },
+  {
+   "shot": "settings/v4/populated-1366.jpg",
+   "purpose": "A Settings page for the Athena app where you pick a colour theme (Dark, Light, or match your device) and read how this server runs Athena (demo mode, AI on).",
+   "first": "Look at the Appearance options and, since the page is already dark, probably leave it or try Light to see it change. Dark is selected.",
+   "next": "Read the \"How this server runs Athena\" box (Demo mode and AI is on), then maybe click the Account link for my own AI use, or use the back arrow \"My projects\" to return to my work.",
+   "confusing": [
+    "What Athena actually does is not clear from this page alone",
+    "Demo mode: whether it is currently on or just describes a mode (it has a flask icon but no on/off indicator)",
+    "Whether 'Demo mode' and 'AI is on' are settings I can change or only status info (no controls)",
+    "'Scripted AI and recorded sample papers' and 'Results will not match your topic' are slightly confusing about what I would be searching",
+    "The 'Each search fetches up to 40 papers' note: unclear what a search is here",
+    "The round person icon at the top right, presumably account or profile, is not labelled"
+   ],
+   "colors": "Mostly monochrome black and grey. The only colour is the small green checkmark next to 'AI is on', which reads as 'working/enabled/good'. The white outlined box and filled radio dot on 'Dark' mean it is the selected option. The flask icon is grey, so no particular colour meaning."
+  },
+  {
+   "shot": "admin/v4/populated-1366.jpg",
+   "purpose": "An admin health dashboard for \"Athena\" that shows whether the system is working, with AI key and spend controls, usage stats and user progress.",
+   "first": "Read the big green \"Everything is healthy\" banner to confirm nothing is wrong. Then glance at the AI & API key panel, since it says there is no key.",
+   "next": "Look at the row of stat tiles (users, projects, AI calls, spend, errors, jobs). Then scroll down to the users and progress charts. If I wanted to change something, I would click \"Set a key\" or adjust the spend limit.",
+   "confusing": [
+    "What Athena actually does (the page never says what the product is)",
+    "\"Mock mode\" / \"Demo mode\" and what \"scripted AI\" means for real use",
+    "\"No key\" next to a healthy status: is that a problem or fine?",
+    "\"Models\" row showing \"mock \u00b7 mock \u00b7 mock\"",
+    "\"AI for everyone: On\" versus the \"Turn AI off...\" button (is the button the current state or an action?)",
+    "The \"Test key\" button looks greyed out or disabled",
+    "The 80% tick mark on the spend bar",
+    "\"Jobs now\" with queued, paused and stuck",
+    "The funnel and \"Where people stop\" sections are cut off at the bottom",
+    "The \"Table\" link above the sign-ups chart",
+    "The sign-ups chart is a single lone bar on the right, so it is hard to read",
+    "\"Projects per user\" buckets, such as 0 projects having 1 user"
+   ],
+   "colors": "Green means healthy, OK or on (the banner, check icons and \"On\"). Blue is just data bars in the charts, nothing alarming. White on dark is normal text and buttons. I assume red or amber would mean problems, but none appear here."
+  }
+ ],
+ "problems": [
+  {
+   "page": "home",
+   "width": "375, 768, 1366",
+   "severity": "major",
+   "kind": "a11y",
+   "problem": "The 'How it works' illustrations contain text at roughly 6-8px (step names, 'Paper A', 'Sleep duration', the quoted sentences, 'Accept / Edit / Delete'). It is unreadable at every width and is an image of text. These pictures are the only preview of the product on the page, so a first-time visitor cannot learn from them.",
+   "fix": "Redraw each illustration with a few large labels (at least 14px at rendered size) and cut the fine detail. Alternatively use real HTML text and shapes so it scales and can be zoomed. Give each image a meaningful alt text."
+  },
+  {
+   "page": "home",
+   "width": "768, 1366",
+   "severity": "minor",
+   "kind": "clarity",
+   "problem": "The stage cards are inconsistent. A card titled 'Stage 1 of 3 \u00b7 Shape your question' shows a picture labelled 'STEP 2 OF 9: Turn it into search topics'. Stage 2 shows step 6 and stage 3 shows step 7. The small 'Pictured: step N' caption under each image is the only thing that explains this, and it is easy to miss. The three stages and the nine steps read as two competing systems.",
+   "fix": "Make the caption part of the card's heading line, for example 'Stage 1 of 3 \u00b7 Shape your question (example: step 2)'. Or show a 9-step strip on each card with the pictured step highlighted."
+  },
+  {
+   "page": "home",
+   "width": "375, 768, 1366",
+   "severity": "minor",
+   "kind": "copy",
+   "problem": "Jargon the landing page never defines: 'Appraise the selected papers', 'visible rubric', 'what is known, contested and unknown', 'synthesis'. The brief asks for jargon to be explained inline, and the hero explains PubMed and OpenAlex but these later terms get no explanation. The nine step names are only listed as 12px grey run-on text ('1. Describe your idea \u00b7 2. Turn it into search topics...'), which is hard to scan.",
+   "fix": "Replace 'Appraise' with plain wording such as 'Check each paper', or add a short gloss: 'appraise = check how reliable a paper is'. Replace 'rubric' with 'scoring checklist'. Show the 9 steps as a numbered list or strip with readable contrast."
+  },
+  {
+   "page": "home",
+   "width": "375",
+   "severity": "minor",
+   "kind": "hierarchy",
+   "problem": "The hero is a four-line headline followed by a seven-line paragraph before the first button. 'Free to try...' is 12px grey text under the buttons. The two buttons are the same width and height, so only fill colour separates the primary from the secondary. The paragraph is dense for a first screen.",
+   "fix": "Cut the paragraph to two short sentences and move the PubMed/OpenAlex gloss and 'You confirm each of the 9 steps' into the 'How it works' section. Make 'I have an account' a text link or a lighter ghost button so 'Start a review' is clearly the one dominant action."
+  },
+  {
+   "page": "home",
+   "width": "768, 1366",
+   "severity": "polish",
+   "kind": "layout",
+   "problem": "The decorative coloured dot field sits directly behind the hero paragraph, and some dots cross words ('drafts', 'research'). The 'Pictured: step N' caption in each card is cramped against the divider below it (about 2px at 768).",
+   "fix": "Fade or mask the dot field behind the text block, or lower its opacity. Add 6-8px of padding below the caption."
+  },
+  {
+   "page": "signup",
+   "width": "375, 768, 1366",
+   "severity": "minor",
+   "kind": "layout",
+   "problem": "Field spacing is too tight. Each label sits about 4px above its own field and only about 8px below the previous field. Labels for 'Email' and 'Password' therefore look attached to the field above. Labels and the helper text are about 12px mid-grey on near-black, which is marginal for AA at that size.",
+   "fix": "Use about 16-20px between field groups and about 6px between label and field. Raise label and helper colour and size (13-14px, at least 4.5:1)."
+  },
+  {
+   "page": "signup",
+   "width": "375, 768, 1366",
+   "severity": "minor",
+   "kind": "copy",
+   "problem": "The password hint 'At least 10 characters, not containing the name part of your email' is awkward for novices. There is no show/hide password control and no live indication of whether the rule is met. 'Create account' gives no hint about what happens next (the user lands on a new review, per ?next=/s/new).",
+   "fix": "Rewrite as 'At least 10 characters. Don't use the first part of your email address.' Add a 'Show password' toggle. Add a short line under the button such as 'Next: describe your research idea.'"
+  },
+  {
+   "page": "login",
+   "width": "375, 768, 1366",
+   "severity": "minor",
+   "kind": "clarity",
+   "problem": "The wrong-password error is clear (icon, text and border). But the email and password fields do not change state: no red border, no aria-invalid cue, and the password dots stay in the field. 'Forgot your password? Ask the person who runs this Athena server to reset it' is 12px grey text and leaves a novice with no action to take. The heading wraps and leaves 'review' alone on a second line at 768 and 1366.",
+   "fix": "Mark both fields as invalid with a visible red outline and tie the message to them with aria-describedby. Clear or focus the password field. Make the forgot-password text normal body size, with a concrete next step such as an admin contact link. Shorten the heading to 'Log in' or 'Welcome back' to avoid the orphan word."
+  },
+  {
+   "page": "login",
+   "width": "375, 768, 1366",
+   "severity": "minor",
+   "kind": "layout",
+   "problem": "The same cramped label-to-field spacing as on signup: the 'Password' label looks like it belongs to the email field above. There is no show-password toggle after a failed attempt, which makes it hard for a user to see what they typed.",
+   "fix": "Apply the same spacing fix as signup. Add a 'Show password' toggle."
+  },
+  {
+   "page": "projects",
+   "width": "768, 1366",
+   "severity": "minor",
+   "kind": "layout",
+   "problem": "Cards in the same row stretch to equal height, but the progress bar and status line are bottom-aligned. Cards with a two-line title therefore show an unexplained empty gap between the date and the bar. The 'Step 2 changed...' stale card is also taller than its neighbours, which makes the grid ragged.",
+   "fix": "Top-align the bar directly under the date, or reserve a fixed-height title block with a line clamp. Place the stale warning in a fixed footer row."
+  },
+  {
+   "page": "projects",
+   "width": "375, 768, 1366",
+   "severity": "minor",
+   "kind": "clarity",
+   "problem": "The segmented progress bar uses colour alone to separate done (green), current (light grey), future (dark grey) and stale (amber). There is no legend and no 'N of 9' text. The future segments are nearly invisible against the card (well under 3:1). In the stale state all 7 later segments turn amber, so the bar no longer shows how far along the project is. The only second cue is the small status line.",
+   "fix": "Add 'Step 5 of 9' to the status text. Give the current segment a distinct shape or outline. Raise the contrast of future segments to at least 3:1. For stale, keep the done segments green and mark only the changed step and the later ones with a hatch pattern plus the warning text. Add a one-line key under the page intro or in the Sort and filter panel."
+  },
+  {
+   "page": "projects",
+   "width": "375, 768, 1366",
+   "severity": "minor",
+   "kind": "hierarchy",
+   "problem": "Many cards carry the same bold title, and the only differences are small grey metadata and step text. That makes it hard to pick the right project. The card has no visible 'Continue' action; the '...' button is the only visible control, and it is about 20px wide. This is a real risk when users run the same idea several times. The unlabeled avatar icon in the header also gives no hint it opens the account menu.",
+   "fix": "Add a visible 'Continue' or 'Open' text button (or a chevron) on each card. Make the '...' target at least 44x44px at 375px. Show the step name or last-edit time more prominently when titles repeat. Give the avatar button an aria-label and a visible tooltip or text such as 'Account'."
+  },
+  {
+   "page": "new",
+   "width": "375, 768, 1366",
+   "severity": "minor",
+   "kind": "consistency",
+   "problem": "The header is inconsistent with the other signed-in pages. Here the logo is followed by the text 'My projects', which reads like the product name or the page title. On Account and Settings the same text has a back arrow, and the logo moves to the centre at 768 and 1366. Users cannot tell whether 'My projects' is a link, a title or the brand.",
+   "fix": "Use one header pattern: a back arrow plus 'My projects' on the left (as on Account/Settings), and the same logo placement at every width. On the new page, 'Athena' should stay the brand."
+  },
+  {
+   "page": "new",
+   "width": "375, 768, 1366",
+   "severity": "minor",
+   "kind": "clarity",
+   "problem": "The step strip is only the text 'Step 1 of 9 \u00b7 Your idea' in small grey type. There is no 9-segment progress strip like the one on the project cards. Done and next are not shown as a strip (only a faint 'Next:' hint at the bottom). 'Start my review' looks fully enabled while the line under it says 'Write at least a sentence to start.' The hint sits close to the button and is easy to miss, so a user may press it with an empty box. The example chips are about 28px tall, below 44px.",
+   "fix": "Show a compact 9-step strip with step 1 highlighted and the next step name ('Next: Turn it into search topics') directly under the heading. Show the button in a clearly disabled style (or keep it enabled and show an inline error on empty submit). Add aria-disabled and move the hint inside the form region. Increase chip height to about 40-44px at 375px."
+  },
+  {
+   "page": "account",
+   "width": "375, 768, 1366",
+   "severity": "minor",
+   "kind": "a11y",
+   "problem": "'Save name' and 'Change password' are drawn as dim grey ghost buttons with grey text on dark. It is not possible to tell whether they are disabled or just low emphasis. Their text and border contrast looks under 4.5:1 and 3:1. There are no show/hide password controls. The AI usage table lists many projects with the same title, and the 'AI calls' and 'Cost' columns are narrow with the header wrapped onto two lines.",
+   "fix": "Use a clear secondary button style with at least 4.5:1 text contrast when enabled, and a visibly different disabled style plus helper text. Add a show-password toggle. In the usage table, include a differentiator (current step or date/time) and keep column headers on one line."
+  },
+  {
+   "page": "account",
+   "width": "375 vs 768+",
+   "severity": "polish",
+   "kind": "consistency",
+   "problem": "At 375 the header has only the back arrow, 'My projects' and avatar. At 768 and 1366 a logo appears in the centre of the bar. The Athena wordmark is not shown on Account or Settings at any width, but it is on Login and Signup.",
+   "fix": "Use one header composition across widths and pages, or drop the centre logo."
+  },
+  {
+   "page": "settings",
+   "width": "375, 768, 1366",
+   "severity": "minor",
+   "kind": "copy",
+   "problem": "The 'How this server runs Athena' panel shows 'Demo mode' (scripted AI) next to a green tick and 'AI is on - AI steps run when you start them'. These two statements read as contradictory, because the AI is scripted and not real. The panel has no heading-level emphasis for the mode a novice should care about. 'Each search fetches up to 40 papers' is 12px grey footnote text.",
+   "fix": "Combine them into one status line, for example 'Demo mode: AI answers are scripted samples, so results will not match your topic.' Show 'AI is on' only when real AI is active. Move the 40-paper limit into a normal-size line, defined as a limit per search."
+  },
+  {
+   "page": "scoping/topics",
+   "width": "375",
+   "severity": "major",
+   "kind": "layout",
+   "problem": "Each topic row puts the topic name, the orange 'suggested' badge, Edit, Keep and Delete on one line. The name is squeezed into about 90px and wraps to 3-4 lines ('Barriers / and / facilitators / to / implementation'), so five topics fill the first screen and only 3-4 are visible. The Edit and Delete text links are about 25-40px wide, well under a 44px touch target, and Delete sits right beside Keep with no undo.",
+   "fix": "On narrow widths stack each row. Put the full-width topic name on line 1, with the 'suggested' badge above or beside it. Put Edit, Keep and Delete on line 2 as 44px-tall buttons with spacing between them. Style Delete as a quiet destructive action and add an Undo toast. Keep the badge text, since it is the second cue."
+  },
+  {
+   "page": "scoping/topics",
+   "width": "375, 768, 1366",
+   "severity": "major",
+   "kind": "hierarchy",
+   "problem": "Five identical outlined 'Keep' buttons, one per row, look like primary actions. They compete with the filled 'Keep 5 suggested topics' footer button, which does the same thing for all rows. The brief calls for one visually dominant action per page.",
+   "fix": "Make the per-row Keep a quiet text or ghost button. Alternatively, show a per-row check only after a topic is kept. Leave the filled footer button as the single dominant action."
+  },
+  {
+   "page": "scoping/topics",
+   "width": "1366",
+   "severity": "major",
+   "kind": "consistency",
+   "problem": "The canvas topic cards say 'Accept' and 'Dismiss', while the side panel says 'Keep' and 'Delete' for the same action. The side panel also covers the right part of the canvas cards, so the badge reads 'Sugg\u2026' and the button reads 'Dis\u2026'. Users see two sets of controls with different words and cannot read either set in full on the canvas.",
+   "fix": "Use one vocabulary everywhere (for example 'Keep' / 'Remove'). Pan or fit the canvas so the cards sit fully left of the panel when the panel opens, or hide the card actions while the panel is open."
+  },
+  {
+   "page": "search/review",
+   "width": "375, 768, 1366",
+   "severity": "major",
+   "kind": "clarity",
+   "problem": "The page shows one query ('Query: Telemedicine adoption and use') but the only primary action is 'Run all 10 searches'. Nothing says which of the 10 you are viewing, that nine more exist, or how to move between them. At 375 the list is not visible at all. At 1366 the 'Run all 10 searches' button sits inside a single query card, which implies it runs only that query.",
+   "fix": "Add a 'Search 1 of 10' label with Previous / Next controls or a compact list of all queries with their counts. Remove the run button from the single card. Keep 'Run all 10 searches' only in the sticky footer."
+  },
+  {
+   "page": "search/review",
+   "width": "375",
+   "severity": "major",
+   "kind": "hierarchy",
+   "problem": "A three-line Demo mode box and a collapsed 'What happens in this step' row sit above the first real content. At 375 the PubMed count and its warning start at about y=500, and the OpenAlex count and the query terms are entirely below the fold. The user cannot see what they are being asked to check without scrolling.",
+   "fix": "On mobile, collapse the demo box into a one-line chip or a dismissible strip. Show a compact count summary first (PubMed N, OpenAlex N, with the broad warning). Put the term groups behind a 'Show search terms' disclosure."
+  },
+  {
+   "page": "search/review",
+   "width": "375, 768, 1366",
+   "severity": "major",
+   "kind": "clarity",
+   "problem": "The orange warning says 'Broad: only the 40 most relevant will be collected... Add a term to focus it', but no control for adding a term is visible. The demo note also mentions 'your edits to the search text, years or languages', but no edit, year or language controls appear. The page tells users to act and offers no way to do it. The term chips do not look editable or non-editable.",
+   "fix": "Add a visible 'Add a term' or 'Edit search' button next to the warning, and show the year and language filters. If editing is not available in the demo, remove the 'add a term' and 'your edits' wording, or say plainly 'editing is turned off in demo'. Add a clear editable look (+ and x on chips) if they can be changed."
+  },
+  {
+   "page": "search/review",
+   "width": "375, 768, 1366",
+   "severity": "minor",
+   "kind": "copy",
+   "problem": "Jargon is only partly defined. 'index term' is explained, but 'MeSH' appears undefined in the list rows ('5 synonyms \u00b7 1 MeSH'). 'Query', 'OpenAlex', 'PubMed' and 'dry-run counts' are not explained. The heading says 'searches' while the subtitle and list say 'Query', and the footer says 'queries'.",
+   "fix": "Use 'search' everywhere. Define MeSH inline ('MeSH = PubMed's official topic labels'). Add one line saying PubMed and OpenAlex are the two paper databases being searched."
+  },
+  {
+   "page": "search/review",
+   "width": "375, 768",
+   "severity": "minor",
+   "kind": "a11y",
+   "problem": "The broad-match warning is a three-line paragraph in orange body text, with no icon. The word 'Broad:' is the only non-colour cue. 'Count again' is an outlined button sitting inside the sentence flow and reads like part of the warning.",
+   "fix": "Add a warning icon and a short bold label ('Too broad'). Keep the explanation in neutral text. Move 'Count again' below the message, or rename it 'Recount papers'."
+  },
+  {
+   "page": "retrieval/done",
+   "width": "375",
+   "severity": "major",
+   "kind": "consistency",
+   "problem": "The step strip in the panel header shows steps 1-3 green and step 4 white, while the label says 'Done'. A completed step is drawn as in-progress. The page top bar at 768 and 1366 says 'Now: step 5/9' while the panel says 'Viewing step 4 of 9'. Together these make it unclear which step is current and which are done.",
+   "fix": "Colour completed steps green, including the one being viewed. Mark 'viewing' with an outline or underline rather than a different fill. Add a step name under the bar ('Done: Scoping, Search, Retrieval. Next: Summary table'), and keep step 4 as the current page."
+  },
+  {
+   "page": "retrieval/done",
+   "width": "375, 768, 1366",
+   "severity": "major",
+   "kind": "copy",
+   "problem": "Step 5 has four names: 'summary table' (strip), 'Summary & ranking' (canvas and list), 'rank the papers' (footer and canvas button), and 'summarise each abstract' (subtitle). The headline says 'then summarise the papers', but the primary button 'Go to step 5: Summary table' only navigates and does not start summarising. 'Next:' appears twice (under the subtitle and in the footer) with different wording.",
+   "fix": "Pick one name ('Summary table') and use it everywhere. Headline: 'Check what was found'. Button: 'Next: build the summary table'. Drop the duplicate 'Next:' line, or make both lines identical."
+  },
+  {
+   "page": "retrieval/done",
+   "width": "375, 768, 1366",
+   "severity": "major",
+   "kind": "clarity",
+   "problem": "The subtitle promises 'how many papers each database returned', but no per-database breakdown (PubMed vs OpenAlex) is visible. There is no sign of whether any of the 10 searches failed or returned zero papers. The text and the two stat tiles repeat the same 195 and 205 numbers. The empty/error/partial states the brief requires are not shown.",
+   "fix": "Add a small table of searches by database (PubMed N, OpenAlex N) near the top, with a visible 'All 10 searches finished' or '1 search failed - retry' status line. Drop the duplicate tiles or the sentence."
+  },
+  {
+   "page": "retrieval/done",
+   "width": "768, 1366",
+   "severity": "minor",
+   "kind": "clarity",
+   "problem": "The text says 'Click or tap an article type to show only those papers', but the Article type rows are plain grey labels and bars with no button look, hover state or selected state. The explanatory note is about 11px grey text below the chart. Article-type rows are also indented differently from the study-type rows, which have a marker.",
+   "fix": "Make the rows real toggle buttons with a border or hover style and a visible selected state. Add 'Show all' / 'Clear filter'. Place the instruction above the chart. Align both charts to the same grid."
+  },
+  {
+   "page": "retrieval/done",
+   "width": "768, 375",
+   "severity": "minor",
+   "kind": "a11y",
+   "problem": "The study-type legend uses colour plus small shapes (about 8px), which is good, but 'Other design' (green plus) and 'Cross-sectional' (green triangle) use similar greens, and the bar fills are the only place the colour appears. The shapes are tiny and are not repeated on the bars.",
+   "fix": "Use clearly different hues for neighbouring categories, or hatch patterns. Make the markers at least 12px and show the same marker at the bar start. Keep the text labels."
+  },
+  {
+   "page": "retrieval/done",
+   "width": "768, 1366",
+   "severity": "minor",
+   "kind": "copy",
+   "problem": "The canvas and list use undefined or abbreviated terms: 'Corpus', 'dupes removed', 'Ran: PubMed 979 ...'. Plain wording elsewhere ('the same paper found twice') is better. The 'Finished 9:45:02 AM' stamp has no date, and the '8 s' on 'What happens in this step' is never explained.",
+   "fix": "Replace 'Corpus' with 'Papers found', and 'dupes' with 'duplicates'. Add a date or relative time ('Finished 2 min ago'). Explain '8 s' ('8 sec read') or remove it."
+  },
+  {
+   "page": "idea/chat",
+   "width": "375",
+   "severity": "major",
+   "kind": "layout",
+   "problem": "The \u22ef and \u00d7 buttons are in the header's top-right and shrink the title and description column to about 240px, so the headline takes 3 lines and the progress bar is only about 240px wide while the content below is 340px wide. There is also no global header, back button or step navigation at this width, and the meaning of \u00d7 (close what?) is unclear.",
+   "fix": "Put \u22ef and \u00d7 on their own row, or fold them into one overflow menu, so the title uses the full width. Add a labelled 'Back' or 'Project' control. Give \u00d7 an accessible name and a visible label such as 'Close panel'."
+  },
+  {
+   "page": "idea/chat",
+   "width": "375",
+   "severity": "minor",
+   "kind": "layout",
+   "problem": "The sticky footer takes about 110px of the 812px screen (two lines of helper text plus buttons). 'What we know so far' is cut off mid-line behind it, so the first answered fact looks unfinished. With the on-screen keyboard open there will be very little room left for the chat.",
+   "fix": "On mobile, remove the footer helper line or move it into the 'What happens in this step' disclosure. Add bottom padding so the last content is not clipped. Check the layout with the keyboard open."
+  },
+  {
+   "page": "idea/chat",
+   "width": "375, 768, 1366",
+   "severity": "minor",
+   "kind": "copy",
+   "problem": "Counts disagree between screens: 'question 1 of up to 5' versus '3 questions' on the scoping conversation row and '6 of 6 answered' on 'What we know so far'. The textarea says '(Enter sends)', which is surprising on a phone, where Enter normally adds a new line. 'What happens in this step' has an unexplained '8 s'.",
+   "fix": "Use one consistent count and wording ('Question 3 of up to 5'). Say 'Press Send answer' on touch devices, and use Shift+Enter hints only on desktop. Explain or drop '8 s'."
+  },
+  {
+   "page": "all",
+   "width": "768, 1366",
+   "severity": "minor",
+   "kind": "clarity",
+   "problem": "The top step strip shows only numbers 1-9 with check marks. Step names, what is done, and what is next appear only for the current step, and only in small grey text in the panel. A novice cannot tell what steps 3-9 are.",
+   "fix": "Show the current step name and the next step name in the strip ('Step 3 Search builder \u2192 next: Retrieval'). Add a tooltip or label with each step's name on hover and focus. At 768, where the strip is only a thin bar, add the same text line."
+  },
+  {
+   "page": "all",
+   "width": "768",
+   "severity": "minor",
+   "kind": "layout",
+   "problem": "In List view the left list (about 288px wide) is cut off by the side panel. Rows end mid-word without an ellipsis ('Telemedicine adoption and us', 'Query PubMed 979 \u00b7 OpenAlex 1', 'Ran: PubMed 979 \u00b7 OpenA', 'Corpus 195 papers, 205 dupes rem'). Important counts, such as the OpenAlex number, are lost.",
+   "fix": "Truncate with a visible ellipsis and a full-text tooltip, or let titles wrap to two lines. Give the list a minimum width, or collapse it to icons when the panel is open. Put the counts on their own line."
+  },
+  {
+   "page": "all",
+   "width": "1366",
+   "severity": "minor",
+   "kind": "layout",
+   "problem": "The canvas zoom toolbar (+ / - / fit / map) sits on top of cards at the bottom left ('Policy, regulation...' in Search, and the 'Digital infrastructure' card in Retrieval). Cards on the left are clipped at the viewport edge ('opic', 'ers and facilitators') with no hint that the canvas scrolls.",
+   "fix": "Offset the toolbar from the card area, or give it a solid background and reserve space. On open, fit the canvas so the current step's cards are fully visible."
+  },
+  {
+   "page": "all",
+   "width": "375, 768, 1366",
+   "severity": "minor",
+   "kind": "a11y",
+   "problem": "Key guidance is set in about 11-12px grey on near-black: 'Next: ...', 'What we know so far', 'question 1 of up to 5', field hints, chart notes, footer helper text. Contrast may be near the 4.5:1 AA limit and the size is hard to read on a phone. The unfilled segments of the step bar are very dark grey on black, below 3:1 non-text contrast.",
+   "fix": "Raise helper text to at least 13-14px with a lighter grey (verify 4.5:1 or better). Lighten the inactive step segments to 3:1 or more, and keep a text label for the step."
+  }
+ ]
+}

@@ -1,5 +1,5 @@
 import "server-only";
-import { registerJob, startJob, resumeJobs, cancelJob, cancelStage } from "./runner";
+import { registerJob, startJob, resumeJobs, cancelJob, cancelStage, resumePausedJobs, resumeJobsPausedForNoKey } from "./runner";
 import { retrievalJob } from "./retrieval";
 import { summariesJob } from "./summaries";
 import { rankingJob } from "./ranking";
@@ -14,4 +14,4 @@ registerJob("appraisal", appraisalJob);
 registerJob("synthesis", synthesisJob);
 registerJob("questions", questionsJob);
 
-export { startJob, resumeJobs, cancelJob, cancelStage };
+export { startJob, resumeJobs, cancelJob, cancelStage, resumePausedJobs, resumeJobsPausedForNoKey };

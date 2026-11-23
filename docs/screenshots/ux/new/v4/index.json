@@ -1,0 +1,20 @@
+{
+  "empty-375": {
+    "what": "Starting a new review: the empty canvas asking for the idea",
+    "url": "/s/new",
+    "width": 375,
+    "theme": "dark"
+  },
+  "empty-768": {
+    "what": "Starting a new review: the empty canvas asking for the idea",
+    "url": "/s/new",
+    "width": 768,
+    "theme": "dark"
+  },
+  "empty-1366": {
+    "what": "Starting a new review: the empty canvas asking for the idea",
+    "url": "/s/new",
+    "width": 1366,
+    "theme": "dark"
+  }
+}

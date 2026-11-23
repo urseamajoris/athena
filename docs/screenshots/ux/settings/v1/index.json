@@ -1,0 +1,20 @@
+{
+  "populated-375": {
+    "what": "Settings",
+    "url": "/settings",
+    "width": 375,
+    "theme": "dark"
+  },
+  "populated-768": {
+    "what": "Settings",
+    "url": "/settings",
+    "width": 768,
+    "theme": "dark"
+  },
+  "populated-1366": {
+    "what": "Settings",
+    "url": "/settings",
+    "width": 1366,
+    "theme": "dark"
+  }
+}

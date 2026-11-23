@@ -1,0 +1,38 @@
+{
+  "review-375": {
+    "what": "Ranking: scored papers with the top ones selected per topic",
+    "url": "/s/<project>/table",
+    "width": 375,
+    "theme": "dark"
+  },
+  "review-768": {
+    "what": "Ranking: scored papers with the top ones selected per topic",
+    "url": "/s/<project>/table",
+    "width": 768,
+    "theme": "dark"
+  },
+  "review-1366": {
+    "what": "Ranking: scored papers with the top ones selected per topic",
+    "url": "/s/<project>/table",
+    "width": 1366,
+    "theme": "dark"
+  },
+  "map-375": {
+    "what": "Ranking shown as a map of papers coloured by study type",
+    "url": "/s/<project>/table",
+    "width": 375,
+    "theme": "dark"
+  },
+  "map-768": {
+    "what": "Ranking shown as a map of papers coloured by study type",
+    "url": "/s/<project>/table",
+    "width": 768,
+    "theme": "dark"
+  },
+  "map-1366": {
+    "what": "Ranking shown as a map of papers coloured by study type",
+    "url": "/s/<project>/table",
+    "width": 1366,
+    "theme": "dark"
+  }
+}

@@ -2,8 +2,11 @@ import "server-only";
 import { config } from "../config";
 import { httpFetch, httpJson } from "./http";
 import type { SearchAdapter, SourceRecord } from "./types";
+import { hardFilterPubmed } from "./filters";
+import { dropEmptyGroups } from "./syntax";
 import type { Criteria } from "../db/schema";
 import { decodeEntities, normalizeDoi, stripTags, chunk } from "../util";
+import { usableAbstract } from "./abstract";
 
 /*
  * PubMed E-utilities (https://www.ncbi.nlm.nih.gov/books/NBK25497/):
@@ -21,12 +24,16 @@ function common() {
 const LANG: Record<string, string> = { en: "english", english: "english", fr: "french", es: "spanish", de: "german", zh: "chinese", ja: "japanese", pt: "portuguese", th: "thai", vi: "vietnamese", id: "indonesian", ms: "malay" };
 
 export function pubmedTerm(query: string, c: Criteria | null) {
-  const parts = [`(${query})`];
+  const parts = [`(${dropEmptyGroups(query)})`];
   if (c?.yearFrom || c?.yearTo) parts.push(`("${c?.yearFrom ?? 1900}"[dp] : "${c?.yearTo ?? 3000}"[dp])`);
   const langs = (c?.languages ?? []).map((l) => LANG[l.toLowerCase()] ?? l.toLowerCase()).filter(Boolean);
   if (langs.length) parts.push(`(${langs.map((l) => `${l}[la]`).join(" OR ")})`);
+  const hard = hardFilterPubmed(c?.hardFilter);
+  if (hard) parts.push(hard);
   return parts.join(" AND ");
 }
+
+
 
 async function esearch(term: string, retmax: number, retstart: number, log?: (l: string) => void) {
   const p = common();
@@ -93,7 +100,7 @@ export function parsePubmedXml(xml: string): SourceRecord[] {
       authors,
       year: yearStr ? Number(String(yearStr).slice(0, 4)) : null,
       journal,
-      abstract: abs || null,
+      abstract: usableAbstract(abs),
       language: lang,
       publicationTypes: pubTypes,
       citationCount: null,

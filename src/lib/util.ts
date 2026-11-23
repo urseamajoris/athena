@@ -59,7 +59,11 @@ export function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 export function errMsg(e: unknown): string {
-  if (e instanceof Error) return e.message;
+  if (e instanceof Error) {
+    // Drizzle wraps driver errors ("Failed query: ..."); the useful part is the cause.
+    const cause = (e as { cause?: unknown }).cause;
+    return cause instanceof Error && e.message.startsWith("Failed query") ? `${cause.message} (in: ${e.message.slice(14, 80)}…)` : e.message;
+  }
   return String(e);
 }
 
@@ -74,4 +78,9 @@ export function decodeEntities(s: string): string {
 
 export function stripTags(s: string): string {
   return decodeEntities(s.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+}
+
+/** Sequential async forEach (database writes keep their order). */
+export async function forEachSeq<T>(items: readonly T[], fn: (item: T, i: number) => Promise<unknown>): Promise<void> {
+  for (let i = 0; i < items.length; i++) await fn(items[i], i);
 }

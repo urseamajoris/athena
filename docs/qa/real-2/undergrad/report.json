@@ -1,0 +1,260 @@
+{
+ "persona": "undergrad",
+ "completed": true,
+ "stage_reached": 9,
+ "validity_assessment": "Mostly grounded, with real validity problems at the last two steps. Grounded: every paper I opened was a real, on-topic-looking record with a DOI. Key findings matched the abstracts I compared (the first-year scoping review, the Consequences of inadequate sleep cohort paper, the sleep awakening/GPA paper). Of 190 quotes, 184 were found word for word. The 6 not-found quotes came with an accurate explanation: each was real text from the paper, joined without an ellipsis, so accepting 5 and rejecting 1 felt safe. The report is honest about its limits: \"a scoping aid, not an exhaustive systematic search\", a single reviewer, \"found does not prove\". Novelty is hedged: \"suggests, but does not prove\".\n\nNot grounded. (1) Candidate 1, the question I chose, claims \"all existing studies examined only specific exam performance rather than cumulative GPA\". But the 14 appraised papers include three GPA cohort/longitudinal studies: Consequences of inadequate sleep (GPA and graduation), Nighttime sleep awakening frequency predicting future GPA, and Sleep quantity and variability across the first semester with end-of-semester GPA. The novelty check still says \"None of the top 9 records looks like the same question\". The gap and novelty claims are wrong against the app's own corpus. The quotes backing the gap are 'aim' and 'limitation' quotes, which cannot show that nothing exists. (2) Candidate 3's \"May already be studied\" warning points to a periodontal disease paper, which is not the same question. Meanwhile the 2019 GPA/graduation paper that really is the same question was not flagged. (3) Several \"Unknown\" and \"Known\" synthesis statements generalise from one to three papers: \"all studies used cross-sectional designs\", \"few studies have directly compared\u2026\", and \"objective wearables are a reliable way to measure sleep\". One \"Known\" statement rests on R2 = 0.0008 and is presented as a plain association with no effect-size caveat. (4) The 'contested' conflict comes from the same osteopathic cohort, so it is arguably not a real disagreement between studies. (5) The selection includes off-population papers (Icelandic adolescents; pharmacy students). The corpus has off-topic noise (postpartum depression exercise, cardiovascular disease, healthy ageing). (6) The topic 'Sleep around examination periods' returned 0 papers from both databases, and the synthesis admits it can say nothing about it. (7) Some appraisal answers are weakly supported by their quotes: 'Sampling frame described: Yes' rests on a quote about how long a survey stayed open, and 'Validated instrument: Unclear' sits beside a PSQI quote. Nothing looked fabricated. The risk is overstated gaps and false-comfort novelty, not invented papers.",
+ "activity": "Created account Mai (mai.undergrad.qa2@example.com). Created one project (prj_395dabc60b6241d5) from the idea \"I'm interested in sleep and grades\". Ran every step through to export. AI steps run once each: 5 scoping questions plus topic suggestion, search writing for 5 topics (10 searches), summarising 190 papers (23 batches), ranking (22 batches), appraisal of 14 papers, synthesis, and 3 research question candidates. I used one PubMed count-matches check. I kept all 5 suggested topics and ran all 10 searches (249 results, 190 unique papers). I selected 14 papers for appraisal and chose \"Appraise anyway\" past a warning that one topic had no papers. Quote decisions: 184 found automatically, 6 not found; I accepted 5 and rejected 1. I chose Candidate 1 and pressed Finish and export. I started the Markdown download (the page confirmed \"Download started\") and viewed the larger preview. I could not open the printable report because the helper does not follow new tabs. No console errors or failed requests were reported at any check. Wait times: about 20 s per scoping answer, 2 min search writing, 4 min summarising, 4 min ranking, 9 min appraisal, 2.5 min synthesis, 1.5 min questions.",
+ "narrative": "I landed on Athena and understood at once that it helps turn a vague idea into a research question using real papers. I signed up and typed my vague idea. The five scoping questions were friendly and plain. The odd part was that my answer vanished from the chat for about 20 seconds while \"Thinking\u2026\" showed, so I wondered whether it had been sent. Question 4 asked about the outcome again, which I had already said.\n\nThe suggested topics were fine, but terms like \"MeSH\", \"index term\" and \"controlled vocabulary\" made me nervous. I liked that I could press \"Count matches\" before running anything. Retrieval gave clear numbers and a legend. The coloured shapes for study type made sense once I saw the key, and I could filter by study type and article type. The 3D map was pretty but meant nothing to me.\n\nRanking was reassuring because every score had a visible reason. Then I hit a warning that one topic had no papers. I clicked \"Appraise anyway\" because I did not understand what \"bring later steps up to date\" meant.\n\nThe appraisal and synthesis pages were the hardest. Walls of small text, and words like \"conflicts\", \"chips\" and \"findings\". I had no idea how to judge a quote the checker could not find. The explanation of each one was good, though. I picked the question closest to my idea. The report preview was tiny and I could not read it all in the page.\n\nWhat worries me is that the question I chose says nobody has studied sleep and overall GPA. I think the papers I selected already did. Another candidate's \"may already be studied\" warning pointed to a gum-disease paper. I would have shown my tutor this and been embarrassed.",
+ "would_have_quit_at": "I would not have quit outright, because each step has one obvious button. I would have wanted to quit at step 7 (appraisal) and step 8 (synthesis): the panels are dense and jargon-heavy (\"quality questions\", \"chips\", \"contradictions\", \"findings\"), and I had no way to tell which quote decisions mattered. The roughly 25 minutes of total server wait, with no time estimate, would also have tested me. At step 6, the zero-papers warning and its \"Appraise anyway\" or \"Edit the searches (step 3)\" choice nearly stopped me.",
+ "categories_and_colours": "Study type has seven categories, each with a colour, a shape and a text label. Trial is a blue circle. Cohort / case-control is an orange-red square. Cross-sectional is a green triangle. Qualitative / mixed methods is an amber diamond. Systematic / scoping review is a pink star. Other design is a green cross. Not reported is a grey ring. Legends with counts appear on the retrieval mix bars, the 3D and 2D maps, the table facet chips and the evidence network. Clicking a chip filters the table. The table says \"Showing 11 of 190: review article. 179 papers are hidden by your filters\" and keeps Reset filters visible. I could find and filter papers by study type (chips with counts) and by article type (Journal article / Review article / Preprint / Editorial). Article type is deliberately plain grey with no colour, so colour only ever means study type. I understood the colours and shapes from the legend without being told, but not from the points alone.\n\nIssues. The triangle (cross-sectional) and the cross (other design) are two similar greens, so shape has to do the work. \"Review article\" (11) and \"Systematic / scoping review\" (11) are different counts for nearly the same idea. A review article can be labelled \"Other design\" (narrative review), which is confusing. Before AI summarising, \"Not reported\" is 180 of 190 and dominates the retrieval mix. Legend entries with zero papers are dimmed with no count. In the 3D chart, papers are cropped at the panel edge and there is a stray vertical line. The 3D evidence network has the \"Statements\" label overlapping shapes. The legend there reads \"Known (7), Contested (5), Unknown (14)\" but 26 statements shown elsewhere. \"Contested\" is used for single-paper statements. Colour by Topic and Source database were available but I did not test them.",
+ "three_second_test": [
+  {
+   "page": "Landing /",
+   "understood_in_3s": true,
+   "note": "(a) Tool that turns a rough idea into a research question using real papers; (b) press Start a review; (c) sign up. Clear headline and one obvious button."
+  },
+  {
+   "page": "Sign up",
+   "understood_in_3s": true,
+   "note": "(a) Make an account; (b) fill email and password; (c) Create account. Password rule is shown. Focus starts on Email, skipping the optional Name."
+  },
+  {
+   "page": "New review (step 1)",
+   "understood_in_3s": true,
+   "note": "(a) Type my idea; (b) type or click an example; (c) Start my review. Very clear."
+  },
+  {
+   "page": "Canvas after start (idea node)",
+   "understood_in_3s": false,
+   "note": "(a) A workspace with one box; (b) press Sharpen my idea; (c) answer questions. But the banner says 'Check your idea, then start', which was confusing after I had just started. The Canvas/List/K controls and 1-9 circles were unexplained."
+  },
+  {
+   "page": "Scoping question panel (step 2)",
+   "understood_in_3s": true,
+   "note": "(a) Answer a few questions; (b) type in the box; (c) press Enter or Send answer. Clear, though my answer disappeared while 'Thinking\u2026' showed."
+  },
+  {
+   "page": "Review suggested search topics",
+   "understood_in_3s": true,
+   "note": "(a) Keep or delete suggested topics; (b) read them; (c) Keep 5 suggested topics. Dashed suggested style was understandable."
+  },
+  {
+   "page": "Search builder (step 3)",
+   "understood_in_3s": false,
+   "note": "(a) Turn topics into database searches; (b) press Write the searches; (c) check them. But it shows only the first topic's editor with MeSH jargon, while the action applies to all 5 topics."
+  },
+  {
+   "page": "Check searches before they run",
+   "understood_in_3s": true,
+   "note": "(a) See the searches; (b) Count matches; (c) Run all 10 searches. AND/OR groups explained in plain words."
+  },
+  {
+   "page": "Retrieval (step 4)",
+   "understood_in_3s": true,
+   "note": "(a) See what was found; (b) read 249 fetched, 59 duplicates, 190 papers; (c) Summarise the papers. Some queries returned 0 with no explanation."
+  },
+  {
+   "page": "Summary table (step 5)",
+   "understood_in_3s": true,
+   "note": "(a) Skim papers and fix AI cells; (b) click a study type or open one paper; (c) Rank the papers. The 3-item checklist helped."
+  },
+  {
+   "page": "Ranking (step 6)",
+   "understood_in_3s": false,
+   "note": "(a) Check which papers go forward; (b) pick a topic; (c) Appraise. While scoring ran, a '0 selected / no papers match' warning looked like a failure, and the final zero-papers dialog was confusing."
+  },
+  {
+   "page": "Appraisal (step 7)",
+   "understood_in_3s": false,
+   "note": "Dense text and jargon (quality questions, quotes not found, 'Found means\u2026'). I could not say within 3 seconds what to do. Per-quote explanations later were good."
+  },
+  {
+   "page": "Synthesis (step 8)",
+   "understood_in_3s": false,
+   "note": "Too much at once: warning banner, topic tabs with conflicts, Known/Contested/Unknown boxes, chips, evidence table and network. 'Suggest research questions' was clear but the page was overwhelming."
+  },
+  {
+   "page": "Choose research question (step 9)",
+   "understood_in_3s": true,
+   "note": "(a) Pick one of three candidates; (b) compare gap, feasibility and weakness; (c) Choose this question, then Finish and export (locked until chosen). Good, but the cards are long."
+  },
+  {
+   "page": "Export",
+   "understood_in_3s": true,
+   "note": "(a) Download my review; (b) pick Report, spreadsheet or reference list; (c) Download. The preview is a small scroll box and the printable report opens in a new tab."
+  }
+ ],
+ "findings": [
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 9 research question, Candidate 1",
+   "what_happened": "The gap says 'all existing studies examined only specific exam performance rather than cumulative GPA' and the novelty check says 'None of the top 9 records looks like the same question'. The selected papers include three GPA cohort/longitudinal studies, one of them nearly the same question (end-of-semester GPA after first semester, and sleep consistency predicting future GPA). The gap is cited only to 'aim' and 'limitation' quotes, which cannot show that something does not exist.",
+   "expected": "Gap claims should be checked against all selected and retrieved papers, phrased as 'among the N papers reviewed' and never as 'all existing studies'. The novelty check should flag close matches already in the corpus. A false 'looks new' result misleads a first-year student.",
+   "evidence": "docs/qa/real-2/undergrad/56-rq.jpg, 58-reasoning2.jpg, 32-ranked-list.jpg, 61-chosen.jpg",
+   "suggested_fix": "Cross-check each gap statement against the key findings and study types of every paper in the selected set. Block or soften absolute words ('all', 'no study'). Compare novelty against the selected and top-scored papers as well as new database hits. Show the nearest matching papers on every candidate, not only on a match."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 9 research question, Candidate 3",
+   "what_happened": "Candidate 3 ('cumulative GPA at graduation') is flagged 'May already be studied' because of 'Association between Sleep Quality and Duration and Periodontal Disease among University Students'. That is unrelated. The paper that does match, 'Consequences of inadequate sleep during the college years: sleep deprivation, GPA and college graduation', is in the corpus and was not flagged.",
+   "expected": "The novelty warning should name the genuinely closest paper. A wrong match undermines trust in every novelty message.",
+   "evidence": "docs/qa/real-2/undergrad/60-cand3.jpg",
+   "suggested_fix": "Rank novelty matches by the question's population, exposure and outcome, and include the selected papers. Add a relevance threshold and show how similar the match is. Say 'closest record found' when it is weak."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Step 8 synthesis",
+   "what_happened": "Several statements generalise from very little. 'Whether better sleep quality causes improved grades is unknown, as all studies used cross-sectional designs' cites 2 papers although cohort studies are in the 14. 'Few studies have directly compared self-reported to objective measures' cites 1 paper. 'Objective wearable devices are a reliable way to measure sleep' (Known) cites 2 papers. 'Poorer subjective sleep quality is associated with lower performance' rests partly on R2 = 0.0008, with no effect-size caveat. 'Contested' items rest on 1 paper or on one cohort.",
+   "expected": "Absence claims ('unknown', 'few', 'all') should be scoped to the papers actually read in that topic, or removed. Known should say when an association is negligible. Contested should need two independent studies.",
+   "evidence": "docs/qa/real-2/undergrad/47-synth-scroll.jpg, 49-synth-more.jpg, 53-tab-duration.jpg, 54-tab-duration2.jpg, 51-evtable.jpg",
+   "suggested_fix": "Rewrite 'unknown' statements as 'The N papers reviewed for this topic did not report X'. Add an automatic flag when a statement says 'all', 'few' or 'no' and cites fewer than 3 papers. Surface effect size next to p-values in Known statements. Require 2 independent papers before labelling something Contested."
+  },
+  {
+   "severity": "major",
+   "category": "clarity",
+   "page": "Step 8 synthesis, and step 7 appraisal",
+   "what_happened": "These pages put too much on one panel: a warning banner, topic tabs with conflict counts, Contradictions/Known/Contested/Unknown boxes, many quote chips, an evidence table and a 3D network. The words 'conflicts', 'findings 1/2', 'chips', 'finding 4', 'quality item 3' and 'limitation 2' are unexplained. A first-year student cannot say what to do in 3 seconds, and the 'Fix any statement that says more than its quotes' task is hard without guidance on what 'more' looks like.",
+   "expected": "One main thing per screen, plain headings, and a short worked example of what to check (a quote that does not say the statement).",
+   "evidence": "docs/qa/real-2/undergrad/46-synth-done.jpg, 35-appraising.jpg, 36-appraised.jpg, 52-network.jpg",
+   "suggested_fix": "Show one topic and one statement at a time, with the quote text inline instead of 'Sutari et al. 2024 \u00b7 finding 1'. Rename 'chips' and 'findings' to 'quotes' and 'evidence'. Collapse the table and network by default. Add one concrete example: 'Check: does this quote say the same thing as the sentence above it?'"
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Steps 3 to 6, topic 'Sleep around examination periods'",
+   "what_happened": "The topic closest to my idea ('sleep around exams') returned 0 papers from PubMed and OpenAlex. 'International university contexts' returned 84 from PubMed (many off-topic) and 0 from OpenAlex. The cause is not explained until step 6 ('no papers match') and the step 8 banner. Counts per topic were not compared before running all searches, and the one count I checked (326) gave no warning that other topics would be empty.",
+   "expected": "Warn at step 3 or 4 when a query returns zero or looks too narrow, and offer a one-click widen.",
+   "evidence": "docs/qa/real-2/undergrad/18-retrieval-done.jpg, 31-ranked.jpg, 34-appraise.jpg",
+   "suggested_fix": "After retrieval, flag queries with 0 or very few hits ('Sleep around examination periods found nothing: widen it?') and link to step 3. Offer 'Count matches for all' before 'Run all searches'."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Steps 5 to 7, paper selection",
+   "what_happened": "The corpus includes clearly off-topic items (exercise and postpartum depression meta-analysis, sleep and cardiovascular disease, burnout in nursing students, sleep and healthy ageing). The 14 selected papers include Icelandic adolescents and pharmacy and osteopathic medical students, although I asked for university students. The topic list also includes 'International university contexts' although I said any country.",
+   "expected": "Off-population and off-topic papers should be marked or excluded from selection, with the reason.",
+   "evidence": "docs/qa/real-2/undergrad/26-filter-review.jpg, 50-synth-more2.jpg (appraised list item 11), 29-ranking.jpg",
+   "suggested_fix": "Show a 'Population match' flag in ranking and exclude 'matches no topic' papers by default. Make the selection summary say how many selected papers are not university students."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Step 7 appraisal",
+   "what_happened": "Some AI answers do not follow from their quotes. 'Sampling frame and method described: Yes' is backed by 'The survey remained open for seven days\u2026 Participants included students from the 2027 cohort class'. 'Validated or piloted instrument: Unclear' sits beside a quote naming the PSQI. The checker only tests that the words exist, and the page says so.",
+   "expected": "A first-time user cannot judge whether a quote supports an answer. Weak support should be flagged, not only missing quotes.",
+   "evidence": "docs/qa/real-2/undergrad/36-appraised.jpg",
+   "suggested_fix": "Add a second AI check ('does this quote support this answer?') with a visible 'weak support' flag. Or show a one-line explanation of how each answer was reached."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Step 8 synthesis",
+   "what_happened": "Typo/glitch in a Known statement: 'Po\u00f6rer subjective sleep quality is associated with lower academic performance'. This is an AI-generated artefact that was not caught.",
+   "expected": "Clean text in the headline statements of a report shown to a tutor.",
+   "evidence": "docs/qa/real-2/undergrad/47-synth-scroll.jpg",
+   "suggested_fix": "Normalise stray diacritics and non-ASCII artefacts in generated text and run a spell check pass before display and export."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 2 scoping",
+   "what_happened": "After sending an answer, my answer did not appear in the chat for about 20 seconds; only 'Thinking about the next question\u2026' showed, so I wondered whether it had been sent. Question 4 asked 'What outcome linked to sleep\u2026' although my idea and answer 2 already said grades, and the 'What you want to know' summary line vanished after question 3 and reappeared later. The example text was shown as 'e.g. [college students, school-age children, general adults]' with square brackets.",
+   "expected": "My answer should show immediately; questions already answered should not be repeated; examples in plain words.",
+   "evidence": "docs/qa/real-2/undergrad/07-q2.jpg, 07b-q2.jpg, 08-q3.jpg, 09-q4.jpg, 06-sharpen.jpg",
+   "suggested_fix": "Echo the user's answer at once (optimistic update). Skip questions whose fields are already filled. Remove brackets from example text."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 3 search builder",
+   "what_happened": "The step shows one topic's editor (name, synonyms, 'Controlled vocabulary (MeSH)': 'Students' in monospace) under 'Turn the topics into database searches', although 'Write the searches' runs for all 5. 'MeSH', 'index term', 'title/abstract' and 'group 1: any of' are jargon for a first-year. In the final queries 'exam*' sits inside the sleep group and 'mark*' could match unrelated words.",
+   "expected": "Make clear that Write the searches covers all 5 topics and explain MeSH in one plain sentence beside the field.",
+   "evidence": "docs/qa/real-2/undergrad/13-searchbuilder.jpg, 15-searches.jpg",
+   "suggested_fix": "Rename the heading 'Your 5 topics' and list all topics. Replace 'Controlled vocabulary (MeSH)' with 'Official PubMed subject label (MeSH)' and add a tooltip. Do not place concept words in the wrong concept group."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Step 6 ranking (while running)",
+   "what_happened": "While scoring was still running (3 to 16 of 21 batches), the page showed '0 selected' on every topic and warnings that 'no papers match' for four topics, plus 'Fewer than 3 papers selected'. It looked like failure, but resolved to 4 per topic after scoring finished.",
+   "expected": "Show progress only, or hide warnings until scoring is complete.",
+   "evidence": "docs/qa/real-2/undergrad/29-ranking.jpg, 30-ranking-top.jpg, 31-ranked.jpg",
+   "suggested_fix": "Suppress selection warnings while ranking is running and show 'Scoring in progress, selection appears when done'."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 6 'Appraise anyway' dialog",
+   "what_happened": "The dialog says to 'change the search words in step 3, then bring the later steps up to date'. I did not know what 'bring the later steps up to date' costs or does. The primary button is 'Appraise anyway' with no explanation of the consequence, so I took the risky default.",
+   "expected": "Say plainly: 'Your review will have no evidence on this topic. You can continue, or edit the search (this reruns steps 4 to 6 and costs more AI time).'",
+   "evidence": "docs/qa/real-2/undergrad/34-appraise.jpg",
+   "suggested_fix": "Rewrite in plain language, state the time cost of rerunning and what the report will say about the empty topic."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Step 7 appraisal panel",
+   "what_happened": "The side panel is very text-heavy; the actual paper and checklist sit below the fold under a long explanation and a 3-item task list. 'Next paper' is enabled and primary while 0 of 14 papers have appraised. A label 'Full retrieved text: pubmed' appears for abstract-only papers. Accept anyway / Reject give no guidance on which is safer. I could not tell how many papers I had really read.",
+   "expected": "Paper first, instructions collapsed; honest labels; a hint for deciding.",
+   "evidence": "docs/qa/real-2/undergrad/35-appraising.jpg, 36-appraised.jpg, 38-allappraised.jpg, 41-p4.jpg",
+   "suggested_fix": "Collapse the explanation after the first view, disable 'Next paper' until appraisal finishes, rename 'Full retrieved text' to 'Abstract text used', and add 'If the quote is real text from the paper, accept; if it changes the meaning, reject'."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Canvas / step 1 node",
+   "what_happened": "After clicking Start my review, the canvas shows the banner 'Your next step \u00b7 step 1 of 9, Check your idea, then start' with a 'Sharpen my idea' button. I had already started, so the wording confused me. The Canvas/List toggle, 'K' shortcut and 1-9 circles are unexplained for a first-time user.",
+   "expected": "A first-time canvas should say what it is and what the next step is.",
+   "evidence": "docs/qa/real-2/undergrad/05-questions.jpg",
+   "suggested_fix": "Change the banner to 'Step 2: answer a few questions' and add a one-time hint explaining the canvas and List view."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Steps 4 to 5 categories",
+   "what_happened": "Article type and study type overlap confusingly: 11 'Review articles' and 11 'Systematic / scoping reviews' are not the same set, and narrative reviews appear under 'Other design'. A student may wonder whether a 'Review article' is a study type. Before AI summaries, 180 of 190 papers show 'Not reported'. Triangle and cross are two similar greens.",
+   "expected": "A one-line explanation of article type (what kind of publication) versus study type (how the study was done).",
+   "evidence": "docs/qa/real-2/undergrad/26-filter-review.jpg, 27-map.jpg, 19-corpus-chart.jpg",
+   "suggested_fix": "Add a short helper: 'Article type = what was published. Study type = how the research was done.' Use clearly different hues for cross-sectional and other design."
+  },
+  {
+   "severity": "polish",
+   "category": "performance",
+   "page": "Step 4 map (3D and 2D)",
+   "what_happened": "The 3D map clusters papers at the right edge of the panel, cropped, with a stray vertical line on the left. 'Height has no meaning yet' and 'Depth: topic' are unexplained. For a beginner it is decoration rather than help. In the evidence network the 'Statements' label overlaps shapes.",
+   "expected": "A map should help find papers by type and year at a glance.",
+   "evidence": "docs/qa/real-2/undergrad/19-corpus-chart.jpg, 20-chart2d.jpg, 27-map.jpg, 52-network.jpg",
+   "suggested_fix": "Default to the 2D chart, fit the points inside the panel, remove the stray axis line and move labels out of the plot."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Step 9 candidate cards",
+   "what_happened": "Candidate 1 suggests 'provide wearables for 4 months' and says this 'can fit within a student project timeline'. For a first-year undergraduate this is not realistic. The gap sentence reads awkwardly ('This addresses that it remains unknown\u2026'). The cards truncate Gap, Feasibility and Weakness with '\u2026' until opened.",
+   "expected": "Feasibility should reflect the user (first-year, supervised project) and be written in clear prose.",
+   "evidence": "docs/qa/real-2/undergrad/56-rq.jpg, 58-reasoning2.jpg",
+   "suggested_fix": "Ask scale and resources in scoping (who is doing this: a first-year project?) and use it in feasibility. Tidy the gap sentence template."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Export",
+   "what_happened": "The preview is a small scroll box ('first 200 of 839 lines') on a page where the printable report opens in a new tab. The report title is my raw idea ('Literature review: I'm interested in sleep and grades'), which I would not show my tutor. The header says 'Generated by Athena prototype', and 'not found: 6' counts the one I rejected. I could read only the first page of the report in the page, and my test browser could not follow the new tab.",
+   "expected": "A report I can read and show a tutor, titled with my research question.",
+   "evidence": "docs/qa/real-2/undergrad/62-finish.jpg, 64-preview.jpg, 65-preview-end.jpg, 66-account.jpg",
+   "suggested_fix": "Use the chosen research question as the report title, show the full preview at page height, and open the printable report in the same tab with a back link. Reword 'prototype' for users."
+  },
+  {
+   "severity": "polish",
+   "category": "a11y",
+   "page": "Throughout (dark theme)",
+   "what_happened": "Much secondary text is small mid-grey on near-black (for example 'Next: step 3, search builder', 'What we know so far' helper text, 'Filled in as you answer\u2026'). It is hard to read at 1366 wide. Keyboard focus was visible (outline on 'What the files include'). In the account menu, 'Live APIs' under my email is unexplained.",
+   "expected": "Helper text should be clearly readable in both themes, and labels should be plain.",
+   "evidence": "docs/qa/real-2/undergrad/10-q5.jpg, 12-after-keep.jpg, 66-account.jpg",
+   "suggested_fix": "Raise the contrast and size of helper text and replace 'Live APIs' with plain wording such as 'Using real databases and AI'."
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+{
+  "landing-375": {
+    "what": "Landing page for a first-time visitor",
+    "url": "/",
+    "width": 375,
+    "theme": "dark"
+  },
+  "landing-768": {
+    "what": "Landing page for a first-time visitor",
+    "url": "/",
+    "width": 768,
+    "theme": "dark"
+  },
+  "landing-1366": {
+    "what": "Landing page for a first-time visitor",
+    "url": "/",
+    "width": 1366,
+    "theme": "dark"
+  }
+}

@@ -1,0 +1,219 @@
+{
+ "persona": "nonnative",
+ "completed": true,
+ "stage_reached": 9,
+ "findings": [
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Research question (step 9) and report",
+   "what_happened": "The 'supporting quotes' for candidate 2's gap ('the included papers do not measure this link directly') are four green 'found word for word' chips from one paper (Ly et al. 2026). The one I opened is a methods sentence about the Arksey and O'Malley review framework. It says nothing about apps and sugar level. That paper never appeared in my synthesis or appraisal. The same chips are copied into the report as '[Ly et al. 2026]'.",
+   "expected": "A quote attached to a gap should support that gap, or the page should say that 'found' only means the words exist. The cited paper should be one I appraised, or be clearly marked as not appraised.",
+   "evidence": "docs/qa/iteration-2/nonnative/41-ly-quote.jpg; docs/qa/iteration-2/nonnative/46-preview.jpg",
+   "suggested_fix": "Show a relevance check on each supporting quote and restrict gap citations to appraised papers. Put the 'found does not mean it proves' note next to the chips on the question cards, not only in the popover. Label quotes that are only about methods."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Research question (step 9), novelty check",
+   "what_happened": "The novelty check returned 7,629 PubMed hits for the app-and-sugar-level query. The top OpenAlex hits were unrelated (abortion family planning, retinopathy screening, COVID quarantine). The page gives no plain verdict. There is only a generic note: 'Finding none does not prove a question is new'. The novelty query ignores type 2 diabetes and Thailand, so it does not test my final question. The numbers are hidden inside the collapsed reasoning.",
+   "expected": "A clear sentence such as 'many similar studies exist, so this is probably not new' or 'search too broad to judge'. The query should match the chosen question.",
+   "evidence": "docs/qa/iteration-2/nonnative/42-novelty.jpg; docs/qa/iteration-2/nonnative/46-preview.jpg",
+   "suggested_fix": "Show a one-line novelty summary on each card (for example '7,629 papers match a broad search: this may not be new'). Build the novelty query from all PECO parts. Warn when the top hits do not match the topic."
+  },
+  {
+   "severity": "major",
+   "category": "clarity",
+   "page": "Scoping / topics and research question",
+   "what_happened": "My typos went straight into the work. 'diabtes pateint' became the topic 'Diabetes pateint' and the 'Who' field. The candidate questions read 'type 2 diabetes pateints'. The report title is my raw misspelled sentence. No step offered to correct spelling. I could only fix the topic by noticing it and editing by hand. The title of the final report keeps the typos.",
+   "expected": "The AI should rewrite my rough, misspelled idea into clean wording and show it for approval. Misspelled search terms hurt the database searches.",
+   "evidence": "docs/qa/iteration-2/nonnative/07-scoping.jpg; docs/qa/iteration-2/nonnative/39-rq.jpg; docs/qa/iteration-2/nonnative/46-preview.jpg",
+   "suggested_fix": "Add a 'Tidy my wording' suggestion in step 2 and use the cleaned idea for topics, candidates and the report title. Flag likely spelling mistakes in topic names."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Ranking (step 6)",
+   "what_happened": "For the topic 'Type 2 diabetes patients' the selected paper #1 was a telemedicine scoping review protocol. Rows #2 to #5 (abortion care, hemophilia care) say both 'does not match the topic' and 'Selected for appraisal in this topic'. The checklist item 'Keep 3-5 papers per topic' showed as Done while the orange banner said 4 topics had fewer than 3. Paper 2 of the appraisal was an HIV study in Malaysia.",
+   "expected": "Rows that do not match should not carry a 'selected' label. The checklist should not tick when the rule is broken. Irrelevant papers should not move forward silently.",
+   "evidence": "docs/qa/iteration-2/nonnative/29-rank.jpg; docs/qa/iteration-2/nonnative/30-t2d.jpg",
+   "suggested_fix": "Hide or fix the 'Selected for appraisal in this topic' line on non-matching rows. Tie the checklist tick to the real count. Say plainly 'no good papers found for this topic: change the search or drop the topic'."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Landing and sign-up",
+   "what_happened": "Demo mode is not mentioned on the landing page or the sign-up page. The landing page says 'It finds real papers in PubMed and OpenAlex'. I only learned the AI was scripted and the papers were recorded samples (on telemedicine) after I had created an account and started.",
+   "expected": "A short demo note before sign-up, so I do not expect results about my topic.",
+   "evidence": "docs/qa/iteration-2/nonnative/01-landing.jpg; docs/qa/iteration-2/nonnative/02-signup.jpg; docs/qa/iteration-2/nonnative/05-after-start.jpg",
+   "suggested_fix": "Show the demo note on the landing and sign-up pages when the server is in demo mode."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Sign up",
+   "what_happened": "The password hint 'At least 10 characters, not containing the name part of your email.' is drawn on top of the password box, inside it, so the field looks like it already has text in it. The Create account button looks active while the form is empty.",
+   "expected": "The hint should sit below the field, and the button should look clearly disabled or explain what is missing.",
+   "evidence": "docs/qa/iteration-2/nonnative/02-signup.jpg",
+   "suggested_fix": "Fix the layout so the hint is below the input. Also check the pages in a narrow window."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Session overview and step 1 panel",
+   "what_happened": "I had just typed my idea on the first page. The overview then showed 'Your next step: step 1 of 9, Tell us what you want to research', and opening it showed the same idea box again, with a button 'Start scoping'. It felt like I had to repeat step 1. 'Scoping' is a hard word for me.",
+   "expected": "After I typed my idea, step 1 should count as done and the next step should be the questions.",
+   "evidence": "docs/qa/iteration-2/nonnative/05-after-start.jpg; docs/qa/iteration-2/nonnative/06-step1.jpg",
+   "suggested_fix": "Mark step 1 as done on submit and take the user straight to the questions. Use plain wording such as 'Ask me questions'."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Scoping (topics)",
+   "what_happened": "The scoping questions stopped after 5 and never asked about study types, yet 'What we know so far' ends with 'Which kinds of studies: not answered yet'. The header says 'questions done'. The topic rows are labelled 'Suggested subtopic', a word that never explained itself. A synonym 'if app' appeared next to 'mobile app'. The HbA1c outcome I said I cared about was not turned into a topic, so I had to add it myself. 'Controlled vocabulary (MeSH)' appeared unexplained on the first view, and was explained only on the later screen.",
+   "expected": "Cover all points or say which I can skip. Use words I know. Offer topics for outcomes I named. Remove junk synonyms.",
+   "evidence": "docs/qa/iteration-2/nonnative/10-q5.jpg; docs/qa/iteration-2/nonnative/11-topics.jpg; docs/qa/iteration-2/nonnative/12-topic-edit.jpg",
+   "suggested_fix": "Ask about study type or mark it 'optional, skipped'. Rename 'Suggested subtopic' to 'Suggested topic'. Explain MeSH in one line wherever it first appears."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Search builder and Retrieval",
+   "what_happened": "The 'Count matches' preview said 979 PubMed papers for the 'Mobile app' query, but after Run the same query showed 8,058. 979 also appears for both 'Type 2 diabetes patients' and 'HbA1c blood sugar control'. The 'Mobile app' query contains 'AND sugar level', so it is not just about apps. The demo note explains some mismatch but not why a preview and a run differ.",
+   "expected": "A preview count that matches the later run, or a note that says why it can differ.",
+   "evidence": "docs/qa/iteration-2/nonnative/21-count.jpg; docs/qa/iteration-2/nonnative/22-running.jpg",
+   "suggested_fix": "Make demo counts consistent, or tag them as demo numbers. Name each query by what it really searches."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Appraisal (step 7)",
+   "what_happened": "The header says '6 quotes to decide' while every quote I first saw was green 'found word for word'. I had to find the checkbox 'Show only quotes I need to decide' to see what was meant. The checklist, a long paragraph and a toggle fill more than half of the tablet screen before any paper content appears. Words like 'quality questions' and 'Accept anyway' were hard for me. Many 'found' quotes had little to do with the question (for example the paper title as the quote for 'Random allocation method described').",
+   "expected": "Show the quotes needing a decision first. Keep the instructions short.",
+   "evidence": "docs/qa/iteration-2/nonnative/33-appraised.jpg; docs/qa/iteration-2/nonnative/34b.jpg; docs/qa/iteration-2/nonnative/35b.jpg",
+   "suggested_fix": "Turn on 'only quotes I need to decide' by default, or put the items to decide at the top. Shorten the intro and collapse it after the first paper."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Synthesis (step 8)",
+   "what_happened": "The 'Known' statement only says '(mock) 6 key findings were extracted for this topic', with chips. It says nothing I could use. The 'conflict' is a sample paired 'at random' and 'They do not necessarily disagree'. After I rejected the altered quotes, the synthesis still listed findings with green ticks, and I could not tell which papers or quotes backed which statement.",
+   "expected": "A real statement of what is known, tied to specific quotes. A conflict that is really a conflict.",
+   "evidence": "docs/qa/iteration-2/nonnative/37-synthesis.jpg; docs/qa/iteration-2/nonnative/38-chip.jpg",
+   "suggested_fix": "In real mode, require each statement to quote its source in the text. In demo mode, label the whole block 'example only' prominently, not just with '(mock)'."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Overview",
+   "what_happened": "The focus check reported 'Canvas' with no visible focus style. On the tablet the Canvas view is almost empty because the side panel covers it (only one node visible). Small text and icon-only controls (the 'K' shortcut button, '8 s') are unexplained.",
+   "expected": "A visible keyboard focus ring everywhere. A useful Canvas view at 768 px, or a hint that it needs a wider screen.",
+   "evidence": "docs/qa/iteration-2/nonnative/50-canvas.jpg",
+   "suggested_fix": "Add a focus ring to the Canvas/List toggle. Close the panel by default when opening Canvas on tablets, and label the 'K' shortcut ('Search and commands')."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Retrieval and Table (colours and categories)",
+   "what_happened": "I could find and filter by study type and article type and the legend was clear (colour, shape, label, count). A few things confused me. 'Review article 10' (article type) and 'Systematic / scoping review 3' (study type) are different things with similar names. The study-type counts changed between step 4 (Trial 4, Review 3, Other 8, Not reported 49) and step 5 (Cross-sectional 14, Review 7, Not reported 13) with only a short explanation. The key lists categories with no counts (Cohort, Cross-sectional, Qualitative). The 3D chart on tablet is clipped on the right, 'Height has no meaning yet' is odd, and protocols appear as 'Trial' or 'Systematic review' though the intent says protocols are 'Other design'.",
+   "expected": "Counts that agree across steps, or an explanation next to them. Categories with no papers shown as 0 or hidden.",
+   "evidence": "docs/qa/iteration-2/nonnative/22-running.jpg; docs/qa/iteration-2/nonnative/22b-scroll.jpg; docs/qa/iteration-2/nonnative/25-table.jpg; docs/qa/iteration-2/nonnative/28-map.jpg",
+   "suggested_fix": "Add one line explaining article type versus study type. Fix the chart width at 768 px and show 0 for empty categories."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "Research question and Export",
+   "what_happened": "The candidate questions keep '(mock)' inside the editable question text, so I had to delete it by hand. Editing the question text left the gap, feasibility and supporting quotes from the original wording, with no warning that they may no longer fit. 'PICo' and 'PECO' are abbreviations I do not know (the brackets help a little). After 'Download the report (Markdown)' I saw no confirmation. 'Markdown, plain text with formatting marks such as #' is jargon for me. 'Open printable report' appeared to open the same page again, and I could not confirm it worked.",
+   "expected": "Clean editable text, a note after edits, and visible feedback after a download.",
+   "evidence": "docs/qa/iteration-2/nonnative/43-edit-q.jpg; docs/qa/iteration-2/nonnative/44-saved.jpg; docs/qa/iteration-2/nonnative/45-export.jpg; docs/qa/iteration-2/nonnative/47-printable.jpg",
+   "suggested_fix": "Strip '(mock)' from editable fields. After a wording edit, show 'The gap and quotes were written for the old wording: check them'. Add a 'Downloaded' message. Use 'Report (text file) or printable page' wording."
+  },
+  {
+   "severity": "polish",
+   "category": "copy",
+   "page": "Whole app",
+   "what_happened": "Idioms and technical words for a second-language reader: 'the way you would say it to a supervisor', 'fix any wrong cells', 'Keep', 'found word for word', 'does not match the topic', 'PICo', 'MeSH', 'dupes', '(mock)'. The words mostly became clear from context, and the plain-language notes are a strength. The AI text marked '(mock)' is honest, but it appears inside text I should edit and export.",
+   "expected": "Short, concrete words wherever possible.",
+   "evidence": "docs/qa/iteration-2/nonnative/06-step1.jpg; docs/qa/iteration-2/nonnative/25-table.jpg",
+   "suggested_fix": "Replace 'cells' with 'boxes', 'dupes' with 'duplicates', and add short glosses on first use."
+  }
+ ],
+ "three_second_test": [
+  {
+   "page": "Landing",
+   "understood_in_3s": true,
+   "note": "I understood it makes a research question from my idea with real papers. 'Start a review' is obvious. I did not see any demo-mode warning here."
+  },
+  {
+   "page": "Sign up",
+   "understood_in_3s": true,
+   "note": "It is a simple account form. The password hint overlaps the password box, which is confusing."
+  },
+  {
+   "page": "New review (step 1)",
+   "understood_in_3s": true,
+   "note": "A big box for my idea, with examples, and 'Start my review'. Clear."
+  },
+  {
+   "page": "Session overview (list)",
+   "understood_in_3s": false,
+   "note": "It showed 'step 1 of 9, Tell us what you want to research' after I had just typed my idea, which made me think I had to do it again. The demo note was clear. The 'K' button was unclear."
+  },
+  {
+   "page": "Scoping questions",
+   "understood_in_3s": true,
+   "note": "One question at a time, in a chat box, with a 'what we know so far' summary. I understood it. The summary showed my typos."
+  },
+  {
+   "page": "Scoping topics",
+   "understood_in_3s": true,
+   "note": "Keep, Edit or Delete for each topic, and the button 'Keep N suggested topics'. 'Suggested subtopic' was confusing."
+  },
+  {
+   "page": "Search builder",
+   "understood_in_3s": true,
+   "note": "I saw the searches before they run, plus 'Count matches' and 'Run all 10 searches'. The demo notice is clear. AND/any-of groups are hard but explained."
+  },
+  {
+   "page": "Retrieval",
+   "understood_in_3s": true,
+   "note": "I saw the paper counts and the study-type bars with colour, shape and label. The 'Summarise the papers' button is clear."
+  },
+  {
+   "page": "Summary table",
+   "understood_in_3s": true,
+   "note": "A 3-item checklist, filter chips for study type and article type, and 'Rank the papers'. 'Cells' is spreadsheet jargon."
+  },
+  {
+   "page": "Ranking",
+   "understood_in_3s": false,
+   "note": "Lots of text, an orange warning and a checklist that said 'done' for a rule that was broken. It was hard to say what to do first."
+  },
+  {
+   "page": "Appraisal",
+   "understood_in_3s": false,
+   "note": "Too much instruction text and the real content is below the fold. I did not know what '6 quotes to decide' meant until I turned on the filter."
+  },
+  {
+   "page": "Synthesis",
+   "understood_in_3s": true,
+   "note": "Tabs by topic, with Known, Contested and Unknown blocks and quote chips. The layout is clear but the statements are vague."
+  },
+  {
+   "page": "Research question",
+   "understood_in_3s": true,
+   "note": "Three cards with gap, feasibility and weakness, and 'Choose this question'. Clear."
+  },
+  {
+   "page": "Export",
+   "understood_in_3s": true,
+   "note": "The question at the top, three download formats, a preview, and 'Download Markdown'. Clear. The demo label on the report is honest."
+  }
+ ],
+ "categories_and_colours": "I could find and filter papers by both dimensions. On Retrieval, the article-type bars are plain grey and tappable, and tapping 'Review article' filtered the chart ('showing 10 of 64'). On the summary table, the chips for study type (colour and shape) and article type (plain) filter the list, with a 'Showing 5 of 64' line and a Reset button. Study types were shown with colour, shape and a text label in the table, chips, map and legend: blue circle for Trial, orange square for Cohort, green triangle for Cross-sectional, amber diamond for Qualitative, pink star for Systematic/scoping review, green cross for Other design and grey ring for Not reported. I understood the meaning without being told because every item has a legend with a label and count. Weak points: two greens (triangle and cross) look similar and only the shape separates them; categories with no papers appear in the key with no count; article type 'Review article' versus study type 'Systematic / scoping review' can be mixed up; counts for the same studies change between step 4 and step 5; the 3D map was clipped on the right at 768 px and 'Height has no meaning yet' is odd.",
+ "validity_assessment": "Partly valid and honest, but not fully traceable. Strong points: demo mode is announced on every working page, AI text is tagged '(mock)', every paper has DOI/PMID links and its abstract, the scoring rubric (5 criteria and weights) is visible, and the 'Abstract only' badge says what was read. The quote checker works: a deliberately altered quote was shown in red as 'not found, you decide' with the closest passage, and the report counts 54 found, 6 not found, 6 rejected by me. The final report carries a demo disclaimer and a 'not proof of novelty' note, and 'novel' is never claimed. Weak points: 'found word for word' only means the words exist in the paper, and several green quotes were off topic (a paper title as evidence for random allocation; a review-methods sentence as evidence for a research gap). The gap cites a paper I never appraised. The synthesis statements in demo mode are placeholders ('6 key findings were extracted'), so I cannot trace a claim to evidence. The novelty check shows 7,629 hits with no verdict and an unrelated top-hit list. Papers about abortion, hemophilia and HIV were pre-selected for a diabetes topic. My typos flowed into topics, the question and the report title. Nothing looked fabricated in a hidden way: everything off-topic is explained by the demo-mode note. In a real run, I would need the quote relevance and the novelty verdict to be fixed before trusting the report.",
+ "would_have_quit_at": "I did not quit. The points where a real second-language user might: step 6 Ranking (many words, a contradictory checklist, 4 of 5 topics with fewer than 3 papers) and step 7 Appraisal (long instructions, and the quotes needing a decision hidden behind a toggle).",
+ "activity": "Created account somchai.nonnative.it2@example.com (name Somchai). Started one project (prj_f950aa1934d24a0e) with the idea 'how mobile app help diabtes pateint in thailand control there sugar level?'. Answered 5 scoping questions. Edited 2 topics, added the topic 'HbA1c blood sugar control', and kept 5 topics. Counted one search and ran all 10 searches (64 unique papers after 55 duplicates removed). Summarised the papers, ranked them, and appraised 6 papers (chose 'Appraise anyway' on the warning). Rejected all 6 'not found' altered quotes. Generated the synthesis and 3 candidate questions, chose candidate 2, and edited its wording and population. Reached the export page and previewed the report (457 lines), clicked 'Download the report (Markdown)' and opened the CSV option. About 115 helper commands. No console errors or failed requests were reported by 'problems' at any step. My own ambiguous click targets ('Add', 'Candidate 2') triggered the wrong controls at times; I recovered each time.",
+ "narrative": "I opened the landing page and understood within a few seconds that Athena turns a rough idea into a research question with real papers. I signed up (the password hint sat on top of the password box, which looked odd) and typed my sentence with its typos. The session page then asked me again to 'Tell us what you want to research', which confused me for a moment. The demo-mode note was clear and honest, although I wish I had seen it before signing up. Scoping was easy: five short questions in plain English. But my typo 'diabtes pateint' turned into a search topic and I fixed it by hand. The searches page was good: the demo note explained that the counts are recorded samples. The retrieval and table pages were the best part for me. The study-type colours, shapes and counts were consistent, and I could filter by study type and by article type. The ranking page was the first place I felt lost: an orange warning, a checklist that said 'done' while the warning said otherwise, and papers about abortion for a diabetes topic. The appraisal page was heavy on text, but the red 'not found, you decide' card for an altered quote showed that the quote check is real. I rejected those quotes. The synthesis was vague ('6 key findings were extracted'), though the quote popover was good. At the final step I chose the association question, and it still had typos and '(mock)' in it, so I rewrote it. The export page was clear, and the report is labelled as a demo. I would trust the process more than the content until the novelty check and quote relevance improve."
+}

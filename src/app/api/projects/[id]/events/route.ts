@@ -1,4 +1,7 @@
-import { projectView, retrievalView } from "@/lib/views";
+import { canvasView, projectView, retrievalView } from "@/lib/views";
+import { ownedProject, requireUser } from "@/lib/auth/server";
+import { errorResponse } from "@/lib/http";
+import { aiState } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -9,16 +12,21 @@ type Ctx = { params: Promise<{ id: string }> };
  */
 export async function GET(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
+  try {
+    await ownedProject(id, await requireUser());
+  } catch (e) {
+    return errorResponse(e);
+  }
   const enc = new TextEncoder();
   let timer: ReturnType<typeof setInterval> | undefined;
   const stream = new ReadableStream({
-    start(controller) {
+    async start(controller) {
       let last = "";
-      const tick = () => {
+      const tick = async () => {
         try {
-          const v = projectView(id);
+          const v = (await projectView(id));
           const running = Object.values(v.jobs).some((j) => j && (j.status === "running" || j.status === "queued"));
-          const payload = JSON.stringify({ stageStates: v.project.stageStates, staleReasons: v.project.staleReasons, jobs: v.jobs, costs: v.costs, retrieval: running || v.project.stageStates["4"] !== "not_started" ? retrievalView(id) : null });
+          const payload = JSON.stringify({ stageStates: v.project.stageStates, staleReasons: v.project.staleReasons, jobs: v.jobs, costs: v.costs, retrieval: running || v.project.stageStates["4"] !== "not_started" ? (await retrievalView(id)) : null, canvas: (await canvasView(id)), ai: await aiState() });
           if (payload !== last) {
             last = payload;
             controller.enqueue(enc.encode(`data: ${payload}\n\n`));
@@ -29,7 +37,7 @@ export async function GET(req: Request, ctx: Ctx) {
           controller.enqueue(enc.encode(`event: error\ndata: ${JSON.stringify({ error: (e as Error).message })}\n\n`));
         }
       };
-      tick();
+      (await tick());
       timer = setInterval(tick, 800);
       req.signal.addEventListener("abort", () => {
         clearInterval(timer);

@@ -18,9 +18,13 @@ test("fabricated quote fails", () => {
   const r = verifyQuote(src, "Adoption was high in all provinces");
   assert.equal(r.verified, false);
 });
-test("ellipsis fragments must appear in order", () => {
-  assert.equal(verifyQuote(src, "A total of 1,204 patients ... limited by connectivity").verified, true);
-  assert.equal(verifyQuote(src, "limited by connectivity ... A total of 1,204 patients").verified, false);
+test("ellipsis parts are each verified, in the paper's order; swapped parts are not verified but the note says why", () => {
+  const inOrder = verifyQuote(src, "A total of 1,204 patients ... Adoption was limited by connectivity");
+  assert.equal(inOrder.verified, true);
+  const swapped = verifyQuote(src, "Adoption was limited by connectivity ... A total of 1,204 patients");
+  assert.equal(swapped.verified, false);
+  assert.match(swapped.note, /different order/);
+  assert.equal(verifyQuote(src, "Adoption was limited by bandwidth ... A total of 1,204 patients").verified, false);
 });
 test("too-short quote rejected", () => assert.equal(verifyQuote(src, "used").verified, false));
 test("sectionAt", () => {
@@ -52,33 +56,74 @@ test("citation apparatus and PDF hyphenation are ignored symmetrically", () => {
   assert.equal(verifyQuote(src, "See the 46 structured interviews.").verified, false);
 });
 
-import { MAX_ELLIPSIS_GAP } from "./quotes";
-test("ellipsis fragments must come from one passage, not opposite ends of the paper", () => {
-  const filler = "Unrelated methods text about recruitment and consent procedures. ".repeat(40);
-  const far = `Uptake of teleconsultation rose sharply in rural districts. ${filler}Clinicians reported that connectivity limited video visits.`;
-  const near = "Uptake of teleconsultation rose sharply in rural districts. Most sites used phones. Clinicians reported that connectivity limited video visits.";
-  const q = "Uptake of teleconsultation rose sharply in rural districts ... connectivity limited video visits";
-  assert.ok(filler.length > MAX_ELLIPSIS_GAP);
-  assert.equal(verifyQuote(near, q).verified, true);
-  const r = verifyQuote(far, q);
-  assert.equal(r.verified, false);
-  assert.match(r.note, /not one passage/);
+import { joinedWithoutEllipsis, normalizeQuote, partsLabel, quoteParts } from "./quotes";
+test("hyphens, spaces around = and %, and quote marks do not break a match", () => {
+  const t = "In-depth interviews were conducted with 50 HCWs. The majority were female (n = 463, 93 %), and 'most' were nurses.";
+  assert.equal(verifyQuote(t, "In depth interviews were conducted with 50 HCWs.").verified, true);
+  // Word boundaries are kept: a hyphen counts as a space, never as nothing ("a symptomatic" ≠ "asymptomatic").
+  assert.equal(verifyQuote(t, "Indepth interviews were conducted with 50 HCWs").verified, false);
+  assert.equal(verifyQuote("Of these, 40 were a symptomatic carriers.", "40 were asymptomatic carriers").verified, false);
+  assert.equal(verifyQuote("The patient's views were sought.", "the patients views were sought").verified, false);
+  assert.equal(verifyQuote(t, "The majority were female (n=463, 93%), and “most” were nurses.").verified, true);
+  assert.equal(normalizeQuote("In-depth"), normalizeQuote("in depth"));
+  // changed numbers or words still fail
+  assert.equal(verifyQuote(t, "The majority were female (n = 436, 93%)").verified, false);
+  assert.equal(verifyQuote(t, "Structured interviews were conducted with 50 HCWs.").verified, false);
 });
-test("a repeated first fragment still finds the occurrence that sits next to the second one", () => {
-  const filler = "Background material on health systems in the region. ".repeat(20);
-  const src = `Uptake of teleconsultation rose sharply. ${filler}Uptake of teleconsultation rose sharply. Video visits were limited by connectivity.`;
-  const r = verifyQuote(src, "Uptake of teleconsultation rose sharply ... Video visits were limited by connectivity");
+
+const paper =
+  "ABSTRACT A total of 3754 and 8439 HCWs with and without comorbidities, respectively, were included. Among HCWs with comorbidities, work ability was lower. " +
+  "METHODS The survey was online. Of 400 222 HCWs invited, 22 496 (5.6%) completed the questionnaire []. As reported elsewhere, sociodemographic data were collected. " +
+  "RESULTS The majority were female (n = 463, 93%), over half were in the 36–55 year age category (n = 277, 59%) and 54% worked full time (n = 244).";
+
+test("an ellipsis quote is verified only if every part is found, and stores each part's real span", () => {
+  const q = "The majority were female (n = 463, 93%), over half were in the 36-55 year age category (n = 277, 59%). ... 54% worked full time (n = 244).";
+  const r = verifyQuote(paper, q);
   assert.equal(r.verified, true);
-  assert.ok(src.slice(r.start!, r.end!).length < 120);
+  assert.equal(r.parts.length, 2);
+  assert.match(r.note, /in two parts/);
+  assert.doesNotMatch(r.note, /different order/);
+  // Each part's span is a real passage of the text holding exactly that part, and the main span is the first part
+  // (never the unquoted words between the parts).
+  for (const [i, p] of quoteParts(q).entries()) {
+    const span = paper.slice(r.parts[i].start, r.parts[i].end);
+    assert.equal(normalizeQuote(span), normalizeQuote(p).replace(/^[.,;:!?]+|[.,;:]+$/g, ""));
+  }
+  assert.deepEqual([r.start, r.end], [r.parts[0].start, r.parts[0].end]);
+  assert.ok(!paper.slice(r.start!, r.end!).includes("worked full time"));
 });
-test("year-like statistics are content: changing or dropping them fails verification", () => {
-  const src = "Teleconsultation reduced missed visits (N = 2015) across the three provinces (P = 0.2019).";
-  assert.equal(verifyQuote(src, "Teleconsultation reduced missed visits (N = 2015) across the three provinces").verified, true);
-  assert.equal(verifyQuote(src, "Teleconsultation reduced missed visits (N = 2016) across the three provinces").verified, false);
-  assert.equal(verifyQuote(src, "Teleconsultation reduced missed visits across the three provinces").verified, false);
-  assert.equal(verifyQuote(src, "across the three provinces (P = 0.2020).").verified, false);
-  // genuine author-year citations are still skipped symmetrically
-  const cited = "Uptake was low in remote clinics (Nguyen and Tran, 2019; Lee et al. 2020a) despite subsidies (WHO, 2021).";
-  assert.equal(verifyQuote(cited, "Uptake was low in remote clinics despite subsidies.").verified, true);
-  assert.equal(verifyQuote(cited, "Uptake was high in remote clinics despite subsidies.").verified, false);
+test("ellipsis parts out of the paper's order are not verified: the note says each part is there, in another order", () => {
+  const r = verifyQuote(paper, "Of 400 222 HCWs invited, 22 496 (5.6%) completed the questionnaire (). ... A total of 3754 and 8439 HCWs with and without comorbidities, respectively, were included.");
+  assert.equal(r.verified, false);
+  assert.match(r.note, /different order/);
+  // A passage cannot be used twice: the same words repeated are not two passages.
+  assert.equal(verifyQuote(paper, "Among HCWs with comorbidities, work ability was lower. ... Among HCWs with comorbidities, work ability was lower.").verified, false);
+});
+test("an ellipsis quote fails if any part is altered or too short", () => {
+  const r = verifyQuote(paper, "The majority were female (n = 463, 93%) ... 64% worked full time (n = 244).");
+  assert.equal(r.verified, false);
+  assert.match(r.note, /Part 2 of 2 not found/);
+  const scraps = verifyQuote(paper, "The majority were female ... worked full time");
+  assert.equal(scraps.verified, false);
+  assert.match(scraps.note, /at least 4 words/);
+  assert.equal(verifyQuote(paper, "A total of 3754 and 8439 HCWs … which clearly proves the intervention works everywhere").verified, false);
+});
+test("a real opening followed by an overstatement still fails", () => {
+  const q = "A total of 3754 and 8439 which clearly proves the intervention works everywhere";
+  assert.equal(verifyQuote(paper, q).verified, false);
+  assert.equal(joinedWithoutEllipsis(paper, q), null);
+});
+test("sentences joined without an ellipsis stay unverified, with a note that says why", () => {
+  const q = "A total of 3754 and 8439 HCWs with and without comorbidities, respectively, were included. As reported elsewhere, sociodemographic data were collected.";
+  assert.equal(verifyQuote(paper, q).verified, false);
+  assert.match(joinedWithoutEllipsis(paper, q)!, /not next to each other/);
+  const t = "Work ability was lower in all groups; Absence was higher in nurses.";
+  const adjacent = "Work ability was lower in all groups. Absence was higher in nurses.";
+  assert.equal(verifyQuote(t, adjacent).verified, false);
+  assert.match(joinedWithoutEllipsis(t, adjacent)!, /only the punctuation between them differs/);
+});
+test("partsLabel counts parts like the check does", () => {
+  assert.equal(partsLabel("A total of 3754 and 8439 HCWs"), "");
+  assert.equal(partsLabel("one two three four ... five six seven eight"), ", in two parts");
+  assert.equal(partsLabel("one two three four […] five six seven eight . . . nine ten eleven twelve"), ", in three parts");
 });

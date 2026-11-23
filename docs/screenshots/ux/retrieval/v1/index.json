@@ -1,0 +1,20 @@
+{
+  "done-375": {
+    "what": "Retrieval finished: papers found and duplicates removed",
+    "url": "/s/<project>?node=retrieval",
+    "width": 375,
+    "theme": "dark"
+  },
+  "done-768": {
+    "what": "Retrieval finished: papers found and duplicates removed",
+    "url": "/s/<project>?node=retrieval",
+    "width": 768,
+    "theme": "dark"
+  },
+  "done-1366": {
+    "what": "Retrieval finished: papers found and duplicates removed",
+    "url": "/s/<project>?node=retrieval",
+    "width": 1366,
+    "theme": "dark"
+  }
+}

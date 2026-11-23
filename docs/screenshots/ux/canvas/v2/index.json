@@ -1,0 +1,38 @@
+{
+  "mid-375": {
+    "what": "Session overview mid-way (step 7 waiting for review)",
+    "url": "/s/<project>",
+    "width": 375,
+    "theme": "dark"
+  },
+  "mid-768": {
+    "what": "Session overview mid-way (step 7 waiting for review)",
+    "url": "/s/<project>",
+    "width": 768,
+    "theme": "dark"
+  },
+  "mid-1366": {
+    "what": "Session overview mid-way (step 7 waiting for review)",
+    "url": "/s/<project>",
+    "width": 1366,
+    "theme": "dark"
+  },
+  "stale-375": {
+    "what": "A later step is stale after an earlier edit",
+    "url": "/s/<project>?node=summary",
+    "width": 375,
+    "theme": "dark"
+  },
+  "stale-768": {
+    "what": "A later step is stale after an earlier edit",
+    "url": "/s/<project>?node=summary",
+    "width": 768,
+    "theme": "dark"
+  },
+  "stale-1366": {
+    "what": "A later step is stale after an earlier edit",
+    "url": "/s/<project>?node=summary",
+    "width": 1366,
+    "theme": "dark"
+  }
+}

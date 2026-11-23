@@ -1,18 +1,14 @@
 import "server-only";
-import fs from "node:fs";
-import path from "node:path";
 import { eq } from "drizzle-orm";
 import { db, schema } from "../db";
-import { config } from "../config";
-import { sha256, sleep, nowIso } from "../util";
+import { config, countPaid } from "../config";
+import { sha256, sleep, nowIso, newId } from "../util";
 
 /**
  * Every outbound HTTP call to a literature API goes through here:
  * - SQLite response cache keyed by sanitised URL (+ body), with a TTL
  * - per-source minimum spacing between requests (rate limits from each API's docs)
  * - exponential backoff on 429 / 5xx / network errors
- * - MOCK_MODE: served from fixtures/http (exact key, else a fixture recorded for the same endpoint)
- * - RECORD_FIXTURES: writes responses to fixtures/http with keys and email removed
  */
 
 export type SourceName = "pubmed" | "openalex" | "crossref" | "unpaywall" | "europepmc" | "pdf";
@@ -60,76 +56,6 @@ function cacheKey(source: SourceName, url: string, body?: string) {
   return `${source}:${sha256(sanitizeUrl(url) + (body ? `|${body}` : ""))}`;
 }
 
-const FIXTURE_DIR = path.resolve(process.cwd(), "fixtures/http");
-
-interface Fixture {
-  source: SourceName;
-  route: string;
-  url: string;
-  body?: string;
-  status: number;
-  contentType: string | null;
-  response: string;
-}
-
-function routeOf(url: string) {
-  const u = new URL(url);
-  // Collapse IDs in paths so /works/10.x/... and /PMC123/fullTextXML share a route.
-  const p = u.pathname
-    .replace(/\/10\.\d{4,9}\/.*$/i, "/:doi")
-    .replace(/PMC\d+/g, ":pmcid")
-    .replace(/\/W\d+/g, "/:id");
-  return `${u.host}${p}`;
-}
-
-let fixtureIndex: Map<string, Fixture[]> | null = null;
-function loadFixtures() {
-  if (fixtureIndex) return fixtureIndex;
-  fixtureIndex = new Map();
-  if (!fs.existsSync(FIXTURE_DIR)) return fixtureIndex;
-  for (const f of fs.readdirSync(FIXTURE_DIR)) {
-    if (!f.endsWith(".json")) continue;
-    try {
-      const fx = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, f), "utf8")) as Fixture;
-      const exact = `exact:${cacheKey(fx.source, fx.url, fx.body)}`;
-      fixtureIndex.set(exact, [fx]);
-      const r = `route:${fx.route}`;
-      if (!fixtureIndex.has(r)) fixtureIndex.set(r, []);
-      fixtureIndex.get(r)!.push(fx);
-    } catch {
-      /* ignore broken fixture */
-    }
-  }
-  return fixtureIndex;
-}
-
-function mockResponse(source: SourceName, url: string, body?: string): { status: number; text: string; contentType: string | null } {
-  const idx = loadFixtures();
-  const exact = idx.get(`exact:${cacheKey(source, url, body)}`);
-  if (exact) return { status: exact[0].status, text: exact[0].response, contentType: exact[0].contentType };
-  const byRoute = idx.get(`route:${routeOf(url)}`);
-  if (byRoute && byRoute.length) {
-    // Single-record lookups (a DOI, a PMCID) must not borrow another record's data.
-    if (/:doi$|:pmcid|\/:id$/.test(routeOf(url))) return { status: 404, text: "{}", contentType: "application/json" };
-    const ok = byRoute.filter((f) => f.status === 200);
-    const pool = ok.length ? ok : byRoute;
-    const pick = pool[parseInt(sha256(sanitizeUrl(url)).slice(0, 8), 16) % pool.length];
-    return { status: pick.status, text: pick.response, contentType: pick.contentType };
-  }
-  return { status: 404, text: "{}", contentType: "application/json" };
-}
-
-function recordFixture(source: SourceName, url: string, body: string | undefined, status: number, contentType: string | null, text: string) {
-  if (!config.recordFixtures || config.mockMode) return;
-  if (source === "pdf") return; // never write PDFs/derived PDF text into fixtures
-  fs.mkdirSync(FIXTURE_DIR, { recursive: true });
-  let response = text;
-  if (config.contactEmail) response = response.split(config.contactEmail).join("contact@example.org");
-  const fx: Fixture = { source, route: routeOf(url), url: sanitizeUrl(url), body, status, contentType, response };
-  const name = `${source}-${sha256(fx.url + (body ?? "")).slice(0, 16)}.json`;
-  fs.writeFileSync(path.join(FIXTURE_DIR, name), JSON.stringify(fx));
-}
-
 export interface FetchOpts {
   method?: "GET" | "POST";
   body?: string;
@@ -150,32 +76,38 @@ export interface HttpResult {
   cached: boolean;
 }
 
+/** One source_requests row per request attempt, cache hit or simulated failure (admin telemetry). */
+function track(source: SourceName, row: { status: number; ok: boolean; cached?: boolean; simulated?: boolean; ms?: number }) {
+  void db
+    .insert(schema.sourceRequests)
+    .values({ id: newId("sr"), source, status: row.status, ok: row.ok, cached: !!row.cached, simulated: !!row.simulated, durationMs: Math.round(row.ms ?? 0) })
+    .run()
+    .catch(() => {});
+}
+
 export async function httpFetch(source: SourceName, url: string, opts: FetchOpts = {}): Promise<HttpResult> {
   if (config.simulateFailure.includes(source)) {
+    track(source, { status: 503, ok: false, simulated: true });
     throw new SourceError(source, "simulated failure (SIMULATE_SOURCE_FAILURE)", 503);
   }
   const okStatuses = [200, ...(opts.okStatuses ?? [])];
   const key = cacheKey(source, url, opts.body);
   const safeUrl = sanitizeUrl(url);
 
-  if (config.mockMode) {
-    const m = mockResponse(source, url, opts.body);
-    opts.log?.(`[mock] ${opts.method ?? "GET"} ${safeUrl} → ${m.status}`);
-    if (!okStatuses.includes(m.status)) throw new SourceError(source, `HTTP ${m.status} (mock fixture)`, m.status);
-    return { status: m.status, text: m.text, contentType: m.contentType, cached: true };
-  }
-
-  const hit = db.select().from(schema.httpCache).where(eq(schema.httpCache.key, key)).get();
+  const hit = (await db.select().from(schema.httpCache).where(eq(schema.httpCache.key, key)).get());
   if (hit && hit.expiresAt > nowIso()) {
+    track(source, { status: hit.status, ok: okStatuses.includes(hit.status) || hit.status === 404, cached: true });
     opts.log?.(`[cache] ${safeUrl}`);
     if (!okStatuses.includes(hit.status)) throw new SourceError(source, `HTTP ${hit.status} (cached)`, hit.status);
     return { status: hit.status, text: hit.body, contentType: hit.contentType, cached: true };
   }
 
+  if (source === "openalex" && config.openalexApiKey) countPaid();
   const maxRetries = opts.maxRetries ?? 4;
   let lastErr: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     await spacing(source);
+    const t0 = Date.now();
     try {
       const res = await fetch(url, {
         method: opts.method ?? "GET",
@@ -186,6 +118,8 @@ export async function httpFetch(source: SourceName, url: string, opts: FetchOpts
         },
         signal: AbortSignal.timeout(45000),
       });
+      // A 404 is a definite "not found" (e.g. no open PDF for this DOI), not a failure of the source.
+      track(source, { status: res.status, ok: okStatuses.includes(res.status) || res.status === 404, ms: Date.now() - t0 });
       if (res.status === 429 || res.status >= 500) {
         const ra = Number(res.headers.get("retry-after"));
         const wait = Number.isFinite(ra) && ra > 0 ? Math.min(ra * 1000, 30000) : Math.min(1000 * 2 ** attempt, 16000);
@@ -201,11 +135,10 @@ export async function httpFetch(source: SourceName, url: string, opts: FetchOpts
         // Cache successes and definitive 404s (but not PDFs: we never store PDFs).
         if (source !== "pdf") {
           const expires = new Date(Date.now() + (opts.ttlHours ?? config.cacheTtlHours) * 3600_000).toISOString();
-          db.insert(schema.httpCache)
-            .values({ key, url: safeUrl, status: res.status, contentType, body: text, expiresAt: expires })
-            .onConflictDoUpdate({ target: schema.httpCache.key, set: { status: res.status, body: text, contentType, expiresAt: expires, createdAt: nowIso() } })
-            .run();
-          recordFixture(source, url, opts.body, res.status, contentType, text);
+          (await db.insert(schema.httpCache)
+                        .values({ key, url: safeUrl, status: res.status, contentType, body: text, expiresAt: expires })
+                        .onConflictDoUpdate({ target: schema.httpCache.key, set: { status: res.status, body: text, contentType, expiresAt: expires, createdAt: nowIso() } })
+                        .run());
         }
       }
       if (!okStatuses.includes(res.status)) {
@@ -213,6 +146,7 @@ export async function httpFetch(source: SourceName, url: string, opts: FetchOpts
       }
       return { status: res.status, text, contentType, cached: false };
     } catch (e) {
+      if (!(e instanceof SourceError)) track(source, { status: 0, ok: false, ms: Date.now() - t0 });
       if (e instanceof SourceError && e.status && e.status < 500 && e.status !== 429) throw e;
       lastErr = e;
       const wait = Math.min(1000 * 2 ** attempt, 16000);

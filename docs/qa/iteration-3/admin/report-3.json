@@ -1,0 +1,134 @@
+{
+ "persona": "admin",
+ "completed": true,
+ "stage_reached": 9,
+ "findings": [
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "http://localhost:4107/admin (Users and progress, Accounts)",
+   "what_happened": "The dashboard contradicts itself for the chaos user. The top tile says Projects 2, '1 finished', and the funnel footer says '1 of 2 projects finished all nine steps'. The same funnel shows 6. Ranking = 1 (0 approved) and 7. Appraisal, 8. Synthesis and 9. Research question = 0. The Accounts row for leo.chaos@example.com says Furthest step '6 of 9'. Leo says he reached step 9, exported, then went back and deselected a paper, which marked 3 later steps out of date.",
+   "expected": "One consistent story. Either 'finished' and the funnel both count the high-water mark (Leo reached step 9 once), or both count current approved state, in which case 'finished' would be 0. A funnel titled 'projects that reached each step' should not drop to 0 for steps a user has already reached.",
+   "evidence": "docs/qa/iteration-3/admin/dash-4107-mid.jpg and docs/qa/iteration-3/admin/dash-4107-bottom.jpg",
+   "suggested_fix": "Decide whether the funnel and 'Furthest step' show the high-water mark or the current approved state. Use the same rule for 'finished', the funnel and the account table. If you keep current state, label it 'currently approved' and show 'out of date' as its own count so a user who went back is visible as such."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "http://localhost:4104/admin (AI usage, Cost by step)",
+   "what_happened": "I could not reconcile the clinician's account with the dashboard for the appraisal step. The clinician says 9 papers were selected and 10 quotes were decided. The dashboard shows 8 appraisal calls (appraisal v1 = 8). Comparable servers matched one call per paper: 4102 had 8 papers and 8 calls, 4103 had 11 and 11, 4105 had 13 and 13, 4106 had 5 and 5. The dashboard has no per-project paper counts, so I cannot say whether this is an honest difference (for example one paper reappraised or skipped) or a miscount.",
+   "expected": "An admin can tell why 9 selected papers produced 8 appraisal calls, or sees a note such as 'papers without full text are not sent to the model'.",
+   "evidence": "docs/qa/iteration-3/admin/dash-4104.jpg and docs/qa/iteration-3/admin/dash-4104-bottom.jpg",
+   "suggested_fix": "Show a small per-account detail: papers collected, selected and appraised, and calls per step. Or add a one-line explanation of how calls map to papers."
+  },
+  {
+   "severity": "minor",
+   "category": "copy",
+   "page": "All /admin pages, AI usage tiles",
+   "what_happened": "The tile titled 'Latency p50 / p90' shows a dash, and its subtext reads 'p90 - / p99 -'. The title and subtext name different percentiles, and the dash is not explained. In demo mode there is no latency, but the page does not say so.",
+   "expected": "Matching percentile labels, and 'No live calls in demo mode' (or similar) instead of a bare dash.",
+   "evidence": "docs/qa/iteration-3/admin/05-dash-4101-b.jpg and docs/qa/iteration-3/admin/dash-4107-mid.jpg",
+   "suggested_fix": "Make the title and subtext use the same percentiles, and replace the dashes with a short reason."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "/admin top tiles: 'Server errors (1 h)' on all servers",
+   "what_happened": "The request denominators look implausibly small next to what users did: 4101 shows '0 of 2 requests', 4102 shows 1, 4103 shows 245, 4104 shows 809. Uptime on every server is about 35 min, while accounts say 'Joined 1 hour ago'. The counters seem to cover only the time since the process started, but the tile says '1 h'. A '0% errors' reading backed by 2 requests could mislead an admin.",
+   "expected": "Either the counter survives restarts, or the tile says 'since restart (35 min)' and shows a 'not enough data' state when the count is very low.",
+   "evidence": "docs/qa/iteration-3/admin/04-dash-4101.jpg and docs/qa/iteration-3/admin/dash-4104-bottom.jpg",
+   "suggested_fix": "Label the window honestly ('since server start'). Show 'too few requests to judge' below a threshold."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "/admin Audit log (all servers)",
+   "what_happened": "The audit log masks emails (for example 'email: m...@example.com') but prints the full address right beside it ('signup by mai.undergrad.qa3@example.com'). The masking has no effect. The Accounts table also lists full emails. That is reasonable for an admin, and no research ideas, titles, papers, notes, keys or emails in URLs appeared anywhere on any dashboard. The privacy promise on counts and metadata holds, but the masking is inconsistent.",
+   "expected": "One consistent rule: either show full emails everywhere in the admin area and drop the masked copy, or mask them in the audit log.",
+   "evidence": "docs/qa/iteration-3/admin/06-dash-4101-c.jpg",
+   "suggested_fix": "Drop the duplicate masked email, or mask the actor name in the audit log."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "User view during AI pause (http://localhost:4102/s/prj_91e8b5644ca94c47, step 2 Scoping)",
+   "what_happened": "The pause is handled well, with a plain banner on every page. 'Sharpen my idea' still looks active, and clicking it fires a request that returns HTTP 503. A reload fires another, so one user action counted 2 'blocked, not sent'. The scoping panel shows an empty header band above a disabled textarea reading 'Waiting for the next question...'. The step-1 canvas card still says '0 of 5 questions' with nothing explaining that the questions are waiting on the pause.",
+   "expected": "The AI-dependent button is visibly disabled, or says 'AI is paused' on the button itself. No empty box. The blocked counter counts decisions, not retries.",
+   "evidence": "docs/qa/iteration-3/admin-check-user/05-after-sharpen.jpg and docs/qa/iteration-3/admin/13-ai-off-after-user.jpg",
+   "suggested_fix": "Disable the AI buttons while the pause is on, with a tooltip or label. Hide the empty textarea header. Do not auto-retry on reload, or do not count retries as separate blocked calls."
+  },
+  {
+   "severity": "polish",
+   "category": "clarity",
+   "page": "/admin Users and progress, Funnel",
+   "what_happened": "The funnel bars change from light to dark blue as the step number rises, with no legend. In a chart that otherwise uses colour for meaning, a reader will wonder whether the shades mean something. The 'Where people stop' list is all zeros on every server, so it carries no information when nobody is stuck.",
+   "expected": "One colour for one meaning, per the app's own rule, or a legend or note if the shade means something.",
+   "evidence": "docs/qa/iteration-3/admin/05-dash-4101-b.jpg",
+   "suggested_fix": "Use a single colour for the funnel. Collapse the 'Where people stop' list into one sentence when every count is 0."
+  },
+  {
+   "severity": "polish",
+   "category": "copy",
+   "page": "http://localhost:4102/login?next=/admin and an ordinary user opening /admin",
+   "what_happened": "An admin going to /admin and sent to login sees the heading 'Log in to continue your review'. An ordinary user opening /admin while logged in is silently redirected to My projects with no explanation.",
+   "expected": "The admin login says what it is for ('Log in to open the admin dashboard'). A non-admin sees a short 'This page is for administrators' message.",
+   "evidence": "docs/qa/iteration-3/admin-check-user/09-nonadmin-admin.jpg",
+   "suggested_fix": "Add a next-aware login heading, and a notice when a non-admin is redirected away from /admin."
+  },
+  {
+   "severity": "polish",
+   "category": "a11y",
+   "page": "/admin AI & API key panel after turning AI off",
+   "what_happened": "The 'Turn AI back on' button sits almost touching the 'Models' row below it (a few pixels of gap) when the Off state adds a 'Changed just now by...' line. The warm warning colour and the text are fine, but the layout feels cramped.",
+   "expected": "Normal spacing between the primary action and the next row.",
+   "evidence": "docs/qa/iteration-3/admin/12-ai-off.jpg",
+   "suggested_fix": "Add bottom margin to the status column or the panel so the button is not flush with the Models row."
+  },
+  {
+   "severity": "polish",
+   "category": "clarity",
+   "page": "All /admin pages",
+   "what_happened": "The dashboard has no way to confirm that users exported. The step-9 'approved' count is the closest thing. Users reported previewing the report, downloading Markdown, and switching to CSV or BibTeX, and none of that is visible. The admin cannot tell whether the last step produced a deliverable.",
+   "expected": "Possibly a count of reports exported, if that is meant to be a health signal. If not, the page could say so.",
+   "evidence": "docs/qa/iteration-3/admin/05-dash-4101-b.jpg",
+   "suggested_fix": "Add an 'exported' count to the funnel, or state that exports are not tracked."
+  }
+ ],
+ "three_second_test": [
+  {
+   "page": "Landing page (http://localhost:4101/)",
+   "understood_in_3s": true,
+   "note": "A guided literature review tool. I would click Log in first, then enter the admin account. The headline and the two buttons are clear."
+  },
+  {
+   "page": "Admin dashboard (/admin) on each of the 7 servers",
+   "understood_in_3s": true,
+   "note": "'Is Athena healthy?' with a green 'Everything is healthy' banner is readable at once. I would read the AI & API key panel next, then the tiles. It found the admin dashboard under Account and settings > Admin dashboard, which was easy to find. On 4107 the amber/green state was equally clear."
+  },
+  {
+   "page": "Turn AI off confirmation dialog (4102)",
+   "understood_in_3s": true,
+   "note": "'Turn AI off for everyone?' says what will and will not stop (no calls, no spend, work kept, searches keep working). The red 'Turn AI off' button is distinct from 'Keep AI on'."
+  },
+  {
+   "page": "Admin dashboard with AI off (4102)",
+   "understood_in_3s": true,
+   "note": "An amber 'Needs your attention: AI is switched off' banner, 'Off' status with who changed it and when, and a bright 'Turn AI back on' button. Very clear."
+  },
+  {
+   "page": "New review page for a signed-up user (/s/new)",
+   "understood_in_3s": true,
+   "note": "'Describe your research idea' with example chips and a start button. It does not mention the AI pause until after the idea is submitted, which is acceptable because the banner appears on the next page."
+  },
+  {
+   "page": "User canvas/step panel while AI is paused",
+   "understood_in_3s": true,
+   "note": "The amber 'AI is paused by the administrator. Your work is saved.' banner is plain and reassuring. A user would understand it. The canvas around it is busy and the 'Sharpen my idea' button still looks live."
+  }
+ ],
+ "categories_and_colours": "I did not reach paper lists, maps or charts of study types or article types: as admin I only looked at the dashboard, and the ordinary user I created stayed at scoping. I could not check study-type or article-type filtering or the legend. On the dashboard, the charts use one blue hue. Funnel bars shade from light to dark blue by step with no legend, so a reader could wonder whether the shade carries meaning (minor/polish finding). Status colours are consistent and readable: green = healthy, amber = needs attention or AI paused (banner and the Off state). The red 'Turn AI off' button reads as a destructive action. Colour is never the only signal, because each state also carries an icon and a text label.",
+ "validity_assessment": "Dashboard counts match what users reported on six of the seven servers, and the AI on/off control is honest. 4101 (Mai): 2 users incl. admin, 1 project finished, funnel 1 at all 9 steps, 59 AI calls ('scoping' 6 calls for 5 questions + topics). 4102 (Daniel): 46 calls, appraisal 8 for 8 papers. 4103 (Aisha): 54 calls, appraisal 11 for 11 papers. 4105 (Somchai): 60 calls, summaries 13 matches '13 of 13 batches', appraisal 13 for 13 papers. 4106 (Ruth): 39 calls, summaries 11 matches '11 of 11 batches', appraisal 5 for 5 papers. 4107: double-submitting buttons did not double-count calls (1 topic_importance, 1 scoping_topics, 1 research_questions call), and 1 failed login matches Leo's wrong password. The two issues are the 4107 contradiction ('1 finished' vs funnel steps 7 to 9 at 0 vs account '6 of 9') and the unreconciled 9-papers-to-8-appraisals on 4104. Privacy: across all 7 dashboards, charts and tables, I saw only counts, step names, prompt names, account emails and timestamps. No research ideas, project titles, papers, notes or keys. URLs carried only project ids. Full emails appear in the Accounts table and next to masked ones in the audit log, so masking is cosmetic. The AI kill switch test on 4102 passed: with AI off the user saw 'AI is paused by the administrator. Your work is saved.' on every page and in the step panel, the step did not proceed and no mock text was invented, the AI call count stayed at 46 and the dashboard showed '1 blocked, not sent' (then 2 after a reload), spend stayed $0.00, and the Search state was fine. After turning AI on, the user's scoping resumed without any action (first question appeared) and answering worked; calls rose from 46 to 48, which fits 1 auto-resumed start + 1 answer. I did not touch any key (status 'No key', demo mode) or the spend limit. The demo-mode banner is honest that sample papers are on telemedicine in Southeast Asia and that AI text is marked '(mock)'. I did not check traceability of statements to quotes, or 'novel' wording, because I never reached steps 7 to 9 as a user.",
+ "would_have_quit_at": "I would not have quit. The only point of real doubt was the 4107 dashboard, where the funnel and the account row said Leo was at step 6 while the tile said '1 finished'. An admin would stop trusting the funnel there until it was explained.",
+ "activity": "About 75 helper commands in two browsers (admin and admin-check-user). Admin logged in on all 7 servers with the shared admin account. Per server (dashboard vs user account): 4101 Mai: Users 2 (1 admin), Projects 1 finished, funnel 1 at all 9 steps, 59 AI calls, 0% failed, 0 errors, $0.00; MATCH. 4102 Daniel: Users 2, 1 project finished, funnel 9 of 9, 46 AI calls (appraisal 8), 0 errors; MATCH. 4103 Aisha: Users 2, 1 project finished, 54 AI calls (appraisal 11), 0 errors; MATCH. 4104 Okafor: Users 2, 1 project finished, 41 AI calls (appraisal 8 vs 9 selected papers, summaries 7); MOSTLY MATCH with one unreconciled count. 4105 Somchai: Users 2, 1 project finished, 60 AI calls (summaries 13, appraisal 13), 0 errors; MATCH. 4106 Ruth: Users 2, 1 project finished, 39 AI calls (summaries 11, appraisal 5), 0 errors; MATCH. 4107 Leo and someone.else: Users 3, Projects 2 with '1 finished', 42 AI calls, 1 failed login (matches Leo's wrong password), 0 server errors; MISMATCH between 'finished', the funnel (steps 7 to 9 at 0) and Leo's account ('6 of 9'), likely caused by the stale-after-edit state. someone.else shows 1 of 9 with 0 AI calls, correct. AI kill switch on 4102: turned AI off through Turn AI off... and confirmed. Created user admin-check-user@example.com and project prj_91e8b5644ca94c47. Pressed 'Sharpen my idea' while AI was off (HTTP 503 on scoping/start, expected), reloaded (second blocked). Call count stayed 46, showing '1 blocked, not sent' and then 2. Turned AI back on; the user's scoping resumed by itself, I answered question 1 and got question 2; calls rose to 48. No console errors on any admin page. Never touched the key or the spend limit. Cookies are shared across localhost ports, so logging into another server logged the admin browser out of the previous one; that is an environment effect, not an app finding.",
+ "narrative": "I started from scratch because no earlier screenshots existed. I opened server 4101, logged in as admin and looked for the dashboard the way an admin would: Account and settings then Admin dashboard. That was easy to find. The top of the dashboard answered 'Is Athena healthy?' with a green banner within a couple of seconds, and the AI & API key panel came next, as the page intends. I compared each server with what its user said. Six of the seven matched closely, and the AI-call breakdown by step even reproduced numbers like 13 of 13 summary batches and 5 appraisals for 5 papers. That gave me real confidence in the counters. The one place I stopped and frowned was 4107, the chaos server. The tile said '1 finished', but the funnel showed nothing at steps 7 to 9 and Leo's account row said '6 of 9'. Leo had gone back and made later steps stale, so the numbers are probably each correct under different rules, but together they read as a contradiction. I also noticed the request counters were tiny on a few servers, and the latency tile had mismatched labels. For the AI test I turned AI off on 4102 and the confirmation dialog was excellent. As a new user in the second browser I got a calm, honest 'AI is paused by the administrator. Your work is saved.' message, nothing was faked, and the dashboard showed '1 blocked, not sent' while the call count stayed at 46. After I turned AI back on, the user's scoping resumed by itself. I never saw a key, an idea or a paper on any dashboard."
+}

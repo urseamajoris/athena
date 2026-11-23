@@ -1,0 +1,159 @@
+{
+  "persona": "admin",
+  "completed": true,
+  "stage_reached": 9,
+  "validity_assessment": "Only one server was listed (nonnative, http://localhost:4300), so that is the only one I checked. The dashboard is a truthful, internally consistent record of what happened. Users 4 (admin plus 3) matches the stated 4 accounts. Projects 3 and \"3 finished all nine steps\" matches three full reviews. The funnel is 3 at every step. Per-account AI calls are Somchai 72 / $0.763, mai 71 / $0.853, aisha 72 / $0.846. The latter two together are 143 calls and $1.70, matching \"about 140 calls, about $1.70\". The total of 215 calls and $2.46 equals the sum of the three. Somchai's 72 calls fit his account: 27 summary batches, 25 ranking batches, 10 appraisals, 4 synthesis, 1 question step, plus scoping and search-builder calls, with no repeated AI steps. Quality signals show 35 appraisals across all projects (18 full text, 17 abstract only), and 24 unverified quotes with 8 accepted, which is consistent with Somchai accepting 2. The AI kill switch worked as designed. With AI off, a new user saw a plain \"AI is paused by the administrator. Your work is saved\" banner at the top of the screen and again in the panel. The server answered 503 to the scoping start, nothing was faked, and AI calls and spend stayed at 215 / $2.46. The dashboard counted \"1 blocked, not sent\". After AI was turned back on the user's scoping continued by itself and asked a real, on-topic question. AI calls went to 216, and the one extra call is the one new scoping question. I could not trace the paper and quote validity of Somchai's review from the admin view, which is correct for the privacy promise. Privacy: the dashboard shows counts and metadata only. My unique idea text (marker \"zebrafishmarker4471\") never appeared anywhere on it, and no emails or keys appear in URLs. The only identifiers are user emails in the Accounts and Audit tables, which is normal for an admin and appropriate for that table. The key shows only a masked ending (••••[last 4 redacted]) and I never touched it. Small gaps: the \"Cost by prompt version\" list does not add up to the total, the \"Paid API calls since start: 82\" line is unexplained, and external-source errors (EuropePMC 16%, PDF 40%) do not affect the \"Everything is healthy\" verdict.",
+  "activity": "SERVER nonnative (http://localhost:4300), real mode. Logged in as admin and opened the dashboard from the account menu. At first view it showed \"Everything is healthy\", Users 4 (incl. 1 admin, 4 active today), Projects 3 (3 finished all nine steps), AI calls 215 (0.5% failed, 0.5% retried), AI spend $2.46 of $10.00, server errors 0% of 455 requests, browser errors 0, jobs 0 running. This matches the user reports: 4 accounts, 3 finished projects, funnel 3 at every step 1 to 9, per-account calls 72 / 71 / 72, and about $1.70 for the two earlier users. Somchai's account showed 1 project, Finished, 72 calls, $0.763. I only looked at the key status: ••••[last 4 redacted], \"From the server environment (XAI_API_KEY)\". Models were ok (grok-4.3 and grok-4.20-0309-reasoning), and I did not press Test key or Set a key and did not change the limit. Things that did not fit cleanly: \"Paid API calls attempted since this instance started: 82\" against 72 calls for the one user active since the restart, and the prompt-version breakdown summing to 204 calls and $2.377 against 215 and $2.462. AI ON/OFF CHECK: I clicked \"Turn AI off…\", then confirmed in a dialog. The verdict banner turned amber (\"Needs your attention: AI is switched off\"), the panel showed Off with the user-facing wording, and the audit log showed \"ai disabled by admin@example.org\". In the second browser (admin-check-user) I created the account dana.checker@example.com and one project (prj_d61c11c981a74312), clicked \"Sharpen my idea\", and saw the amber paused banner plus a panel message. One 503 appeared on POST /scoping/start, which is expected. The dashboard then showed Users 5, Projects 4, funnel 4 at Idea and 4 at Scoping with 3 approved now, the new account at \"2 of 9\" with 0 calls and $0, AI calls still 215, spend still $2.46, and \"1 blocked, not sent\". I turned AI back on with one click. The banner cleared, \"Thinking about the next question…\" appeared, and then the real question \"Who is the main population?\" with search topics taking shape. The dashboard then showed AI calls 216. Console errors apart from that expected 503: none on any page. About 45 helper commands in total.",
+  "narrative": "I logged in at the normal login page and landed on an empty \"My projects\" list, so the admin entry was not visible. I opened the account menu and found \"Admin dashboard\" there; the menu also showed \"Live APIs · $2.46 of $10.00\", which was a helpful hint. The dashboard opened with \"Is Athena healthy?\" and a big green \"Everything is healthy\" box, and I understood the state in under three seconds. The AI & API key panel came right below, which matches what an admin wants next. I cross-checked the numbers against the user stories and they all agreed: 4 accounts, 3 projects, a funnel of 3 at every step, and 215 calls with the per-account split adding up exactly. The privacy line \"Counts only\" held. I hesitated slightly at a few figures: the \"At $2.46 a day\" projection, which really spans about two hours; \"Paid API calls attempted since this instance started: 82\"; and that EuropePMC and PDF errors do not bring up any warning. I turned AI off through a clear confirmation dialog that said what would and would not happen. The second user got a clear, calm paused message in two places, and nothing was spent or faked. The dashboard told the truth by counting the blocked attempt separately without raising the call count. Turning AI back on was one click, and the user's step resumed by itself within about 20 seconds with no reload. I found no blocker. All remaining issues are small clarity or consistency points.",
+  "would_have_quit_at": "Would not have quit. The only moment of slowness was finding the admin dashboard, because it sits only in the account menu and not on the empty projects page.",
+  "categories_and_colours": "The admin dashboard has no paper lists, maps or filters, so I could not test filtering by study type or article type there. Colours and shapes I saw: \"Study types found (AI-derived from abstracts)\" uses Trial = blue circle, Cohort/case-control = orange-red square, Cross-sectional = green triangle, Qualitative/mixed = amber diamond, Systematic/scoping review = pink star, Other design = green cross, Not reported = grey ring. Every row has a shape, a text label and a count, and nothing needs colour alone. The total of 619 papers appears consistent with three reviews. There is no legend explaining that this is AI-derived beyond the heading \"(AI-derived from abstracts)\", and long labels are cut off (\"Qualitative / mixed met…\", \"Systematic / scoping r…\"). \"Quotes checked\" uses Verified = blue circle and Unverified = red triangle; \"What appraisals were based on\" uses Full text = blue circle and Abstract only = amber square. The same blue circle therefore means Trial, Verified and Full text in the same panel, so colour is reused for different meanings, which the app's own rule (one meaning per colour) says it should avoid. The health banner uses green for healthy and amber for attention, with an icon and words as well. The funnel and projects-per-user bars are all the same blue, which is fine because they carry no category meaning. The two greens (cross-sectional and other design) are fairly close, but the shapes differ.",
+  "three_second_test": [
+    {
+      "page": "Landing page (/)",
+      "understood_in_3s": true,
+      "note": "What it is for: it explains Athena and pushes you to start a review. What I would do first: I am an admin, so click Log in at top right. What I would do next: sign in and look for an admin area. The headline and two buttons are clear."
+    },
+    {
+      "page": "Login (/login)",
+      "understood_in_3s": true,
+      "note": "What it is for: sign in. First I would fill email and password. Next I would click Log in. Clear."
+    },
+    {
+      "page": "My projects (/sessions) as admin",
+      "understood_in_3s": false,
+      "note": "What it is for: the user's project list, empty for admin. First I would look for admin tools but there is nothing here. Next I would try the account icon at top right. Understood the page but not where the admin dashboard is. It was only visible after opening the account menu."
+    },
+    {
+      "page": "Admin dashboard (/admin) top",
+      "understood_in_3s": true,
+      "note": "What it is for: a health check. First I would read the green verdict banner. Next I would look at the AI & API key panel and the stat tiles. Green box plus the title 'Is Athena healthy?' answered the question in under 3 seconds."
+    },
+    {
+      "page": "AI off confirmation dialog",
+      "understood_in_3s": true,
+      "note": "What it is for: confirm turning AI off for everyone. First I would read the consequences. Next I would pick Keep AI on or Turn AI off. The text states that nothing will be spent, that users keep their work and see a paused message, and that searches still work."
+    },
+    {
+      "page": "Admin dashboard with AI off",
+      "understood_in_3s": true,
+      "note": "What it is for: it shows the changed state. First I would read the amber 'Needs your attention: AI is switched off'. Next I would press 'Turn AI back on', which is now the primary button. Clear."
+    },
+    {
+      "page": "New user signup (/signup)",
+      "understood_in_3s": true,
+      "note": "What it is for: create an account. First I would fill email and password. Next I would click Create account. The password rule is stated."
+    },
+    {
+      "page": "Describe your research idea (/s/new)",
+      "understood_in_3s": true,
+      "note": "What it is for: type the rough idea. First I would type into the box or click a suggestion. Next I would click Start my review. The step label and the 'Next:' hint are clear."
+    },
+    {
+      "page": "Project canvas with AI paused",
+      "understood_in_3s": true,
+      "note": "What it is for: the review canvas. First I would read the amber paused banner. Next I would click 'Sharpen my idea'. The banner says that work is saved and that AI steps continue later."
+    },
+    {
+      "page": "Scoping step with AI paused (side panel)",
+      "understood_in_3s": true,
+      "note": "What it is for: answer questions to sharpen the idea. First I would try to type, but the input is disabled and 'Waiting for the next question...' is shown. Next I would wait or close the panel. The amber 'AI is paused' box explains it, and the footer says the first question appears when AI is available again."
+    },
+    {
+      "page": "Scoping question after AI is back on",
+      "understood_in_3s": true,
+      "note": "What it is for: answer 'Who is the main population?'. First I would type an answer. Next I would press Enter or Send answer. 'What we know so far' filled in sensibly."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "minor",
+      "category": "clarity",
+      "page": "My projects (/sessions) as admin",
+      "what_happened": "After logging in, an admin lands on an empty 'My projects' page with no sign that an admin dashboard exists. It is only listed inside the account menu (the user-icon button), after Account and before Settings.",
+      "expected": "An admin who has just signed in should have an obvious route to the dashboard, for example an 'Admin' link in the top bar or a hint on the empty page.",
+      "evidence": "docs/qa/real-3/admin/03-after-login.jpg and docs/qa/real-3/admin/04-menu.jpg",
+      "suggested_fix": "Add a visible 'Admin' link in the top bar for admin accounts, or open /admin by default for admins on login."
+    },
+    {
+      "severity": "minor",
+      "category": "validity",
+      "page": "Admin dashboard, AI usage panel: Cost by prompt version",
+      "what_happened": "The prompt-version list does not add up to the totals. Its calls sum to 204 and cost about $2.377, against 215 calls and $2.462 in the totals and in 'Cost by step'. Search-builder calls (4) do not appear at all. Ranking shows 72 calls by step but 69 by prompt, and scoping shows 15 calls by step but 12 by prompt.",
+      "expected": "Every breakdown should either sum to the headline AI calls/spend or say that rows are hidden or grouped under 'other'.",
+      "evidence": "docs/qa/real-3/admin/07-dash-mid2.jpg (Cost by step and Cost by prompt version)",
+      "suggested_fix": "Add an 'other / no prompt version' row or a footnote giving the number of rows omitted."
+    },
+    {
+      "severity": "minor",
+      "category": "clarity",
+      "page": "Admin dashboard, Models drawer",
+      "what_happened": "The Models panel says 'Paid API calls attempted since this instance started: 82 (0 blocked outside production)'. The only user active since the 21-minute restart made 72 logged AI calls. The tile above says 215 calls in total, so the 82 figure looks like a mismatch and nothing explains the 10 extra.",
+      "expected": "A figure labelled 'paid API calls' should either match the AI calls log for the same period or say what else it includes (for example model-list checks or retries).",
+      "evidence": "docs/qa/real-3/admin/10-models.jpg",
+      "suggested_fix": "Clarify the label (for example 'including model checks and retries') or reconcile it with the AI calls log."
+    },
+    {
+      "severity": "minor",
+      "category": "validity",
+      "page": "Admin dashboard, health verdict and Data sources",
+      "what_happened": "The verdict says 'Everything is healthy. No problems found.' while the Data sources table shows EuropePMC with 10 errors of 61 requests (16%) and PDF fetches failing 2 of 5 (40%). Nothing in the verdict mentions them, and the user reported 0 failed requests and that only 3 of 10 appraisals used full text.",
+      "expected": "Either the verdict notes elevated source error rates as 'worth a look', or the table explains that these failures are expected (for example paper not open access) and handled by falling back to abstracts.",
+      "evidence": "docs/qa/real-3/admin/05-dashboard-top.jpg and docs/qa/real-3/admin/07-dash-mid2.jpg",
+      "suggested_fix": "Add a calm note beside the Errors column for sources where failure is expected, or add a warning threshold that feeds the verdict."
+    },
+    {
+      "severity": "minor",
+      "category": "clarity",
+      "page": "Admin dashboard, Spend limit",
+      "what_happened": "The spend text says 'At $2.46 a day, the limit is reached in about 3 days'. All of the $2.46 was spent within about two hours on one day (all three reviews ran today). The projection treats a short burst as a daily rate, and it is not clear whether the $10.00 limit is a daily, monthly or lifetime cap.",
+      "expected": "The projection should be based on a clearly stated period, and the limit should say what period it covers.",
+      "evidence": "docs/qa/real-3/admin/05-dashboard-top.jpg",
+      "suggested_fix": "Say 'Limit covers all spend since <date>' (or per month) and base the forecast on the last 7 days or hide it when there is under a day of data."
+    },
+    {
+      "severity": "minor",
+      "category": "clarity",
+      "page": "Admin dashboard, AI calls tile",
+      "what_happened": "The AI calls tile reads '0.5% failed · 0.5% retried' while the Validation retries tile says '1 invalid · 0 errors'. So the single 'failed' call is really one invalid reply that was retried, not an error. The two figures look identical and suggest an error when the verdict is green.",
+      "expected": "One consistent term. 'Failed' should mean an error, and retried invalid replies should be shown separately.",
+      "evidence": "docs/qa/real-3/admin/05-dashboard-top.jpg and docs/qa/real-3/admin/09-quality.jpg",
+      "suggested_fix": "Rename to 'invalid reply, retried: 1 (0.5%)' and show 'errors: 0' in the tile."
+    },
+    {
+      "severity": "minor",
+      "category": "validity",
+      "page": "Admin dashboard, Quality signals panel",
+      "what_happened": "The same blue circle means 'Trial' in the study-types chart, 'Verified' in the quotes chart and 'Full text' in the appraisal-basis chart, all in one panel. This breaks the app's own rule that a colour has one meaning in one place. Long labels are truncated ('Qualitative / mixed met…', 'Systematic / scoping r…').",
+      "expected": "Different dimensions should not share a hue and shape on the same screen, and labels should be readable in full.",
+      "evidence": "docs/qa/real-3/admin/09-quality.jpg",
+      "suggested_fix": "Use a neutral or distinct palette for evidence-status and source bars, and widen the label column or wrap the long labels."
+    },
+    {
+      "severity": "minor",
+      "category": "clarity",
+      "page": "Project scoping panel while AI is paused",
+      "what_happened": "While AI is off, the scoping panel shows a disabled 'Your answer' box with 'Waiting for the next question...' and 'question 1 of up to 5', in addition to the amber message. The panel also keeps a '8 s' step-time chip that no longer means anything. The footer line 'The first question appears when AI is available again' is correct but appears only at the very bottom, away from the disabled field.",
+      "expected": "The disabled input should say why directly (for example 'AI is paused'), and a user should not need to read to the bottom of the panel.",
+      "evidence": "docs/qa/real-3/admin-check-user/05-sharpen-while-off.jpg",
+      "suggested_fix": "Change the placeholder to 'AI is paused. This continues when it is back on.' and hide the time chip while paused."
+    },
+    {
+      "severity": "polish",
+      "category": "copy",
+      "page": "Admin dashboard, Accounts and Users tile",
+      "what_happened": "The 'Users and progress' heading says 'Counts only. Research ideas, papers and notes are never shown here.' but the Accounts and Audit sections on the same page list every user's full email address. The privacy promise holds for research content and URLs, but a reader may take 'counts only' to include emails.",
+      "expected": "The privacy line should be precise about what is shown.",
+      "evidence": "docs/qa/real-3/admin/08-dash-bottom.jpg",
+      "suggested_fix": "Reword it to 'Research ideas, papers and notes are never shown here. Account emails appear only in Accounts and the audit log.' Optionally mask emails by default."
+    },
+    {
+      "severity": "polish",
+      "category": "copy",
+      "page": "Admin dashboard, AI & API key panel",
+      "what_happened": "The dashboard shows the last four characters of the key (••••[last 4 redacted]). It is a normal convention and not a leak, but the panel does not say that the full key is never displayed or stored in the browser.",
+      "expected": "A short reassurance next to the masked key.",
+      "evidence": "docs/qa/real-3/admin/05-dashboard-top.jpg",
+      "suggested_fix": "Add 'Only the last 4 characters are shown; the full key is never displayed.'"
+    }
+  ]
+}

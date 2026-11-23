@@ -1,0 +1,219 @@
+{
+ "persona": "keyboard",
+ "completed": true,
+ "stage_reached": 9,
+ "findings": [
+  {
+   "severity": "major",
+   "category": "a11y",
+   "page": "Summary table and Ranking (/s/<id>/table)",
+   "what_happened": "On the table and ranking pages the primary button (Rank the papers / Appraise selected papers) is a sticky bar, but in the keyboard order it comes after every paper row. I counted about 95 Tab presses from the page heading to reach it. There is no 'Skip to the next action' link on these full pages (the side panels have one), and Skip to content only jumps to the top.",
+   "expected": "A keyboard user can reach the single primary action in a few keystrokes, as in the step panels with 'Skip to the next action'.",
+   "evidence": "docs/qa/iteration-2/keyboard/30-table.jpg, docs/qa/iteration-2/keyboard/34-rank.jpg",
+   "suggested_fix": "Add 'Skip to the next action' and 'Skip the table' links at the top of /table. Make table rows a single tab stop with arrow-key navigation (grid pattern), or put the primary action early in the tab order."
+  },
+  {
+   "severity": "major",
+   "category": "a11y",
+   "page": "All step panels, topic edit, overview",
+   "what_happened": "Focus is lost or jumps unpredictably after many actions. It falls to the page body after closing a panel with Esc, after hiding the demo note, after the page changes to /table or /export, and after Keep on a list row. It is sent back to the panel heading after Reject on a quote, after Count matches, after Choose this question and after saving a synonym. Pressing Esc inside the 'Edit statement' textarea on the synthesis step closed the whole panel and returned focus to the body, not just the edit.",
+   "expected": "After an action, focus stays on or returns to the control that triggered it, or moves to a clearly announced place. Esc cancels only the innermost edit.",
+   "evidence": "docs/qa/iteration-2/keyboard/15-after-esc.jpg, docs/qa/iteration-2/keyboard/40-rejected.jpg, docs/qa/iteration-2/keyboard/45-chip-open.jpg",
+   "suggested_fix": "Return focus to the opener on panel close. Keep focus on the next undecided quote after Accept or Reject. Make Esc close the edit first. Move focus to the new page's h1 on navigation."
+  },
+  {
+   "severity": "major",
+   "category": "bug",
+   "page": "Step 3 Search builder (topic edit)",
+   "what_happened": "At step 3 I changed the synonyms of the first topic. The panel silently turned into 'Edit this search topic' (Step 2 of 9, Your turn), the whole review went back to step 2, and all 5 topics showed 'Your turn' again. There was no message saying that my edit invalidated the approval. I had to re-open step 2 and re-approve. Focus also jumped to the heading when I tabbed out of the MeSH field.",
+   "expected": "A clear 'You changed a topic, so the earlier approval is out of date. Keep or bring up to date' message, and the step view stays where I was.",
+   "evidence": "docs/qa/iteration-2/keyboard/20-after-edit.jpg, docs/qa/iteration-2/keyboard/21-list-after-edit.jpg",
+   "suggested_fix": "Show the stated 'out of date' state with the reason and a Keep or Bring up to date choice, as the UX intent describes. Do not swap the panel content without explanation."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Demo mode: ranking, appraisal, synthesis, report",
+   "what_happened": "The topic returned irrelevant sample papers (a Ramadan diabetes trial, hemophilia in Southeast Asia, telemedicine in Makassar). Eight of them went forward to appraisal. The synthesis had one paper for 'Peer support groups', and 'Postpartum depression' and 'Mothers' had no tab at all. The demo-mode note appears only once on the overview and is dismissible. I dismissed it by keyboard, and it did not appear again on /table, the ranking page or the synthesis. Landing and signup never mention demo mode. The report does carry an honest 'Demo: ... not a real review' line and a '(mock)' prefix on the chosen question.",
+   "expected": "A first-time visitor learns before signing up that this is a demo with sample papers. The reminder stays visible wherever papers and scores are shown, and cannot be lost by one keypress.",
+   "evidence": "docs/qa/iteration-2/keyboard/34-rank.jpg, docs/qa/iteration-2/keyboard/42-synthesis.jpg, docs/qa/iteration-2/keyboard/01-landing.jpg",
+   "suggested_fix": "Add a persistent small 'Demo data' badge in the header on every step and full page. Mention demo mode on the landing page and signup. Make the dismissed note re-openable."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Sign up (/signup) at 200% zoom",
+   "what_happened": "At 200% zoom the hint 'At least 10 characters, not containing the name part of your email.' is drawn on top of the Password input and overlaps its bottom border. The visible label order is awkward (Email label sits directly under the Name field with no gap). Email is auto-focused, skipping the optional name field, and the empty field has no accessible name.",
+   "expected": "The hint sits below the field with space, and every input has an accessible name.",
+   "evidence": "docs/qa/iteration-2/keyboard/02-signup.jpg, docs/qa/iteration-2/keyboard/03-signup-filled.jpg",
+   "suggested_fix": "Fix the layout of the helper text (static flow below the input, margin). Associate the labels and hint with aria-labelledby and aria-describedby."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Step panels at 200% zoom (all)",
+   "what_happened": "At 200% zoom the panel scroll area is only about 350 to 400 px tall because the header, stepper, sticky footer and the demo note take the rest. The focused heading is cut off at the top after some actions. The scoping answer textarea is half hidden behind the footer. The focus ring of filter chips on /table is partly covered by the sticky header (focus obscured).",
+   "expected": "The focused element is fully visible, and a reasonable content area remains at 200% zoom.",
+   "evidence": "docs/qa/iteration-2/keyboard/08-scoping.jpg, docs/qa/iteration-2/keyboard/10-q5.jpg, docs/qa/iteration-2/keyboard/31-table-trial.jpg",
+   "suggested_fix": "Add scroll-padding-top and scroll-padding-bottom equal to the sticky bars. Collapse the stepper and 'Next:' line at narrow effective widths. Make the footer non-sticky at 200% zoom."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Scoping topics list, quote list, synthesis",
+   "what_happened": "Repeated buttons have no unique accessible names: 'Edit', 'Keep' and 'Delete' per topic row, and 'Show source' and 'Pin to canvas' per quote. A keyboard or screen-reader user hears 'Edit' ten times without knowing which topic. The always-boxed 'Keep' buttons look like they already have focus and can be confused with the real focus ring.",
+   "expected": "Names such as 'Edit topic Mothers' and 'Show source for quote: Clear statement of aims'. The focus ring is clearly different from the button border.",
+   "evidence": "docs/qa/iteration-2/keyboard/12-edit-focus.jpg, docs/qa/iteration-2/keyboard/38-show-source.jpg",
+   "suggested_fix": "Add aria-label with the topic or question name. Restyle 'Keep' so its border is not the same weight as the focus ring."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Retrieval chart (3D) and instructions",
+   "what_happened": "The 3D chart is the default view. Its points cannot be reached or read by keyboard. The legend filter works by keyboard and the '2D chart' toggle is reachable, but the instructions still say 'Click or tap', 'Drag to turn, scroll to zoom' and 'hover or focus ... click'. Even the 2D points are not focusable. Legend entries with 0 papers are dimmed but still tab stops with no explanation.",
+   "expected": "A keyboard path to the papers behind each point (the table is the equivalent). Keyboard-neutral wording. 2D is the default when focus-visible or reduced motion is used.",
+   "evidence": "docs/qa/iteration-2/keyboard/26-retrieval.jpg, docs/qa/iteration-2/keyboard/27-2d-chart.jpg",
+   "suggested_fix": "Reword instructions to 'Press Enter or click'. Default to 2D for keyboard users or on request. Link to the table as the accessible alternative. Mark zero-count legend items as 'none'."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Scoping chat (step 2)",
+   "what_happened": "The scripted AI produced awkward topics and synonyms: 'Postpartum depressive' as a topic, and 'whether groups' as a synonym for peer support groups (taken from my outcome answer). The 'What we know so far' header says 'questions done' with no number. Question text starts with '(mock)'. The study-type question is never asked, so the report says 'studyTypes: (mock) Any design'.",
+   "expected": "Synonyms are meaningful terms, counters show a number ('5 of 5 questions done'), and unanswered fields are not presented as if answered.",
+   "evidence": "docs/qa/iteration-2/keyboard/10-q5.jpg, docs/qa/iteration-2/keyboard/19-step3.jpg",
+   "suggested_fix": "Fill in the count. Validate synonyms against the topic. Show unanswered criteria as 'not set' in the report."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Topic edit panel ('Keep or delete this suggested topic')",
+   "what_happened": "The heading says 'Keep or delete' but the buttons say 'Dismiss' and 'Keep this topic'. After 'Keep this topic' the app opens another panel ('Edit this search topic') that I did not ask for, and the kept topic still shows 'Your turn' with 0 MeSH.",
+   "expected": "Consistent wording (Delete versus Dismiss) and a stay-where-I-am result after Keep.",
+   "evidence": "docs/qa/iteration-2/keyboard/13-edit-open.jpg, docs/qa/iteration-2/keyboard/14-after-keep.jpg",
+   "suggested_fix": "Rename to 'Keep or dismiss', or the button to 'Delete'. After Keep, return to the list with a confirmation."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Overview step 1 and step labels",
+   "what_happened": "After typing my idea on /s/new, the overview still says 'Your next step: Tell us what you want to research' and 'Draft idea', and I had to open step 1 and press 'Start scoping' to continue. 'What happens in this step 8 s' reads like a loading time. The 'Do these things' lists say 'Click' throughout, even though 'Enter on it' is mentioned once.",
+   "expected": "The step after submitting the idea is step 2. '8 s' is labelled as a video length.",
+   "evidence": "docs/qa/iteration-2/keyboard/05-step2.jpg, docs/qa/iteration-2/keyboard/06-step1.jpg",
+   "suggested_fix": "Label the explainer 'Video, 8 s'. Make Start my review go straight to the scoping questions or explain the extra step."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Appraisal (step 7)",
+   "what_happened": "Quotes are marked 'found word for word' even when they are just the paper title or a section label ('TITLE Clinicians perceptions...') used as evidence for 'Clear statement of aims' with the AI answer 'Unclear'. One quote is a deliberately altered test item ('(mock) Paraphrase presented as a quote \u2014 should be flagged') which is honestly flagged 'not found, you decide', with the closest passage shown (54% match). The app says plainly that 'found' does not mean 'proves'. 9 quotes needed a decision, and leaving them undecided drops them from the synthesis with only a footnote and a confirmation dialog.",
+   "expected": "The check should not count a title or heading as supporting evidence, and the leftover undecided quotes should be easy to resolve.",
+   "evidence": "docs/qa/iteration-2/keyboard/38-show-source.jpg, docs/qa/iteration-2/keyboard/39-decide-only.jpg, docs/qa/iteration-2/keyboard/41b-dialog.jpg",
+   "suggested_fix": "Exclude title and heading text from quote matching. Add 'Accept all found, decide the rest' navigation and keep focus on the next undecided quote."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Export (step 9 and /export)",
+   "what_happened": "'Open printable report' opens in a new tab with no warning, and the helper could not follow it. The download link gives a polite status message ('Downloading the report (Markdown). It will be in your browser's downloads.') but that makes the preview jump down. The report preview is a focusable scroll box, which works well, and the report notes quotes found 77, not found 9, undecided 8, and that novelty hits are 'not proof of novelty'. The chosen research question still starts with '(mock)'.",
+   "expected": "New-tab links are announced, and the layout does not shift on download.",
+   "evidence": "docs/qa/iteration-2/keyboard/49-export.jpg, docs/qa/iteration-2/keyboard/54-after-download.jpg",
+   "suggested_fix": "Add '(opens in a new tab)' to the link text. Reserve space for the status message."
+  },
+  {
+   "severity": "polish",
+   "category": "copy",
+   "page": "Synthesis (step 8)",
+   "what_happened": "The checklist says 'Read each topic, and its 2 conflicts' but the visible 'Contested' list for Peer support groups says 'Nothing identified'. Only three of the five topics have tabs.",
+   "expected": "Counts in the checklist match what is shown, and topics with no evidence are listed as 'no papers'.",
+   "evidence": "docs/qa/iteration-2/keyboard/42-synthesis.jpg",
+   "suggested_fix": "Show empty topics as tabs marked 'no evidence'. Word the checklist by the current tab."
+  },
+  {
+   "severity": "polish",
+   "category": "copy",
+   "page": "Report and every table cell",
+   "what_happened": "'(mock)' prefixes appear inside every key-finding cell, paper summary and candidate question, which makes text noisy at 200% zoom and lengthens the screen reader output.",
+   "expected": "Demo status is shown once per page (badge), not repeated in every sentence.",
+   "evidence": "docs/qa/iteration-2/keyboard/32-paper-open.jpg, docs/qa/iteration-2/keyboard/46-rq.jpg",
+   "suggested_fix": "Use a demo badge and strip the repeated '(mock)' prefix from the UI text, keeping it in the exported report if needed."
+  }
+ ],
+ "three_second_test": [
+  {
+   "page": "Landing /",
+   "understood_in_3s": true,
+   "note": "Purpose (idea to research question with real papers) was clear from the headline. First action: Start a review. Next: sign up. Tab order is Skip, Log in, Start a review, I have an account, with a visible ring. Nothing here says it is a demo."
+  },
+  {
+   "page": "Sign up",
+   "understood_in_3s": true,
+   "note": "Create an account. Email is auto-focused. Next: password, Create account. The hint overlapping the password box at 200% zoom was distracting."
+  },
+  {
+   "page": "New review /s/new",
+   "understood_in_3s": true,
+   "note": "Describe the idea in a sentence, then Start my review. Textarea was focused, example chips were reachable by Tab."
+  },
+  {
+   "page": "Overview / list after start",
+   "understood_in_3s": false,
+   "note": "I expected to be in the questions already. The page showed 'Your next step: Tell us what you want to research' for something I had just typed. The primary action 'Open step 1' was clear only after reading."
+  },
+  {
+   "page": "Scoping chat",
+   "understood_in_3s": true,
+   "note": "Answer five short questions; 'Skip the rest' is available. The answer box is half hidden at 200% zoom."
+  },
+  {
+   "page": "Scoping topics",
+   "understood_in_3s": true,
+   "note": "Keep, edit or delete each suggested topic, or 'Keep 5 suggested topics'. Focus landed on the footer button and I did not see the heading."
+  },
+  {
+   "page": "Search builder",
+   "understood_in_3s": true,
+   "note": "Check the searches then 'Run all 10 searches'. The demo notice explains that the searches are a recorded example."
+  },
+  {
+   "page": "Retrieval",
+   "understood_in_3s": true,
+   "note": "'134 results fetched, 37 duplicates, 97 different papers' is plain. Article type and study type facets are clear. The 3D chart default is not usable by keyboard."
+  },
+  {
+   "page": "Summary table",
+   "understood_in_3s": true,
+   "note": "Skim papers and correct cells, then Rank. The three-item checklist helped. The Rank button was far down the tab order."
+  },
+  {
+   "page": "Ranking",
+   "understood_in_3s": false,
+   "note": "Scores of 34 out of 100 and an unrelated diabetes trial at the top made me doubt it. The 3 topic warning dialog helped."
+  },
+  {
+   "page": "Appraisal",
+   "understood_in_3s": true,
+   "note": "Go paper by paper, check quotes, decide the red 'not found' ones. 'found word for word' with a tick and 'not found' with a cross are clear without colour."
+  },
+  {
+   "page": "Synthesis",
+   "understood_in_3s": true,
+   "note": "Known, Contested, Unknown with quote chips. Topic tabs worked with arrow keys. Checklist counts did not match what was shown."
+  },
+  {
+   "page": "Research question",
+   "understood_in_3s": true,
+   "note": "Three candidates with gap, feasibility, weakness, then Choose this question. 'Finish and export' stays locked with a reason until I choose."
+  },
+  {
+   "page": "Export",
+   "understood_in_3s": true,
+   "note": "Pick a format and download. The report preview, the demo line and the quote counts were all visible."
+  }
+ ],
+ "categories_and_colours": "I found study type and article type filters on the Retrieval page (chips and chart legend) and on the table page (chip rows, 'More filters', a Group by select). Study type shows a coloured shape plus a text label plus a count: Trial is a blue circle, Cohort/case-control an orange square, Cross-sectional a green triangle, Qualitative/mixed a gold diamond, Systematic/scoping a pink star, Other design a green cross, Not reported a grey ring. Article types (Journal article, Review article, Preprint, Editorial/letter/comment) have no colour or shape, only text and count. Both filter by keyboard (Enter on a chip). The app says 'Showing 5 of 97: trial. 92 papers are hidden by your filters (still in the review)' with a Reset filters button, so it is not misleading. Counts are consistent (97 papers). The earlier retrieval page says Not reported 80 versus 17 in the table after AI summaries, and the app explains this. The legend text was understandable without being told, and selected chips show a check mark. One issue is that zero-count legend entries are dimmed but still focusable with no explanation, and the 3D points cannot be reached by keyboard.",
+ "validity_assessment": "The app is mostly honest in demo mode: a banner says the AI is scripted and papers are samples, the search builder says the searches are 'a recorded example, not built from your topics', candidate questions say 'Demo mode searches recorded sample papers on telemedicine, so few will match your topic', and the report opens with 'Demo: ... not a real review'. The workflow design is traceable: every statement links to a quote chip, 'Show source' highlights the quote in the retrieved text, fabricated quotes are flagged as 'not found, you decide' with the closest passage, 'found' is explained as 'in the paper, not proof', the novelty check says 'finding none does not prove a question is new', and the report lists the counts of found, not found, accepted, rejected and undecided quotes. Weak points: (1) the demo note is dismissible and not repeated where the papers are ranked; landing and signup do not mention demo at all; (2) 'found word for word' is satisfied by titles and section labels; (3) irrelevant papers (diabetes, hemophilia) were ranked top for a postpartum depression topic, and two of five topics had zero papers, yet the chosen question is still produced and the report is called 'ready'. Nothing looked fabricated beyond the labelled mock content. In a real run the same structure would give a traceable review.",
+ "would_have_quit_at": "I did not quit. The point where a keyboard-only user would most likely give up is the summary table and ranking pages: about 95 Tab stops to reach 'Rank the papers' or 'Appraise selected papers', with no skip link, plus focus resets to the body after panel closes and after each quote decision (9 decisions, each sending focus back to the top).",
+ "activity": "Created one account (ruth.lecturer.test@example.com) and one project (prj_824dbdb9ec9d47c1) on the topic 'Peer support groups for postpartum depression in low-income countries'. I answered all 5 scoping questions, kept 5 topics (edited one name and one synonym list, which sent the review back to step 2 so I re-approved), wrote and ran 10 searches (97 unique papers from 134 results), summarised 97 papers, ranked, appraised 8 papers anyway after a 3-topic warning, rejected 1 quote and left 8 undecided, summarised the evidence anyway after a second warning, suggested 3 research questions, chose candidate 2 (PECO association question), and reached Export. I opened the report preview and clicked 'Download the report (Markdown)', which showed a 'downloading' status. No console errors or failed requests were reported at any step. I did not open the Map view, Account, command palette or Admin. Screenshots are 01 to 54 in docs/qa/iteration-2/keyboard/.",
+ "narrative": "I started at 200% zoom with only the keyboard. The landing page told me quickly what Athena is for, and Tab showed a bold ring on each control, which was a relief. Sign-up worked, but the hint under the password box was printed over the box. I typed my topic and answered the five scoping questions, and the app moved focus to the panel heading each time a step changed, which helps. The panel content area is small at 200% zoom, so I often scrolled to find the input.\n\nI lost orientation several times. After closing a panel, hiding the demo note, or opening the table page, focus fell back to the top of the page. Changing one synonym at step 3 quietly sent the whole review back to step 2 and I had no idea why until I read the list. On the table page I needed about 95 Tab presses to reach the Rank button, and I wished for a skip link.\n\nThe study type and article type filters were good: shape, colour and text together, counts, a clear 'hidden by your filters' message and a Reset button. The 3D chart was no use by keyboard, but the 2D toggle and the legend worked.\n\nI was pleased by the honest parts: the demo banner, the warning dialogs, the red 'not found, you decide' quotes with Show source, and the novelty caveat. Still, the top-ranked papers were about diabetes and hemophilia, two topics had no papers, and yet I got a tidy research question and a finished report. I would have trusted it more if the demo reminder stayed on every screen. I reached Export, read the preview, and downloaded the Markdown report."
+}

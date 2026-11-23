@@ -1,0 +1,877 @@
+{
+  "round": "nomock",
+  "commit": "4cea58c",
+  "mode": "no-key",
+  "allPass": false,
+  "notCovered": [
+    "panel-idea-scoping (the scoping chat: AI questions)",
+    "canvas-ghosts, panel-topic-ghost (topics suggested by the AI)",
+    "panel-query (searches written by the AI)",
+    "canvas-running, panel-corpus-running (retrieval needs the searches)",
+    "canvas-error, panel-table-error (summary rows are AI output)",
+    "canvas-done, panel-appraisal, panel-synthesis, panel-questions, panel-export, panel-quote (a finished review)",
+    "canvas-stale (needs retrieval and later steps)",
+    "table (papers, summaries and ranking)",
+    "canvas-300 and item 10's 300-node pan at ≥ 55 fps (the 300 nodes are pinned quotes from appraisals)"
+  ],
+  "metrics": {
+    "canvasNodes": 5,
+    "canvasJs": {
+      "firstNodeMs": 441,
+      "initialGzipKb": 251,
+      "totalGzipKb": 294,
+      "lazyChunks": [
+        "6305.48fbef8785c683f8.js 2kB",
+        "6200.1b072df436c8acda.js 1kB",
+        "663-18a66eb98b8496ae.js 4kB",
+        "535-f73bce449852306b.js 8kB",
+        "3500-91711a1ed0059196.js 10kB",
+        "7308-b4637169013c4db1.js 5kB",
+        "7971-b985933d11d94b61.js 5kB",
+        "1646-7bfce879cade0381.js 4kB",
+        "page-bdc3bf28867ec2c0.js 5kB"
+      ]
+    },
+    "paidCalls": {
+      "attempted": 0,
+      "blocked": 0
+    },
+    "spendUsd": 0
+  },
+  "results": [
+    {
+      "item": 1,
+      "ok": true,
+      "where": "landing 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "landing 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "landing 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "landing 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "landing 1440 dark motion-on",
+      "msg": "4 type sizes: 12/14/16/44px"
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "landing 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "landing 1440 dark motion-on",
+      "msg": "6 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "sessions 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "sessions 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "sessions 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "sessions 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "sessions 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "sessions 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "sessions 1440 dark motion-on",
+      "msg": "13 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "settings 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "settings 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "settings 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "settings 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "settings 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "settings 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "settings 1440 dark motion-on",
+      "msg": "6 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "canvas-empty 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "canvas-empty 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "canvas-empty 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "canvas-empty 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "canvas-empty 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "canvas-empty 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "canvas-empty 1440 dark motion-on",
+      "msg": "4 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "canvas-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "canvas-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "canvas-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "canvas-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "canvas-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "canvas-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "canvas-idea 1440 dark motion-on",
+      "msg": "22 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "panel-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "panel-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "panel-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "panel-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "panel-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "panel-idea 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "panel-idea 1440 dark motion-on",
+      "msg": "6 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "canvas-not-set-up 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "canvas-not-set-up 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "canvas-not-set-up 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "canvas-not-set-up 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "canvas-not-set-up 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "canvas-not-set-up 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "canvas-not-set-up 1440 dark motion-on",
+      "msg": "22 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "panel-idea-not-set-up 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "panel-idea-not-set-up 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "panel-idea-not-set-up 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "panel-idea-not-set-up 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "panel-idea-not-set-up 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "panel-idea-not-set-up 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "panel-idea-not-set-up 1440 dark motion-on",
+      "msg": "5 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "canvas-topics 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "canvas-topics 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "canvas-topics 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "canvas-topics 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "canvas-topics 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "canvas-topics 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "canvas-topics 1440 dark motion-on",
+      "msg": "22 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "panel-idea-topics 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "panel-idea-topics 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "panel-idea-topics 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "panel-idea-topics 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "panel-idea-topics 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "panel-idea-topics 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "panel-idea-topics 1440 dark motion-on",
+      "msg": "14 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "panel-topic 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "panel-topic 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "panel-topic 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "panel-topic 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "panel-topic 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "panel-topic 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "panel-topic 1440 dark motion-on",
+      "msg": "7 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "canvas-approved 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "canvas-approved 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "canvas-approved 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "canvas-approved 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "canvas-approved 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "canvas-approved 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "canvas-approved 1440 dark motion-on",
+      "msg": "22 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "panel-topic-search 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "panel-topic-search 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "panel-topic-search 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "panel-topic-search 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "panel-topic-search 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "panel-topic-search 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "panel-topic-search 1440 dark motion-on",
+      "msg": "7 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "list-view 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "list-view 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "list-view 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "list-view 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "list-view 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "list-view 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "list-view 1440 dark motion-on",
+      "msg": "21 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "export-page 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "export-page 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "export-page 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "export-page 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "export-page 1440 dark motion-on",
+      "msg": "4 type sizes: 12/14/20/28px"
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "export-page 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "export-page 1440 dark motion-on",
+      "msg": "5 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "account 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "account 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "account 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "account 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "account 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "account 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "account 1440 dark motion-on",
+      "msg": "11 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "admin 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "admin 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "admin 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "admin 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "admin 1440 dark motion-on",
+      "msg": "4 type sizes: 12/14/16/20px"
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "admin 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": false,
+      "where": "admin 1440 dark motion-on",
+      "msg": "focus is stuck on button:Table:442"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "settings-ai-off 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "settings-ai-off 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "settings-ai-off 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "settings-ai-off 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": true,
+      "where": "settings-ai-off 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "settings-ai-off 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": true,
+      "where": "settings-ai-off 1440 dark motion-on",
+      "msg": "6 tab stops"
+    },
+    {
+      "item": 1,
+      "ok": true,
+      "where": "admin-ai-off 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 2,
+      "ok": true,
+      "where": "admin-ai-off 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 3,
+      "ok": true,
+      "where": "admin-ai-off 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 8,
+      "ok": true,
+      "where": "admin-ai-off 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 9,
+      "ok": false,
+      "where": "admin-ai-off 1440 dark motion-on",
+      "msg": "4 type sizes: 12/14/16/20px"
+    },
+    {
+      "item": 4,
+      "ok": true,
+      "where": "admin-ai-off 1440 dark motion-on",
+      "msg": ""
+    },
+    {
+      "item": 5,
+      "ok": false,
+      "where": "admin-ai-off 1440 dark motion-on",
+      "msg": "focus is stuck on button:Table:442"
+    },
+    {
+      "item": 10,
+      "ok": true,
+      "where": "canvas-approved",
+      "msg": "List view shows the same 5 nodes as the canvas"
+    },
+    {
+      "item": 11,
+      "ok": false,
+      "where": "canvas route JS",
+      "msg": "251 kB gzip before the first node shows (budget 250)"
+    },
+    {
+      "item": 12,
+      "ok": true,
+      "where": "all views",
+      "msg": "no console errors"
+    },
+    {
+      "item": 12,
+      "ok": true,
+      "where": "all views",
+      "msg": "no browser requests leave localhost"
+    },
+    {
+      "item": 12,
+      "ok": true,
+      "where": "server",
+      "msg": "0 paid API calls (xAI, OpenAlex) attempted"
+    },
+    {
+      "item": 12,
+      "ok": true,
+      "where": "server",
+      "msg": "$0 AI spend: every AI step was refused before any request to xAI"
+    }
+  ]
+}

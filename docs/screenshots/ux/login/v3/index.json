@@ -1,0 +1,20 @@
+{
+  "error-375": {
+    "what": "Log-in form after a wrong password",
+    "url": "/login",
+    "width": 375,
+    "theme": "dark"
+  },
+  "error-768": {
+    "what": "Log-in form after a wrong password",
+    "url": "/login",
+    "width": 768,
+    "theme": "dark"
+  },
+  "error-1366": {
+    "what": "Log-in form after a wrong password",
+    "url": "/login",
+    "width": 1366,
+    "theme": "dark"
+  }
+}

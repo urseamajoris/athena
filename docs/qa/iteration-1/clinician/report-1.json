@@ -1,0 +1,228 @@
+{
+ "persona": "clinician",
+ "completed": true,
+ "stage_reached": 9,
+ "findings": [
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Search builder (step 3) and Research question (step 9)",
+   "what_happened": "Demo mode scripts everything to telemedicine in Southeast Asia. The searches say Southeast Asia, Thailand, Vietnam and never mention hip fracture. The three candidate questions are about rural Southeast Asia. The chosen question and the exported report headline do not match the idea I typed. The demo banner explains this once at the top, but the search page, the question cards and the export page do not say 'this does not reflect your topic'. Only small '(mock)' tags appear.",
+   "expected": "Where the demo output visibly contradicts the user's topic (searches, questions, export), a short local note such as 'Demo sample: not about your topic'. The exported report should carry a clear demo watermark.",
+   "evidence": "docs/qa/iteration-1/clinician/11-searches.jpg, docs/qa/iteration-1/clinician/21-rq.jpg, docs/qa/iteration-1/clinician/24-preview.jpg",
+   "suggested_fix": "Add a persistent, non-dismissable 'Demo sample data' line at the top of the searches, question and export pages, and a banner at the top of the downloaded report. In real mode, show a warning if a search block does not contain any of the user's concepts."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Research question (step 9)",
+   "what_happened": "Candidates 2 and 3 are ungrammatical templates ('What older factors shape...', 'What adults factors shape...'). Candidate 2 is labelled 'a question about the effect of an exposure' but is worded as a 'factors shape implementation' question. All three have identical gap, feasibility and weakness text. A physician would think the tool is broken, and the questions look fabricated.",
+   "expected": "Three distinct, well-formed questions whose label matches the wording, each with its own gap, feasibility and weakness.",
+   "evidence": "docs/qa/iteration-1/clinician/21-rq.jpg",
+   "suggested_fix": "Build candidates from the whole idea and chosen topics, not single topic names. Check each candidate for grammar and for a match between structure label and wording before showing it. Flag clearly in demo mode that the scripted candidates are placeholders."
+  },
+  {
+   "severity": "major",
+   "category": "bug",
+   "page": "Scoping (step 2), after 'Skip the rest'",
+   "what_happened": "After I answered 2 questions and tapped 'Skip the rest', 'What we know so far' showed 'not answered yet' for Who, Where, What is studied and Outcome, with 'questions done' left blank. The scoping conversation still held my answers, so it looked as if my answers were lost.",
+   "expected": "The summary should keep my answers and show them after skipping.",
+   "evidence": "docs/qa/iteration-1/clinician/07-topics.jpg, docs/qa/iteration-1/clinician/07b-convo.jpg",
+   "suggested_fix": "Keep the collected answers in the 'What we know so far' panel after skip. Otherwise hide the panel once skipping."
+  },
+  {
+   "severity": "major",
+   "category": "clarity",
+   "page": "Ranking (step 6) to Appraisal (step 7)",
+   "what_happened": "I tapped 'Appraise selected papers'. The header changed to 'Now: step 7/9' but the page still showed the step 6 ranking content and the button. There was no spinner, no toast and no 'Go to step 7'. I did not know whether it worked, and I only found step 7 by going back to the overview and tapping 'Open step 7'.",
+   "expected": "Move straight to the appraisal step, or show a clear 'Appraisal started, Go to step 7' message (the UX intent says a non-current panel should offer 'Go to step N').",
+   "evidence": "docs/qa/iteration-1/clinician/17-appraise.jpg, docs/qa/iteration-1/clinician/18-overview.jpg",
+   "suggested_fix": "After the action, navigate to the appraisal node. If it runs in the background, show live progress with a 'Go to step 7' button."
+  },
+  {
+   "severity": "major",
+   "category": "validity",
+   "page": "Appraisal (step 7)",
+   "what_happened": "The checklist says 'Decide every quote the check could not find (14 left)' and the paper shows 'UNVERIFIED' quotes. I decided one, then tapped 'Summarise the evidence', and the app let me through with 13 undecided quotes and no warning. A phone user working under time pressure is likely to do the same. Also, the appraisal header says '14 unverified quotes to decide' while the first paper's checklist quotes show green 'verified', which looks contradictory until you find the 'Key findings' quote lower down.",
+   "expected": "Either require decisions, or warn: '13 quotes still undecided; they will be left out/flagged in the synthesis'. The count label should say 'papers with a quote to decide'.",
+   "evidence": "docs/qa/iteration-1/clinician/19-appraisal.jpg, docs/qa/iteration-1/clinician/19d.jpg, docs/qa/iteration-1/clinician/19f.jpg",
+   "suggested_fix": "Add a confirmation listing the number of undecided quotes. Add a 'Reject all remaining unverified' bulk action. Rename the count to 'papers with quotes to decide'."
+  },
+  {
+   "severity": "major",
+   "category": "clarity",
+   "page": "Export",
+   "what_happened": "My goal was a report I could email to myself from a phone. The only report format is Markdown, which most phone users cannot open. There is no PDF, Word or 'email me this' option. After tapping 'Download the report (Markdown)' there was no visible confirmation, and I could not tell whether anything arrived. The preview does show the content, with identifiers, quotes and the novelty-check search.",
+   "expected": "A phone-friendly report (PDF or .docx or HTML) or a share/email option, plus a 'Downloaded' confirmation.",
+   "evidence": "docs/qa/iteration-1/clinician/23-export.jpg, docs/qa/iteration-1/clinician/25-download.jpg",
+   "suggested_fix": "Offer PDF/.docx, or 'Email me the report'. Show a 'Report downloaded' toast and a 'Copy to clipboard' option."
+  },
+  {
+   "severity": "major",
+   "category": "clarity",
+   "page": "Retrieval (step 4): 3D papers chart",
+   "what_happened": "Colour by offers only Study type, Topic and Source database, so I cannot colour or filter the chart by Article type. The Article type bars in the 'What kinds of papers' box are not tappable. The legend says 'hover to highlight', which does not work on a phone. The legend labels are faint. The 3D scatter is hard to read at 375 px, and its scroll area did not respond to the helper's scroll, only to keyboard PageDown.",
+   "expected": "On a phone, a tappable, readable way to filter by both study type and article type from the retrieval step.",
+   "evidence": "docs/qa/iteration-1/clinician/12-retrieval.jpg, docs/qa/iteration-1/clinician/12f.jpg, docs/qa/iteration-1/clinician/12e.jpg",
+   "suggested_fix": "Make the Article type bars tappable filters, and add Article type to 'Colour by' or link to the table view (step 5), where chips work well. Reword the legend hint to 'Tap to show only one'. Raise legend contrast."
+  },
+  {
+   "severity": "minor",
+   "category": "validity",
+   "page": "Scoping topics (step 2)",
+   "what_happened": "The suggested topics were 'Help', 'Older', 'Adults', 'Measurement and outcomes' and 'Context and setting'. 'Hip fracture' was missing, and 'Help' is not a clinical concept. I had to find 'Add or merge topics' to add 'Hip fracture surgery', which then had 0 synonyms and 0 MeSH. Synonyms for tele-rehabilitation were only a plural. Ranking later left 'Adults' and 'Context and setting' with 0 selected papers.",
+   "expected": "Topics that are real concepts from my idea and answers (hip fracture, older adults, telerehabilitation), with sensible synonyms.",
+   "evidence": "docs/qa/iteration-1/clinician/08b-topics-list.jpg, docs/qa/iteration-1/clinician/10-search-builder.jpg, docs/qa/iteration-1/clinician/16-rank.jpg",
+   "suggested_fix": "Extract noun phrases and drop stop words. Offer synonym and MeSH suggestions for user-added topics. Warn when a topic ends up with no selected papers."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Scoping topics (step 2), Add or merge topics",
+   "what_happened": "Tapping 'Add' next to the 'New topic name' field collapsed the 'Add or merge topics' section instead of adding the topic, because the label also matched the accordion title. Pressing Enter in the field worked. The Add button looked disabled until the field was filled.",
+   "expected": "One clear Add button that adds the topic.",
+   "evidence": "docs/qa/iteration-1/clinician/08f-added.jpg, docs/qa/iteration-1/clinician/08h-after-add.jpg",
+   "suggested_fix": "Make the Add button label unambiguous ('Add this topic'). Add a bottom-bar 'Add' action when the field is focused."
+  },
+  {
+   "severity": "minor",
+   "category": "bug",
+   "page": "Summary table (step 5)",
+   "what_happened": "A console page error appeared right after summarising: \"Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.\" The page still worked.",
+   "expected": "No client errors.",
+   "evidence": "docs/qa/iteration-1/clinician/13-summary.jpg (reported by the 'problems' command at this step)",
+   "suggested_fix": "Check the DOM cleanup (probably the 3D or chart component, or a portal) on step transitions."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "New review and Step 1 (Idea)",
+   "what_happened": "I wrote my idea on /s/new, then had to open step 1 'Tell us what you want to research' and re-confirm the same text before 'Start scoping'. The overview also showed 'Draft idea' and 'Your turn' for something I had already written. It felt like duplicated work.",
+   "expected": "Step 1 shows my idea as done, and I go straight to the scoping questions.",
+   "evidence": "docs/qa/iteration-1/clinician/04-questions.jpg, docs/qa/iteration-1/clinician/05-step1.jpg",
+   "suggested_fix": "Auto-start scoping after the first submit, or merge the two screens."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Signup",
+   "what_happened": "The password hint 'At least 10 characters, not containing the name part of your email.' sits inside the password input box and overlaps the field. This is a layout bug and looks like placeholder text that stays after typing.",
+   "expected": "The hint below the field, not on top of it.",
+   "evidence": "docs/qa/iteration-1/clinician/02-signup.jpg",
+   "suggested_fix": "Move the hint out of the input container, below it, and give the field normal height."
+  },
+  {
+   "severity": "minor",
+   "category": "a11y",
+   "page": "Panels on phone (steps 2 to 9)",
+   "what_happened": "The sticky panel header (step label, headline, description, progress strip) takes about a third of the 812 px screen, so I read the real content in a squeezed window. The top bar 'Now: step 1/...' is also cut off. The in-panel scroll was unreliable with the scroll helper but worked with the keyboard. Edit, Delete and Dismiss targets are small. The focus helper reported no visible focus style on the download link and the headings.",
+   "expected": "A compact header after the first scroll, readable step label, thumb-sized targets (at least 44 px), visible focus.",
+   "evidence": "docs/qa/iteration-1/clinician/06d-scoping-q3b.jpg, docs/qa/iteration-1/clinician/08b-topics-list.jpg, docs/qa/iteration-1/clinician/04-questions.jpg",
+   "suggested_fix": "Collapse the description and progress strip into one line while scrolling. Enlarge row actions. Add a :focus-visible ring on links."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Retrieval and Overview",
+   "what_happened": "On the overview and in the retrieval step each query still shows 'PubMed \u2013 \u00b7 OpenAlex \u2013' (dashes) even after the searches ran and returned 125 and 49 papers. The paper detail also shows '? citations'. They look like missing data.",
+   "expected": "Counts or 'not counted' in words.",
+   "evidence": "docs/qa/iteration-1/clinician/12-retrieval.jpg, docs/qa/iteration-1/clinician/15-paper.jpg",
+   "suggested_fix": "Show real per-query counts, and hide 'citations' when unknown (or write 'citations not available')."
+  },
+  {
+   "severity": "minor",
+   "category": "clarity",
+   "page": "Overview and Summary table helper links",
+   "what_happened": "Tapping the text 'Overview' on the table page opened a paper whose title contained 'Overview' rather than the back link. That was partly the test helper, but the top-left 'Overview' link and the 'Now: step 7/9' header look like the only way back. The panel's step 7 content was only reachable by going to Overview and tapping 'Open step 7'.",
+   "expected": "A clear primary 'Go to step 7' button on any stale page.",
+   "evidence": "docs/qa/iteration-1/clinician/18-overview.jpg",
+   "suggested_fix": "Add 'Go to current step' to the top bar."
+  },
+  {
+   "severity": "polish",
+   "category": "copy",
+   "page": "Landing",
+   "what_happened": "The landing page and sign-up page give no hint that this server is a demo. The step 2 illustration says 'STEP 2 OF 9' in tiny text, and the 'See a review take shape' demo canvas text is unreadable at 375 px. I also could not find a way to edit the chosen question, although step 9 says 'you can edit it after'.",
+   "expected": "A readable preview, and a visible 'Edit' for the chosen question.",
+   "evidence": "docs/qa/iteration-1/clinician/01c-landing-bottom.jpg, docs/qa/iteration-1/clinician/22-chosen.jpg",
+   "suggested_fix": "Enlarge the demo text on phones. Add an 'Edit question' action next to 'Chosen'."
+  }
+ ],
+ "three_second_test": [
+  {
+   "page": "Landing /",
+   "understood_in_3s": true,
+   "note": "(a) A tool that turns a rough idea into a research question backed by real papers. (b) Tap 'Start a review'. (c) Sign up."
+  },
+  {
+   "page": "Signup",
+   "understood_in_3s": true,
+   "note": "(a) Create my account. (b) Fill email and password. (c) Tap 'Create account'. The password hint overlaps the input."
+  },
+  {
+   "page": "New review (step 1)",
+   "understood_in_3s": true,
+   "note": "(a) Describe my research idea. (b) Type my question or tap an example. (c) Tap 'Start my review'."
+  },
+  {
+   "page": "Project overview (list)",
+   "understood_in_3s": true,
+   "note": "(a) My review at a glance. (b) Tap 'Open step 1'. (c) Answer the scoping questions. Confusing that my idea still shows as a draft."
+  },
+  {
+   "page": "Scoping questions (step 2)",
+   "understood_in_3s": true,
+   "note": "(a) Short questions to sharpen the idea. (b) Type an answer. (c) 'Send answer' or 'Skip the rest'."
+  },
+  {
+   "page": "Keep search topics",
+   "understood_in_3s": true,
+   "note": "(a) Choose which suggested topics to keep. (b) Delete 'Help', add hip fracture. (c) 'Keep N suggested topics', then 'Use these topics'."
+  },
+  {
+   "page": "Search builder (step 3)",
+   "understood_in_3s": true,
+   "note": "(a) Check the database searches before they run. (b) Read the groups. (c) 'Run all 12 searches'. The content is about Southeast Asia, which shows the demo mismatch."
+  },
+  {
+   "page": "Retrieval (step 4)",
+   "understood_in_3s": true,
+   "note": "(a) How many papers were found and how many duplicates. (b) Read the totals. (c) 'Summarise the papers'. The chart legend needs reading time."
+  },
+  {
+   "page": "Summary table (step 5)",
+   "understood_in_3s": true,
+   "note": "(a) Skim the AI summaries and fix wrong cells. (b) 'Open the full table'. (c) 'Rank the papers'. The checklist is clear."
+  },
+  {
+   "page": "Ranking (step 6)",
+   "understood_in_3s": true,
+   "note": "(a) Check which papers go forward, with a visible score rubric. (b) Pick a topic. (c) 'Appraise selected papers'. The button gave no feedback."
+  },
+  {
+   "page": "Appraisal (step 7)",
+   "understood_in_3s": false,
+   "note": "(a) Check each paper's appraisal and unverified quotes. (b) Read paper 1. (c) 'Next paper'. The counts ('14 unverified quotes' but quotes labelled 'verified') confused me and I scrolled a lot."
+  },
+  {
+   "page": "Synthesis (step 8)",
+   "understood_in_3s": true,
+   "note": "(a) What is known, contested and unknown, each linked to quotes. (b) Read the topic tabs. (c) 'Suggest research questions'."
+  },
+  {
+   "page": "Research question (step 9)",
+   "understood_in_3s": true,
+   "note": "(a) Pick one of three candidate questions. (b) Compare them. (c) 'Choose this question', then 'Finish and export'. The content is not usable."
+  },
+  {
+   "page": "Export",
+   "understood_in_3s": true,
+   "note": "(a) Download my review. (b) Pick a format. (c) 'Download'. Markdown is unfamiliar for a phone user."
+  }
+ ],
+ "categories_and_colours": "At step 4 and in the step 5 and 6 tables I could filter by study type and by article type. In the 3D chart the legend pairs colour and shape with a count: Trial (blue circle), Systematic/scoping review (pink star), Other design (green cross), Not reported (grey ring), Cohort (orange square), Cross-sectional (green triangle), Qualitative (gold diamond). I understood this from the legend without being told, and tapping a legend entry isolated that type with a clear 'Showing only one category (3 papers). Click it again to show all.' line. Article type uses plain bars with no colour, which is clear. In the table, large chips for both study type and article type filter correctly, with a 'Showing 3 of 96: trial. 93 papers are hidden by your filters' message and a visible Reset filters. This is the clearest part of the app on a phone. Problems: Article type bars are not tappable in the retrieval step and Article type is not a 'Colour by' option; the legend says 'hover', which does not exist on a phone; the legend text is faint; 'Not reported' (ring) is 82 at retrieval and 16 after AI summaries, which is explained but could be read as the counts changing; the 3D chart is hard to read at 375 px. Counts sum correctly: study type 3+3+8+82 = 96 and article type 72+13+2+9 = 96.",
+ "validity_assessment": "Traceability is the app's real strength. Every paper has a DOI, PMID and the database abstract. Appraisal quotes are checked word for word. A deliberately altered quote was caught and shown red with the closest real passage and its match percentage. The scoring rubric weights are visible. The novelty check shows the exact search and record counts and states that finding none does not prove novelty. The export lists identifiers, the search strategy and the decisions made. The report states it was generated by the 'Athena prototype'. The demo is honest in one dismissible banner and '(mock)' tags. Weaknesses: (1) In demo mode the research question, searches, synthesis ('Findings differ between studies') and candidates have nothing to do with hip fracture and tele-rehabilitation, with no local warning on the question or export pages, and the exported report headline pairs my real question with an unrelated Southeast Asia question. (2) The candidate questions are malformed templates with identical rationale text. (3) The app lets users move on with undecided unverified quotes without a warning. (4) Topic extraction picks up filler words ('Help') and misses the main clinical concept. I could not judge real-mode validity. As a clinician I would not forward this report as it stands, because it does not carry a clear demo watermark at the top.",
+ "would_have_quit_at": "I would have kept going to the end, but with a real 15-minute window I would have quit at step 7 (Appraisal): 14 papers each with several quotes to decide is too much for a phone between ward rounds, and the app did not say I could skip. The ranking to appraisal hand-off with no feedback was the point where I was closest to giving up. At the export I would stop because the report is a Markdown file I cannot easily email or open on a phone, and the question it gives me is about Southeast Asia.",
+ "activity": "Created an account (Dr Okafor, okafor.clinician@example.com). Created one project (prj_9b51feebaa8a4dc5) from the idea 'Does tele-rehabilitation help older adults recover after hip fracture surgery?'. Answered 2 of 5 scoping questions and skipped the rest. Dismissed 1 suggested topic ('Help'), added 1 topic ('Hip fracture surgery') and kept 5 suggested topics. Ran all 12 database searches (174 results fetched, 78 duplicates merged, 96 papers). Started AI summaries (10 of 10 batches done). Used the study type filter and legend isolation, opened one paper, ranked the papers (16 selected) and started appraisal (14 papers). Rejected 1 unverified quote and left 13 undecided. Opened the synthesis (12 statements, 4 conflicts), chose candidate question 1 of 3, finished the review and tapped 'Download the report (Markdown)' (no visible confirmation). One client console error ('removeChild') after the step 5 summaries. No failed network requests. About 100 helper commands used. Browser stopped. Screenshots are in /home/user/athena/docs/qa/iteration-1/clinician/ (01-landing to 25-download).",
+ "narrative": "I landed on Athena on my phone and understood within seconds that it turns a rough idea into a research question backed by real papers. Sign-up was quick, although the password hint overlapped the input. I typed my tele-rehabilitation question and was told about demo mode up front, which I appreciated. Then I got slightly lost: I had already written my idea, yet step 1 asked me to confirm it again. The scoping questions were short and fine, but after I skipped the rest, the summary said nothing was answered, so I wondered if my answers had been lost. The suggested topics included 'Help', but not hip fracture, so I added it myself, and the Add button was fiddly. The searches then said Southeast Asia and Thailand, which clearly was not my topic. The demo note explained why, but I still felt uneasy. The retrieval numbers were clear, and the legend's colours and shapes made sense. I could filter by study and article type in the table with thumb-sized chips, which I liked, though the 3D chart was too small and its legend asked me to hover. Ranking showed a visible scoring rubric, which built trust. After I tapped 'Appraise selected papers' nothing visibly happened and I had to hunt for step 7. The appraisal was the best part for trust, because it caught an altered quote and showed the real passage next to it. But 14 papers is a lot on a phone, and the app let me skip 13 undecided quotes without a warning. The three candidate questions were obviously broken templates. The export gave me Markdown only, with no way to email it and no confirmation after I tapped download."
+}

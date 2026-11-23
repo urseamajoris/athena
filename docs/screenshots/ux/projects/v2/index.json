@@ -1,0 +1,20 @@
+{
+  "populated-375": {
+    "what": "My projects list (several projects at different steps)",
+    "url": "/sessions",
+    "width": 375,
+    "theme": "dark"
+  },
+  "populated-768": {
+    "what": "My projects list (several projects at different steps)",
+    "url": "/sessions",
+    "width": 768,
+    "theme": "dark"
+  },
+  "populated-1366": {
+    "what": "My projects list (several projects at different steps)",
+    "url": "/sessions",
+    "width": 1366,
+    "theme": "dark"
+  }
+}

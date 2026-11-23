@@ -1,12 +1,12 @@
 import "server-only";
 import { eq, inArray } from "drizzle-orm";
-import { db, schema } from "../db";
+import { db, schema, batchWrite, type BatchItem } from "../db";
 import type { ChecklistItem } from "../db/schema";
 import { config } from "../config";
-import { structuredCall, BudgetError } from "../ai/client";
+import { structuredCall, isAiStop } from "../ai/client";
 import { Appraisal, EXTRACTION_FIELDS } from "../stages/ai-schemas";
 import { CHECKLISTS, templateFor } from "../stages/templates";
-import { closestPassage, normalizeWithMap, sectionAt, verifyQuote } from "../quotes";
+import { closestPassage, joinedWithoutEllipsis, normalizeWithMap, sectionAt, verifyQuote } from "../quotes";
 import { errMsg, newId } from "../util";
 import { getProject, logDecision } from "../project";
 import { claimIdsOfAppraisals, dropOutputCiting } from "../evidence";
@@ -22,64 +22,68 @@ const itemKey = (s: string) => s.toLowerCase().replace(/^\s*\d+[.)]\s*/, "").rep
 export function checkQuote(sent: string, sections: { title: string; start: number }[], quote: string, pre?: ReturnType<typeof normalizeWithMap>) {
   const r = verifyQuote(sent, quote, pre);
   if (r.verified) {
-    const sec = sectionAt(sections, r.start!);
-    return { verified: true, matchStart: r.start, matchEnd: r.end, verificationNote: `${r.note}${sec ? ` Found in: ${sec}.` : ""}` };
+    // The stored span is the first part (a real passage, never the unquoted text between parts); the note names
+    // the section of every part.
+    const secs = [...new Set(r.parts.map((p) => sectionAt(sections, p.start)).filter(Boolean))];
+    return { verified: true, matchStart: r.start, matchEnd: r.end, verificationNote: `${r.note}${secs.length ? ` Found in: ${secs.join("; ")}.` : ""}` };
   }
+  const joined = joinedWithoutEllipsis(sent, quote, pre);
   const near = closestPassage(sent, quote);
   return {
     verified: false,
     matchStart: null,
     matchEnd: null,
-    verificationNote: `UNVERIFIED: ${r.note}${near && near.overlap >= 0.5 ? ` Closest passage in the text (${Math.round(near.overlap * 100)}% of words match): "${near.text.slice(0, 400)}"` : ""}`,
+    verificationNote: `${r.note}${joined ? ` ${joined}` : ""}${near && near.overlap >= 0.5 ? ` Closest passage in the text (${near.overlap >= 0.995 ? "the same words, but not in this order or form" : `${Math.round(near.overlap * 100)}% of words match`}): "${near.text.slice(0, 400)}"` : ""}`,
   };
 }
 
 /**
- * Re-run quote verification on stored claims against the stored text (no AI call). Used after the verifier
- * improves. User accept/reject decisions are kept. Returns how many claims changed status.
+ * Re-run quote verification on stored claims against the stored text (no AI call). Rows that recorded
+ * sentRanges are checked against those ranges of the full text; older rows use the prefix that was sent.
+ * User accept/reject decisions are kept. Returns how many claims changed status.
  */
-export function reverifyProject(projectId: string) {
-  const paperIds = db.select({ id: schema.papers.id }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all().map((r) => r.id);
-  const apps = db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, paperIds.concat(["-"]))).all();
+export async function reverifyProject(projectId: string) {
+  const paperIds = (await db.select({ id: schema.papers.id }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all()).map((r) => r.id);
+  const apps = (await db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, paperIds.concat(["-"]))).all());
   let changed = 0;
   let checked = 0;
   for (const a of apps) {
     if (!a.sourceTextId) continue;
-    const st = db.select().from(schema.sourceTexts).where(eq(schema.sourceTexts.id, a.sourceTextId)).get();
+    const st = (await db.select().from(schema.sourceTexts).where(eq(schema.sourceTexts.id, a.sourceTextId)).get());
     if (!st) continue;
-    const sentRanges =
-      a.sentRanges && a.sentRanges.length
-        ? a.sentRanges
-        : [{ start: 0, end: a.charsSentToModel ? Math.min(a.charsSentToModel, st.text.length) : st.text.length }];
-    const sent = reconstructSentText(st.text, sentRanges);
-    const pre = normalizeWithMap(sent);
-    for (const c of db.select().from(schema.claims).where(eq(schema.claims.appraisalId, a.id)).all()) {
+    const sentRanges = a.sentRanges?.length ? a.sentRanges : null;
+    const sent = sentRanges ? "" : a.charsSentToModel ? st.text.slice(0, a.charsSentToModel) : st.text;
+    const pre = normalizeWithMap(sentRanges ? reconstructSentText(st.text, sentRanges) : sent);
+    for (const c of (await db.select().from(schema.claims).where(eq(schema.claims.appraisalId, a.id)).all())) {
       if (c.notReported) continue;
       checked++;
-      const v = verifyQuoteInSentRanges(st.text, st.sections, sentRanges, c.quote, pre);
+      const v = sentRanges ? verifyQuoteInSentRanges(st.text, st.sections, sentRanges, c.quote, pre) : checkQuote(sent, st.sections, c.quote, pre);
       if (v.verified !== c.verified) changed++;
-      db.update(schema.claims).set(v).where(eq(schema.claims.id, c.id)).run();
+      (await db.update(schema.claims).set(v).where(eq(schema.claims.id, c.id)).run());
     }
   }
   return { checked, changed };
 }
 
-export function selectedPaperIds(projectId: string): string[] {
-  const topics = db.select({ id: schema.topics.id }).from(schema.topics).where(eq(schema.topics.projectId, projectId)).all().map((t) => t.id);
-  const sel = db.select().from(schema.scores).where(inArray(schema.scores.topicId, topics.concat(["-"]))).all().filter((s) => s.selected);
+/** Selected papers that are still in the review: a selected score whose paper has since been excluded does not count. */
+export async function selectedPaperIds(projectId: string): Promise<string[]> {
+  const topics = (await db.select({ id: schema.topics.id }).from(schema.topics).where(eq(schema.topics.projectId, projectId)).all()).map((t) => t.id);
+  const sel = (await db.select().from(schema.scores).where(inArray(schema.scores.topicId, topics.concat(["-"]))).all()).filter((s) => s.selected);
   const pids = [...new Set(sel.map((s) => s.paperId))];
   if (!pids.length) return [];
-  const active = db.select({ id: schema.papers.id, excluded: schema.papers.excluded }).from(schema.papers).where(inArray(schema.papers.id, pids)).all();
+  const active = (await db.select({ id: schema.papers.id, excluded: schema.papers.excluded }).from(schema.papers).where(inArray(schema.papers.id, pids)).all());
   const ok = new Set(active.filter((p) => !p.excluded).map((p) => p.id));
   return pids.filter((id) => ok.has(id));
 }
 
 /** Selected, non-excluded papers of each topic: the papers that topic's synthesis may draw on. */
-export function selectedPaperIdsByTopic(projectId: string): Map<string, string[]> {
-  const topics = db.select({ id: schema.topics.id }).from(schema.topics).where(eq(schema.topics.projectId, projectId)).all().map((t) => t.id);
-  const sel = db.select().from(schema.scores).where(inArray(schema.scores.topicId, topics.concat(["-"]))).all().filter((s) => s.selected);
+export async function selectedPaperIdsByTopic(projectId: string): Promise<Map<string, string[]>> {
+  const topics = (await db.select({ id: schema.topics.id }).from(schema.topics).where(eq(schema.topics.projectId, projectId)).all()).map((t) => t.id);
+  const sel = (await db.select().from(schema.scores).where(inArray(schema.scores.topicId, topics.concat(["-"]))).all()).filter((s) => s.selected);
   const excluded = new Set(
-    db.select({ id: schema.papers.id, excluded: schema.papers.excluded }).from(schema.papers).where(inArray(schema.papers.id, sel.map((s) => s.paperId).concat(["-"]))).all().filter((p) => p.excluded).map((p) => p.id),
+    (await db.select({ id: schema.papers.id, excluded: schema.papers.excluded }).from(schema.papers).where(inArray(schema.papers.id, sel.map((s) => s.paperId).concat(["-"]))).all())
+      .filter((p) => p.excluded)
+      .map((p) => p.id),
   );
   const out = new Map<string, string[]>(topics.map((t) => [t, []]));
   for (const s of sel) if (!excluded.has(s.paperId)) out.get(s.topicId)!.push(s.paperId);
@@ -109,15 +113,15 @@ interface AppraisalDraft {
  */
 export async function appraisalJob(ctx: JobContext) {
   const { projectId } = ctx;
-  const project = getProject(projectId);
-  const ids = selectedPaperIds(projectId);
+  const project = (await getProject(projectId));
+  const ids = (await selectedPaperIds(projectId));
   if (!ids.length) throw new Error("No papers are selected in the Ranking stage.");
   const onlyIds = (ctx.params.paperIds as string[] | undefined) ?? null;
-  const papers = db.select().from(schema.papers).where(inArray(schema.papers.id, ids)).all();
-  const existing = db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids)).all();
-  const projectPapers = db.select({ id: schema.papers.id, title: schema.papers.title }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all();
+  const papers = (await db.select().from(schema.papers).where(inArray(schema.papers.id, ids)).all());
+  const existing = (await db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids)).all());
+  const projectPapers = (await db.select({ id: schema.papers.id, title: schema.papers.title }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all());
   // Appraisals of papers no longer selected are removed once this run has finished (not when it is cancelled).
-  const deselected = db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, projectPapers.map((r) => r.id).concat(["-"]))).all().filter((a) => !ids.includes(a.paperId));
+  const deselected = (await db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, projectPapers.map((r) => r.id).concat(["-"]))).all()).filter((a) => !ids.includes(a.paperId));
   const todo = papers.filter((p) => {
     const ex = existing.find((a) => a.paperId === p.id);
     if (onlyIds) return onlyIds.includes(p.id);
@@ -125,18 +129,18 @@ export async function appraisalJob(ctx: JobContext) {
   });
   /** Finished appraisals being redone, by paper: kept until the new one is ready. */
   const kept = new Map(existing.filter((a) => a.status === "done" && todo.some((p) => p.id === a.paperId)).map((a) => [a.paperId, a]));
-  // Failed or unfinished appraisals of the papers being (re)done hold no claims and no decisions: clear them now.
+  // Failed or unfinished appraisals of the papers being (re)done hold no decisions: clear them now. The kept done row stays.
   for (const p of todo) {
-    for (const a of existing.filter((x) => x.paperId === p.id && x.id !== kept.get(p.id)?.id)) db.delete(schema.appraisals).where(eq(schema.appraisals.id, a.id)).run();
+    for (const a of existing.filter((x) => x.paperId === p.id && x.id !== kept.get(p.id)?.id)) (await db.delete(schema.appraisals).where(eq(schema.appraisals.id, a.id)).run());
   }
 
-  const appraise = async (paper: (typeof papers)[number], appraisalId: string, template: ReturnType<typeof templateFor>, onText?: (t: AppraisalDraft["text"]) => void): Promise<AppraisalDraft> => {
-    const txt = await getAppraisalText(paper, (l) => ctx.log(l));
-    const st = db.select().from(schema.sourceTexts).where(eq(schema.sourceTexts.id, txt.sourceTextId)).get()!;
+  const appraise = async (paper: (typeof papers)[number], appraisalId: string, template: ReturnType<typeof templateFor>, onText?: (t: AppraisalDraft["text"]) => void | Promise<void>): Promise<AppraisalDraft> => {
+    const txt = await getAppraisalText(paper, (l) => void ctx.log(l));
+    const st = (await db.select().from(schema.sourceTexts).where(eq(schema.sourceTexts.id, txt.sourceTextId)).get())!;
     const input = buildAppraisalInput(st.text, st.sections, config.appraisalMaxChars);
     const note = [txt.note, input.note].filter(Boolean).join(" ");
     const text: AppraisalDraft["text"] = { sourceTextId: st.id, textSource: txt.kind, textNote: note, charsSentToModel: input.charsSent, sentRanges: input.sentRanges };
-    onText?.(text);
+    if (onText) await onText(text);
     const checklist = CHECKLISTS[template];
     const { data, model, promptVersion } = await structuredCall({
       prompt: "appraisal",
@@ -153,7 +157,6 @@ export async function appraisalJob(ctx: JobContext) {
         input,
         sourceNote: txt.note,
       }),
-      mockInput: { paper, text: input.text, checklist },
       check: (o) => {
         const missing = EXTRACTION_FIELDS.filter((f) => !o.extractions.some((e) => e.field === f));
         if (missing.length) return `Missing extraction fields: ${missing.join(", ")}`;
@@ -206,81 +209,84 @@ export async function appraisalJob(ctx: JobContext) {
   let newOk = 0;
   let redoFailed = 0;
   const redone: AppraisalDraft[] = [];
-  ctx.progress(0, todo.length, `Appraising ${todo.length} selected papers`);
+  (await ctx.progress(0, todo.length, `Appraising ${todo.length} selected papers`));
   await Promise.all(
     todo.map(async (paper) => {
-      if (ctx.cancelled()) return;
-      const summary = db.select().from(schema.paperSummaries).where(eq(schema.paperSummaries.paperId, paper.id)).get();
+      if (await ctx.cancelled()) return;
+      const summary = (await db.select().from(schema.paperSummaries).where(eq(schema.paperSummaries.paperId, paper.id)).get());
       const template = templateFor(summary?.studyType);
       const appraisalId = newId("ap");
       const redo = kept.has(paper.id);
       // A paper with nothing to lose gets its row straight away, so its progress (and any failure) shows as before.
-      if (!redo) db.insert(schema.appraisals).values({ id: appraisalId, paperId: paper.id, textSource: "abstract", templateType: template, status: "running" }).run();
+      if (!redo) (await db.insert(schema.appraisals).values({ id: appraisalId, paperId: paper.id, textSource: "abstract", templateType: template, status: "running" }).run());
       try {
-        const d = await appraise(paper, appraisalId, template, redo ? undefined : (t) => db.update(schema.appraisals).set(t).where(eq(schema.appraisals.id, appraisalId)).run());
+        const d = await appraise(paper, appraisalId, template, redo ? undefined : async (t) => {
+          (await db.update(schema.appraisals).set(t).where(eq(schema.appraisals.id, appraisalId)).run());
+        });
         if (redo) redone.push(d);
         else {
-          db.transaction((tx) => {
-            for (const r of d.claimRows) tx.insert(schema.claims).values(r).run();
-            tx.update(schema.appraisals).set({ checklist: d.checklist, status: "done", model: d.model, promptVersion: d.promptVersion }).where(eq(schema.appraisals.id, appraisalId)).run();
-          });
+          const stmts: BatchItem<"sqlite">[] = [];
+          for (const r of d.claimRows) stmts.push(db.insert(schema.claims).values(r));
+          stmts.push(db.update(schema.appraisals).set({ checklist: d.checklist, status: "done", model: d.model, promptVersion: d.promptVersion }).where(eq(schema.appraisals.id, appraisalId)));
+          await batchWrite(stmts);
           newOk++;
         }
-        ctx.log(d.logLine);
+        (await ctx.log(d.logLine));
       } catch (e) {
         if (redo) {
           redoFailed++;
-          ctx.log(`✗ re-appraisal failed for ${paper.id}: ${errMsg(e)} — the previous appraisal and your quote decisions were kept`);
+          (await ctx.log(`✗ re-appraisal failed for ${paper.id}: ${errMsg(e)} — the previous appraisal and your quote decisions were kept`));
         } else {
-          db.update(schema.appraisals).set({ status: "failed", error: errMsg(e) }).where(eq(schema.appraisals.id, appraisalId)).run();
-          ctx.log(`✗ appraisal failed for ${paper.id}: ${errMsg(e)}`);
+          (await db.update(schema.appraisals).set({ status: "failed", error: errMsg(e) }).where(eq(schema.appraisals.id, appraisalId)).run());
+          (await ctx.log(`✗ appraisal failed for ${paper.id}: ${errMsg(e)}`));
         }
-        if (e instanceof BudgetError) throw e;
+        if (isAiStop(e)) throw e;
       } finally {
         finished++;
-        ctx.progress(finished, todo.length, `Appraised ${finished}/${todo.length}`);
+        (await ctx.progress(finished, todo.length, `Appraised ${finished}/${todo.length}`));
       }
     }),
   );
   // Cancelled: nothing that existed before this run has been removed.
-  if (ctx.cancelled()) return;
+  if (await ctx.cancelled()) return;
 
   // Swap in the redone appraisals and drop those of deselected papers. Their claims go with them (cascade), so
   // first record the decisions being replaced and remove synthesis/questions that cite those claims.
   const leaving = [...deselected, ...redone.map((d) => kept.get(d.paperId)!)];
   if (leaving.length) {
     const title = new Map(projectPapers.map((p) => [p.id, p.title]));
-    const old = db.select().from(schema.claims).where(inArray(schema.claims.appraisalId, leaving.map((a) => a.id))).all();
+    const leavingIds = leaving.map((a) => a.id);
+    const old = (await db.select().from(schema.claims).where(inArray(schema.claims.appraisalId, leavingIds.concat(["-"]))).all());
     const decided = old.filter((c) => c.userAccepted || c.userRejected);
     if (decided.length) {
-      logDecision(
+      (await logDecision(
         projectId,
         7,
         "appraisal_decisions_replaced",
         decided.map((c) => ({ paperId: c.paperId, paper: title.get(c.paperId) ?? null, field: c.field, statement: c.statement, quote: c.quote, decision: c.userAccepted ? "accepted" : "rejected" })),
         { decisions: decided.length, redone: redone.length, deselected: deselected.length, jobId: ctx.jobId },
         "system",
-      );
+      ));
     }
-    dropOutputCiting(projectId, claimIdsOfAppraisals(leaving.map((a) => a.id)), 7, "Appraisals were redone, or removed for papers no longer selected");
-    db.transaction((tx) => {
-      for (const a of leaving) tx.delete(schema.appraisals).where(eq(schema.appraisals.id, a.id)).run();
-      for (const d of redone) {
-        tx.insert(schema.appraisals).values({ id: d.appraisalId, paperId: d.paperId, templateType: d.templateType, ...d.text, checklist: d.checklist, status: "done", model: d.model, promptVersion: d.promptVersion }).run();
-        for (const r of d.claimRows) tx.insert(schema.claims).values(r).run();
-      }
-    });
+    (await dropOutputCiting(projectId, await claimIdsOfAppraisals(leavingIds), 7, "Appraisals were redone, or removed for papers no longer selected"));
+    const stmts: BatchItem<"sqlite">[] = [];
+    for (const a of leaving) stmts.push(db.delete(schema.appraisals).where(eq(schema.appraisals.id, a.id)));
+    for (const d of redone) {
+      stmts.push(db.insert(schema.appraisals).values({ id: d.appraisalId, paperId: d.paperId, templateType: d.templateType, ...d.text, checklist: d.checklist, status: "done", model: d.model, promptVersion: d.promptVersion }));
+      for (const r of d.claimRows) stmts.push(db.insert(schema.claims).values(r));
+    }
+    await batchWrite(stmts);
   }
 
-  const res = db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids)).all();
-  logDecision(
+  const res = (await db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids)).all());
+  (await logDecision(
     projectId,
     7,
     "appraisals_generated",
     null,
     { appraised: res.filter((a) => a.status === "done").length, failed: res.filter((a) => a.status === "failed").length, fullText: res.filter((a) => a.textSource === "full_text").length, ...(redoFailed ? { keptAfterFailedRedo: redoFailed } : {}) },
     "ai",
-  );
+  ));
   if (!res.some((a) => a.status === "done")) throw new Error("No appraisal succeeded.");
   if (redoFailed && !redone.length && !newOk) throw new Error("No appraisal could be redone. The previous appraisals and your quote decisions were kept.");
 }

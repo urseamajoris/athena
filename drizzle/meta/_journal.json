@@ -12,8 +12,15 @@
     {
       "idx": 1,
       "version": "6",
-      "when": 1795396656100,
-      "tag": "0001_nostalgic_infant_terrible",
+      "when": 1793248155692,
+      "tag": "0001_accounts_admin",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793250000000,
+      "tag": "0002_checkpoint_columns",
       "breakpoints": true
     }
   ]

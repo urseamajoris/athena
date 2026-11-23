@@ -1,0 +1,20 @@
+{
+  "review-375": {
+    "what": "Research questions: three candidates to choose from",
+    "url": "/s/<project>?node=questions",
+    "width": 375,
+    "theme": "dark"
+  },
+  "review-768": {
+    "what": "Research questions: three candidates to choose from",
+    "url": "/s/<project>?node=questions",
+    "width": 768,
+    "theme": "dark"
+  },
+  "review-1366": {
+    "what": "Research questions: three candidates to choose from",
+    "url": "/s/<project>?node=questions",
+    "width": 1366,
+    "theme": "dark"
+  }
+}

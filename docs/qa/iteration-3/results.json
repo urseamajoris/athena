@@ -1,0 +1,1756 @@
+{
+ "reports": [
+  {
+   "persona": "undergrad",
+   "completed": true,
+   "stage_reached": 9,
+   "would_have_quit_at": "I would not have quit mid-flow, because the step-by-step prompts kept me moving. I would have lost confidence at step 6 (Ranking), where the app said no papers matched \"Grades\" and only 1 matched \"Sleep\", and again at step 8, where the \"Known\" statement was about telemedicine in Thai ear-nose-throat patients. At that point I would be unsure whether I had done something wrong and would ask my tutor. I would also stop at the final \"(mock)\" question, since I could not show that to my tutor. I would likely give up on step 7 (quote checking) without help, because the side panel left so little room to read the paper that I only found the quotes by tabbing.",
+   "activity": "Signed up as \"Mai\" (mai.undergrad.qa3@example.com). Created one project, \"I'm interested in sleep and grades\" (prj_3deda2fcff40427a), and ran all 9 steps to the end.\n\n- Step 2: answered 5 scoping questions, kept the 4 suggested topics and approved them.\n- Step 3: ran the PubMed count on the Sleep query, then ran all 8 searches.\n- Step 4 to 5: summarised 158 papers. Filtered by study type and article type, opened the Map view and opened one paper.\n- Step 6: opened the Sleep ranking and met the \"3 topics have fewer than 3 papers\" dialog. Chose \"Appraise anyway\".\n- Step 7: rejected 6 \"not found, you decide\" quotes, which the app said were altered on purpose, and marked the papers as looked at.\n- Step 8 to 9: ran the synthesis, got 3 candidate questions and chose Candidate 2: \"(mock) Is there an association between sleep and grades among university students?\"\n- Export: previewed the report. Started the Markdown download and switched the format to the CSV spreadsheet.\n\nNo console errors or failed requests appeared at any point. The \"Open printable report\" link opened a new tab that I could not view with the helper, so I judged the report only from the in-page preview, which showed about 200 of 510 lines. I did not visit My projects, the Settings page or the BibTeX download. I used about 115 helper commands.",
+   "categories_and_colours": "Study type has seven categories, each with its own colour and shape: Trial (blue circle), Cohort / case-control (orange-red square), Cross-sectional (teal-green triangle), Qualitative / mixed methods (amber diamond), Systematic / scoping review (pink star), Other design (green cross) and Not reported (grey open ring). The key appears in step 4's mix bars, the 3D map and the step 5/6 chip filters. The same colour and shape are used in the table cells, so I could work out \"colour and shape = kind of study\" without being told, and clicking a chip filtered the table (\"Showing 21 of 158: review article\"). Article type (Journal / Review / Preprint / Editorial) is a second row of plain chips with no colour, and filtering by it worked.\n\nWhat I would query:\n- Two overlapping dimensions with no explanation. \"Review article\" (article type) and \"Systematic / scoping review\" (study type) look like the same thing to a first-year. The same goes for \"Other design\" containing \"Narrative review\" and \"Protocol\".\n- Selecting a chip in each row can give a confusing 0. Trial plus Review article gave \"Showing 0 of 158\" and the other chips kept their original counts, so I could not tell the combination was impossible.\n- Study-type counts change between pages. Step 4 said \"Not reported 141 / Trial 5 / Other design 8\". Step 5 said \"Not reported 20 / Other design 59\" and Cohort 4, Cross-sectional 27. A note explains that the AI reads abstracts in step 5, but the first set looked authoritative.\n- The green cross (Other design) and the teal-green triangle (Cross-sectional) are close in hue and rely on shape to tell them apart.\n- In the Sleep ranking, the filter chips show counts for the 44 papers on screen. That scoping is fine but not stated.\n- The 3D map has an unlabeled \"height\" axis in the retrieval step and a hover-only point identity. The 2D toggle helps, but \"Show as 2D chart\" is easy to miss.",
+   "validity_assessment": "Mostly honest and traceable, but the output cannot be used as a real review in demo mode. Strong points:\n\n- A \"Demo mode\" banner is on every page and says results will not match my topic.\n- AI text is marked \"(mock)\".\n- Search counts and novelty checks are labelled as samples.\n- The report opens with \"Demo: scripted AI and recorded sample papers; not a real review\".\n- The ranking step warns that Grades has no matching papers, and the synthesis repeats that.\n- Quotes carry a word-for-word check, and tampered quotes are shown with the closest passage and \"Accept anyway\" / \"Reject\".\n- The novelty text avoids calling anything novel (\"Finding no similar study does not prove a question is new\").\n- The report says it is a scoping aid with a single reviewer and gives search and duplicate counts.\n\nConcerns:\n1. The research questions and gaps do not come from the papers. The papers were about telemedicine in Southeast Asia, yet Candidate 2's gap is supported by a quote from \"Ilmaskal et al. 2026\" (a telemedicine paper). A student could believe the gap was found in the literature.\n2. The synonym \"sleep means lower grades\" came from my own answer and was turned into a search term. This is a keyword-matching error, not a synonym.\n3. The one paper selected for Sleep (Thai ENT telemedicine) matched only through \"obstructive sleep apnea\". The synthesis then listed its age difference under \"Known: what the papers agree on\", although one paper cannot agree with anything.\n4. Search counts are inconsistent. The pre-run count said PubMed 9,245 for Sleep; the run says PubMed 38. The Grades and Measurement queries show identical counts (2,207 / 451).\n5. The step 3 \"Check the searches\" panel did not appear after \"Write the searches\"; I had to find the Query node myself.\n6. The exported question still starts with \"(mock)\", and candidate 1 dropped \"grades\".\n7. The \"(mock)\" scripted dialog says each paper has one altered quote, which cannot happen in real mode, so I did not see how real quote failures would behave.",
+   "three_second_test": [
+    {
+     "page": "Landing /",
+     "understood_in_3s": true,
+     "note": "What it is for: turning a rough idea into a research question using real papers. First: Start a review. Next: sign up. Clear headline and two obvious buttons. The animated demo below shows a health-systems example, which is unrelated but harmless."
+    },
+    {
+     "page": "Sign up",
+     "understood_in_3s": true,
+     "note": "What it is for: creating an account. First: fill name, email, password. Next: click Create account. The password rule 'not containing the name part of your email' is a bit odd to read."
+    },
+    {
+     "page": "New review (step 1 idea)",
+     "understood_in_3s": true,
+     "note": "What it is for: describe my research idea in a sentence. First: type it or click an example chip. Next: Start my review. The grey 'Write at least a sentence' note under the button reads as disabled until I typed."
+    },
+    {
+     "page": "Session canvas (first view)",
+     "understood_in_3s": false,
+     "note": "I saw one card with two buttons ('Sharpen my idea' on the card and 'Open step 1' at the top) and the demo banner. I understood it was a workflow with 9 steps, but not why there were two buttons. The banner is long and says results 'will not match your topic', which worried me."
+    },
+    {
+     "page": "Step 2 scoping questions",
+     "understood_in_3s": true,
+     "note": "What it is for: answer short questions about who/where/what. First: type an answer. Next: Send answer. The 'What we know so far' box and the search topics forming beside it explained what my answers were used for."
+    },
+    {
+     "page": "Step 2 keep topics",
+     "understood_in_3s": true,
+     "note": "What it is for: keep the suggested topics. First: Keep. Next: Keep 4 suggested topics, then Use these topics. 'Keep' on the list and 'Accept' on the canvas cards mean the same thing but use different words. The panel hid half the canvas cards."
+    },
+    {
+     "page": "Step 3 search builder (topic panel)",
+     "understood_in_3s": false,
+     "note": "I expected to see the database searches. I saw 'Topic name / Synonyms / Controlled vocabulary (MeSH)' with MeSH unexplained, and 'sleep means lower grades' as a synonym. After 'Write the searches' the panel still said 'Edit this search topic' and I had to find the Query nodes myself."
+    },
+    {
+     "page": "Step 3 query check",
+     "understood_in_3s": true,
+     "note": "What it is for: check the PubMed/OpenAlex searches before they run. First: read the keyword groups and click Count matches. Next: Run all 8 searches. 'Group 1: any of ... AND group 2' was clear in plain words."
+    },
+    {
+     "page": "Step 4 retrieval",
+     "understood_in_3s": true,
+     "note": "What it is for: see what was found. 260 fetched, 102 duplicates, 158 left, with article type and study type bars. Next: Summarise the papers. The 3D chart is attractive but I could not tell what it was for."
+    },
+    {
+     "page": "Step 5 summary table (panel)",
+     "understood_in_3s": true,
+     "note": "What it is for: skim papers and fix wrong cells. First: Open the full table. Next: Rank the papers. The panel itself shows only two numbers, so the 3-item checklist only appears on the full table page."
+    },
+    {
+     "page": "Step 5 full table",
+     "understood_in_3s": true,
+     "note": "What it is for: skim papers, filter by study type and article type, then rank. The 'Do these 3 things' box and coloured chips were easy to follow."
+    },
+    {
+     "page": "Step 6 ranking",
+     "understood_in_3s": true,
+     "note": "What it is for: choose which papers go forward. The yellow warning that Grades has no matching papers was clear. After clicking Appraise, a dialog appeared that I only noticed in a screenshot."
+    },
+    {
+     "page": "Step 7 appraisal",
+     "understood_in_3s": false,
+     "note": "Dense. 'Appraisal', 'quality checklist', 'AI: Unclear' and 'found word for word' were unfamiliar. The side panel left only about a quarter of its height for the actual paper, so I could not see what I was meant to check without tabbing or using 'Show only quotes I need to decide'."
+    },
+    {
+     "page": "Step 8 synthesis",
+     "understood_in_3s": false,
+     "note": "What it is for: read known/contested/unknown. I understood the layout, but 'Known: What the papers agree on' with one paper, an 'evidence network' and a 'conflict' made it hard to know what I was supposed to do besides press 'Suggest research questions'."
+    },
+    {
+     "page": "Step 9 choose question",
+     "understood_in_3s": true,
+     "note": "What it is for: pick one of three candidate questions. Each shows gap, feasibility and weakness, and one button says 'Choose this question'. PICo/PECO were not explained."
+    },
+    {
+     "page": "Export",
+     "understood_in_3s": true,
+     "note": "What it is for: download my literature review. First: check the question and choose Report. Next: Download. Three format cards plus a printable report make the choice slightly heavy for a beginner, but the explanations helped."
+    }
+   ],
+   "narrative": "I opened Athena as Mai, a nervous first-year who has never written a literature review. The landing page told me within a few seconds what it does and what to click. I signed up, typed \"I'm interested in sleep and grades\" and was glad the Demo mode banner appeared straight away. At the same time it made me wonder what the point was, if the results would not match my topic.\n\nThe scoping questions were friendly, and I liked watching my answers become topics. Step 3 confused me. I clicked \"Write the searches\" and the panel just showed my topic again with words like MeSH, so I had to hunt for the Query cards to see the actual searches. I also noticed \"sleep means lower grades\" had become a search term.\n\nSteps 4 and 5 felt reassuring: counts that added up, coloured shapes for study types, and filter chips I could click. The \"Trial plus Review article gives 0\" moment made me think I had broken something. Step 6 was honest: it told me Grades had no papers and the one Sleep paper was about telemedicine. I appreciated the warning dialog, though I only saw it because I took a screenshot.\n\nStep 7 was the hardest. The panel left very little room, and I found the altered quotes only by tabbing. The explanation that the quote was \"changed on purpose\" and the closest-passage display made me trust the checking. By step 8 I knew the content was off-topic, so I read it as a demonstration. I chose \"Is there an association between sleep and grades among university students?\", finished, and downloaded the report. I would not show my tutor a question that starts with \"(mock)\".",
+   "findings": [
+    {
+     "severity": "major",
+     "category": "validity",
+     "page": "Step 9 / Export",
+     "what_happened": "The chosen research question and every AI statement in the exported report carry a '(mock)' prefix, and the gap for my question cites 'Ilmaskal et al. 2026', a telemedicine paper, as its supporting evidence. A student could take the report to a tutor believing the gap was found in the literature.",
+     "expected": "In demo mode, make it unmistakable that the gap and supporting quotes are scripted examples. The exported question should not need manual cleanup, or the export should offer a clearly marked 'sample' watermark only.",
+     "evidence": "docs/qa/iteration-3/undergrad/39-reasoning.jpg, docs/qa/iteration-3/undergrad/41-export.jpg",
+     "suggested_fix": "Keep the '(mock)' tag, but add a visible 'Demo, not citable' warning beside Download. Where a supporting quote's paper does not match the topic, show 'This paper is not about your topic' next to the quote."
+    },
+    {
+     "severity": "major",
+     "category": "validity",
+     "page": "Step 3 search builder",
+     "what_happened": "Part of my own answer, 'sleep means lower grades', was added as a synonym and used as a search phrase in PubMed and OpenAlex. A first-year would not know that is not a synonym, and the page presents it as part of an approved, defensible search.",
+     "expected": "Synonyms should be alternative words for the topic (for example 'sleep duration', 'sleep quality'), not my sentence from the scoping chat.",
+     "evidence": "docs/qa/iteration-3/undergrad/13-step3.jpg, docs/qa/iteration-3/undergrad/16-query.jpg",
+     "suggested_fix": "Filter out synonyms longer than about four words and flag them for review. Add a one-line hint under Synonyms such as 'Other words authors might use for this topic', plus an explanation of MeSH."
+    },
+    {
+     "severity": "major",
+     "category": "clarity",
+     "page": "Step 3 search builder",
+     "what_happened": "After clicking 'Write the searches' the panel did not change to show the searches. It stayed on 'Edit this search topic' (a step-2 view), and the PubMed/OpenAlex text only appeared after I switched to List view and clicked a Query row. The step's key content was one click away from where I was.",
+     "expected": "After 'Write the searches' the panel should open the first query, with 'Check the searches before they run' and the Run all button already on screen.",
+     "evidence": "docs/qa/iteration-3/undergrad/14-searches.jpg, docs/qa/iteration-3/undergrad/16-query.jpg",
+     "suggested_fix": "Navigate to the first Query node after the searches are written, or add a 'Read the searches' button in the panel."
+    },
+    {
+     "severity": "major",
+     "category": "clarity",
+     "page": "Step 7 appraisal",
+     "what_happened": "The side panel puts a long checklist, explanation and navigation in front of the paper and leaves about 150px for the paper itself. Page scroll does not move the panel content; I only reached the quotes by pressing Tab. The vocabulary (appraisal, quality checklist, 'AI: Unclear', 'Not reported', 'found word for word') is heavy for a first-year.",
+     "expected": "The paper's checklist and quotes should be visible without hunting. A short plain explanation of 'appraisal' should come first.",
+     "evidence": "docs/qa/iteration-3/undergrad/32-appraise-run.jpg, docs/qa/iteration-3/undergrad/33b.jpg, docs/qa/iteration-3/undergrad/34-tabbed.jpg",
+     "suggested_fix": "Collapse the intro and checklist after first view, or open the appraisal in a full-page route like the table. Add 'Appraisal = checking how trustworthy each study is' in one line."
+    },
+    {
+     "severity": "major",
+     "category": "validity",
+     "page": "Step 8 synthesis",
+     "what_happened": "'Known: What the papers agree on' for Sleep showed a single statistic from one telemedicine paper about age and accepting virtual visits. One paper cannot 'agree', and the paper is about ENT patients (it matched only through 'obstructive sleep apnea'). The only 'Sleep' paper was selected through this keyword match.",
+     "expected": "A single-paper finding should be labelled as such ('1 paper reports...'), and the topic match should be visible so I can see it does not concern sleep and grades.",
+     "evidence": "docs/qa/iteration-3/undergrad/37-synthesis.jpg, docs/qa/iteration-3/undergrad/29-sleep-rank.jpg",
+     "suggested_fix": "Rename 'What the papers agree on' to 'What the papers report', and show the number of papers behind each statement. Show 'matched on: sleep apnea' when the topic match comes from a single incidental term."
+    },
+    {
+     "severity": "minor",
+     "category": "bug",
+     "page": "Step 3 count and Step 4 retrieval",
+     "what_happened": "The Sleep query showed 'PubMed 9,245 papers match' before the run and 'Ran: PubMed 38 \u00b7 OpenAlex 412' afterwards. The Grades and Measurement queries show identical results (PubMed 2,207 / OpenAlex 451). The earlier banner says the counts are recorded samples, but the figures contradict each other on adjacent screens.",
+     "expected": "Either the counts agree or the difference is explained ('9,245 match; the 40 most relevant were collected, 38 fetched').",
+     "evidence": "docs/qa/iteration-3/undergrad/17-count.jpg, docs/qa/iteration-3/undergrad/18-run.jpg",
+     "suggested_fix": "Label the figures as 'papers matching' and 'papers collected' in the same row, and explain 'collected' next to the 'Broad: only the 40 most relevant will be collected' warning."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Step 5/6 table filters",
+     "what_happened": "Study type and article type both include 'review' wording ('Systematic / scoping review' vs 'Review article') and nothing explains the difference. Choosing Trial plus Review article returned 'Showing 0 of 158' while every chip kept its original count, so it looked like a bug until I reset.",
+     "expected": "A one-line explanation of 'article type = what kind of publication; study type = how the research was done'. Counts on the other chips should update, or the empty result should say that no paper is both.",
+     "evidence": "docs/qa/iteration-3/undergrad/22-table.jpg, docs/qa/iteration-3/undergrad/23-filtered.jpg, docs/qa/iteration-3/undergrad/25-review-filter.jpg",
+     "suggested_fix": "Add a short tooltip or helper line above the two chip rows, and show 'No paper is both a Trial and a Review article' when the combination is empty."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Step 4 retrieval",
+     "what_happened": "Study-type counts on step 4 (Not reported 141, Other design 8, Trial 5) change on step 5 (Not reported 20, Other design 59, Cross-sectional 27, Qualitative 29). A note says the AI reads the abstracts next, but the first set looks like facts and the second contradicts it.",
+     "expected": "The step 4 chart should be labelled as 'database labels only' prominently, or show the 'unknown' category in an unmistakably provisional style.",
+     "evidence": "docs/qa/iteration-3/undergrad/18-run.jpg, docs/qa/iteration-3/undergrad/22-table.jpg",
+     "suggested_fix": "Rename the step 4 heading to 'Study type (as labelled by the database; most are unlabelled)' and move the explanation above the bars."
+    },
+    {
+     "severity": "minor",
+     "category": "a11y",
+     "page": "Step 4 map",
+     "what_happened": "The 3D scatter has no readable axis labels beyond 'Year', and 'Height has no meaning yet'. A hover-only point meaning and a rotating view are hard for keyboard users and beginners; the useful 'Show as 2D chart' checkbox is small. The green cross and teal-green triangle are close in hue.",
+     "expected": "The default for beginners is a 2D chart with a visible way to identify a paper.",
+     "evidence": "docs/qa/iteration-3/undergrad/20-chart2.jpg, docs/qa/iteration-3/undergrad/27-map.jpg",
+     "suggested_fix": "Make 2D the default or put the toggle next to the chart title. Separate the two green hues further or rely on shape in the legend with bigger glyphs."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Session canvas (step 1)",
+     "what_happened": "The first view of a new project has two buttons for the same action ('Sharpen my idea' on the card and 'Open step 1' in the top banner), and the card is called 'Idea' while the page says step 2 'Scoping'. The Demo banner says 'results will not match your topic' without saying what I should do about it.",
+     "expected": "One obvious next button, and demo text that tells a student what to do.",
+     "evidence": "docs/qa/iteration-3/undergrad/05-after-start.jpg, docs/qa/iteration-3/undergrad/08-step1-questions.jpg",
+     "suggested_fix": "Hide the card button while the 'next step' banner is shown, or make both open the same panel. Add 'Click through to see how it works' to the demo banner."
+    },
+    {
+     "severity": "minor",
+     "category": "copy",
+     "page": "Step 2 keep topics",
+     "what_happened": "The list says 'Keep', 'Edit', 'Delete' while the canvas cards say 'Accept' and 'Dismiss'. 'Measurement and outcomes' appeared as a topic with no link to my answer about grades. The page promised 4-8 topics but offered 4 and the 'which kinds of studies' question was never asked ('not answered yet').",
+     "expected": "One verb for the same action, topics that I recognise from my answers, and a note that skipped questions use defaults.",
+     "evidence": "docs/qa/iteration-3/undergrad/11-topics.jpg, docs/qa/iteration-3/undergrad/10-q5.jpg",
+     "suggested_fix": "Use 'Keep' and 'Delete' everywhere. Add 'Why this topic?' under each topic. Show 'Study types: any (you can change this in step 3)' when not answered."
+    },
+    {
+     "severity": "minor",
+     "category": "bug",
+     "page": "Step 6 ranking",
+     "what_happened": "The 'Before you continue' checklist ticks 'Keep 3-5 papers per topic, or every matching paper where fewer match' as done even though the warning above says three topics have too few papers. The 'Appraise selected papers' confirmation dialog appeared 5+ seconds after my click and was easy to miss; I waited on the spinner-less page.",
+     "expected": "The checklist should not show a warning topic as done, and the dialog should appear immediately and take focus.",
+     "evidence": "docs/qa/iteration-3/undergrad/28-rank.jpg, docs/qa/iteration-3/undergrad/31b-appraise.jpg",
+     "suggested_fix": "Tie the third checklist item to the warning state. Move focus into the dialog as soon as it opens."
+    },
+    {
+     "severity": "minor",
+     "category": "copy",
+     "page": "Step 9 research question",
+     "what_happened": "PICo and PECO are named without explanation and 'Gap it fills' text is generic. Candidate 1 ('How do university students experience sleep?') drops grades, the second half of my idea. The 'Choose this question' / 'Chosen' / 'Edit this question' flow worked, but I could not tell what 'Finish and export' locked in.",
+     "expected": "A beginner-level line on what PECO means, and candidates that keep both parts of the original idea or say why one was dropped.",
+     "evidence": "docs/qa/iteration-3/undergrad/38-rq.jpg, docs/qa/iteration-3/undergrad/40-chosen.jpg",
+     "suggested_fix": "Add 'PECO = Population, Exposure, Comparison, Outcome: a checklist for a good question' as a tooltip, and a one-line 'Why this question' linking back to the idea."
+    },
+    {
+     "severity": "polish",
+     "category": "a11y",
+     "page": "Canvas (all steps done)",
+     "what_happened": "When the whole canvas is fitted to view, text on the nodes is about 7px and unreadable, and Topic and Query nodes share the same names ('Sleep', 'Sleep'). The helper also reported no visible focus on the panel heading.",
+     "expected": "A zoom level at which node titles are readable, and Topic/Query nodes that can be told apart by title.",
+     "evidence": "docs/qa/iteration-3/undergrad/47-canvas-final.jpg",
+     "suggested_fix": "Set a minimum zoom on Fit view or hide small text and show the step name only. Rename Query nodes to 'Search: Sleep'."
+    },
+    {
+     "severity": "polish",
+     "category": "copy",
+     "page": "Export",
+     "what_happened": "The 'Open printable report' link opens a new tab, which my helper could not follow, and the in-page preview is a small scroll box ('first 40 of 509 lines', then 'first 200 of 510 lines'). The line count changed by one between two previews, and the Report card text 'Markdown, a text file to edit or keep; to read, print or save it as PDF, open the printable report' is a long sentence for a beginner.",
+     "expected": "A single obvious way to read the report in full, and a stable line count.",
+     "evidence": "docs/qa/iteration-3/undergrad/41-export.jpg, docs/qa/iteration-3/undergrad/44-preview-mid.jpg",
+     "suggested_fix": "Shorten the format labels ('Report (read and print)', 'Papers spreadsheet', 'Reference list') and make the printable report the primary button."
+    }
+   ]
+  },
+  {
+   "persona": "masters",
+   "completed": true,
+   "stage_reached": 9,
+   "findings": [
+    {
+     "severity": "major",
+     "category": "validity",
+     "page": "Step 7 Appraisal (quote check and Show source)",
+     "what_happened": "On paper 1, a post-stroke telehealth meta-analysis, the first quote reads 'TITLE Patient satisfaction with telemedicine in the Philippines...'. That is a different paper. Show source displays that other paper's text with the quote highlighted, and the badge says 'found word for word'. The AI answer for the quality question was 'Unclear'.",
+     "expected": "A quote is checked only against the text of the paper it is attached to. A quote from another paper should show as 'not found'. At the least, the badge should not give false assurance.",
+     "evidence": "docs/qa/iteration-3/masters/30-appraise-quotes.jpg and docs/qa/iteration-3/masters/31-show-source.jpg",
+     "suggested_fix": "Verify each quote against that paper's own full text or abstract id. Show the paper title above the source text. In demo mode, make the scripted quotes belong to the paper they are attached to, or label this check '(mock)' prominently. Add a test that fails if source-text paper id differs from the appraised paper id."
+    },
+    {
+     "severity": "major",
+     "category": "validity",
+     "page": "Step 9 Research question (Full reasoning and quotes)",
+     "what_happens": "",
+     "what_happened": "The chosen question, an effect of mindfulness on burnout in ICU nurses, shows a green 'found' supporting chip 'Ni'mah et al. 2023 \u00b7 limitation' for the gap statement 'few included papers compare mindfulness-based interventions with usual care'. None of the included papers is about mindfulness, burnout or ICU nurses. The same chip is cited in the report as the gap's source.",
+     "expected": "A gap statement is backed by a quote that actually shows the claimed gap, or the app says that no included paper supports it. The report should not cite an unrelated telehealth paper as evidence for a mindfulness gap.",
+     "evidence": "docs/qa/iteration-3/masters/35-rq-reasoning.jpg and docs/qa/iteration-3/masters/41-report-scrolled.jpg",
+     "suggested_fix": "If the supporting quote's paper is not matched to any of the question's PICO terms, show 'No included paper supports this gap' instead of a green chip. In the report, label gaps with zero topic-matching evidence as unsupported."
+    },
+    {
+     "severity": "major",
+     "category": "validity",
+     "page": "Step 6 Ranking",
+     "what_happened": "For 'ICU nurses' the top-ranked papers are a post-stroke telehealth meta-analysis (score 72), immunotherapy in Asia, and Indonesian digital-health law, and they are called papers that 'match' the topic. Burnout, the main outcome, has 0 matching papers. A key finding is just a postal address ('Sutami 36A, Surakarta 57126...'). Another is just a trial number ('NCT07198828').",
+     "expected": "Matching and scoring should visibly reflect relevance to the topic, and the key-finding cell should hold a finding. Where it cannot, it should say 'no finding extracted'. Demo mode explains the topic mismatch but not a garbage extraction.",
+     "evidence": "docs/qa/iteration-3/masters/24-rank.jpg and docs/qa/iteration-3/masters/27-rank-table.jpg",
+     "suggested_fix": "Show the matched terms for each paper in the 'why it scored' row. Reject key-finding text that has no result-like content (addresses, registry ids) and show 'not reported'. State in the demo banner on step 6 that rankings are scripted and not based on your topic."
+    },
+    {
+     "severity": "minor",
+     "category": "validity",
+     "page": "Step 8 Synthesis",
+     "what_happened": "The header counts '3 conflicts'. The conflict text itself says 'the demo sets two findings from different papers side by side... Read both quotes before treating this as a real disagreement.' The Known statements are about telemedicine in Southeast Asia, so they would be meaningless for a nursing dissertation.",
+     "expected": "A count of conflicts should only include real, checked disagreements. Otherwise it should be called 'possible conflicts'.",
+     "evidence": "docs/qa/iteration-3/masters/33-synthesis.jpg",
+     "suggested_fix": "Rename to 'possible conflicts to check'. Do not count scripted or unchecked pairs in the headline number."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Step 3 Search builder",
+     "what_happened": "I clicked 'Write the searches'. The canvas gained query nodes, but the side panel stayed on 'Edit this search topic', labelled 'Viewing step 2 of 9 \u00b7 Scoping \u00b7 Done', and the footer button changed to 'Run all 8 searches' before I had seen a single search. I only saw the real searches after clicking 'Open step 3' on the canvas.",
+     "expected": "After 'Write the searches' the panel moves to the 'Check the searches before they run' view with the PubMed and OpenAlex blocks.",
+     "evidence": "docs/qa/iteration-3/masters/13-searches.jpg and docs/qa/iteration-3/masters/14-canvas-queries.jpg",
+     "suggested_fix": "Switch the panel to the first query node automatically when the searches are written. If it must stay on the topic, show a 'Go to step 3' primary button as the intent doc describes."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Step 6 Ranking checklist",
+     "what_happened": "The checklist item 'Keep 3-5 papers per topic, or every matching paper where fewer match' is ticked as done, while the same page warns that Burnout has none and two topics have only 2. The item 'Pick a topic' ticked itself after I merely clicked a topic tab.",
+     "expected": "Checklist ticks reflect what the user actually accomplished, and a warning state should not show as done.",
+     "evidence": "docs/qa/iteration-3/masters/24-rank.jpg and docs/qa/iteration-3/masters/28-appraise.jpg",
+     "suggested_fix": "Do not auto-tick the 3-5 item when any topic has fewer than 3 selected papers. Show it as 'needs attention'."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Step 1 and Step 2 (idea and scoping)",
+     "what_happened": "After typing my idea on /s/new I land on a second 'Check your idea, then start' screen showing the same text, which asks for another click on 'Sharpen my idea'. Question 1 then asks 'Who do you want to study?' although my idea says ICU nurses and the panel already shows 'ICU nurses'. There is no clear 'Skip the rest' until you are in the chat.",
+     "expected": "After 'Start my review' the user goes straight to the first useful question. Questions already answered by the idea are skipped.",
+     "evidence": "docs/qa/iteration-3/masters/06-step1.jpg and docs/qa/iteration-3/masters/07-clarify.jpg",
+     "suggested_fix": "Merge the idea-confirm screen into /s/new, or auto-start scoping. Pre-fill or skip questions whose slot is already filled from the idea."
+    },
+    {
+     "severity": "minor",
+     "category": "copy",
+     "page": "Step 2 and Step 3 (topics)",
+     "what_happened": "Topic cards say '3 synonyms \u00b7 0 MeSH' and the field is 'Controlled vocabulary (MeSH)' showing 'none'. I do not know what MeSH is, and a zero looks like a failure. 'Mindfulness' is an actual MeSH heading, yet it is empty. The synonym list repeats the topic name itself, and 'Burnout' has only 1 synonym. The topic cards say 'Done' while Step 3 says 'Not started'. 'Measurement and outcomes' is vague as a search topic.",
+     "expected": "Plain wording such as 'official PubMed keywords: none added' with a short hint. Synonyms are new words. Topic cards say 'Approved' rather than 'Done' before step 3.",
+     "evidence": "docs/qa/iteration-3/masters/11-after-keep.jpg and docs/qa/iteration-3/masters/12-step3.jpg",
+     "suggested_fix": "Replace 'MeSH' on the cards with 'PubMed keywords' plus a tooltip. Drop the topic name from the synonyms list. Use 'Approved' for the topic card status."
+    },
+    {
+     "severity": "minor",
+     "category": "bug",
+     "page": "Step 4 Retrieval",
+     "what_happened": "Counts do not reconcile for a user. 'Burnout' and 'Measurement and outcomes' both show exactly PubMed 8,058. Per-search counts add up to about 28,000, yet the source bars say 'PubMed 5 fetched \u00b7 OpenAlex 135 fetched'. The text says '140 fetched, 21 duplicates' but the per-query labels give no fetched numbers.",
+     "expected": "Each query card says matches found vs records collected (for example 'found 8,058, collected 40') so the numbers do not look contradictory.",
+     "evidence": "docs/qa/iteration-3/masters/16-running.jpg and docs/qa/iteration-3/masters/18-retrieval-scroll2.jpg",
+     "suggested_fix": "On query nodes show 'N matches, 40 collected'. Label the large numbers 'matches in database' and the other 'records we collected'."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Step 4 and Step 6 charts (map)",
+     "what_happened": "At retrieval, 116 of 119 papers are grey 'Not reported' circles, so the chart conveys almost nothing. In the ranking map with a topic selected, the legend says 'Other design 25' but I see only 2 plus signs: papers not selected for appraisal are faded to near-invisibility. The caption 'Height has no meaning yet' is odd. Legend entries with zero papers (Trial, Cohort, Cross-sectional) show no count.",
+     "expected": "Faded points are still visible, with a legend line such as 'faded = not selected (34)'. Zero counts are shown as 0.",
+     "evidence": "docs/qa/iteration-3/masters/17-retrieval-scroll1.jpg and docs/qa/iteration-3/masters/25-rank-icu.jpg",
+     "suggested_fix": "Raise the faded opacity to a visible minimum and add a legend entry for faded points. Show '0' for empty categories. At step 4 hide or explain the chart when most papers have no label."
+    },
+    {
+     "severity": "minor",
+     "category": "copy",
+     "page": "Step 9 and Export",
+     "what_happened": "The primary export button says 'Download Markdown' and the card says 'Markdown, a text file'. I do not know what Markdown is, and I want a PDF or Word file. The PDF route is a secondary button, 'Open printable report', which opens in a new tab. The chosen question is exported with a '(mock)' prefix that I would have to remove by hand. The selected radio card's description text is dim grey.",
+     "expected": "A first-time user sees 'Download report (PDF or Word)' or at least 'Open printable report to save as PDF' as the main action. The question text is editable before export without a mock prefix.",
+     "evidence": "docs/qa/iteration-3/masters/37-export.jpg and docs/qa/iteration-3/masters/39-report.jpg",
+     "suggested_fix": "Make 'Open printable report (save as PDF)' the primary button, or offer a PDF/DOCX download. Rename 'Markdown' to 'Editable text file'. Raise the contrast of the selected card's description."
+    },
+    {
+     "severity": "polish",
+     "category": "a11y",
+     "page": "New review /s/new",
+     "what_happened": "The 'Start my review' button looks fully active (bright blue) while the page says 'Write at least a sentence to start' and the control is disabled. I could not tell from the screenshot that it was disabled until I typed.",
+     "expected": "A disabled button looks disabled, or an enabled button explains the missing input on click.",
+     "evidence": "docs/qa/iteration-3/masters/03-after-signup.jpg",
+     "suggested_fix": "Give the disabled state a clearly muted style, or keep it enabled and show the hint on click."
+    },
+    {
+     "severity": "polish",
+     "category": "clarity",
+     "page": "Canvas views (steps 1 to 9)",
+     "what_happened": "The side panel covers about half the canvas, so nodes are cropped (topic cards and queries cut off at the right edge) and the canvas does not re-fit to the visible area. Tabs in the synthesis panel are cut off ('M...'). Step 1 offers both 'Open step 1' and 'Sharpen my idea', which look like the same action.",
+     "expected": "The canvas re-centres on the active node when the panel opens, and tabs wrap or scroll with a visible cue.",
+     "evidence": "docs/qa/iteration-3/masters/10-search-topics.jpg and docs/qa/iteration-3/masters/33-synthesis.jpg",
+     "suggested_fix": "Fit the view to the visible area when the panel opens. Add scroll arrows or wrap the topic tabs. Show only one primary button on the Idea node."
+    },
+    {
+     "severity": "polish",
+     "category": "clarity",
+     "page": "Landing",
+     "what_happened": "The 'See a review take shape' animation is cropped on the left, leaves the right two thirds empty, and shows an unrelated example (adoption, policy and governance, digital infrastructure) with large counts and a spinner. It is not obvious what it shows. The headline is long.",
+     "expected": "The animation is centred and fits its frame.",
+     "evidence": "docs/qa/iteration-3/masters/01b-landing-bottom.jpg",
+     "suggested_fix": "Centre or scale the animation to its container and add a one-line caption."
+    }
+   ],
+   "three_second_test": [
+    {
+     "page": "Landing /",
+     "understood_in_3s": true,
+     "note": "(a) Turns a rough idea into a research question backed by real papers. (b) Click Start a review. (c) Sign up. The big blue button is obvious. The headline is a bit long."
+    },
+    {
+     "page": "Sign up",
+     "understood_in_3s": true,
+     "note": "(a) Create an account. (b) Type email. (c) Password and Create account. Clear."
+    },
+    {
+     "page": "Step 1 New review (/s/new)",
+     "understood_in_3s": true,
+     "note": "(a) Describe my idea. (b) Type it, or pick an example. (c) Start my review. The button looks active while disabled, but the hint explains it."
+    },
+    {
+     "page": "Canvas overview after start",
+     "understood_in_3s": false,
+     "note": "(a) A progress workspace for 9 steps. (b) Open step 1 or Sharpen my idea, but I could not tell the difference. (c) Unclear. I then had to confirm the same idea again on a second screen."
+    },
+    {
+     "page": "Step 2 Scoping chat",
+     "understood_in_3s": true,
+     "note": "(a) Answer questions to sharpen the idea. (b) Type an answer or Skip the rest. (c) Search topics. Question 1 re-asks what I had already written."
+    },
+    {
+     "page": "Step 2 Search topics (keep topics)",
+     "understood_in_3s": true,
+     "note": "(a) Keep the topics I want. (b) Keep 4 suggested topics. (c) Use these topics. Clear, though '0 MeSH' on the cards is jargon."
+    },
+    {
+     "page": "Step 3 Search builder",
+     "understood_in_3s": false,
+     "note": "(a) Turn topics into database searches. (b) Write the searches, but nothing visible happened in the panel. (c) Unclear until I clicked Open step 3. Then the PubMed and OpenAlex blocks made sense and the Run all button was clear."
+    },
+    {
+     "page": "Step 4 Retrieval",
+     "understood_in_3s": true,
+     "note": "(a) 119 papers found after removing duplicates. (b) Read the summary sentence. (c) Summarise the papers. The plain sentence '140 fetched, 21 duplicates, 119 remain' is excellent."
+    },
+    {
+     "page": "Step 5 Summary table",
+     "understood_in_3s": true,
+     "note": "(a) Table of AI-summarised papers with study-type and article-type filters. (b) Click a filter or Rank the papers. (c) Rank. The chips with colour plus shape are easy to read. The 3-item checklist looks like homework."
+    },
+    {
+     "page": "Step 6 Ranking",
+     "understood_in_3s": true,
+     "note": "(a) Choose which papers go forward. (b) Read the amber warning, then Appraise selected papers. (c) Appraise. The warning that Burnout has no matching papers is clear and a little alarming."
+    },
+    {
+     "page": "Step 7 Appraisal",
+     "understood_in_3s": false,
+     "note": "(a) Check AI quality ratings for each paper. (b) Unsure whether to click Next paper or decide the quotes. (c) Summarise the evidence. Dense text, 3 checklist items, '7 quotes to decide' and 'found word for word' all need explaining."
+    },
+    {
+     "page": "Step 8 Synthesis",
+     "understood_in_3s": true,
+     "note": "(a) What the papers say: known, contested and unknown. (b) Skim it. (c) Suggest research questions. The amber 'No evidence for Burnout' warning is very clear."
+    },
+    {
+     "page": "Step 9 Research question",
+     "understood_in_3s": true,
+     "note": "(a) Pick one of three candidate questions. (b) Choose this question. (c) Finish and export, which is locked with the reason shown. Each card shows gap, feasibility and weakness."
+    },
+    {
+     "page": "Export",
+     "understood_in_3s": true,
+     "note": "(a) Download my review. (b) Click the blue Download Markdown button, or the printable report. (c) Done. I did not know what Markdown was and wanted a PDF."
+    }
+   ],
+   "categories_and_colours": "I could find and filter by study type and by article type in three places: the retrieval panel (article-type bars you click to filter the chart), the step 5/6 table (chips for both, with counts), and the map legend. Study type has 7 values (Trial, Cohort / case-control, Cross-sectional, Qualitative / mixed methods, Systematic / scoping review, Other design, Not reported). Each has its own colour and shape: blue circle, orange square, teal triangle, gold diamond, pink star, green plus, grey ring. Without being told, I understood from the chip row that colour and shape show the kind of study, and that clicking one shows only that kind. Article type is plain grey chips with no colour, which avoids reusing colours. Filtering worked and was honest ('showing 14 of 119: review article, 105 hidden from the chart (still in the review)', with Show all). Counts matched between table chips and legend (for example 23 qualitative, 56 other design). Problems: at retrieval the study type comes only from the databases, so 116 of 119 are 'Not reported' and the chart is a field of identical grey circles. Study-type counts then change completely at step 5 (Not reported 116 becomes 14, Other design 3 becomes 56). The page does explain this, but it is startling. 'Other design' is a large vague bucket (56). In the ranking map, faded 'not selected' papers are almost invisible, so legend counts such as 'Other design 25' do not match the dots visible. Legend entries with zero papers show no number. The 3D/2D chart is small inside the side panel. Colour-by 'Topic' and 'Source' exist but I did not use them.",
+   "validity_assessment": "Honesty about the demo is very strong. A dismissible banner says scripted AI and recorded telemedicine papers. AI text is prefixed '(mock)'. The report opens with 'not a real review' and 'a scoping aid, not an exhaustive systematic search'. Single-reviewer selection is stated. The novelty check says plainly that finding no similar study does not prove novelty, and no 'novel' claim appears anywhere. There are explicit gates for thin evidence: the amber step 6 warning, the 'Appraise anyway' dialog, 'No evidence for Burnout... this review can say nothing about it' at step 8, and the '7 quotes not decided yet' dialog. Traceability machinery is good: PICO breakdown, quote chips, Show source with highlights, a 'found word for word' versus 'you decide' state, and the report counting found and rejected quotes. However, in this run the traceability is not trustworthy. A quote attached to a post-stroke meta-analysis was verified 'found word for word' against a different (Philippines) paper's text. The gap for my chosen question cites an unrelated telehealth paper through a green 'found' chip. Papers 'matching' ICU nurses were about post-stroke telehealth and immunotherapy. Key findings included a postal address and a trial number. A question about mindfulness and burnout was drafted with zero papers on either. These mismatches are explained by demo mode only partly: the app says the topic will not match, but the green 'found' badges still imply support that is not there. For a real run, the verification of quotes against the right paper's text must be checked, since the demo shows a quote check that can pass on the wrong source. Overall I would judge the structure of the workflow valid and traceable by design, and the demo honest, but one badge ('found word for word') is not reliable as built.",
+   "would_have_quit_at": "I would not have quit, as the flow never blocks and every step has one clear main button. My patience ran lowest at step 7 (Appraisal), where the paragraph of explanation, the three checklist items and 7 undecided quotes slow me down, and at step 3, where 'Write the searches' appeared to do nothing in the panel. Trust would break for real at step 7 or step 9 if I noticed that the quote verified as 'found word for word' came from a different paper. If this were a real run rather than a demo, I would stop and not use the question for my proposal.",
+   "activity": "Created account daniel.masters.qa3@example.com (name Daniel). Created one project, prj_a41820b7e69947aa ('Effect of mindfulness-based interventions on burnout in ICU nurses'), and walked all 9 steps to export: answered 1 scoping question and skipped the rest; kept 4 AI-suggested topics; ran 8 searches (119 unique papers); AI summarised 119 rows; ranked and appraised 8 papers via 'Appraise anyway'; left 7 quotes undecided and chose 'Summarise without them'; synthesis gave 14 statements and 3 possible conflicts; chose candidate 2, the PICO effect-on-burnout question; opened the larger report preview and clicked Download the report (Markdown), which confirmed 'Download started'. I did not open the printable report in a new tab (my helper does not follow new tabs), and I did not download the CSV or BibTeX. About 66 helper commands, 42 screenshots in docs/qa/iteration-3/masters/. No console errors or failed requests were reported at any step. No AI step failed or stalled; every step finished within a few seconds. Browser stopped.",
+   "narrative": "I landed, saw the headline, and clicked the blue Start a review. Signup was quick. I typed my topic and kept clicking the obvious button. The first thing that annoyed me was that I typed my idea and was then asked to confirm the same idea on another screen. Then the first scoping question asked who I want to study, although I had written ICU nurses. I answered once, then hit Skip the rest. The four suggested topics were sensible. I did not know what '0 MeSH' meant. At step 3 I clicked Write the searches and nothing seemed to happen in the panel until I found Open step 3 on the canvas. Then the searches were readable, and Run all 8 searches finished in seconds. The retrieval sentence about duplicates is the clearest thing in the app. The table with coloured shape chips was easy, and I could filter by study type and article type without any help. At step 6 the amber warning told me Burnout had no papers, which scared me, and it also made me trust the app. Step 7 was heavy. I skipped the 7 undecided quotes. When I clicked Show source I noticed that the highlighted text was about the Philippines, while the paper I was reading was about post-stroke patients, yet it said found word for word. That damaged my trust. I still reached step 9, picked the PICO question, and downloaded Markdown. I did not know what Markdown is and wanted a PDF. The banner kept saying demo mode, which was honest, but my whole review was about telemedicine in Southeast Asia, so I could not use any of it."
+  },
+  {
+   "persona": "phd",
+   "completed": true,
+   "stage_reached": 9,
+   "findings": [
+    {
+     "severity": "major",
+     "category": "validity",
+     "page": "Ranking (step 6) and rank score breakdown",
+     "what_happened": "The demo corpus is telemedicine and mHealth in Southeast Asia, yet off-topic papers get absolute scores of 63-68 out of 100. Rank 1 is an mHealth review of the Western Pacific. 'Topic fit 3/5' is given for '2 topic terms appear'. The only relevance alert is the amber 'Long COVID: only 1 matches' banner. Scores do not signal that nothing in the list is really on topic.",
+     "expected": "A score that stays low, or an explicit 'no paper is a good match' alert, when every candidate is off-topic. A reviewer could be misled into thinking a 68/100 paper is a decent match.",
+     "evidence": "docs/qa/iteration-3/phd/19c-keep.jpg, docs/qa/iteration-3/phd/20-why.jpg, docs/qa/iteration-3/phd/18b-rank-top.jpg",
+     "suggested_fix": "Show the topic-fit sub-score as its own column and add a 'weak match' flag when topic fit is below a threshold. Do not let recency or citation points lift an irrelevant paper to a mid-range total."
+    },
+    {
+     "severity": "major",
+     "category": "bug",
+     "page": "Scoping: search topics (step 2)",
+     "what_happened": "After I edited and kept 'Long COVID', I clicked the text 'Return-to-work outcomes'. The topic vanished, the list dropped to '3 topics, aim for 4-8', and a live region announced 'Topic deleted.' No confirmation was asked and no Undo was visible. I cannot be certain which element my click resolved to, but a single click on a topic name removed it.",
+     "expected": "Deleting a topic needs an explicit Delete press with confirmation, or a visible Undo, as quotes have. Clicking a name should only select it.",
+     "evidence": "docs/qa/iteration-3/phd/07e-back.jpg, docs/qa/iteration-3/phd/07d-kept.jpg",
+     "suggested_fix": "Make deletion require the explicit Delete button with an Undo toast, and ensure the Delete control's accessible name or hit area cannot be triggered by clicking the topic label."
+    },
+    {
+     "severity": "major",
+     "category": "validity",
+     "page": "Search builder (step 3)",
+     "what_happened": "The generated query is a recorded example. Group 1 uses only 4 of my 7 synonyms, my MeSH term was not included, and the 2020-now date limit is not in the string. The 'Long COVID' query already ANDs in the return-to-work terms, so each topic query is not that topic alone. There is no single combined population AND exposure AND outcome string. My hand-edited string (with [Mesh], 7 synonyms, a worker concept) was parsed back into labelled chips with an 'edited by you' badge, which works well. The banner does say demo searches 'do not follow your edits'.",
+     "expected": "The generated string should visibly use every synonym and MeSH term I defined. It should also make clear how topics are combined into the final strategy.",
+     "evidence": "docs/qa/iteration-3/phd/11-query-detail.jpg, docs/qa/iteration-3/phd/11c-edit-search.jpg, docs/qa/iteration-3/phd/12-count.jpg",
+     "suggested_fix": "Generate the string from the topic's full synonym and MeSH list, show a one-line 'how topics are combined' explanation, and print the final combined strategy for each database in the report."
+    },
+    {
+     "severity": "major",
+     "category": "clarity",
+     "page": "Ranking to Appraisal (steps 6 to 7)",
+     "what_happened": "I deselected 'Enhancing human and animal health data integration...' under the Return-to-work topic ('13 selected' stayed 13 after swapping in another paper). In step 7 that same paper appeared as 'Paper 1 of 11'. Probably it stayed selected under another topic, but nothing explains this, and 13 selected became 11 appraised without a reason.",
+     "expected": "Either a swap is global, or the page says 'still selected for topic X' and explains why 13 selected became 11 papers appraised.",
+     "evidence": "docs/qa/iteration-3/phd/19e-swapped.jpg, docs/qa/iteration-3/phd/22-appraisal.jpg",
+     "suggested_fix": "Show which topics a paper is selected for, warn when a deselect only applies to one topic, and explain the selected-to-appraised count change."
+    },
+    {
+     "severity": "minor",
+     "category": "validity",
+     "page": "Retrieval (step 4) and search builder counts",
+     "what_happened": "Counts are inconsistent. My edited Long COVID query 'matched 8,058' in PubMed, but the run record says 'Ran: PubMed 979'. Two different topic queries both report exactly 8,058. The report adds up 19,932 'hits' across searches. Also 'only the 40 most relevant will be collected', so the corpus is a capped sample. It is disclosed in step 3 and the report, but not on the retrieval summary or landing page.",
+     "expected": "A match count for a query should be stable and distinct per query, and the cap should sit beside the '114 different papers' headline.",
+     "evidence": "docs/qa/iteration-3/phd/12-count.jpg, docs/qa/iteration-3/phd/13-retrieval.jpg",
+     "suggested_fix": "Show one count per query and per database, state '40 collected per search' next to the retrieval total, and drop the meaningless summed hits figure."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Idea scoping questions (step 2)",
+     "what_happened": "I answered 4 questions (who, where, outcome, years). The card then said '5 of 5 questions' and went straight to 'Suggest search topics'. The 'Which kinds of studies' field stayed 'not answered yet', so my study-design criteria were never captured. The panel says '5 of 6 answered' while the card says '5 of 5'.",
+     "expected": "The study-design question should be asked, and the question counters should agree.",
+     "evidence": "docs/qa/iteration-3/phd/06-topics.jpg",
+     "suggested_fix": "Ask all five scoping questions or label the counts consistently. Prompt for study design before moving on, because eligibility needs it."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Step 3 and step 2 panels",
+     "what_happened": "After 'Write the searches', the side panel kept showing the topic editor with the header 'Viewing step 2 of 9, Scoping' while the strip said step 3. Topic cards say 'Done' while the step is 'Not started'. After 'Keep this topic' the card still said 'Your turn' with 'Edit this search topic', so I could not tell if it was kept. On the canvas, query cards did not open from a click and I had to switch to List to read the query.",
+     "expected": "One clear state per card. After writing searches, the panel should show the queries.",
+     "evidence": "docs/qa/iteration-3/phd/10-searches.jpg, docs/qa/iteration-3/phd/10b-query.jpg, docs/qa/iteration-3/phd/07d-kept.jpg",
+     "suggested_fix": "Auto-open the first query after 'Write the searches', and use one status vocabulary (Suggested, Kept, Your turn) across card and panel."
+    },
+    {
+     "severity": "minor",
+     "category": "validity",
+     "page": "Appraisal (step 7)",
+     "what_happened": "Quote checks are visible and traceable. 'Show source' highlights the quote in the text, with a closest-passage diff when not found, and the report counts quotes. But the first 'Aim' quote spans 'TITLE ... ABSTRACT' headers and stops mid-sentence, so 'found word for word' is weak. A trial protocol is appraised for 'Key findings'. Each paper carries one planted altered quote ('clearly proves the intervention works everywhere'), and 5 stayed undecided.",
+     "expected": "Quotes should be complete sentences from the body, and protocols should not be asked for findings.",
+     "evidence": "docs/qa/iteration-3/phd/22b-quotes.jpg, docs/qa/iteration-3/phd/23-show-source.jpg, docs/qa/iteration-3/phd/24-decide.jpg",
+     "suggested_fix": "Strip TITLE/ABSTRACT scaffolding, end quotes on sentence boundaries, and skip the findings checklist for protocols. Keep the closest-passage view."
+    },
+    {
+     "severity": "minor",
+     "category": "validity",
+     "page": "Synthesis (step 8)",
+     "what_happened": "Known statements are the quote pasted in, truncated with an ellipsis, so this is quote-listing and not synthesis. The first 'Known' statement under the Long COVID tab is about teleconsultation. Chips link to quotes and each states 'found, not proof', which is good traceability.",
+     "expected": "A statement should paraphrase and cite, and flag when the cited paper is not about the topic.",
+     "evidence": "docs/qa/iteration-3/phd/26-synthesis.jpg, docs/qa/iteration-3/phd/27-chip.jpg",
+     "suggested_fix": "Generate a one-sentence paraphrase with the quote as evidence, and add an 'off-topic source' flag when topic fit is low."
+    },
+    {
+     "severity": "minor",
+     "category": "validity",
+     "page": "Research question (step 9) and report",
+     "what_happened": "I rewrote the question to ask about 'time to sustained return to work', which implies a longitudinal cohort. The report still says 'Design: Cross-sectional survey', and the mock Gap, Feasibility and Weakness text (with a citation to Tran et al. 2025) is carried over onto my new wording. Candidate 3 reads 'What helps or hinders long COVID', which is ambiguous.",
+     "expected": "Editing the question should flag that design, gap and weakness may no longer fit, or let me update them.",
+     "evidence": "docs/qa/iteration-3/phd/29b-edited-q.jpg, docs/qa/iteration-3/phd/31-report.jpg, docs/qa/iteration-3/phd/28-questions.jpg",
+     "suggested_fix": "After an edit, mark gap, feasibility and weakness as 'written for the previous wording' and offer to regenerate them."
+    },
+    {
+     "severity": "minor",
+     "category": "validity",
+     "page": "Ranking rubric (How papers are scored)",
+     "what_happened": "The rubric is fully visible (topic fit 35, design 20, setting 20, recency 15, citations 10), which I value. But the weights cannot be edited. Three criteria are 'scored by the AI from title and abstract', yet a paper's reason says '(mock) Keyword-overlap score'. Citation count is used as a quality proxy, and no formal risk-of-bias tool is used.",
+     "expected": "The way each score is produced should be stated consistently, and I would like adjustable weights or the option to switch citation impact off.",
+     "evidence": "docs/qa/iteration-3/phd/15-rubric.jpg, docs/qa/iteration-3/phd/20-why.jpg",
+     "suggested_fix": "Let users adjust or disable weights, state per criterion whether it is AI-scored or a formula, and name the appraisal tool used."
+    },
+    {
+     "severity": "minor",
+     "category": "copy",
+     "page": "Landing and sign-up",
+     "what_happened": "The landing page says it 'finds real papers' and every quote is 'checked against its source', and sign-up never mentions demo mode or that the output is 'a scoping aid, not an exhaustive systematic search' (the report says so). The demo banner first appears after sign-up, and the 40-paper cap is not mentioned. A sceptical reviewer sees the honest limits only deep inside the flow.",
+     "expected": "A one-line scoping-aid statement near the main claim, and a demo-mode notice on public pages.",
+     "evidence": "docs/qa/iteration-3/phd/01-landing.jpg, docs/qa/iteration-3/phd/02-signup.jpg, docs/qa/iteration-3/phd/04-questions.jpg",
+     "suggested_fix": "Add 'A scoping aid, not an exhaustive systematic search' under the hero text, and show the demo note on landing and sign-up when the server is in demo mode."
+    },
+    {
+     "severity": "minor",
+     "category": "a11y",
+     "page": "New review and sign up",
+     "what_happened": "'Start my review' and 'Create account' look fully active in the screenshots, but the helper reports them as 'looks disabled'. Below 'Start my review' the hint reads 'Write at least a sentence to start', so the button state is ambiguous. On the topic editor, Tab after the last field lands on the destructive 'Delete' button beside the primary 'Keep this topic'.",
+     "expected": "A disabled button should look disabled and say why, and keyboard order should not land on Delete first.",
+     "evidence": "docs/qa/iteration-3/phd/03-after-signup.jpg, docs/qa/iteration-3/phd/07c-edited.jpg",
+     "suggested_fix": "Style the disabled state visibly, link the hint with aria-describedby, and put Delete after the primary action in tab order."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Retrieval and summary table: categories",
+     "what_happened": "Study-type and article-type facets work and combine as an intersection with a plain 'Showing 6 of 114...' line. At retrieval 102 of 114 papers are 'Not reported', and counts change at step 5 (Trial 4 to 6, Systematic review 1 to 9) without saying why on the chip. The legend lists unused categories greyed. The 3D scatter admits 'Height has no meaning yet'. Grammar slip: '(1 papers)'.",
+     "expected": "A note that step-5 counts come from AI reading of abstracts, and no axis that carries no meaning.",
+     "evidence": "docs/qa/iteration-3/phd/13b-retrieval-cats.jpg, docs/qa/iteration-3/phd/13c-retrieval-cats2.jpg, docs/qa/iteration-3/phd/16-table.jpg",
+     "suggested_fix": "Add 'AI-classified from abstracts' beside the step-5 chips, drop or label the meaningless height axis, and fix pluralisation."
+    },
+    {
+     "severity": "polish",
+     "category": "clarity",
+     "page": "Paper detail rows (steps 5-6) and export preview",
+     "what_happened": "The expanded row shows the abstract and the AI cells but no authors, journal, DOI or PMID link. The DOI appears only later in appraisal. The report preview is a small scrolling box capped at 200 of 719 lines, and the 'printable report' opens a new tab.",
+     "expected": "Identifiers and a link to the source record wherever I judge a paper, and a larger in-app preview.",
+     "evidence": "docs/qa/iteration-3/phd/17b-abstract.jpg, docs/qa/iteration-3/phd/31-report.jpg",
+     "suggested_fix": "Show DOI/PMID with an external link in the expanded row and enlarge the report preview."
+    }
+   ],
+   "three_second_test": [
+    {
+     "page": "Landing",
+     "understood_in_3s": true,
+     "note": "A guided tool that turns a rough idea into a research question backed by real papers. First action is Start a review, next is sign up. Clear. The 'What Athena will not do' list answers my first doubts."
+    },
+    {
+     "page": "Sign up",
+     "understood_in_3s": true,
+     "note": "An account form, so I fill email and password. Focus lands on Email rather than the first field. Button looks active though a helper hint reads disabled."
+    },
+    {
+     "page": "New review (step 1)",
+     "understood_in_3s": true,
+     "note": "Describe my idea in a sentence or two, then press Start my review. Example chips help."
+    },
+    {
+     "page": "Canvas overview",
+     "understood_in_3s": true,
+     "note": "A map of my review with one card and a 9-step strip. Two buttons seem to do the same thing (Sharpen my idea and Open step 1). The demo banner is clear."
+    },
+    {
+     "page": "Scoping questions (step 2)",
+     "understood_in_3s": true,
+     "note": "A short interview that turns my idea into search topics. I type an answer and send. The live 'what we know so far' echoes my words, which builds trust."
+    },
+    {
+     "page": "Keep search topics (step 2)",
+     "understood_in_3s": true,
+     "note": "Keep, edit or delete each suggested topic. The vague 'Measurement and outcomes' topic stands out and I can fix it."
+    },
+    {
+     "page": "Search builder, first screen (step 3)",
+     "understood_in_3s": false,
+     "note": "After writing the searches the panel still showed the topic editor labelled 'step 2'. I had to hunt for the queries and could only read them from List view."
+    },
+    {
+     "page": "Search builder, query detail (step 3)",
+     "understood_in_3s": true,
+     "note": "Concept blocks as chips, a Count matches button, and an editable raw string behind 'Edit the search text'. Demo caveat is stated."
+    },
+    {
+     "page": "Retrieval (step 4)",
+     "understood_in_3s": true,
+     "note": "'190 fetched, 76 duplicates, 114 different papers remain.' Clear PRISMA-style numbers and a mix chart."
+    },
+    {
+     "page": "Summary table (step 5)",
+     "understood_in_3s": true,
+     "note": "One row per paper, AI-drafted from abstract only, with a 3-item checklist and study and article type filters."
+    },
+    {
+     "page": "Ranking (step 6)",
+     "understood_in_3s": true,
+     "note": "Check which papers go forward, with score bars and a Keep checkbox. The amber warning about a topic with one match is clear."
+    },
+    {
+     "page": "Appraisal (step 7)",
+     "understood_in_3s": true,
+     "note": "Go paper by paper, check the AI answers and decide quotes the check could not find. Dense but well explained; found is not proof."
+    },
+    {
+     "page": "Synthesis (step 8)",
+     "understood_in_3s": true,
+     "note": "Known, contested and unknown statements with quote chips and conflicts per topic tab."
+    },
+    {
+     "page": "Research question (step 9)",
+     "understood_in_3s": true,
+     "note": "Pick one of three candidates with gap, feasibility, weakness and a PICo or PECO structure. Novelty caveat is explicit."
+    },
+    {
+     "page": "Export",
+     "understood_in_3s": true,
+     "note": "Download the report, spreadsheet or reference list. Each format has a plain-language note."
+    }
+   ],
+   "categories_and_colours": "I found both category systems without being told. Retrieval shows 'Article type (from the databases)' bars in neutral grey for journal article, review article, preprint, editorial and other, and a separate 'Study type' list with colour AND shape: blue circle for trial, orange square for cohort or case-control, green triangle for cross-sectional, amber diamond for qualitative or mixed methods, pink star for systematic or scoping review, green plus for other design, and a hollow grey ring for not reported. The key says 'hover or focus to highlight, click to show only that category'. I clicked and it filtered, and the lines 'Showing only one category (1 papers)' and 'Showing 6 of 114: systematic / scoping review; review article. 108 papers are hidden by your filters (still in the review)' confirmed that filters are views and not deletions, with Reset filters always visible. Shape plus label means colour is never the only cue. A Colour by selector exists on the map, and there is a 2D toggle for the 3D scatter. Weaknesses: 102 of 114 papers are 'Not reported' at retrieval, which makes the study-type colours nearly meaningless until step 5. Counts change between steps (Trial 4 to 6, Systematic review 1 to 9) without an on-chip explanation. The 3D chart says 'Height has no meaning yet'. Green appears on two shapes (triangle and plus), distinguished only by shape. The legend lists unused categories greyed out. Article type and study type are two similar-looking filter rows, so 'Review article 13' versus 'Systematic / scoping review 9' needs a moment's thought.",
+   "validity_assessment": "As a rigour-minded reviewer I would call this app an unusually honest scoping aid, and traceable in its mechanics, but not something I could defend as a systematic review. Traceability is strong. Search syntax is visible and editable (my hand-written [Mesh] and [tiab] string was parsed back into labelled chips with an 'edited by you' badge). Each rank score has a per-criterion reason and formula. Quotes can be opened against the source text with a highlight, and failed quotes show the closest passage and need my decision (I rejected 11, 5 stayed undecided and were excluded by default). The report preamble states plainly: 'a scoping aid, not an exhaustive systematic search', up to 40 records per search, a single reviewer, 93 quotes found, 16 not found with my accept and reject counts, and 'a found quote shows the words are in the paper, not that they prove the claim'. Novelty is not overclaimed: 'Finding no similar study does not prove a question is new.' Gates warn when a topic has fewer than 3 papers or quotes are undecided. Nothing looked fabricated: every appraised paper showed a DOI and came from a database record. Weaknesses: in demo mode the whole corpus is off-topic, so I could not judge real relevance or retrieval quality; I could not confirm that real mode honours my synonyms, MeSH, dates or edited query (the demo banner says it does not). Off-topic papers score 63-68 of 100, which could mislead. Synthesis is quote-listing and not synthesis. Deselecting a paper under one topic did not remove it from appraisal, and counts were inconsistent (8,058 vs 979). There is no formal risk-of-bias tool, no second-reviewer process, no adjustable rubric, and the capped 40-record retrieval means no completeness claim is possible. I could not read the report's full search-strategy section, so I do not know whether my edited query is recorded verbatim. Net: defensible as a documented, auditable scoping exercise, not as a systematic review, and the app mostly says so itself.",
+   "would_have_quit_at": "I would not have quit: I reached the exported report. Where I would have stopped trusting it in a real run: the Search builder (step 3), because the generated PubMed string omitted my MeSH term and 3 of 7 synonyms and mixed topics, so I would rewrite each string by hand and could not verify real mode honours that. I would also have paused at Ranking (step 6) when a deselected paper reappeared in Appraisal, and I would not present the Synthesis statements to my committee as they are quote pastes.",
+   "activity": "Created account aisha.phd.test3@example.com (name Aisha Rahman). Created one project (prj_72d583d4e6e74a01) on 'Association between long COVID and return-to-work outcomes in healthcare workers'. Answered 4 scoping questions, generated 4 topics, edited 'Long COVID' (7 synonyms plus MeSH), accidentally deleted one topic with a click and no confirmation, added 'Return to work and work disability' (9 synonyms, 2 MeSH), approved topics, wrote 8 searches, edited the PubMed string by hand, counted matches, edited inclusion and exclusion criteria and preferred study types, ran all 8 searches (190 fetched, 76 duplicates, 114 unique), summarised papers (114 rows), filtered by study and article type, opened abstracts and score breakdown, swapped one paper (13 selected), appraised 11 papers, rejected 11 altered quotes and left 5 undecided ('Summarise without them'), ran synthesis (20 statements, 3 conflicts), chose candidate 2 and rewrote it, finished and exported, opened the report preview and clicked 'Download the report (Markdown)'. About 150 helper commands, 60+ screenshots in docs/qa/iteration-3/phd/. No console errors or failed requests were reported at any step. Two gate dialogs seen (topic with fewer than 3 papers, undecided quotes), no stuck spinners.",
+   "narrative": "I arrived expecting an AI tool to bluff, and the landing page's 'What Athena will not do' list, with no invented references and a full-text-versus-abstract disclosure, made me curious. Sign-up was easy. The demo banner only appeared after sign-up, which I would have liked earlier. The scoping questions felt like a real supervisor chat, though it stopped after four and never asked about study design. In topics I edited synonyms and MeSH, then somehow deleted a topic by clicking its name with no confirmation, which annoyed me. Step 3 was my favourite: I could read the exact PubMed string, rewrite it, and watch it parse back into labelled chips. But the generated version skipped my MeSH term and several synonyms, and the counts (8,058 versus 979) did not add up. Retrieval gave me clean PRISMA-style numbers. The study type and article type filters worked, and the shape-plus-colour key was readable. In ranking, every score exposed its reasoning, but off-topic telemedicine papers still scored 68 out of 100. I swapped a paper and it later reappeared in appraisal, which shook me a little. Appraisal impressed me most. 'Show source' highlights quotes in the text, and altered quotes like 'clearly proves the intervention works everywhere' were flagged for me to reject. The synthesis was weaker, just truncated quotes. The candidate questions came with PECO structure and an explicit 'no similar study does not prove novelty' line. The exported report says it is a scoping aid, not a systematic review, which is what I wanted to read. I would use it for scoping, not as my review.",
+   "would_have_quit_at_note": ""
+  },
+  {
+   "persona": "clinician",
+   "completed": true,
+   "stage_reached": 9,
+   "findings": [
+    {
+     "severity": "major",
+     "category": "validity",
+     "page": "Step 7 Appraisal (paper 1)",
+     "what_happened": "The first paper is 'Community nursing services during the COVID-19 pandemic: the Singapore experience', but its first quote starts 'TITLE Telemedicine Guidelines in South East Asia A Scoping Review ABSTRACT ...' and is stamped 'found word for word'. Show source highlights that text as the paper's full text. The attached full text belongs to a different paper, and the check cannot tell.",
+     "expected": "Quotes and source text should come from the paper named in the heading, or the app should warn that the text does not match the title or DOI.",
+     "evidence": "docs/qa/iteration-3/clinician/16-appraisal.jpg and docs/qa/iteration-3/clinician/16d-source.jpg",
+     "suggested_fix": "Verify that the retrieved full text's title or DOI matches the paper record before running the quote check. Show a visible 'text may belong to another paper' warning if not, and make the demo fixtures match their papers."
+    },
+    {
+     "severity": "major",
+     "category": "clarity",
+     "page": "Steps 4 and 8 (Retrieval vs Synthesis)",
+     "what_happens": "",
+     "what_happened": "The Retrieval query card says 'Hip fracture surgery: PubMed 979 \u00b7 OpenAlex 707', which looks like plenty of hits. Later, Ranking and Synthesis say 'no papers match' and 'no papers were found for it'. A clinician cannot tell why 1,686 hits became zero papers. The 135 fetched and 71 unique papers vs the 9,245 counts is also not explained, and the text mixes '8 searches' with 'from 4 queries'.",
+     "expected": "One consistent story: say that only the first N records per search are fetched, and say plainly that none of the fetched papers matched this topic's words.",
+     "evidence": "docs/qa/iteration-3/clinician/11-retrieval.jpg and docs/qa/iteration-3/clinician/17-synthesis.jpg",
+     "suggested_fix": "Show 'matches in database' vs 'fetched' vs 'matched this topic' for each query. Reword the synthesis warning to 'none of the N papers we fetched for this topic were about it'. Use one word, 'searches', everywhere."
+    },
+    {
+     "severity": "major",
+     "category": "copy",
+     "page": "Step 9 Research question",
+     "what_happened": "The candidate research questions end with a truncated word: 'surgical repair of a hip fract'. Candidate 2 is also repetitive: 'recovery after hip fracture surgery among adults aged 65 and over after surgical repair of a hip fract?'. These are the questions the user is meant to choose and export. The Population field also holds the truncated phrase.",
+     "expected": "Complete, grammatical question text with no cut-off words.",
+     "evidence": "docs/qa/iteration-3/clinician/18-rq.jpg and docs/qa/iteration-3/clinician/18b.jpg",
+     "suggested_fix": "Do not character-truncate a population phrase when building candidate wording. Truncate at word boundaries or not at all, and avoid repeating the topic in the sentence."
+    },
+    {
+     "severity": "major",
+     "category": "validity",
+     "page": "Step 6 Ranking",
+     "what_happened": "A paper on perinatal mental telehealth in Singapore scores 64 and is auto-selected, and 9 papers are selected in total. Not one is about hip fracture, older adults or rehabilitation. The score looks authoritative, and the paper detail pane does not show why it scored 64, although the checklist says 'Open a selected paper to see why it scored high'. Demo mode is announced, so this is honest overall, but the score itself carries no relevance warning.",
+     "expected": "Open a selected paper to see a per-criterion score breakdown, and a low-relevance flag when a paper does not match the question.",
+     "evidence": "docs/qa/iteration-3/clinician/14-rank.jpg and docs/qa/iteration-3/clinician/14d-paper.jpg",
+     "suggested_fix": "Show the five rubric scores in the paper details, and cap or flag the overall score when topic match is low. Make the checklist text match what the pane shows."
+    },
+    {
+     "severity": "minor",
+     "category": "validity",
+     "page": "Step 5/6 Summary table",
+     "what_happened": "'The LvL UP trial: Protocol for a ... randomised controlled trial' is labelled 'Trial', but it is only a protocol with no results. A protocol also shows the registry number 'NCT07198828' as its 'key finding'. The detail view calls another paper 'Narrative review' while the list says 'Other design'.",
+     "expected": "Protocols should count as 'Other design', and key finding should be a finding.",
+     "evidence": "docs/qa/iteration-3/clinician/13c-table.jpg and docs/qa/iteration-3/clinician/14d-paper.jpg",
+     "suggested_fix": "Classify protocols as Other design. Do not accept an identifier as a key finding. Show the same study-type vocabulary in the list and the details."
+    },
+    {
+     "severity": "minor",
+     "category": "bug",
+     "page": "Step 6 Ranking",
+     "what_happened": "The orange 'Few papers match 2 topics' warning is clipped at the right edge. Sentences are cut off ('are already selected ... not'). The 'Edit the searches for Walking ability and function (step 3)' button overflows the box and is truncated.",
+     "expected": "Text wraps inside the box and buttons stay within the viewport at 375px.",
+     "evidence": "docs/qa/iteration-3/clinician/14b-top.jpg",
+     "suggested_fix": "Allow the warning's content and buttons to wrap (min-width:0, flex-wrap, full-width buttons on narrow screens)."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Step 7 Appraisal (paper 7)",
+     "what_happened": "A quote is flagged 'not found, you decide', yet the 'closest passage' shown is word-for-word identical to the quote, with the note 'same words, but not in this order or form'. A user cannot see why it failed and does not know whether to accept it.",
+     "expected": "A clear reason for the mismatch, for example 'differs only in spacing or line breaks', or an automatic pass.",
+     "evidence": "docs/qa/iteration-3/clinician/16j.jpg (paper 7, first quote, 'Data analysis sufficiently rigorous')",
+     "suggested_fix": "Normalise whitespace, hyphenation and case before matching. If still flagged, highlight the differing characters."
+    },
+    {
+     "severity": "minor",
+     "category": "a11y",
+     "page": "Step 9 Edit this question",
+     "what_happened": "In the edit form the question textarea gets focus but has an empty accessible name, and the 'Question' label is not bound to it. The browser helper's fill by label 'Question' hit a non-input, while Population and Outcome worked. Shift+Tab from Population skipped the textarea and landed on 'What happens in this step'.",
+     "expected": "Every field has a programmatic label, and tab order follows the visual order.",
+     "evidence": "docs/qa/iteration-3/clinician/18c-edit.jpg",
+     "suggested_fix": "Use <label for> or aria-label on the question textarea and check the DOM and tab order of the edit form."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Step 10 Export",
+     "what_happened": "I wanted to email the report to myself from a phone. There is no email or share button. The default format is a Markdown text file, which a phone cannot open easily. The nicer 'printable report' opens in a new tab and the button sits above the radio list, so it is unclear whether it is the same thing as the Report option. After 'Download Markdown' only a small footer note confirms it.",
+     "expected": "A phone-friendly route: share or email the report, or a PDF.",
+     "evidence": "docs/qa/iteration-3/clinician/19-export.jpg and docs/qa/iteration-3/clinician/21-download.jpg",
+     "suggested_fix": "Add 'Send to my email' or the native share sheet, and make PDF or the readable report the default on phones. Say that the printable report and the Markdown file hold the same content."
+    },
+    {
+     "severity": "minor",
+     "category": "copy",
+     "page": "Step 8 Synthesis",
+     "what_happened": "The 'Unknown' card is titled 'What has not been studied yet: the gaps your question can fill', but its statements are study limitations ('limited by COVID-19 mHealth apps selected were limited to free applications...'). These are not research gaps and could mislead a user about novelty.",
+     "expected": "Unknown items should be gaps, or the card should say 'limitations noted by the authors'.",
+     "evidence": "docs/qa/iteration-3/clinician/17b.jpg and docs/qa/iteration-3/clinician/17c.jpg",
+     "suggested_fix": "Separate 'Limitations noted by authors' from 'Gaps not yet studied', or relabel the card."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Step 2 Scoping topics",
+     "what_happened": "A suggested topic is a garbled fragment, 'Whether walking ability', with a copy of that phrase as its synonym. The topic list squeezes names into a narrow column ('Tele- rehabilitation') and the Edit, Keep and Delete targets are small for a thumb. To fix the topic I had to open it, rename it and rewrite the synonyms.",
+     "expected": "Sensible topic names, and roomy thumb-sized controls.",
+     "evidence": "docs/qa/iteration-3/clinician/07-topics.jpg and docs/qa/iteration-3/clinician/07b-edit.jpg",
+     "suggested_fix": "Clean up AI-extracted topic names. On phones, stack each topic as a card with a full-width name and 44px buttons."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Step 3 Search builder",
+     "what_happened": "After 'Write the searches' the panel jumped back to 'Edit this search topic' with 'Viewing step 2', and the queries I was told to check were not shown. I had to close the panel, then use 'Open step 3' from the list, and only then saw the searches. The panel also covers the list, so tapping a Query row times out.",
+     "expected": "Show the written searches immediately, with the heading 'Check the searches before they run'.",
+     "evidence": "docs/qa/iteration-3/clinician/10-searches.jpg, docs/qa/iteration-3/clinician/10c-list.jpg and docs/qa/iteration-3/clinician/10d-step3.jpg",
+     "suggested_fix": "After writing searches, navigate the panel to the first Query node (step 3) and keep it there."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Steps 1 to 2 (start)",
+     "what_happened": "I pressed 'Start my review', but the next page says 'Check your idea, then start' and asks me to tap 'Open step 1' and then 'Sharpen my idea'. That is three more taps before the first question, and it feels as if my first press did nothing. 'What happens in this step 8 s' is cryptic, and 'Now: step 1/...' in the header is truncated.",
+     "expected": "After 'Start my review' go straight to the first scoping question.",
+     "evidence": "docs/qa/iteration-3/clinician/04-questions.jpg and docs/qa/iteration-3/clinician/05-step1.jpg",
+     "suggested_fix": "Skip the redundant step-1 confirmation when the idea was just submitted. Label the video '8-second explainer'. Shorten the header label so it is not clipped."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Step 6 confirmation dialog",
+     "what_happened": "The dialog warning that 2 topics have fewer than 3 papers is clear and honest, but the strongest-looking blue button is 'Appraise anyway', which nudges toward continuing with no evidence for one topic. The safer 'Edit the searches' is a grey outline.",
+     "expected": "The primary emphasis should be on the safe path, or the options should have equal weight.",
+     "evidence": "docs/qa/iteration-3/clinician/15-appraise.jpg",
+     "suggested_fix": "Make 'Edit the searches (step 3)' the primary button and 'Appraise anyway' the secondary one."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Scoping chat, step 7 quote decisions",
+     "what_happened": "The panel header (title, intro, step strip) takes about a third of a 375x812 screen, leaving a small window for the chat and the quote cards. 'Accept anyway' and 'Reject' buttons are small. After a decision the buttons move, and a decided quote still shows 'Reject', which can flip an accepted quote.",
+     "expected": "On phones the header collapses on scroll, and decision buttons are large and stable.",
+     "evidence": "docs/qa/iteration-3/clinician/06c-q4.jpg and docs/qa/iteration-3/clinician/16f-decide2.jpg",
+     "suggested_fix": "Make the panel header collapse or scroll away on phones. Use full-width 44px Accept and Reject buttons, and show decided quotes in a compact state with only 'Undo'."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Steps 2, 3 and 4",
+     "what_happened": "Jargon is shown without explanation on the main list: '0 MeSH', 'Query', 'dupes removed', 'Corpus'. The MeSH explanation is only visible on the topic editor.",
+     "expected": "Physicians know MeSH, but plain words suit other users. At least a tooltip.",
+     "evidence": "docs/qa/iteration-3/clinician/08-builder.jpg and docs/qa/iteration-3/clinician/11-retrieval.jpg",
+     "suggested_fix": "Add a short explanation or tooltip for MeSH, and say 'papers' instead of 'Corpus' in user-facing text."
+    },
+    {
+     "severity": "polish",
+     "category": "a11y",
+     "page": "New review (step 1)",
+     "what_happened": "'Start my review' is a bright blue button that looks fully active while the text box is empty, even though it is disabled ('Write at least a sentence to start' sits small beneath it).",
+     "expected": "A visibly muted disabled state.",
+     "evidence": "docs/qa/iteration-3/clinician/03-new.jpg",
+     "suggested_fix": "Give disabled primary buttons a clearly muted style."
+    },
+    {
+     "severity": "polish",
+     "category": "bug",
+     "page": "Landing and Canvas on phone",
+     "what_happened": "The 'See a review take shape' demo animation is far too small to read on a phone. The Canvas overview shows a tiny strip of unreadable nodes after 'Fit view'. The retrieval 3D chart is clipped at the left edge (axis label shows '015').",
+     "expected": "Readable content at 375px, or a phone-specific version.",
+     "evidence": "docs/qa/iteration-3/clinician/01c-wontdo.jpg, docs/qa/iteration-3/clinician/22b-canvasfit.jpg and docs/qa/iteration-3/clinician/11b-chart.jpg",
+     "suggested_fix": "Scale the demo to the width of the screen. Default phones to List view, and add a margin or axis padding to the chart."
+    }
+   ],
+   "three_second_test": [
+    {
+     "page": "Landing",
+     "understood_in_3s": true,
+     "note": "For: turning a rough idea into a research question backed by real papers. First: read the headline. Next: tap 'Start a review'. Clear and calm. The 'What Athena will not do' accordion is reassuring. Demo mode is not mentioned on the landing page, only inside the app."
+    },
+    {
+     "page": "Sign up",
+     "understood_in_3s": true,
+     "note": "Create an account with name, email and password, then tap 'Create account'. The password rule is shown. Nothing confusing."
+    },
+    {
+     "page": "New review (step 1)",
+     "understood_in_3s": true,
+     "note": "Describe my research idea. Type a sentence or tap an example, then 'Start my review'. The button looks active while disabled."
+    },
+    {
+     "page": "Session workspace (list view, after Start)",
+     "understood_in_3s": true,
+     "note": "A list of my idea at step 1, with a 'Your next step' bar and the demo banner. Tap 'Open step 1'. Slightly redundant after pressing Start."
+    },
+    {
+     "page": "Step 2 Scoping chat",
+     "understood_in_3s": true,
+     "note": "Answer up to 5 short questions about who, where and what. Type an answer, then 'Send answer'. 'What we know so far' updates as I answer. The header takes up too much space."
+    },
+    {
+     "page": "Step 2 Scoping topics",
+     "understood_in_3s": true,
+     "note": "Keep or delete the suggested topics, then tap 'Keep N suggested topics'. The dashed and 'suggested' labels help. One topic name is garbled, and small Edit and Delete targets."
+    },
+    {
+     "page": "Step 3 Search builder",
+     "understood_in_3s": false,
+     "note": "Check the PubMed and OpenAlex searches before running. Tap 'Run all 8 searches'. It took me a moment because the panel first showed a topic editor and I had to find the searches. The demo note is clear."
+    },
+    {
+     "page": "Step 4 Retrieval",
+     "understood_in_3s": true,
+     "note": "See how many papers were found and the mix of types, then tap 'Summarise the papers'. The big numbers (135 fetched, 64 duplicates, 71 papers) are clear, with bars that can be tapped to filter."
+    },
+    {
+     "page": "Step 5 Summary table",
+     "understood_in_3s": true,
+     "note": "Skim the AI summaries and fix wrong cells, then 'Rank the papers'. The 3-item checklist is clear, but long before I reach the first paper on a phone."
+    },
+    {
+     "page": "Step 6 Ranking",
+     "understood_in_3s": false,
+     "note": "Choose which papers go forward. First a topic chip, then 'Appraise selected papers'. The clipped warning box and scores without explanation slowed me. The warning that Hip fracture surgery has 0 papers is honest."
+    },
+    {
+     "page": "Step 7 Appraisal",
+     "understood_in_3s": true,
+     "note": "Go through each paper and decide on quotes marked 'not found'. 'Show only quotes I need to decide' then 'Next paper'. The red-flagged quote and the 'Accept anyway or Reject' choice are easy to grasp."
+    },
+    {
+     "page": "Step 8 Synthesis",
+     "understood_in_3s": true,
+     "note": "Read what is known, contested and unknown, with quote chips. Then 'Suggest research questions'. The 'No evidence for 1 topic' banner is excellent."
+    },
+    {
+     "page": "Step 9 Research question",
+     "understood_in_3s": true,
+     "note": "Compare three candidate questions and pick one; tapping a card chooses it. The novelty note is cautious. Truncated 'hip fract' wording hurts trust."
+    },
+    {
+     "page": "Export",
+     "understood_in_3s": true,
+     "note": "Download the review. Check the question and tap Download. As a phone user I wanted 'email to myself', which is not offered."
+    }
+   ],
+   "categories_and_colours": "I could find and filter papers by both study type and article type. In the retrieval step, bars for each article type (Journal article 52, Review article 7, Preprint 2, Editorial/letter/comment 9, Other publication 1) can be tapped to show only those papers. A check mark, 'Chart: showing 7 of 71: review article. 64 papers are hidden from the chart (still in the review). Show all' made the state obvious. The same filters appear as chips in the summary table (Trial 6, Cohort/case-control 1, Cross-sectional 15, Qualitative/mixed 15, Systematic/scoping review 5, Other design 14, Not reported 15) and ranking tables. Study type uses colour and shape together: Trial = blue circle, Cohort/case-control = orange square, Cross-sectional = green triangle, Qualitative/mixed = amber diamond, Systematic/scoping review = pink star, Other design = green cross, Not reported = grey ring. A legend with counts sits above the chart, zero-count types are dimmed, and the key says 'tap a category to show only that one'. I understood the colours without being told. Article type is plain bars without hues, so colour does not mean two things. Small problems: before AI summaries, 59 of 71 are 'Not reported' and after summaries only 15, which is explained ('the AI reads every abstract in the next step'); the legend counts stay at whole-corpus values when a filter is applied; the legend shows green twice (triangle and cross) and relies on shape to separate them; the protocol-as-Trial label and the 'Narrative review' vs 'Other design' wording; the chart is clipped at the left edge on a phone and its height axis 'has no meaning yet', which is honest but puzzling. I did not use 'Colour by' options besides study type.",
+   "validity_assessment": "Mostly honest, and the traceability design is strong, but it would not yet produce a valid review in this demo. Strengths: the demo banner is persistent and plain ('AI is scripted... recorded sample papers... results will not match your topic'); AI text is tagged '(mock)'; every paper has DOI, PMID, PMCID and OpenAlex ids; summaries are labelled 'AI \u00b7 abstract'; appraisal quotes are checked word for word, with 'found word for word' vs 'not found, you decide', a highlighted source view and a nearest passage; a deliberately altered overclaim ('clearly proves the intervention works everywhere') was caught on every paper, and I could reject it, with rejected quotes excluded from the synthesis. The app says 'Found means the words are in the paper, not that they prove the answer'. It also states that 'Finding no similar study does not prove a question is new' and that the novelty check in demo mode says nothing about novelty. Warnings for topics with no evidence appear at ranking, in the confirmation dialog and in synthesis. Weaknesses: (1) a quote and source text came from a different paper than the title ('Telemedicine Guidelines in South East Asia' under a Singapore community nursing paper) yet passed as 'found word for word'; (2) none of the 9 selected papers concern hip fracture, yet they receive scores like 64 with no per-criterion explanation; (3) 979 and 707 hits for Hip fracture surgery contradict 'no papers were found'; (4) candidate questions contain truncated words ('hip fract'); (5) 'Unknown' shows limitations as gaps; (6) a protocol is labelled Trial; (7) a quote flagged 'not found' when the closest passage is identical. A real-mode run would need these traceability checks (title/DOI match, relevance flag) to be trustworthy. Nothing looked like a fabricated reference: all ids came from records, and the app never claimed novelty without a caveat.",
+   "would_have_quit_at": "I completed the whole journey and downloaded the report. A real busy physician would probably have quit at step 6 (Ranking). The page says that 'Hip fracture surgery' has no matching papers, only one paper matches 'Walking ability and function', and all selected papers are about other subjects. Around step 3 and 7 many taps and long panels on a phone also tempt abandonment: the extra 'Open step 1' and 'Sharpen' taps, the Search builder panel jumping back to the topic editor, and 10 quotes spread over 8 papers to decide one by one. Without email or share, the final report would have to be found in downloads, and the printable report opens in a new tab.",
+   "activity": "Created a new account (Dr Okafor, okafor.qa3@example.com). Created one project 'Does tele-rehabilitation help older adults recover after hip fracture surgery?' (prj_d635b3b1f4414481) and took it through all 9 steps to export. Answered 5 scoping questions, edited one topic (name and synonyms) and kept 4 topics, wrote and ran 8 searches (71 unique papers, 64 duplicates), summarised and ranked papers (9 selected, 'Appraise anyway' on a warning), decided 10 quotes (rejected 9 planted overclaims or off-topic quotes and accepted 1), generated synthesis (13 statements, 2 conflicts) and 3 candidate questions, chose candidate 2, edited its wording and outcome, then pressed 'Download Markdown' (download confirmed) and tried the printable report (opened in a new tab that my browser helper could not follow, so I could not read its content). The console and network were clean at every check ('no console errors or failed requests'). No AI errors, stuck spinners or lost inputs. About 130 helper commands; screenshots saved in docs/qa/iteration-3/clinician/. Read docs/ux-intent.md only after finishing.",
+   "narrative": "I opened Athena on my phone between rounds. The landing page told me in a few seconds what it does, so I tapped Start a review, signed up and typed my hip fracture question. Scoping was pleasant: five short questions and the topics took shape. One topic came out garbled ('Whether walking ability'), so I renamed it and rewrote its synonyms. I was a little annoyed by the extra Open step 1 and Sharpen taps after pressing Start, and the search step first showed me a topic editor instead of the searches. Retrieval was the best page for categories: clear counts, tappable article type bars, and a study-type legend using colour plus shape, which I understood at once. Ranking is where trust wobbled. The honest warning says nothing matches Hip fracture surgery, yet nine unrelated papers were selected with confident scores, and the warning box was clipped on the right. The demo banner explained why, which I appreciated. Appraisal impressed me: planted overclaims such as 'clearly proves the intervention works everywhere' were flagged, and I could reject them. However, the first quote and source text belonged to a different paper than the title. Synthesis linked each statement to a quote chip. I chose candidate 2 but the wording ended in 'hip fract', so I edited it. At export I wanted to email myself the report, but only a Markdown download and a new-tab printable report exist. I downloaded Markdown and the app confirmed it. Overall: honest and traceable, but long on a phone."
+  },
+  {
+   "persona": "nonnative",
+   "completed": true,
+   "stage_reached": 9,
+   "findings": [
+    {
+     "severity": "major",
+     "category": "validity",
+     "page": "Appraisal (step 7)",
+     "what_happened": "Quotes that have nothing to do with the checklist question get a green 'found word for word' tick. 'Attrition / loss to follow-up reported' is answered 'AI: Unclear' with a background sentence about mHealth preventing NCDs. 'Primary outcome pre-specified' shows a sentence about secondary outcomes. The tick only means the words exist in the paper. A reader with limited English will read a green tick as 'checked and OK'. The explanatory sentence sits far above the tick, at the top of the panel.",
+     "expected": "A tick that says 'the words exist' must not look like a tick that says 'this supports the answer'. Quotes that do not address the question should be marked 'does not answer this question'.",
+     "evidence": "docs/qa/iteration-3/nonnative/33-appr-detail.jpg",
+     "suggested_fix": "Rename the badge to 'Quote exists in paper' and use a neutral colour, not green. Add a second badge 'Relevant to this question? yes/unclear'. Repeat the caveat in a tooltip on every badge."
+    },
+    {
+     "severity": "major",
+     "category": "validity",
+     "page": "Appraisal, Synthesis and Research question (steps 7-9)",
+     "what_happened": "The 'Key findings' of a trial protocol is its abstract-background sentence. The 'Known' statements are about how another review was done (Arksey and O'Malley, PRISMA-ScR, Mendeley duplicates), not about diabetes or apps. Selected papers include 'Precision medicine in Thailand' and e-mental-health surveys. The three research questions are still drawn from this. The Gap field cites 'Sabrina et al. 2021 limitation', a telemedicine data-ownership note that has nothing to do with the gap named. The demo banner explains why, but the structure shows no check that a quote supports its statement.",
+     "expected": "A statement should be tied to a quote that is on topic, and protocols or reviews-of-methods should not be listed as findings. Even in demo mode the structure should show off-topic evidence honestly.",
+     "evidence": "docs/qa/iteration-3/nonnative/34-appr-detail2.jpg, docs/qa/iteration-3/nonnative/40-synth2.jpg, docs/qa/iteration-3/nonnative/46-rq-cands.jpg",
+     "suggested_fix": "Label protocols 'no results yet'. Add 'does this quote support this statement?' per chip. Warn in synthesis when most statements are about methods, not results. Show a 'low relevance' badge when topic fit is below the threshold."
+    },
+    {
+     "severity": "minor",
+     "category": "validity",
+     "page": "Summary table (step 5), paper details",
+     "what_happened": "A Thai paper whose abstract says 'we conducted a narrative review of published literature' is labelled 'Cross-sectional' (triangle). The docs say narrative reviews belong in 'Other design'. The 'Study type' chips do not say these labels are AI-guessed, while the retrieval page said 'only where the database labels it'. Counts jump from 102 not reported at step 4 to 17 at step 5 with no explanation at the filter.",
+     "expected": "The study-type facet and legend should say 'AI-guessed from abstract' where counts changed. Obvious mismatches between abstract and label should be easy to spot and fix.",
+     "evidence": "docs/qa/iteration-3/nonnative/26-paper.jpg, docs/qa/iteration-3/nonnative/23-table.jpg, docs/qa/iteration-3/nonnative/19-retrieval-chart.jpg",
+     "suggested_fix": "Put the 'AI \u00b7 abstract' badge on the 'Study type' facet label too. Add a line 'Study type changed from database labels (6 trials) to AI reading (6 trials, 13 cross-sectional...)'. Flag rows where the abstract says 'review' but the type is not a review."
+    },
+    {
+     "severity": "major",
+     "category": "clarity",
+     "page": "Search builder (step 3)",
+     "what_happened": "I added synonyms, and the app moved me back to step 2 with an amber 'Step 2 is open again' warning. I had to go back, press 'Use these topics' again, return to step 3 and press 'Write the searches'. A warning at the top of the page does say this, but a non-native reader skips it and cannot tell what 'reopens step 2' means. After 'Write the searches' the panel still showed the topic editor under 'Viewing step 2', with no cue to look at the new Query rows. The helper in the Docs says the single next action is 'Run all N searches', but 'Write the searches' is an extra step.",
+     "expected": "Editing a synonym should save without reopening an approved step, or the app should explain in one plain sentence what will happen before I type. After writing the searches the panel should jump to the first query.",
+     "evidence": "docs/qa/iteration-3/nonnative/14-synonyms.jpg, docs/qa/iteration-3/nonnative/16-searches.jpg",
+     "suggested_fix": "Let synonym edits at step 3 save silently and only mark the searches out of date. If step 2 must reopen, show a confirm dialog first ('This will ask you to approve the topics again'). Auto-open the first Query after 'Write the searches'."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Scoping (step 2)",
+     "what_happened": "I only answered 4 questions, but the header says '5 of 5 questions', the panel says 'Scoping conversation: 5 questions', and the summary shows 'Which kinds of studies: not answered yet' and '5 of 6 answered'. The 'Where?' question was asked although 'Thailand' was already in my idea and shown as a topic. 'Keep 5 suggested topics' is followed by a second approval, 'Use these topics', which feels like asking twice. The topic 'Adult people' is odd and my 'blood sugar / HbA1c' answer did not become a topic.",
+     "expected": "Counts that match what I did. No question about something already known. One approval for topics.",
+     "evidence": "docs/qa/iteration-3/nonnative/09-q5.jpg, docs/qa/iteration-3/nonnative/12-after-keep.jpg",
+     "suggested_fix": "Count asked and answered questions correctly. Skip a question when the field is already filled from the idea (offer 'Is Thailand right? Yes/Edit'). Merge 'Keep' and 'Use these topics' into one button, or explain the difference."
+    },
+    {
+     "severity": "minor",
+     "category": "copy",
+     "page": "All step pages",
+     "what_happened": "Many words are hard for a second-language reader: appraise/appraisal, synthesis, contested, synthesise, 'Query', 'Corpus', 'MeSH', 'PICO/PICo', 'title/abstract', 'left out of the synthesis', 'go forward', 'skim', 'fix any wrong cells', 'Markdown', 'BibTeX', 'Accept anyway'. I guessed 'Appraise selected papers' meant 'check the quality' and was unsure. I also read 'Found means the words are in the paper' only after re-reading.",
+     "expected": "Short plain words, or a small glossary on first use.",
+     "evidence": "docs/qa/iteration-3/nonnative/27-rank.jpg, docs/qa/iteration-3/nonnative/30-appraisal.jpg, docs/qa/iteration-3/nonnative/31-appraisal-run.jpg",
+     "suggested_fix": "Rename: 'Appraise' to 'Check quality of papers'; 'Query' to 'Database search'; 'Corpus' to 'Papers found'; 'Synthesis' to 'What the papers say'. Add dotted-underline hover/tap definitions for MeSH, PICO, BibTeX, Markdown."
+    },
+    {
+     "severity": "minor",
+     "category": "bug",
+     "page": "Ranking (step 6)",
+     "what_happened": "The checklist shows 'Keep 3-5 papers per topic, or every matching paper where fewer match' already ticked as Done, while the amber warning directly below says 3 topics have fewer than 3 matching papers (Diabetes patient only 1). Grammar in the warning is also 'only 1 matches'. The page opened scrolled down on arrival, so I missed the heading and checklist at first.",
+     "expected": "A task that is not really satisfied should not be ticked. Page should open at the top.",
+     "evidence": "docs/qa/iteration-3/nonnative/28-rank-top.jpg, docs/qa/iteration-3/nonnative/27-rank.jpg",
+     "suggested_fix": "Tick the item only when every topic has 3 or more papers, or when the user explicitly accepts. Reset the scroll to top on step change. Fix 'only 1 matches' to 'only 1 paper matches'."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Retrieval (step 4) and Summary table (step 5) filters",
+     "what_happened": "Combining two filters (Cross-sectional AND Review article) gives 'Showing 0 of 119: cross-sectional; review article. 119 papers are hidden' with no hint that the filters are combined with AND or which one to remove. On the retrieval page the Study type bars still show 119-paper totals after I filtered by article type, while the key below the chart updated. 'Review article 17' next to 'Systematic / scoping review 2' (later 10) feels contradictory without explanation.",
+     "expected": "An empty result should explain itself and offer a fix. Counts on one page should react consistently to the filter.",
+     "evidence": "docs/qa/iteration-3/nonnative/24-filtered.jpg, docs/qa/iteration-3/nonnative/20-filter-review.jpg",
+     "suggested_fix": "Show 'No papers match both. Filters work together (AND). Remove one: [Cross-sectional x] [Review article x]'. Make the bars show the filtered count or label them 'all papers'. Add one line explaining article type (journal's label) versus study type (design)."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Landing and first project page",
+     "what_happened": "The landing page says it 'finds real papers in PubMed and OpenAlex' and shows a smooth example, with no mention that this server is a demo with scripted AI and unrelated recorded papers. The demo note appears only after sign-up, as a small dismissible bar with 8-pt text. On the account menu the same state is called 'Mock mode', not 'Demo mode'. After 'Start my review', the next page is titled 'Check your idea, then start' and asks me to start again.",
+     "expected": "Say once, before sign-up, that this is a demo. Use one name for the mode. One 'start' for the idea.",
+     "evidence": "docs/qa/iteration-3/nonnative/01-landing.jpg, docs/qa/iteration-3/nonnative/04-after-start.jpg, docs/qa/iteration-3/nonnative/57-account.jpg",
+     "suggested_fix": "Add a one-line 'Demo version: sample papers only' chip under the landing CTA when demo mode is on. Use 'Demo mode' everywhere. Change step 1 headline to 'Check your idea' with the button 'Ask me questions'."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Retrieval (step 4) map and legend",
+     "what_happened": "The 3D chart is cut off at the right edge of the panel on a 768 px tablet, and 'Height has no meaning yet' is odd. Zero-count study types (Cohort, Cross-sectional, Qualitative) stay in the key with a dimmed state, and one of them looked brighter than the others, so I could not tell what dimmed means. The default colour is study type, but 'Colour by' and 'Show as 2D chart' appear only after much scrolling. Colour and shape legend itself is clear and consistent with the table later.",
+     "expected": "A chart that fits the width and a legend where a dimmed item has an explained meaning.",
+     "evidence": "docs/qa/iteration-3/nonnative/19-retrieval-chart.jpg, docs/qa/iteration-3/nonnative/19b-retrieval-bottom.jpg, docs/qa/iteration-3/nonnative/20b-filter-review-chart.jpg",
+     "suggested_fix": "Constrain the chart to the panel width. Add 'greyed = none in this set' to the key. Default to the 2D chart at widths under 900 px. Drop 'Height has no meaning yet' or say 'height is only for spacing'."
+    },
+    {
+     "severity": "minor",
+     "category": "a11y",
+     "page": "Session workspace at tablet width (768 px)",
+     "what_happened": "With the side panel open, the list rows are cut to the left 288 px: titles truncated ('how mobile app help diabtes patei'), and the middle of each row sits under the panel. Clicking a row by its visible name timed out (the panel covers its centre), and I had to press Escape to close the panel before I could open a query. Scrolling inside the panel only worked after clicking inside it; the page scroll moves the list behind it. Long panels hide the last content behind the sticky footer.",
+     "expected": "Tapping the visible part of a row should work, and the panel should scroll on its first touch or scroll.",
+     "evidence": "docs/qa/iteration-3/nonnative/16-searches.jpg, docs/qa/iteration-3/nonnative/17b-closed-panel.jpg, docs/qa/iteration-3/nonnative/33-appr-detail.jpg",
+     "suggested_fix": "At widths under 900 px show the panel full width (as a page) with a back arrow, or make the left rows icon-only. Add scroll padding equal to the footer height."
+    },
+    {
+     "severity": "polish",
+     "category": "clarity",
+     "page": "Canvas / overview",
+     "what_happened": "'Fit view' at tablet width shows 17 nodes as tiny blocks with unreadable text. The '\u2318 K' button has no label: I did not know it was a command search until I tapped it. 'What happens in this step 8 s' - the '8 s' looks like a timer for the step, not the video length. The 'Skip to content' link, when focused, covers the Athena logo and blocks a click on it.",
+     "expected": "Readable nodes at the fit zoom, a labelled search button, and a clear video-length label.",
+     "evidence": "docs/qa/iteration-3/nonnative/54-canvas-fit.jpg, docs/qa/iteration-3/nonnative/55-k.jpg, docs/qa/iteration-3/nonnative/56-projects.jpg",
+     "suggested_fix": "Set a minimum zoom of about 0.6 and use list view by default on tablets. Label the button 'Search / commands'. Change '8 s' to 'Video 8 s'. Position the skip link away from the logo."
+    },
+    {
+     "severity": "minor",
+     "category": "copy",
+     "page": "Export (final)",
+     "what_happened": "The report title and the project name are my raw idea with typos ('diabtes pateint ... there sugar level'), and the chosen question starts with '(mock)'. The default format is 'Markdown, a text file', which a pharmacy student may not know how to open. 'Open printable report' opens in a new tab but I could not see the result from the helper. The CSV has no article-type column, though article type is a filter on every page, and its study_type column says '(abstract-derived)'. The report says 'Quotes found: 122; not found: 12 (accepted by you 0, rejected by you 1, undecided 11)', which is honest.",
+     "expected": "A clean title I can show my supervisor, and a clear default format with a PDF option.",
+     "evidence": "docs/qa/iteration-3/nonnative/48-export.jpg, docs/qa/iteration-3/nonnative/50-larger-preview.jpg, docs/qa/iteration-3/nonnative/52-csv.jpg",
+     "suggested_fix": "Let me edit the report title at export (offer the chosen question as the title). Make 'Printable report (PDF)' the primary button and Markdown secondary. Add article_type, selected and score columns to the CSV."
+    },
+    {
+     "severity": "polish",
+     "category": "copy",
+     "page": "Sign up",
+     "what_happened": "The password rule says 'not containing the name part of your email', which I had to read three times. A weak password ('somchai123') was accepted without feedback on strength. The name field is first, but keyboard focus starts on Email.",
+     "expected": "A plain rule, such as 'At least 10 characters. Do not use your email name.' Focus on the first field.",
+     "evidence": "docs/qa/iteration-3/nonnative/02-signup.jpg",
+     "suggested_fix": "Rewrite the hint with an example and show a live check mark per rule. Autofocus the first field."
+    }
+   ],
+   "three_second_test": [
+    {
+     "page": "Landing /",
+     "understood_in_3s": true,
+     "note": "(a) a tool that turns a rough idea into a research question with real papers; (b) press Start a review; (c) make an account. The headline and the two buttons were clear. 'Rough idea' and 'back up' are slightly idiomatic, and the 3 stage cards below were more text than I read."
+    },
+    {
+     "page": "Sign up",
+     "understood_in_3s": true,
+     "note": "(a) make an account; (b) type email and password; (c) press Create account. Standard form. The password hint was the only thing I had to re-read."
+    },
+    {
+     "page": "New review (step 1)",
+     "understood_in_3s": true,
+     "note": "(a) write my research idea; (b) type in the big box or click an example; (c) press Start my review. Very clear. 'Supervisor' was fine for a grad student."
+    },
+    {
+     "page": "Project workspace after start (list view)",
+     "understood_in_3s": true,
+     "note": "(a) my project page with the idea; (b) press the blue Open step 1; (c) answer questions. The yellow 'Your turn' and the next-step bar helped. The demo banner was readable. 'K' button unclear."
+    },
+    {
+     "page": "Step 1 panel 'Check your idea, then start'",
+     "understood_in_3s": true,
+     "note": "(a) check my text; (b) read it; (c) press Sharpen my idea. Slight confusion: I had already pressed 'start'. '8 s' next to 'What happens in this step' unclear."
+    },
+    {
+     "page": "Scoping chat (step 2)",
+     "understood_in_3s": true,
+     "note": "(a) the app asks short questions; (b) type the answer; (c) press Enter or Send answer. The 'What we know so far' box was useful. The question count '5 of 5' later did not match."
+    },
+    {
+     "page": "Keep search topics (step 2)",
+     "understood_in_3s": true,
+     "note": "(a) choose which topics to keep; (b) press Keep or Delete per topic; (c) press the blue Keep 5 suggested topics. Then a second approval screen appeared, which I did not expect."
+    },
+    {
+     "page": "Search builder (step 3, topic view)",
+     "understood_in_3s": false,
+     "note": "(a) not sure: check a topic's synonyms and 'MeSH'; (b) not sure whether to edit or just continue; (c) press Write the searches. 'Controlled vocabulary (MeSH)' was unfamiliar. Editing sent me back a step."
+    },
+    {
+     "page": "Check the searches (step 3, query view)",
+     "understood_in_3s": true,
+     "note": "(a) look at the search words before they run; (b) read the groups; (c) press Run all 10 searches. The demo box told me the searches were a recorded example. 'AND group 2' and 'title/abstract' took more time."
+    },
+    {
+     "page": "Retrieval (step 4)",
+     "understood_in_3s": true,
+     "note": "(a) how many papers were found, duplicates removed; (b) read '215 results fetched, 96 same paper twice, 119 remain'; (c) press Summarise the papers. The big plain sentence is very good. The charts below were more than I needed at first."
+    },
+    {
+     "page": "Summary table (step 5)",
+     "understood_in_3s": true,
+     "note": "(a) a list of all papers with AI summaries I can correct; (b) tap a study type chip; (c) press Rank the papers. The 'Do these 3 things' box worked. At tablet size it is a long list of cards, not a table."
+    },
+    {
+     "page": "Ranking (step 6)",
+     "understood_in_3s": false,
+     "note": "(a) choose which papers go forward; (b) pick a topic button; (c) Appraise selected papers. The ticked checklist item and the amber 'few papers match' warning disagreed, so I was not sure whether to stop."
+    },
+    {
+     "page": "Appraisal (step 7)",
+     "understood_in_3s": false,
+     "note": "(a) check each paper's quality questions; (b) read paper 1; (c) press Next paper. Many words are hard (appraisal, quote check, 'you decide') and the panel is long. I needed more than 3 seconds."
+    },
+    {
+     "page": "Synthesis (step 8)",
+     "understood_in_3s": true,
+     "note": "(a) what is known, contested, unknown, each with quotes; (b) read the Known box; (c) press Suggest research questions. The three coloured boxes and quote chips are clear. The content did not match my topic."
+    },
+    {
+     "page": "Research question (step 9)",
+     "understood_in_3s": true,
+     "note": "(a) choose one of three questions; (b) compare gap, feasibility and weakness; (c) press Choose this question, then Finish and export. The locked 'Finish and export' with the note 'Choose one research question first' was very clear."
+    },
+    {
+     "page": "Export (final)",
+     "understood_in_3s": true,
+     "note": "(a) download my review; (b) pick Report, Spreadsheet or Reference list; (c) press Download. Clear. 'Markdown' is not a format I know."
+    },
+    {
+     "page": "My projects",
+     "understood_in_3s": true,
+     "note": "(a) the list of my reviews; (b) see the progress strip; (c) open it or Start a new review. Clear."
+    }
+   ],
+   "categories_and_colours": "Found and understood without help. Study type has colour plus a shape plus a text label, and the same pairing is used everywhere I looked: blue circle for Trial, orange square for Cohort / case-control, green triangle for Cross-sectional, amber diamond for Qualitative / mixed methods, pink star for Systematic / scoping review, green cross for Other design, grey ring for Not reported. The shapes in the retrieval chart legend matched the shapes next to each paper in the summary table. Topics also get colour plus shape in the topic map, with a legend saying 'Each topic keeps this colour and shape in every view'.\n\nFiltering by study type: chips in the table, with counts and a check mark when selected. This worked, and the page said 'Showing 13 of 119: cross-sectional. 106 papers are hidden by your filters (still in the review)' with a visible Reset filters. Filtering by article type (Journal article 86, Review article 17, Preprint 6, Editorial / letter / comment 10) also worked on both retrieval and the table. Article-type bars are plain grey, so colour never means two things.\n\nProblems: (1) two filters from different groups are combined with AND, which gave 'Showing 0 of 119' with no explanation. (2) After an article-type filter on retrieval, the Study type bars still showed all-paper totals while the chart key changed. (3) Dimmed zero-count categories were not explained, and one looked brighter than the others. (4) Article type (journal label) versus study type (design) is never explained in one sentence, and 'Review article 17' versus 'Systematic / scoping review 2' looked contradictory. (5) The study-type counts changed a lot between step 4 (database labels, 102 not reported) and step 5 (AI reading, 17 not reported) without a note on the chips. (6) The 3D chart was cut off at tablet width. Totals did add up: 86+17+6+10 = 119 and 6+2+9+102 = 119, 90+125 = 215 fetched, and 215 - 96 duplicates = 119.",
+   "validity_assessment": "The workflow is traceable and mostly honest about its limits, but in this demo it cannot yet prove it makes a valid review. Strengths: the demo banner and '(mock)' labels are clear. Every paper has real identifiers (DOI, PMID, PMCID, OpenAlex ID) and the abstract as returned by the database. Counts reconcile (215 fetched, 96 duplicates, 119 unique). Each synthesis statement links to quote chips that open the exact quote with 'Open paper', and the checker visibly flags a deliberately altered quote ('Blended mobile health which clearly proves the intervention works everywhere') as 'not found, you decide' with Accept anyway / Reject. 'Undecided' quotes are left out and the report counts them ('found 122; not found 12; accepted 0, rejected 1, undecided 11'). The report says it is 'a scoping aid, not an exhaustive systematic search' with a single reviewer. The novelty check says 'Finding no similar study does not prove a question is new' and, in demo mode, 'say nothing about whether your question is new'. No 'novel' claim was made. Warnings fire when topics have too few matching papers (Diabetes patient had only 1) and require 'Appraise anyway'.\n\nWeaknesses: (1) The green 'found word for word' tick sits on quotes that are not relevant to the checklist question, and statements such as 'Known' are about review methods, so the green looks like validation of content. A reader with limited English may read it as 'verified'. (2) AI labels can be wrong without a visible warning (a narrative review labelled cross-sectional, a protocol's background shown as a key finding). (3) Selected papers were off-topic (precision medicine, e-mental health, HIV) and the pipeline still went on to a 'gap' and three candidate questions; the only guard was the per-topic warning and my confirmation. (4) Match counts like 'PubMed 7,629' are recorded numbers, labelled as samples only on the query page. (5) The chosen question keeps '(mock)' and the report title keeps my typos. Nothing looked fabricated: invented content is labelled '(mock)' and references come with identifiers. I could not judge real-mode quality in this run.",
+   "would_have_quit_at": "I did not quit. The place I was most likely to give up as a real second-language user was Appraisal (step 7): a long panel with 13 papers, 12 'quotes to decide', words like appraisal and 'you decide', and tick marks that do not mean what I expect. The step before, Search builder, was where I felt most lost (MeSH, synonyms, and an edit that sent me back to step 2).",
+   "activity": "Created one account (name Somchai, somchai.pharm.test@example.com) and one project, prj_9e7a8a94150c4a15. I typed the idea exactly as given and answered 4 scoping questions. I kept 5 suggested topics and edited the synonyms of 'Mobile app' (this reopened step 2, so I re-approved topics). I wrote and ran 10 searches (215 results, 96 duplicates, 119 unique papers). I ran the AI summaries (119 rows, 13 of 13 batches). I tried study-type and article-type filters, opened one paper and ranked the papers (13 selected). I accepted the 'few papers match' dialog with 'Appraise anyway' (13 papers, 5 with full text). I rejected 1 altered quote, left 11 undecided and chose 'Summarise without them' (20 statements, 3 conflicts). I generated 3 research questions and chose candidate 2 (PICO). I opened the export page, the larger preview (about 800 lines), the CSV preview and clicked 'Download the report (Markdown)'. I also opened the canvas, command palette, account menu and My projects. About 100 helper commands, 58 screenshots. The console showed no errors and no failed requests at any point. The only failed actions were 5 click timeouts at the 768 px layout where the side panel covered the list rows (these worked once the panel was closed). The browser was stopped at the end.",
+   "narrative": "I opened Athena on a tablet and understood the landing page quickly: type an idea, get a research question with real papers. I signed up and typed my sentence with its mistakes. The app did not fix them, but its 'What we know so far' box quietly turned 'diabtes pateint' into 'Diabetes patient', which I liked. The four short questions were easy, though it asked 'Where?' after I had already written Thailand, and it later said '5 of 5 questions' when I had answered four.\n\nStep 3 confused me. I did not know MeSH, I added synonyms, and the app sent me back to step 2 to approve topics again. That felt like a wrong turn. After that the searches, the 119-paper count and the colour-and-shape legend all made sense. Filtering by study type and article type worked, but two filters together gave 'Showing 0 of 119' with no help.\n\nThe appraisal step was the hardest. Many green 'found word for word' ticks sat next to quotes that did not answer the question, and I only understood the warning after re-reading it. I liked that one altered quote was flagged 'not found, you decide', and that the app let me reject it. The synthesis was about review methods and telemedicine, not diabetes, but the demo banner and '(mock)' labels told me why, so I did not feel cheated. The three research questions were clear, and 'Finish and export' stayed locked until I chose one. The report was honest: it listed found, rejected and undecided quotes and said it is not a systematic search. It still used my typos as its title, and 'Markdown' meant little to me. I reached the report and the CSV preview, with no console errors."
+  },
+  {
+   "persona": "keyboard",
+   "completed": true,
+   "stage_reached": 9,
+   "findings": [
+    {
+     "severity": "major",
+     "category": "bug",
+     "page": "Step 2 Scoping conversation",
+     "what_happened": "The scoping chat ended after four answers (who, where, outcome, years). Focus jumped to the heading 'Turn your answers into search topics', so my fifth answer (study designs) was typed into nothing and Enter did nothing. No message said the answer was not saved. The summary still says 'Which kinds of studies: not answered yet' while the counter says '5 of 5 questions' and '5 of 6 answered'. 'South Asia' from my 'where' answer never became a search topic, only 'Sub-Saharan Africa'.",
+     "expected": "Either ask the fifth question or say plainly that the chat is over. Focus should land somewhere that accepts typing, or typed text should never vanish silently. Counts should agree with what is shown, and every place in my answer should appear in the topics (or the app should say which ones were left out).",
+     "evidence": "docs/qa/iteration-3/keyboard/06c-q4.jpg, docs/qa/iteration-3/keyboard/07-topics.jpg",
+     "suggested_fix": "When the last question is answered, announce 'Questions finished' and move focus to a clearly named next control. Keep the typed text if focus is not in a field. Make the counter reflect answered questions only, and list dropped places or terms with an option to add them."
+    },
+    {
+     "severity": "major",
+     "category": "clarity",
+     "page": "Step 3 Search builder",
+     "what_happened": "After 'Write the searches' the open panel still said 'Viewing step 2 of 9 \u00b7 Scoping \u00b7 Edit this search topic' with the topic-name fields, but its primary button read 'Run all 10 searches'. I could not see the searches that had been written. Only after pressing Escape did the canvas offer 'Open step 3: Check the searches before they run'. I almost ran 10 searches I had never seen.",
+     "expected": "The panel should switch to the written searches (the plain-language concept blocks I saw later), or offer 'Go to step 3', as docs/ux-intent.md says a non-current panel should. The button should match the heading.",
+     "evidence": "docs/qa/iteration-3/keyboard/11-searches.jpg, docs/qa/iteration-3/keyboard/11b-after-esc.jpg, docs/qa/iteration-3/keyboard/12-step3-panel.jpg",
+     "suggested_fix": "After 'Write the searches' succeeds, navigate the panel to the query node and move focus to its heading. Never show a step-3 primary action on a step-2 panel."
+    },
+    {
+     "severity": "major",
+     "category": "a11y",
+     "page": "All step panels at 200% zoom",
+     "what_happened": "At 200% zoom the step panel fills the whole window, and the sticky title block plus the sticky footer leave a reading window of roughly 150 to 350 px. The focused answer box in the scoping chat is half hidden behind the footer. The 'Start my review' button is cut off at the bottom on the first page. Opening 'How this works' expands content that is out of sight below the fold, so nothing shows that anything happened.",
+     "expected": "A focused control should never be covered by sticky bars (WCAG 2.4.11). Expanded content should scroll into view. A fixed footer should not eat a third of a zoomed screen.",
+     "evidence": "docs/qa/iteration-3/keyboard/06-questions.jpg, docs/qa/iteration-3/keyboard/03c-startfocus.jpg, docs/qa/iteration-3/keyboard/05b-howthisworks.jpg",
+     "suggested_fix": "Add scroll-padding equal to the sticky footer and header height, call scrollIntoView on the focused element and on newly expanded sections, and make the footer non-sticky or compact when the viewport height is under about 500 CSS px."
+    },
+    {
+     "severity": "major",
+     "category": "a11y",
+     "page": "Appraisal, Ranking, Research question (long lists)",
+     "what_happened": "After keyboard actions, focus is moved inconsistently. Pressing Reject on a quote sent focus to the panel heading at the top of a long paper, so I lost my place and had to Tab through about 30 stops to find the next quote (4 left to decide). Choosing candidate 1 also sent focus to the heading. Pressing 'Rank the papers' left the page scrolled to the bottom of the list with focus on 'Appraise selected papers', not on the new step's heading. Home and PageDown did nothing right after that.",
+     "expected": "After a decision, focus stays on, or moves to the next undecided item and the change is announced. After a step changes, focus and scroll go to the new heading.",
+     "evidence": "docs/qa/iteration-3/keyboard/26b-after-reject.jpg, docs/qa/iteration-3/keyboard/29-chosen.jpg, docs/qa/iteration-3/keyboard/19-ranking.jpg",
+     "suggested_fix": "Move focus to the next 'Accept anyway/Reject' pair (or to the 'Decided' status of the same card) after a decision. Reset scroll to top and focus the h2 on every step change. Add an aria-live message for each decision."
+    },
+    {
+     "severity": "major",
+     "category": "clarity",
+     "page": "Step 7 Appraisal",
+     "what_happened": "The checklist says 'Decide every quote the check could not find (0 decided, 5 left)', but the quotes I saw first in the quality checklist all carry a green 'found word for word'. The five undecided quotes are far down under 'Key findings'. Pressing 'Summarise the evidence' warns '5 quotes not decided yet', and I could not tell where they were. Tab order also puts 'Next paper' before the paper content, and the filter checkbox has no name.",
+     "expected": "The checklist item should link me straight to the first undecided quote. 'Show only quotes I need to decide' should be easy to find and clearly named.",
+     "evidence": "docs/qa/iteration-3/keyboard/21-appraise-run.jpg, docs/qa/iteration-3/keyboard/22b-quotes.jpg, docs/qa/iteration-3/keyboard/24-synthesis.jpg",
+     "suggested_fix": "Make '5 left' a button that jumps to and focuses the first undecided quote. Label the checkbox. Put 'Next paper' after the paper in DOM order."
+    },
+    {
+     "severity": "minor",
+     "category": "a11y",
+     "page": "Sign up, step 3 topic fields, step 7",
+     "what_happened": "The focus helper reports an empty accessible name for the topic-name and synonym inputs and for the 'Show only quotes I need to decide' checkbox. The idea textarea is named by its placeholder, not by its visible label 'Your research idea'. On sign-up focus started on Email, not Your name.",
+     "expected": "Every field has a programmatic label that matches the visible one.",
+     "evidence": "docs/qa/iteration-3/keyboard/10-builder.jpg, docs/qa/iteration-3/keyboard/05-step1.jpg",
+     "suggested_fix": "Associate each visible label with its input (for/id or aria-labelledby). Do not rely on placeholders."
+    },
+    {
+     "severity": "minor",
+     "category": "a11y",
+     "page": "Step panels over the canvas",
+     "what_happened": "The panel is not modal. From the panel heading, Shift+Tab goes to the hidden canvas controls (Zoom out, Fit view, Minimap) behind it, and Tab past the last button leaves the panel for the page behind. The panel hides those controls visually, so I was sometimes tabbing through controls I could not see. By contrast, the confirm dialogs (fewer than 3 papers, undecided quotes) trap focus and restore it on Escape correctly.",
+     "expected": "A panel that covers the screen should contain focus (or the page behind should be inert), like the dialogs do.",
+     "evidence": "docs/qa/iteration-3/keyboard/07-topics.jpg, docs/qa/iteration-3/keyboard/20-appraisal.jpg",
+     "suggested_fix": "Set inert or aria-hidden on the canvas and header while a full-width panel is open."
+    },
+    {
+     "severity": "minor",
+     "category": "a11y",
+     "page": "Step 4 Retrieval, 3D chart",
+     "what_happened": "The 3D scatter of papers cannot be reached or read by keyboard. Its dots have no tab stops. The legend buttons filter it well and a status line says 'Showing 5 of 94 papers', but I cannot find out which papers the dots are. Unselected legend entries are dimmed grey on dark, which is low contrast at 200% zoom.",
+     "expected": "Every paper in the chart can be reached by keyboard or the chart has a text alternative (the table in step 5 partly serves this).",
+     "evidence": "docs/qa/iteration-3/keyboard/14b-chart.jpg, docs/qa/iteration-3/keyboard/14-filter-trial.jpg",
+     "suggested_fix": "Link to the paper table from the chart caption ('See these papers as a list') and raise the contrast of dimmed legend entries."
+    },
+    {
+     "severity": "minor",
+     "category": "a11y",
+     "page": "Table, paper details drawer",
+     "what_happened": "Within the paper details drawer, PageDown from the Close button did not scroll the drawer, so I could not read the abstract section by keyboard except by tabbing through its links. The drawer overlay leaves the table rows behind it in the Tab order. Focus did return correctly to the row on Escape.",
+     "expected": "The drawer body scrolls with the keyboard, and the rows behind are not reachable while it is open.",
+     "evidence": "docs/qa/iteration-3/keyboard/18b-paper-abstract.jpg",
+     "suggested_fix": "Give the scrollable region tabindex 0 and an accessible name, and set the table inert while the drawer is open."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Progress strip (all steps)",
+     "what_happened": "The 9-segment strip is only coloured bars: green for done, white for current, dark for later. At 200% zoom I see no numbers, ticks or labels, so I rely on colour alone. docs/ux-intent.md says the strip should be numbered with done shown as a tick and never colour alone.",
+     "expected": "Numbers or ticks on the segments (and for 'out of date').",
+     "evidence": "docs/qa/iteration-3/keyboard/10-builder.jpg, docs/qa/iteration-3/keyboard/11b-after-esc.jpg",
+     "suggested_fix": "Add step numbers and a check icon in each segment, with an accessible name like 'Step 3, done'."
+    },
+    {
+     "severity": "minor",
+     "category": "validity",
+     "page": "Steps 5 to 9 (demo mode)",
+     "what_happened": "All 94 papers are about telemedicine in Southeast Asia, none about postpartum depression. The app is honest about this in many places (the banner, the step 3 notice, the step 6 'matches no topic', the step 8 'This review can say nothing about them', the novelty-check disclaimer). But the headlines still say 'Check which papers go forward', and the chosen question text begins '(mock)', which would be carried into the report. The '(mock)' tag is jargon, and the green 'found word for word' badge stays next to '(mock)' quotes. The banner can be dismissed with one key press.",
+     "expected": "A demo-mode user is never left thinking the sample papers are real results. A '(mock)' prefix should not become part of the chosen question.",
+     "evidence": "docs/qa/iteration-3/keyboard/16-table.jpg, docs/qa/iteration-3/keyboard/19e.jpg, docs/qa/iteration-3/keyboard/30-export.jpg",
+     "suggested_fix": "Keep a small permanent 'Demo data' chip in the header after the banner is dismissed, replace '(mock)' with 'Example:' in the UI, and strip it from the editable question."
+    },
+    {
+     "severity": "minor",
+     "category": "validity",
+     "page": "Step 7 Appraisal",
+     "what_happened": "A quote can be 'found word for word' while the AI's answer is 'Unclear' and the quote is just the paper's title, so a green tick sits beside weak evidence. The caveat 'Found means the words are in the paper, not that they prove the answer' is only in a collapsed note.",
+     "expected": "The green tick should not look like approval of the answer.",
+     "evidence": "docs/qa/iteration-3/keyboard/22-quotes.jpg",
+     "suggested_fix": "Word the badge 'quote is in the paper' and show the caveat inline under the first quote."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Project overview and step 1",
+     "what_happened": "After 'Start my review' I land on a project page that only repeats my idea and offers 'Open step 1'. Opening it shows 'Check your idea, then start' with another button 'Sharpen my idea'. That is two extra stops for the same sentence I just typed. 'What happens in this step' shows '8 s' with no explanation, and 'Hide this note' has no stated subject.",
+     "expected": "One typed idea leads straight to the first question.",
+     "evidence": "docs/qa/iteration-3/keyboard/04-questions.jpg, docs/qa/iteration-3/keyboard/05-step1.jpg",
+     "suggested_fix": "Start the scoping chat directly after step 1. Label the timer 'Video, 8 seconds'."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Steps 2 and 3 (topics, builder)",
+     "what_happened": "Jargon without explanation: '0 MeSH' on every topic card, 'Controlled vocabulary (MeSH)' with the value 'none', PICo and PECO on candidate questions. A synonym 'whether peer-led groups' (mock) is nonsense.",
+     "expected": "A social-work lecturer should understand each term. MeSH should be explained once where it is first used.",
+     "evidence": "docs/qa/iteration-3/keyboard/09-after-keep.jpg, docs/qa/iteration-3/keyboard/10-builder.jpg",
+     "suggested_fix": "Use an inline 'What is MeSH?' help text on first use, and write 'no official keywords found' instead of 'none'."
+    },
+    {
+     "severity": "minor",
+     "category": "copy",
+     "page": "Step 9 Export",
+     "what_happened": "I pressed 'Download the report (Markdown)' and nothing on screen confirmed it. The three format cards are radio buttons whose descriptions mix grey and white text. 'Larger preview' only navigates to the same panel content on a new page. A label reads 'Found in openalex' in lowercase.",
+     "expected": "A visible confirmation such as 'Report downloaded' that is also announced to a screen reader. Consistent label casing.",
+     "evidence": "docs/qa/iteration-3/keyboard/32-download.jpg, docs/qa/iteration-3/keyboard/31b-preview.jpg",
+     "suggested_fix": "Show an aria-live toast after download. Capitalise source names (OpenAlex, PubMed)."
+    }
+   ],
+   "three_second_test": [
+    {
+     "page": "Landing",
+     "understood_in_3s": true,
+     "note": "A guided literature review that turns a rough idea into a research question with real papers. I would press 'Start a review', then sign up. Focus ring is clear, and the skip link works."
+    },
+    {
+     "page": "Sign up",
+     "understood_in_3s": true,
+     "note": "Create an account. First I would type my email, then a password, then press Create account. The password rule is clear. Focus started on Email, skipping the optional name."
+    },
+    {
+     "page": "New review (step 1)",
+     "understood_in_3s": true,
+     "note": "Describe my idea in a sentence. I would type it, then press 'Start my review'. At 200% the Start button is partly cut off and three example chips sit in the Tab order before it."
+    },
+    {
+     "page": "Project overview (list)",
+     "understood_in_3s": true,
+     "note": "The page shows the project at step 1 with one big button 'Open step 1'. It repeats the idea I just typed, which felt like an extra stop."
+    },
+    {
+     "page": "Step 1 panel (check your idea)",
+     "understood_in_3s": true,
+     "note": "Check my saved idea then press 'Sharpen my idea'. The panel covers the screen at 200%, and the focus moved to the heading, which is good."
+    },
+    {
+     "page": "Step 2 scoping chat",
+     "understood_in_3s": true,
+     "note": "Answer short questions in my own words and press Enter. Easy, but the answer box is half hidden by the footer and a '(mock)' prefix in the question is jargon."
+    },
+    {
+     "page": "Step 2 search topics",
+     "understood_in_3s": true,
+     "note": "Keep or delete suggested topics, then press 'Keep 5 suggested topics', then 'Use these topics'. The keyboard flow worked, but 'South Asia' was missing."
+    },
+    {
+     "page": "Step 3 after 'Write the searches'",
+     "understood_in_3s": false,
+     "note": "The panel said 'Edit this search topic / Viewing step 2' but offered 'Run all 10 searches'. I did not know what the searches were. I only found them by closing the panel."
+    },
+    {
+     "page": "Step 3 Check the searches",
+     "understood_in_3s": true,
+     "note": "Read the PubMed and OpenAlex searches in plain words, then press 'Run all 10 searches'. The demo-mode notice here is clear and honest."
+    },
+    {
+     "page": "Step 4 Retrieval",
+     "understood_in_3s": true,
+     "note": "See how many papers were found and how many duplicates, then press 'Summarise the papers'. The counts and the legend are clear, and every filter button works by keyboard."
+    },
+    {
+     "page": "Step 5 Summary table (full page)",
+     "understood_in_3s": true,
+     "note": "Skim the papers and fix wrong cells, then press 'Rank the papers'. The to-do list helps. Rows are buttons, so I can open a paper by keyboard."
+    },
+    {
+     "page": "Step 6 Ranking and warning dialog",
+     "understood_in_3s": true,
+     "note": "Check which papers go forward, then press 'Appraise selected papers'. The dialog warning '4 topics have fewer than 3 papers' is very clear, and focus is trapped correctly."
+    },
+    {
+     "page": "Step 7 Appraisal",
+     "understood_in_3s": false,
+     "note": "I could not tell which quotes needed my decision: the counter said 5 left but everything I saw was green 'found'. The undecided ones were far down the page."
+    },
+    {
+     "page": "Step 8 Synthesis",
+     "understood_in_3s": true,
+     "note": "Read what is known, contested and unknown, then press 'Suggest research questions'. The notice 'This review can say nothing about them' is excellent."
+    },
+    {
+     "page": "Step 9 Research question",
+     "understood_in_3s": true,
+     "note": "Compare three candidates and press 'Choose this question', then 'Finish and export'. 'Finish and export' is locked until I choose, with a reason shown."
+    },
+    {
+     "page": "Export",
+     "understood_in_3s": true,
+     "note": "The review is ready: check the question, pick Report, CSV or BibTeX, and press Download. The preview begins with 'Demo: ... not a real review'. After downloading nothing confirmed it."
+    }
+   ],
+   "categories_and_colours": "Study type has a colour and a shape for each category. The legend and counts match in the retrieval step, the table filter chips and the 3D chart: Trial is a blue circle, Cohort/case-control an orange square, Cross-sectional a green triangle, Qualitative/mixed methods an amber diamond, Systematic/scoping review a pink star, Other design a green cross, and Not reported a grey ring. I understood these without being told, because every shape sits next to a text label and a count, and the 'Colour by' menu says which dimension the colours show. Article type (Journal article 72, Review article 11, Preprint 4, Editorial/letter/comment 7) is plain grey, so colour never means two things on one screen. By keyboard I could find and filter papers by study type and by article type in step 4, step 5 and step 6. Pressing Enter on a chip showed an explicit message ('Showing 11 of 94: review article. 83 papers are hidden by your filters') and a 'Reset filters' button. Counts add up: study type 5+1+7+81 = 94 and article type 72+11+4+7 = 94. At step 4 the study-type bars show 81 'Not reported', but after AI summarising in step 5 only 13 are 'Not reported' and 39 'Other design', so the numbers change between steps (the page says so). Two different taxonomies can confuse: 'Review article' (11) versus 'Systematic / scoping review' (8) are different counts and one review-article paper is labelled 'Other design'. In the 3D chart, the dimmed legend entries are low contrast. The chart's dots cannot be reached by keyboard.",
+   "validity_assessment": "Within demo mode the workflow is mostly traceable and honest. Every paper has DOI, PMID and OpenAlex identifiers and an open-access status. AI-drafted cells are labelled 'AI \u00b7 abstract'. The app deliberately plants an altered quote ('clearly proves the intervention works everywhere') to show the verification: it is flagged 'not found, you decide' with the closest passage and a 54% word match, and only accepted quotes are used. Undecided quotes are excluded from the synthesis, and the exported report states 'Quotes found: 47; not found: 5 (accepted by you 0, rejected by you 1, undecided 4)'. The app never overclaims novelty: 'Finding no similar study does not prove a question is new', and the demo novelty check says it says nothing about novelty. The step 6 and step 8 warnings say my topics have no evidence ('This review can say nothing about them'). Weak points: (1) all papers are about telemedicine in Southeast Asia, so the chosen question '(mock) How do mothers with postpartum depression experience peer support groups...' is not backed by any real paper on the topic, and the '(mock)' prefix ends up in the question and report. The mock supporting quote comes from a smart-home review. (2) The 'found word for word' green tick appears on quotes that do not support the AI's answer, such as the title quoted for 'Unclear'. (3) 'South Asia' vanished from the topics and the study-type answer was lost without notice, so the search does not reflect what I said. (4) The report says it is a scoping aid with a single reviewer and no second check, which is honest. I could not test real mode, so I cannot say whether a real run would produce valid questions.",
+   "would_have_quit_at": "I reached the exported report and would not have quit. The closest points were (1) Step 3, where the panel still showed 'Edit this search topic' next to a 'Run all 10 searches' button and I could not see the searches, and (2) Step 7, where I could not find the five quotes needing a decision and each Reject sent focus back to the top of a long page. A real keyboard user with a tremor would likely give up around the quote decisions (5 decisions each costing about 30 Tab presses) or accept 'Summarise without them', as I did.",
+   "activity": "Created one account (name Ruth Okafor, email ruth.keyboard.qa3@example.com) and one project (prj_fd4fbd0924b24ade) titled 'Peer support groups for postpartum depression in low-income countries'. Ran all 9 steps in demo mode by keyboard: answered 4 scoping questions (the 5th answer was lost), kept 5 topics, wrote and ran 10 searches (94 papers after removing 12 duplicates), summarised 94 papers (11 of 11 batches), ranked and appraised 5 papers with the 'fewer than 3 papers' warning dismissed with 'Appraise anyway', rejected 1 of the 5 'not found' quotes and chose 'Summarise without them' for the other 4, synthesised the evidence, chose candidate 1 of 3 research questions, finished and exported, viewed the report preview (first 200 of 420 lines) and pressed 'Download the report (Markdown)'. No console errors or failed requests at any step. About 160 helper commands used. Screenshots 01 to 32 are in docs/qa/iteration-3/keyboard/.",
+   "narrative": "I'm Ruth, keyboard only, at 200% zoom. The landing page was clear and the focus ring was thick and easy to see, with a skip link first. Sign-up went fine by Tab and typing. I only noticed on step 1 that the first Tab landed on Email, not my name.\n\nThe nine-step panels were readable, but at 200% each one fills the screen and the sticky header and footer leave a thin reading window. The answer box in the scoping chat was half hidden, and expanded sections opened below the fold. Focus usually moved to the panel heading, which helped, and the 'Skip to the next action' button was a nice shortcut that I only found late.\n\nI got lost twice. In the scoping chat the questions stopped after four answers, and my fifth answer was typed into nothing. Then at step 3 the panel still said 'Edit this search topic' while the button said 'Run all 10 searches', and I had to press Escape to find the real step.\n\nRetrieval was my favourite part. The counts, shapes and colours were understandable, and every filter chip worked by Enter with a clear 'Showing X of Y' message. Ranking and the quote check were honest to a fault: the warning dialog trapped focus properly, and a deliberately altered quote was flagged 'not found, you decide'. But every decision threw focus to the top of a long page, so five decisions would be very tiring.\n\nI chose candidate 1, finished, previewed the report and pressed Download. Nothing confirmed the download. All papers were about telemedicine in Southeast Asia, not my topic. The app says so in several places, but the '(mock)' prefix now sits inside my chosen question."
+  },
+  {
+   "persona": "chaos",
+   "completed": true,
+   "stage_reached": 9,
+   "would_have_quit_at": "Not blocked at any point. A real user who wants papers on teenagers and short-form video would most likely stop at step 6 (Ranking), where the page says \"Few papers match 2 topics: Attention span (no papers match); Teenagers (no papers match)\" and the pop-up repeats it before \"Appraise anyway\". They would stop again at step 8 (\"No evidence for 2 topics... This review can say nothing about them\"). Both stops are honest, because demo mode only holds recorded telemedicine papers. The first real confusion was step 3: after \"Write the searches\" the side panel still shows the topic editor, and clicking a search card on the canvas does not open that search.",
+   "activity": "Created account leo.chaos@example.com (name Leo) after a rejected 6-character password and a rejected password containing the email name. Created exactly one project, prj_3a221bb762254ba7, despite double-clicking \"Start my review\". Walked all 9 steps: 2 scoping answers, \"Skip the rest\", 3 topics kept plus 1 restored via Undo, synonyms edited (this reopened step 2 and I re-approved it), 8 searches written and run, 107 unique papers (135 fetched, 28 duplicates merged), AI summaries, 7 papers selected, 7 appraisals with 1 quote accepted and 6 rejected, synthesis of 11 statements and 2 conflicts, 3 candidate questions, candidate 1 chosen and reworded, report previewed and \"Download Markdown\" clicked (the page confirmed \"Download started\"). Disruptions: double-clicked or double-submitted Start, Send answer, Suggest topics, Write searches, Appraise and Summarise; reloaded with an unsent answer and mid-run; pressed Back mid-job twice (back went to My projects, nothing lost); abandoned and resumed from My projects three times; went back after export, deselected a paper in step 6, and confirmed \"Edit and mark later steps stale\" (3 steps out of date); logged out, probed URLs while logged out, a wrong password, then logged in again and landed on the same project. Foreign project URL showed \"This review could not be opened\". Console: only 400 (rejected sign-ups) and 404 (foreign ID, made-up ID, /admin probing). No uncaught errors or failed requests during normal use. About 130 helper commands used.",
+   "categories_and_colours": "Found without help: yes. Step 4 shows \"Article type (from the databases)\" bars (Journal article 81, Review 11, Preprint 5, Editorial 9, Other 1) and a separate \"Study type (only where the database labels it)\" list. Step 5 and 6 have two rows of filter chips, \"Study type\" and \"Article type\", each with counts. Clicking chips filtered correctly (\"Showing 15 of 107: cross-sectional; journal article. 92 papers are hidden by your filters (still in the review)\" with a visible Reset filters), and the \"Colour by\" select, legend and 2D/3D toggle exist. I understood the encoding without being told: each study type has a colour plus a shape plus a text label (blue circle Trial, orange square Cohort, green triangle Cross-sectional, amber diamond Qualitative, pink star Systematic/scoping review, green plus Other design, grey ring Not reported). Article type chips are plain ink, which keeps colours from meaning two things. Counts reconcile: 4+2+8+93 = 107 and 81+11+5+9+1 = 107. Misleading or confusing points: (1) study-type counts change between step 4 (Trial 4, Not reported 93) and step 5 (Trial 6, Not reported 18) after the AI reads abstracts; step 4 explains this, but the numbers still jump. (2) Green (Other design cross, Cross-sectional triangle) and amber (Qualitative diamond) are also the app's \"done/success\" and \"your turn/out of date/warning\" colours on the same screens, which breaks the one-colour-one-meaning rule. (3) \"Review article 11\" (article type) versus \"Systematic / scoping review 7\" (study type) reads as two different counts of reviews until you read the headings. (4) The 3D point cloud says \"Height has no meaning yet\", has little axis labelling and clips points at the right edge; the 2D chart is better. (5) Empty categories are dimmed in the legend but still listed, which is a nice touch but easy to miss. Other \"Colour by\" options (topic, source, evidence status, score) were not tested.",
+   "validity_assessment": "Mostly grounded and unusually honest, with a few traps. Strengths: the demo banner is dismissible and clear (scripted AI, recorded telemedicine papers, \"(mock)\" text); it is repeated in the search panel, the table and the report header (\"Demo: scripted AI and recorded sample papers; not a real review\"). Every paper keeps an identifier and a real abstract that expands inline beside the AI row; each ranking has a \"Why this score\" breakdown with formulas; each quality-check answer carries a quote, and the quote is checked word for word. The demo deliberately altered quotes (\"...which clearly proves the intervention works everywhere\"), flagged them \"not found, you decide\", showed the closest real passage (\"50% of words match\") and left rejected or undecided quotes out of the synthesis. Synthesis chips open the exact quote with \"found word for word\", \"Open paper\" and \"Pin to canvas\", and the Contested statement tells the user to read both quotes before treating it as a real disagreement. Candidate novelty is not overstated: \"Finding no similar study does not prove a question is new\", and in demo mode \"these are recorded sample records, so they say nothing about whether your question is new\". The report says it is a scoping aid, not an exhaustive search, that one reviewer (you) selected the papers, and its numbers reconcile (15,309 summed hits, 135 collected, 107 unique, 76 quotes found, 7 not found with 1 accepted and 6 rejected). Warnings stop a user from drifting on: \"Few papers match 2 topics\" in step 6, the \"2 topics have fewer than 3 papers\" pop-up before appraising, and \"No evidence for 2 topics... This review can say nothing about them\" in step 8. Editing an approved step marks later steps out of date instead of silently rewriting them. Weaknesses: (a) the landing page promises \"real papers... every quote checked\" without saying this server is demo, so the demo is only disclosed after starting. (b) Counts conflict: Attention span shows PubMed 2,207 / OpenAlex 1,630 matches in step 4 but \"0 of 0\" papers in step 6. (c) A paper with \"0 topic terms appear in title/abstract\" still scores 58/100 and ranks #4. (d) Candidate 3 (\"What helps or hinders short-form video apps among teenagers...\") is a template sentence that does not make sense, and an edited question keeps the Gap, Feasibility and Weakness text written for the original. (e) A raw citation blob appears as a \"key finding\". Nothing looked invented, but a user who ignores the banners could believe a telemedicine review is about their topic; real-mode validity cannot be judged here.",
+   "narrative": "I landed on the home page and understood it in a few seconds: turn a rough idea into a research question using real papers. I signed up, and a weak password was rejected with a clear message. I typed my topic, double-clicked Start, and still got one project, which pleased me. The canvas map is pretty, though \"Sharpen my idea\" and \"Open step 1\" felt like twins. I answered one scoping question, reloaded (my draft vanished but my place stayed), skipped the rest, and mashed \"Suggest search topics\" with no harm done. Back dropped me on My projects and I resumed fine. I deleted the wrong topic by accident; Undo saved me, but it came back labelled \"added by you\". The first real hesitation was step 3: after \"Write the searches\" the panel still said \"Edit this search topic / Viewing step 2\", and clicking a search card on the canvas did nothing. I only found the actual searches by switching to List. Retrieval was quick, and the type bars, the legend and the filters made sense without help. Ranking and appraisal were dense but trustworthy: the score breakdown, and the fake quote shown beside the nearest real passage, impressed me. Appraisal panel space is tight; I had to hunt for the content. I chose a question, reworded it, and downloaded the report. Then I went back and changed step 6; the \"Edit an earlier step?\" dialog and the amber \"3 out of date\" markers were excellent. The foreign project URL just said it could not be opened, and logged out it asked me to log in. I never felt stuck, only occasionally unsure where the real content was.",
+   "three_second_test": [
+    {
+     "page": "Landing /",
+     "understood_in_3s": true,
+     "note": "(a) Tool that turns a rough idea into a research question backed by real papers. (b) Click Start a review. (c) Sign up. The 3 stage cards and 9 steps were clear. Nothing says this server is demo, and the animated canvas demo clips its left column."
+    },
+    {
+     "page": "Sign up /signup",
+     "understood_in_3s": true,
+     "note": "(a) Create an account. (b) Fill email and password. (c) Create account. Focus starts on Email rather than Name, and the hint 'not containing the name part of your email' is understandable."
+    },
+    {
+     "page": "New review /s/new",
+     "understood_in_3s": true,
+     "note": "(a) Describe my idea in a sentence. (b) Type it or click an example. (c) Start my review. The button looks active even while disabled; clicking it empty just does nothing."
+    },
+    {
+     "page": "Project canvas (step 1 view)",
+     "understood_in_3s": true,
+     "note": "(a) A map of the review, with a 'next step' card. (b) Click Open step 1. (c) Answer questions. Two similar buttons (Open step 1 and Sharpen my idea) and unexplained Canvas / List / K controls."
+    },
+    {
+     "page": "Step 2 scoping questions",
+     "understood_in_3s": true,
+     "note": "(a) AI asks up to 5 questions to sharpen the idea. (b) Type an answer. (c) Send answer, or Skip the rest. Clear; '(mock)' marks the AI text."
+    },
+    {
+     "page": "Step 2 keep/edit/delete topics",
+     "understood_in_3s": true,
+     "note": "(a) Review suggested search topics. (b) Delete or keep each. (c) Keep N suggested topics, then Use these topics. Rows shift up after a delete, so a quick second click could hit the wrong one."
+    },
+    {
+     "page": "Step 3 search builder (after Write the searches)",
+     "understood_in_3s": false,
+     "note": "Panel still says 'Edit this search topic' and 'Viewing step 2 of 9' while the header says step 3 and 8 search cards exist. I did not know where to read the searches, and clicking a card on the canvas did nothing; the List row worked."
+    },
+    {
+     "page": "Step 3 check the searches (via List)",
+     "understood_in_3s": true,
+     "note": "(a) Check each database search before it runs. (b) Count matches. (c) Run all 8 searches. Group AND/OR layout and the demo note are clear; the footer button 'Go to step 3: Search builder' while already on step 3 is confusing."
+    },
+    {
+     "page": "Step 4 retrieval",
+     "understood_in_3s": true,
+     "note": "(a) See what was found and the mix of paper types. (b) Read the counts and bars. (c) Summarise the papers. '135 fetched, 28 same paper twice, so 107' is excellent plain language."
+    },
+    {
+     "page": "Step 5 summary table",
+     "understood_in_3s": true,
+     "note": "(a) Skim AI summaries and fix wrong cells. (b) Open a paper. (c) Rank the papers. The 3-item checklist helps; the filter chips with shapes and counts are clear."
+    },
+    {
+     "page": "Step 6 ranking",
+     "understood_in_3s": true,
+     "note": "(a) Check which papers go forward. (b) Pick a topic. (c) Appraise selected papers. Heavy text, but the warning about 2 topics with no matching papers is clear."
+    },
+    {
+     "page": "Step 7 appraisal",
+     "understood_in_3s": false,
+     "note": "The headline is clear, but the header, checklist and explainer fill most of the 900px panel; the paper itself shows only about 140px and the quotes to decide are below the fold. It took me a moment to realise I had to scroll within the panel."
+    },
+    {
+     "page": "Step 8 synthesis",
+     "understood_in_3s": true,
+     "note": "(a) Read what is known, contested and unknown, linked to quotes. (b) Read each topic tab. (c) Suggest research questions. The 'No evidence for 2 topics' warning is strong and clear."
+    },
+    {
+     "page": "Step 9 research question",
+     "understood_in_3s": true,
+     "note": "(a) Compare three candidates. (b) Read gap, feasibility, weakness. (c) Choose this question, then Finish and export. Finish and export is visibly locked until one is chosen."
+    },
+    {
+     "page": "Export",
+     "understood_in_3s": true,
+     "note": "(a) Download the finished review. (b) Check the question and format. (c) Download Markdown. Printable report, CSV and BibTeX options are well labelled and a 'Download started' confirmation appears."
+    },
+    {
+     "page": "My projects /sessions",
+     "understood_in_3s": true,
+     "note": "(a) List of my reviews with progress. (b) Open one. (c) Start a new review. Progress bars plus 'Step 6 changed, so 3 later steps need updating' make state obvious."
+    },
+    {
+     "page": "Someone else's project URL",
+     "understood_in_3s": true,
+     "note": "'This review could not be opened. The link may be wrong, or the review belongs to another account.' with a Go to my projects button; same page for a made-up ID. Logged out it redirects to login with no leak."
+    }
+   ],
+   "findings": [
+    {
+     "severity": "major",
+     "category": "clarity",
+     "page": "Step 3 search builder (canvas view)",
+     "what_happened": "After Write the searches, 8 Query cards appear and the header says step 3, but the side panel stays on 'Edit this search topic' with the label 'Viewing step 2 of 9 \u00b7 Scoping'. Clicking a Query card on the canvas only highlights it; the panel does not open that search. The actual PubMed/OpenAlex search groups appeared only after I switched to List and clicked a Query row.",
+     "expected": "Clicking a Query card (or finishing Write the searches) opens 'Check the searches before they run' for that search, with the step label matching step 3, as the List view does.",
+     "evidence": "docs/qa/iteration-3/chaos/17b-searches.jpg, docs/qa/iteration-3/chaos/18-query.jpg, docs/qa/iteration-3/chaos/19b-list-query.jpg",
+     "suggested_fix": "After writing searches, auto-select the first Query node and show the search panel; make canvas card clicks update the panel the same way List rows do; show 'Step 3 of 9' in the panel header."
+    },
+    {
+     "severity": "minor",
+     "category": "validity",
+     "page": "Step 4 retrieval vs step 6 ranking",
+     "what_happened": "Step 4 shows Attention span 'Ran: PubMed 2,207 \u00b7 OpenAlex 1,630' and Teenagers 'PubMed 2,207 \u00b7 OpenAlex 412'. Step 6 then says Attention span '0 of 0' and Teenagers '0 of 40' with 'no papers match'. A user cannot tell whether thousands of papers exist for those topics or none.",
+     "expected": "Counts that agree, or a short sentence saying 'hits reported by the database' versus 'papers collected and matching this topic'.",
+     "evidence": "docs/qa/iteration-3/chaos/17b-searches.jpg, docs/qa/iteration-3/chaos/51-back-step6.jpg",
+     "suggested_fix": "Label the step 4 numbers 'database hits' and add 'collected for this topic' beside them; explain in step 6 why a topic with thousands of hits has 0 matches."
+    },
+    {
+     "severity": "minor",
+     "category": "validity",
+     "page": "Step 6 ranking",
+     "what_happened": "A paper explained as 'Topic fit 1/5: 0 topic terms appear in title/abstract' and labelled 'does not match the topic' still shows a score of 58 out of 100 and ranks #4, above papers marked 'weak match' that are selected. The headline number looks decent while the label (small grey text) says it is irrelevant.",
+     "expected": "A score that drops with no topic match, or a clear cap so irrelevant papers are not ranked above relevant ones.",
+     "evidence": "docs/qa/iteration-3/chaos/31-ranked.jpg, docs/qa/iteration-3/chaos/32-row-expand.jpg",
+     "suggested_fix": "Cap the total when topic fit is 0 or 1, or sort 'does not match' papers below matching ones, and make that label as prominent as the score."
+    },
+    {
+     "severity": "minor",
+     "category": "validity",
+     "page": "Step 9 research question",
+     "what_happened": "Candidate 3, '(mock) What helps or hinders short-form video apps among teenagers aged 13 to 17 in secondary school?', is a template sentence that does not make sense for this topic, and its gap talks about 'barriers and enablers compared across settings'. After I reworded Candidate 1, the card was marked 'edited' but kept the original Gap, Feasibility, Weakness and Structure text.",
+     "expected": "Candidates that read as plausible questions for the user's idea, and edited questions that either refresh or clearly flag that the surrounding assessment was written for the original wording.",
+     "evidence": "docs/qa/iteration-3/chaos/44-candidates.jpg, docs/qa/iteration-3/chaos/47c-saved.jpg",
+     "suggested_fix": "Add 'assessment is for the original wording' under an edited question, or offer 'Re-check this question'; improve the wording template for exposure-type topics."
+    },
+    {
+     "severity": "minor",
+     "category": "copy",
+     "page": "Landing / and Account menu",
+     "what_happened": "The landing page says 'It finds real papers in PubMed and OpenAlex... every quote checked against its source' and 'You get a report'. It never says this server is a demo returning recorded telemedicine papers; that is first disclosed on the project page. The account menu says 'Mock mode' while the banner says 'Demo mode'.",
+     "expected": "A demo server should say so on the first page, and use one term for it throughout.",
+     "evidence": "docs/qa/iteration-3/chaos/01-landing.jpg, docs/qa/iteration-3/chaos/57-account.jpg",
+     "suggested_fix": "Show a small 'Demo server: scripted AI, sample papers' line on the landing and sign-up pages when demo mode is on; rename 'Mock mode' to 'Demo mode'."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Sign up, New review, Log in",
+     "what_happened": "'Create account', 'Start my review' and 'Log in' look identical (bright blue, full strength) whether they are usable or not. Clicking 'Start my review' with an empty box does nothing at all and gives no message; my automated click timed out because the button was truly disabled. Only the small grey text 'Write at least a sentence to start' hints at the reason.",
+     "expected": "A visibly dimmed disabled state, or an enabled button that explains what is missing.",
+     "evidence": "docs/qa/iteration-3/chaos/03-after-signup.jpg, docs/qa/iteration-3/chaos/03c-filled.jpg",
+     "suggested_fix": "Give disabled buttons a clearly muted style and aria-disabled with the reason, or keep them enabled and show an inline message."
+    },
+    {
+     "severity": "minor",
+     "category": "bug",
+     "page": "Step 2 topics (Undo)",
+     "what_happened": "After deleting 'Short-form video apps' (an AI suggestion) and pressing Undo, the topic came back at the bottom labelled 'added by you', with no Edit, Keep or Delete controls, and stayed labelled that way through approval. Its provenance is wrong, and it cannot be changed in the same list view.",
+     "expected": "Undo restores the topic exactly as it was (in place, still 'suggested', with its controls).",
+     "evidence": "docs/qa/iteration-3/chaos/11-topic-delete.jpg, docs/qa/iteration-3/chaos/11b-undo.jpg, docs/qa/iteration-3/chaos/12-after-keep.jpg",
+     "suggested_fix": "Restore the original record and order on Undo; keep the 'suggested' origin."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Step 7 appraisal and step 8 synthesis panels",
+     "what_happened": "At 1366x900 the sticky panel header, 3-item checklist and explanatory paragraph take about 60% of the panel height. In appraisal the first screen shows only the paper title and an 'Abstract only' badge; the quotes to decide are below the fold. In List view the page scrolls the left list, not the panel, so I only reached the content by switching to Canvas or tabbing in.",
+     "expected": "The paper's quality checklist and quotes visible on first view, or a compact checklist that collapses after the first visit.",
+     "evidence": "docs/qa/iteration-3/chaos/33-appraisal.jpg, docs/qa/iteration-3/chaos/35-appraisal-detail.jpg, docs/qa/iteration-3/chaos/40-synthesis.jpg",
+     "suggested_fix": "Collapse the 'Do these things' box and the explainer paragraph to one line once seen, or let the main content scroll under a slimmer header."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Canvas nodes (Appraisal, Synthesis)",
+     "what_happened": "Appraisal and Synthesis cards show a green '\u2713 76' with no label. I only found out in the report that it means 76 quotes found word for word.",
+     "expected": "A label such as '76 quotes verified', or a tooltip.",
+     "evidence": "docs/qa/iteration-3/chaos/41c-statements.jpg, docs/qa/iteration-3/chaos/42-chip.jpg",
+     "suggested_fix": "Add the word 'quotes' or a tooltip to the badge."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Step 3 search panel footer",
+     "what_happened": "While viewing a search (already step 3 of 9) the primary footer button reads 'Go to step 3: Search builder'. It really runs a different panel and the real action 'Run all 8 searches' only appears after clicking it.",
+     "expected": "The footer action should be 'Run all 8 searches' on this panel, per the page's own intent.",
+     "evidence": "docs/qa/iteration-3/chaos/19b-list-query.jpg, docs/qa/iteration-3/chaos/20-count.jpg, docs/qa/iteration-3/chaos/21-go-step3.jpg",
+     "suggested_fix": "Make Run all N searches the primary action whenever step 3 is the current step."
+    },
+    {
+     "severity": "minor",
+     "category": "validity",
+     "page": "Step 4 map and legends, table, stepper",
+     "what_happened": "Colour meanings collide on one screen. Green marks 'Other design' (cross) and 'Cross-sectional' (triangle) in the legend while green also means done/approved in the stepper; amber marks 'Qualitative / mixed methods' while amber also means 'your turn', warnings and out of date. The 3D chart says 'Height has no meaning yet', gives only 2015 and 2026 as axis labels, and cuts off points at its right edge.",
+     "expected": "One colour, one meaning per screen, as the UX intent says; a chart whose every axis means something.",
+     "evidence": "docs/qa/iteration-3/chaos/23-categories.jpg, docs/qa/iteration-3/chaos/23b-chart.jpg, docs/qa/iteration-3/chaos/54-stale.jpg",
+     "suggested_fix": "Move status colours (done, your turn, stale) to a hue outside the category palette, or never show both in one view; default to the 2D chart or drop the meaningless 3D axis."
+    },
+    {
+     "severity": "minor",
+     "category": "bug",
+     "page": "Step 6 ranking",
+     "what_happened": "The Study type and Article type filters I set in step 5 (Cross-sectional + Journal article) were still applied when I arrived at step 6, so the ranking showed 'Showing 15 of 107' and hid 92 papers until I clicked Reset filters. The page does warn about hidden papers.",
+     "expected": "A new step starts unfiltered, or says that the filters were carried over.",
+     "evidence": "docs/qa/iteration-3/chaos/28-filtered.jpg, docs/qa/iteration-3/chaos/30-rank.jpg",
+     "suggested_fix": "Reset filters when moving to another step, or show 'Filters from the last step are still on'."
+    },
+    {
+     "severity": "minor",
+     "category": "validity",
+     "page": "Step 6 ranking table",
+     "what_happened": "The top-ranked paper's key finding is a raw citation blob ('(mock) Horst.Technology Literacy as a Barrier to Telehealth During COVID-19.Telemedicine and e-Health.Sep 2020.1118-1119.http://doi.org/...Published in Volume: 26 Issue 9...') rather than a finding. It sits in the most prominent row.",
+     "expected": "A short finding sentence, or 'No finding extracted from this abstract'.",
+     "evidence": "docs/qa/iteration-3/chaos/31-ranked.jpg",
+     "suggested_fix": "Detect abstracts that are mostly citation metadata and show 'Not reported' instead of a finding."
+    },
+    {
+     "severity": "minor",
+     "category": "clarity",
+     "page": "Step 2 edit-after-approval",
+     "what_happened": "Adding synonyms to an approved topic reopened step 2, marked the Idea as 'Your turn' again and forced me back through 'Use these topics'. The warning was shown before and after the change, and I could return correctly, but a small tweak costs two extra screens.",
+     "expected": "Either re-approval is only needed for changes to topic names, or synonym edits get a single 'Save and keep step 2 approved' choice.",
+     "evidence": "docs/qa/iteration-3/chaos/14b-searches.jpg, docs/qa/iteration-3/chaos/15-reopened.jpg",
+     "suggested_fix": "Treat synonym changes as a lighter edit that invalidates only the searches, not the topics approval."
+    },
+    {
+     "severity": "polish",
+     "category": "bug",
+     "page": "Project page (Back button)",
+     "what_happened": "Pressing Back inside a project (even from a step three panels deep) leaves the project and returns to My projects, because moving between steps does not add history entries. State was preserved every time, but in-project Back does not go to the previous panel.",
+     "expected": "Back returns to the previous panel or step; leaving the project should take a deliberate action.",
+     "evidence": "docs/qa/iteration-3/chaos/08b-after-back.jpg, docs/qa/iteration-3/chaos/25b-after-back.jpg",
+     "suggested_fix": "Push history entries when the selected node or step changes (the ?node= parameter is already in the URL)."
+    },
+    {
+     "severity": "polish",
+     "category": "copy",
+     "page": "Step 2 after Skip the rest",
+     "what_happened": "The 'What we know so far' header shows 'questions done' with no number, and the canvas card still says '2 of 5 questions' after the rest were skipped.",
+     "expected": "'2 questions answered, rest skipped' or similar.",
+     "evidence": "docs/qa/iteration-3/chaos/07-topics.jpg",
+     "suggested_fix": "Render the count when questions are skipped and update the card text."
+    },
+    {
+     "severity": "polish",
+     "category": "clarity",
+     "page": "Canvas views (steps 1-3) and landing demo",
+     "what_happened": "On the canvas the side panel covers the topic and query cards (Accept/Dismiss buttons are cut off); on the landing page the animated demo clips its left column ('d uptake'). An unsent scoping answer was lost on reload, and /admin silently redirects to My projects with no message.",
+     "expected": "Fit the canvas to the visible area when the panel opens; a short notice when a page is not available to the user.",
+     "evidence": "docs/qa/iteration-3/chaos/11-topic-delete.jpg, docs/qa/iteration-3/chaos/01c-will-not.jpg, docs/qa/iteration-3/chaos/05b-after-reload.jpg, docs/qa/iteration-3/chaos/09b-admin.jpg",
+     "suggested_fix": "Re-fit the canvas when the panel opens; save the answer draft locally; show 'You do not have access to that page' on redirect."
+    }
+   ]
+  }
+ ],
+ "admin": {
+  "persona": "admin",
+  "completed": true,
+  "stage_reached": 9,
+  "findings": [
+   {
+    "severity": "major",
+    "category": "validity",
+    "page": "http://localhost:4107/admin (Users and progress, Accounts)",
+    "what_happened": "The dashboard contradicts itself for the chaos user. The top tile says Projects 2, '1 finished', and the funnel footer says '1 of 2 projects finished all nine steps'. The same funnel shows 6. Ranking = 1 (0 approved) and 7. Appraisal, 8. Synthesis and 9. Research question = 0. The Accounts row for leo.chaos@example.com says Furthest step '6 of 9'. Leo says he reached step 9, exported, then went back and deselected a paper, which marked 3 later steps out of date.",
+    "expected": "One consistent story. Either 'finished' and the funnel both count the high-water mark (Leo reached step 9 once), or both count current approved state, in which case 'finished' would be 0. A funnel titled 'projects that reached each step' should not drop to 0 for steps a user has already reached.",
+    "evidence": "docs/qa/iteration-3/admin/dash-4107-mid.jpg and docs/qa/iteration-3/admin/dash-4107-bottom.jpg",
+    "suggested_fix": "Decide whether the funnel and 'Furthest step' show the high-water mark or the current approved state. Use the same rule for 'finished', the funnel and the account table. If you keep current state, label it 'currently approved' and show 'out of date' as its own count so a user who went back is visible as such."
+   },
+   {
+    "severity": "minor",
+    "category": "validity",
+    "page": "http://localhost:4104/admin (AI usage, Cost by step)",
+    "what_happened": "I could not reconcile the clinician's account with the dashboard for the appraisal step. The clinician says 9 papers were selected and 10 quotes were decided. The dashboard shows 8 appraisal calls (appraisal v1 = 8). Comparable servers matched one call per paper: 4102 had 8 papers and 8 calls, 4103 had 11 and 11, 4105 had 13 and 13, 4106 had 5 and 5. The dashboard has no per-project paper counts, so I cannot say whether this is an honest difference (for example one paper reappraised or skipped) or a miscount.",
+    "expected": "An admin can tell why 9 selected papers produced 8 appraisal calls, or sees a note such as 'papers without full text are not sent to the model'.",
+    "evidence": "docs/qa/iteration-3/admin/dash-4104.jpg and docs/qa/iteration-3/admin/dash-4104-bottom.jpg",
+    "suggested_fix": "Show a small per-account detail: papers collected, selected and appraised, and calls per step. Or add a one-line explanation of how calls map to papers."
+   },
+   {
+    "severity": "minor",
+    "category": "copy",
+    "page": "All /admin pages, AI usage tiles",
+    "what_happened": "The tile titled 'Latency p50 / p90' shows a dash, and its subtext reads 'p90 - / p99 -'. The title and subtext name different percentiles, and the dash is not explained. In demo mode there is no latency, but the page does not say so.",
+    "expected": "Matching percentile labels, and 'No live calls in demo mode' (or similar) instead of a bare dash.",
+    "evidence": "docs/qa/iteration-3/admin/05-dash-4101-b.jpg and docs/qa/iteration-3/admin/dash-4107-mid.jpg",
+    "suggested_fix": "Make the title and subtext use the same percentiles, and replace the dashes with a short reason."
+   },
+   {
+    "severity": "minor",
+    "category": "clarity",
+    "page": "/admin top tiles: 'Server errors (1 h)' on all servers",
+    "what_happened": "The request denominators look implausibly small next to what users did: 4101 shows '0 of 2 requests', 4102 shows 1, 4103 shows 245, 4104 shows 809. Uptime on every server is about 35 min, while accounts say 'Joined 1 hour ago'. The counters seem to cover only the time since the process started, but the tile says '1 h'. A '0% errors' reading backed by 2 requests could mislead an admin.",
+    "expected": "Either the counter survives restarts, or the tile says 'since restart (35 min)' and shows a 'not enough data' state when the count is very low.",
+    "evidence": "docs/qa/iteration-3/admin/04-dash-4101.jpg and docs/qa/iteration-3/admin/dash-4104-bottom.jpg",
+    "suggested_fix": "Label the window honestly ('since server start'). Show 'too few requests to judge' below a threshold."
+   },
+   {
+    "severity": "minor",
+    "category": "validity",
+    "page": "/admin Audit log (all servers)",
+    "what_happened": "The audit log masks emails (for example 'email: m...@example.com') but prints the full address right beside it ('signup by mai.undergrad.qa3@example.com'). The masking has no effect. The Accounts table also lists full emails. That is reasonable for an admin, and no research ideas, titles, papers, notes, keys or emails in URLs appeared anywhere on any dashboard. The privacy promise on counts and metadata holds, but the masking is inconsistent.",
+    "expected": "One consistent rule: either show full emails everywhere in the admin area and drop the masked copy, or mask them in the audit log.",
+    "evidence": "docs/qa/iteration-3/admin/06-dash-4101-c.jpg",
+    "suggested_fix": "Drop the duplicate masked email, or mask the actor name in the audit log."
+   },
+   {
+    "severity": "minor",
+    "category": "clarity",
+    "page": "User view during AI pause (http://localhost:4102/s/prj_91e8b5644ca94c47, step 2 Scoping)",
+    "what_happened": "The pause is handled well, with a plain banner on every page. 'Sharpen my idea' still looks active, and clicking it fires a request that returns HTTP 503. A reload fires another, so one user action counted 2 'blocked, not sent'. The scoping panel shows an empty header band above a disabled textarea reading 'Waiting for the next question...'. The step-1 canvas card still says '0 of 5 questions' with nothing explaining that the questions are waiting on the pause.",
+    "expected": "The AI-dependent button is visibly disabled, or says 'AI is paused' on the button itself. No empty box. The blocked counter counts decisions, not retries.",
+    "evidence": "docs/qa/iteration-3/admin-check-user/05-after-sharpen.jpg and docs/qa/iteration-3/admin/13-ai-off-after-user.jpg",
+    "suggested_fix": "Disable the AI buttons while the pause is on, with a tooltip or label. Hide the empty textarea header. Do not auto-retry on reload, or do not count retries as separate blocked calls."
+   },
+   {
+    "severity": "polish",
+    "category": "clarity",
+    "page": "/admin Users and progress, Funnel",
+    "what_happened": "The funnel bars change from light to dark blue as the step number rises, with no legend. In a chart that otherwise uses colour for meaning, a reader will wonder whether the shades mean something. The 'Where people stop' list is all zeros on every server, so it carries no information when nobody is stuck.",
+    "expected": "One colour for one meaning, per the app's own rule, or a legend or note if the shade means something.",
+    "evidence": "docs/qa/iteration-3/admin/05-dash-4101-b.jpg",
+    "suggested_fix": "Use a single colour for the funnel. Collapse the 'Where people stop' list into one sentence when every count is 0."
+   },
+   {
+    "severity": "polish",
+    "category": "copy",
+    "page": "http://localhost:4102/login?next=/admin and an ordinary user opening /admin",
+    "what_happened": "An admin going to /admin and sent to login sees the heading 'Log in to continue your review'. An ordinary user opening /admin while logged in is silently redirected to My projects with no explanation.",
+    "expected": "The admin login says what it is for ('Log in to open the admin dashboard'). A non-admin sees a short 'This page is for administrators' message.",
+    "evidence": "docs/qa/iteration-3/admin-check-user/09-nonadmin-admin.jpg",
+    "suggested_fix": "Add a next-aware login heading, and a notice when a non-admin is redirected away from /admin."
+   },
+   {
+    "severity": "polish",
+    "category": "a11y",
+    "page": "/admin AI & API key panel after turning AI off",
+    "what_happened": "The 'Turn AI back on' button sits almost touching the 'Models' row below it (a few pixels of gap) when the Off state adds a 'Changed just now by...' line. The warm warning colour and the text are fine, but the layout feels cramped.",
+    "expected": "Normal spacing between the primary action and the next row.",
+    "evidence": "docs/qa/iteration-3/admin/12-ai-off.jpg",
+    "suggested_fix": "Add bottom margin to the status column or the panel so the button is not flush with the Models row."
+   },
+   {
+    "severity": "polish",
+    "category": "clarity",
+    "page": "All /admin pages",
+    "what_happened": "The dashboard has no way to confirm that users exported. The step-9 'approved' count is the closest thing. Users reported previewing the report, downloading Markdown, and switching to CSV or BibTeX, and none of that is visible. The admin cannot tell whether the last step produced a deliverable.",
+    "expected": "Possibly a count of reports exported, if that is meant to be a health signal. If not, the page could say so.",
+    "evidence": "docs/qa/iteration-3/admin/05-dash-4101-b.jpg",
+    "suggested_fix": "Add an 'exported' count to the funnel, or state that exports are not tracked."
+   }
+  ],
+  "three_second_test": [
+   {
+    "page": "Landing page (http://localhost:4101/)",
+    "understood_in_3s": true,
+    "note": "A guided literature review tool. I would click Log in first, then enter the admin account. The headline and the two buttons are clear."
+   },
+   {
+    "page": "Admin dashboard (/admin) on each of the 7 servers",
+    "understood_in_3s": true,
+    "note": "'Is Athena healthy?' with a green 'Everything is healthy' banner is readable at once. I would read the AI & API key panel next, then the tiles. It found the admin dashboard under Account and settings > Admin dashboard, which was easy to find. On 4107 the amber/green state was equally clear."
+   },
+   {
+    "page": "Turn AI off confirmation dialog (4102)",
+    "understood_in_3s": true,
+    "note": "'Turn AI off for everyone?' says what will and will not stop (no calls, no spend, work kept, searches keep working). The red 'Turn AI off' button is distinct from 'Keep AI on'."
+   },
+   {
+    "page": "Admin dashboard with AI off (4102)",
+    "understood_in_3s": true,
+    "note": "An amber 'Needs your attention: AI is switched off' banner, 'Off' status with who changed it and when, and a bright 'Turn AI back on' button. Very clear."
+   },
+   {
+    "page": "New review page for a signed-up user (/s/new)",
+    "understood_in_3s": true,
+    "note": "'Describe your research idea' with example chips and a start button. It does not mention the AI pause until after the idea is submitted, which is acceptable because the banner appears on the next page."
+   },
+   {
+    "page": "User canvas/step panel while AI is paused",
+    "understood_in_3s": true,
+    "note": "The amber 'AI is paused by the administrator. Your work is saved.' banner is plain and reassuring. A user would understand it. The canvas around it is busy and the 'Sharpen my idea' button still looks live."
+   }
+  ],
+  "categories_and_colours": "I did not reach paper lists, maps or charts of study types or article types: as admin I only looked at the dashboard, and the ordinary user I created stayed at scoping. I could not check study-type or article-type filtering or the legend. On the dashboard, the charts use one blue hue. Funnel bars shade from light to dark blue by step with no legend, so a reader could wonder whether the shade carries meaning (minor/polish finding). Status colours are consistent and readable: green = healthy, amber = needs attention or AI paused (banner and the Off state). The red 'Turn AI off' button reads as a destructive action. Colour is never the only signal, because each state also carries an icon and a text label.",
+  "validity_assessment": "Dashboard counts match what users reported on six of the seven servers, and the AI on/off control is honest. 4101 (Mai): 2 users incl. admin, 1 project finished, funnel 1 at all 9 steps, 59 AI calls ('scoping' 6 calls for 5 questions + topics). 4102 (Daniel): 46 calls, appraisal 8 for 8 papers. 4103 (Aisha): 54 calls, appraisal 11 for 11 papers. 4105 (Somchai): 60 calls, summaries 13 matches '13 of 13 batches', appraisal 13 for 13 papers. 4106 (Ruth): 39 calls, summaries 11 matches '11 of 11 batches', appraisal 5 for 5 papers. 4107: double-submitting buttons did not double-count calls (1 topic_importance, 1 scoping_topics, 1 research_questions call), and 1 failed login matches Leo's wrong password. The two issues are the 4107 contradiction ('1 finished' vs funnel steps 7 to 9 at 0 vs account '6 of 9') and the unreconciled 9-papers-to-8-appraisals on 4104. Privacy: across all 7 dashboards, charts and tables, I saw only counts, step names, prompt names, account emails and timestamps. No research ideas, project titles, papers, notes or keys. URLs carried only project ids. Full emails appear in the Accounts table and next to masked ones in the audit log, so masking is cosmetic. The AI kill switch test on 4102 passed: with AI off the user saw 'AI is paused by the administrator. Your work is saved.' on every page and in the step panel, the step did not proceed and no mock text was invented, the AI call count stayed at 46 and the dashboard showed '1 blocked, not sent' (then 2 after a reload), spend stayed $0.00, and the Search state was fine. After turning AI on, the user's scoping resumed without any action (first question appeared) and answering worked; calls rose from 46 to 48, which fits 1 auto-resumed start + 1 answer. I did not touch any key (status 'No key', demo mode) or the spend limit. The demo-mode banner is honest that sample papers are on telemedicine in Southeast Asia and that AI text is marked '(mock)'. I did not check traceability of statements to quotes, or 'novel' wording, because I never reached steps 7 to 9 as a user.",
+  "would_have_quit_at": "I would not have quit. The only point of real doubt was the 4107 dashboard, where the funnel and the account row said Leo was at step 6 while the tile said '1 finished'. An admin would stop trusting the funnel there until it was explained.",
+  "activity": "About 75 helper commands in two browsers (admin and admin-check-user). Admin logged in on all 7 servers with the shared admin account. Per server (dashboard vs user account): 4101 Mai: Users 2 (1 admin), Projects 1 finished, funnel 1 at all 9 steps, 59 AI calls, 0% failed, 0 errors, $0.00; MATCH. 4102 Daniel: Users 2, 1 project finished, funnel 9 of 9, 46 AI calls (appraisal 8), 0 errors; MATCH. 4103 Aisha: Users 2, 1 project finished, 54 AI calls (appraisal 11), 0 errors; MATCH. 4104 Okafor: Users 2, 1 project finished, 41 AI calls (appraisal 8 vs 9 selected papers, summaries 7); MOSTLY MATCH with one unreconciled count. 4105 Somchai: Users 2, 1 project finished, 60 AI calls (summaries 13, appraisal 13), 0 errors; MATCH. 4106 Ruth: Users 2, 1 project finished, 39 AI calls (summaries 11, appraisal 5), 0 errors; MATCH. 4107 Leo and someone.else: Users 3, Projects 2 with '1 finished', 42 AI calls, 1 failed login (matches Leo's wrong password), 0 server errors; MISMATCH between 'finished', the funnel (steps 7 to 9 at 0) and Leo's account ('6 of 9'), likely caused by the stale-after-edit state. someone.else shows 1 of 9 with 0 AI calls, correct. AI kill switch on 4102: turned AI off through Turn AI off... and confirmed. Created user admin-check-user@example.com and project prj_91e8b5644ca94c47. Pressed 'Sharpen my idea' while AI was off (HTTP 503 on scoping/start, expected), reloaded (second blocked). Call count stayed 46, showing '1 blocked, not sent' and then 2. Turned AI back on; the user's scoping resumed by itself, I answered question 1 and got question 2; calls rose to 48. No console errors on any admin page. Never touched the key or the spend limit. Cookies are shared across localhost ports, so logging into another server logged the admin browser out of the previous one; that is an environment effect, not an app finding.",
+  "narrative": "I started from scratch because no earlier screenshots existed. I opened server 4101, logged in as admin and looked for the dashboard the way an admin would: Account and settings then Admin dashboard. That was easy to find. The top of the dashboard answered 'Is Athena healthy?' with a green banner within a couple of seconds, and the AI & API key panel came next, as the page intends. I compared each server with what its user said. Six of the seven matched closely, and the AI-call breakdown by step even reproduced numbers like 13 of 13 summary batches and 5 appraisals for 5 papers. That gave me real confidence in the counters. The one place I stopped and frowned was 4107, the chaos server. The tile said '1 finished', but the funnel showed nothing at steps 7 to 9 and Leo's account row said '6 of 9'. Leo had gone back and made later steps stale, so the numbers are probably each correct under different rules, but together they read as a contradiction. I also noticed the request counters were tiny on a few servers, and the latency tile had mismatched labels. For the AI test I turned AI off on 4102 and the confirmation dialog was excellent. As a new user in the second browser I got a calm, honest 'AI is paused by the administrator. Your work is saved.' message, nothing was faked, and the dashboard showed '1 blocked, not sent' while the call count stayed at 46. After I turned AI back on, the user's scoping resumed by itself. I never saw a key, an idea or a paper on any dashboard."
+ }
+}

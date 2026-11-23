@@ -1,0 +1,20 @@
+{
+  "populated-375": {
+    "what": "Admin dashboard",
+    "url": "/admin",
+    "width": 375,
+    "theme": "dark"
+  },
+  "populated-768": {
+    "what": "Admin dashboard",
+    "url": "/admin",
+    "width": 768,
+    "theme": "dark"
+  },
+  "populated-1366": {
+    "what": "Admin dashboard",
+    "url": "/admin",
+    "width": 1366,
+    "theme": "dark"
+  }
+}
