@@ -139,7 +139,7 @@ const DESIGN_MATCHERS: {
   { ruleRe: /\bcohort\b/i, studyTypes: ["cohort"] },
   { ruleRe: /\bcase[- ]control\b/i, studyTypes: ["case_control"] },
   { ruleRe: /\bnon[- ]randomi[sz]ed\b/i, studyTypes: ["non_randomized_trial"] },
-  { ruleRe: /\b(?:randomi[sz]ed|rcts?)\b/i, studyTypes: ["randomized_trial"], pubRe: /\brandomized\s+controlled\s+trial\b/i },
+  { ruleRe: /(?<!\bnon[- ])\b(?:randomi[sz]ed|rcts?)\b/i, studyTypes: ["randomized_trial"], pubRe: /\brandomized\s+controlled\s+trial\b/i },
   { ruleRe: /\beconomic\s+evaluations?\b/i, studyTypes: ["economic_evaluation"] },
   { ruleRe: /\bpreprints?\b/i, pubRe: /\bpreprints?\b/i, oaRe: /\bpreprint\b/i },
   { ruleRe: /\bconference\s+(?:abstracts?|papers?|proceedings)\b/i, pubRe: /\b(?:congress|conference|meeting\s+abstract)\b/i },
@@ -168,10 +168,22 @@ function tokenMatches(corpus: string, token: string): boolean {
   return re.test(corpus);
 }
 
-/** True when a rule uses negation framing ("outside X", "not in X", "without X") where matching X directly would invert the rule. */
-function hasInvertedNegation(rule: string): boolean {
-  const cleaned = rule.replace(/^\(mock\)\s*/i, "").trim();
-  return /\b(?:outside|not\s+in|not\s+from|without|lacking|other\s+than|except)\b|\bnon-(?:english|southeast|asean|clinical|primary|rural|human)\b/i.test(cleaned);
+const NEGATION_WORD_RE =
+  /\b(?:outside|not|no|never|neither|nor|cannot|without|lacking|other\s+than|except)\b|\b(?:do|does|did|is|are|was|were|have|has|had|can|could|would|should|wo|ca)n['’]t\b/i;
+
+const NON_PREFIX_RE = /\bnon[-\s]+[a-z]/i;
+
+/**
+ * True when a rule uses negation framing ("not X", "outside X", "without X", "non-X")
+ * where matching X directly would invert the rule.
+ * When allowNonRandomizedDesign is true (structured DESIGN_MATCHERS step), the known
+ * "non-randomized" study-type phrase is allowed through unless another negation is present.
+ */
+function hasInvertedNegation(rule: string, allowNonRandomizedDesign = false): boolean {
+  const cleaned = rule.replace(/^\(mock\)\s*/i, "").replace(/\s+/g, " ").trim();
+  if (NEGATION_WORD_RE.test(cleaned)) return true;
+  const forNonPrefix = allowNonRandomizedDesign ? cleaned.replace(/\bnon[- ]randomi[sz]ed\b/gi, "") : cleaned;
+  return NON_PREFIX_RE.test(forNonPrefix);
 }
 
 function matchesPreferredStudyTypes(studyType: StudyType, preferred: string[]): boolean {
@@ -225,12 +237,12 @@ export function detectCriteriaFlags(
   for (const rawRule of criteria?.exclusion ?? []) {
     const rule = rawRule.trim();
     if (!rule || seenRules.has(rule)) continue;
-    const cleaned = rule.replace(/^\(mock\)\s*/i, "").trim();
+    const cleaned = rule.replace(/^\(mock\)\s*/i, "").replace(/\s+/g, " ").trim();
     if (!cleaned) continue;
 
     // 1. Check structured study-type / publication-type exclusion matches.
     let matched = false;
-    if (!hasInvertedNegation(cleaned)) {
+    if (!hasInvertedNegation(cleaned, true)) {
       for (const dm of DESIGN_MATCHERS) {
         if (!dm.ruleRe.test(cleaned)) continue;
         const hitStudy = !!(studyType && dm.studyTypes?.includes(studyType));

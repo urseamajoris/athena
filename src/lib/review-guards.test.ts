@@ -249,6 +249,137 @@ test("criteria exclusion flagging flags matching exclusions without false-flaggi
   assert.ok(caseFlags.some((f) => f.kind === "criteria_exclusion"));
 });
 
+test("criteria exclusion skips negated rules like 'not rural' without inverting them, while positive exclusions still flag", () => {
+  const ruralPaper = {
+    title: "Telemedicine uptake in primary care",
+    abstract: "We evaluated telemedicine workflows across 18 rural clinics.",
+    publicationTypes: ["Journal Article"],
+  };
+  const ruralSummary = {
+    studyType: "cohort",
+    setting: "Rural clinics in Northern Thailand",
+    keyFinding: "Remote triage reduced travel time.",
+  };
+  const urbanPaper = {
+    title: "Telemedicine uptake in urban hospitals",
+    abstract: "We evaluated telemedicine workflows across 12 urban hospitals.",
+    publicationTypes: ["Journal Article"],
+  };
+  const urbanSummary = {
+    studyType: "cohort",
+    setting: "Urban hospitals in Bangkok",
+    keyFinding: "Digital check-in shortened wait times.",
+  };
+
+  const makeCriteria = (exclusion: string[]): CriteriaLike => ({
+    yearFrom: 2020,
+    yearTo: null,
+    languages: ["en"],
+    studyTypes: [],
+    inclusion: [],
+    exclusion,
+  });
+
+  // Negated exclusions must NOT flag a paper merely because it contains the negated term.
+  for (const negatedRule of [
+    "not rural",
+    "Not rural clinics",
+    "not in rural areas",
+    "non-rural",
+    "non rural",
+    "non-urban",
+    "without randomization",
+    "studies that do not evaluate rural clinics",
+    "studies that don't include rural clinics",
+    "no rural clinics",
+  ]) {
+    const flags = detectCriteriaFlags(ruralPaper, ruralSummary, makeCriteria([negatedRule]));
+    assert.deepEqual(flags, [], `Negated exclusion "${negatedRule}" must not flag rural paper`);
+  }
+
+  // Negated rule is skipped, NOT inverted into a flag for the complement.
+  assert.deepEqual(
+    detectCriteriaFlags(urbanPaper, urbanSummary, makeCriteria(["not rural"])),
+    [],
+    'Negated exclusion "not rural" must not invert to flag an urban paper',
+  );
+  assert.deepEqual(
+    detectCriteriaFlags(urbanPaper, urbanSummary, makeCriteria(["non-urban"])),
+    [],
+    'Negated exclusion "non-urban" must not flag an urban paper',
+  );
+
+  // Positive exclusion "rural" must still flag the rural paper (and not the urban paper).
+  const positiveRuralFlags = detectCriteriaFlags(ruralPaper, ruralSummary, makeCriteria(["rural"]));
+  assert.ok(
+    positiveRuralFlags.some((f) => f.kind === "criteria_exclusion"),
+    'Positive exclusion "rural" must still flag a paper about rural clinics',
+  );
+  assert.deepEqual(
+    detectCriteriaFlags(urbanPaper, urbanSummary, makeCriteria(["rural"])),
+    [],
+    'Positive exclusion "rural" must not flag an urban paper',
+  );
+
+  // Positive publication-type / study-type exclusions in DESIGN_MATCHERS must still flag.
+  const editorialFlags = detectCriteriaFlags(
+    {
+      title: "Reflections on digital health policy",
+      abstract: "An opinion piece on digital health.",
+      publicationTypes: ["Editorial"],
+    },
+    { studyType: "commentary_or_editorial", setting: "Global", keyFinding: "Policy commentary." },
+    makeCriteria(["editorials"]),
+  );
+  assert.ok(editorialFlags.some((f) => f.kind === "criteria_exclusion"));
+  assert.ok(editorialFlags.some((f) => f.kind === "publication_type"));
+
+  // "not randomized" and "without randomization" must not flag a randomized trial;
+  // "Non-randomized trials" must flag non_randomized_trial but NOT randomized_trial.
+  const rctPaper = {
+    title: "Cluster randomized trial of rural telemedicine",
+    abstract: "We conducted a randomized controlled trial with randomization across 20 clinics.",
+    publicationTypes: ["Randomized Controlled Trial"],
+  };
+  const rctSummary = {
+    studyType: "randomized_trial",
+    setting: "Rural clinics",
+    keyFinding: "Follow-up adherence improved.",
+  };
+  assert.deepEqual(detectCriteriaFlags(rctPaper, rctSummary, makeCriteria(["not randomized"])), []);
+  assert.deepEqual(detectCriteriaFlags(rctPaper, rctSummary, makeCriteria(["without randomization"])), []);
+  assert.deepEqual(detectCriteriaFlags(rctPaper, rctSummary, makeCriteria(["Non-randomized trials"])), []);
+
+  // Unrelated words containing "not" as a substring ("note", "nothing") must not be treated as negation.
+  const noteFlags = detectCriteriaFlags(
+    {
+      title: "Review of clinical notes in primary care",
+      abstract: "We extracted free-text clinical notes from electronic health records.",
+      publicationTypes: ["Journal Article"],
+    },
+    { studyType: "cohort", setting: "Primary care", keyFinding: "Notes captured symptoms." },
+    makeCriteria(["clinical notes"]),
+  );
+  assert.ok(
+    noteFlags.some((f) => f.kind === "criteria_exclusion"),
+    'Positive exclusion "clinical notes" must not treat "note" as negation',
+  );
+
+  const nothingFlags = detectCriteriaFlags(
+    {
+      title: "Wait-and-see versus intervention in primary care",
+      abstract: "Control clinics followed a do-nothing protocol for six months.",
+      publicationTypes: ["Journal Article"],
+    },
+    { studyType: "cohort", setting: "Primary care", keyFinding: "Intervention outperformed nothing." },
+    makeCriteria(["nothing"]),
+  );
+  assert.ok(
+    nothingFlags.some((f) => f.kind === "criteria_exclusion"),
+    'Positive exclusion "nothing" must not treat "not" substring as negation',
+  );
+});
+
 test("selectInitialRankingIds never silently pre-selects flagged publication types or excluded papers", () => {
   const scores = [
     { id: "sc_proto", paperId: "p_proto", total: 98 },
