@@ -20,6 +20,8 @@ import { topicCoverage } from "@/lib/scoring";
 import { frontierStage, nodeForStage } from "@/lib/canvas/graph";
 import { TransitionLink } from "../vt";
 import { ARTICLE_TYPES, DIMENSIONS, hasHues, accessOf, articleTypeOf, categoriesFor, categoryVar, describeFilters, evidenceOf, periodOf, scoreBandOf, sourceOf, studyGroupOf, type ColorBy, type Dimension } from "@/lib/shared/categories";
+import { impactTierOf, paperImpactEvaluation, summarizeCorpusImpact } from "@/lib/shared/impact";
+import { fmtInt } from "@/lib/shared/format";
 import { sessionOf } from "@/lib/canvas/store";
 import type { MapPoint } from "../viz/paper-points";
 import { COL_W, tableMinWidth } from "./columns";
@@ -56,6 +58,7 @@ function categorize(p: Paper, kept: boolean): Record<Dimension, string[]> {
     study: [studyGroupOf(p.summary?.studyType)],
     article: [articleTypeOf(p.publicationTypes)],
     topic: p.topicIds,
+    impact: [impactTierOf(p.citationCount, p.year)],
     source: [sourceOf(p.sourceDatabases)],
     period: [periodOf(p.year)],
     access: [accessOf(p)],
@@ -275,15 +278,24 @@ export function TableView() {
         ];
   // A topic that no paper was matched to: say so, rather than blame filters the user did not set.
   const emptyTopic = openTopic && openTopic.scored === 0 && !rows.length ? `No papers were found for “${openTopic.name}”, so none can be selected for it. You can still appraise the other topics. To cover it, rename the topic or change its search (steps 2 and 3), then bring the later steps up to date.` : null;
-  const points: MapPoint[] = rows.map((r) => ({
-    id: r.id,
-    title: r.title,
-    year: r.year,
-    score: r.score?.total ?? null,
-    layer: Math.max(-1, topicList.findIndex((t) => r.topicIds.includes(t.id))),
-    cat: view.colorBy === "topic" ? r.topicIds[0] ?? "" : view.colorBy === "score" ? scoreBandOf(r.score?.total) : view.colorBy === "evidence" ? r.cats.evidence[0] : view.colorBy === "source" ? r.cats.source[0] : r.cats.study[0],
-    selected: r.kept,
-  }));
+  const points: MapPoint[] = rows.map((r) => {
+    const evaln = paperImpactEvaluation({ ...r, studyType: r.summary?.studyType ?? null });
+    return {
+      id: r.id,
+      title: r.title,
+      year: r.year,
+      score: r.score?.total ?? null,
+      layer: Math.max(-1, topicList.findIndex((t) => r.topicIds.includes(t.id))),
+      cat: view.colorBy === "topic" ? r.topicIds[0] ?? "" : view.colorBy === "impact" ? evaln.tier : view.colorBy === "score" ? scoreBandOf(r.score?.total) : view.colorBy === "evidence" ? r.cats.evidence[0] : view.colorBy === "source" ? r.cats.source[0] : r.cats.study[0],
+      selected: r.kept,
+      citations: r.citationCount,
+      citationsPerYear: evaln.citationsPerYear,
+      impactScore: evaln.score,
+      impactTier: evaln.tier,
+      openAccess: !!(r.oaUrl || r.pmcid),
+    };
+  });
+  const rowsImpact = useMemo(() => summarizeCorpusImpact(rows.map((r) => ({ ...r, studyType: r.summary?.studyType ?? null }))), [rows]);
 
   // One page scroll: the task and filters first, then the table (which scrolls its own rows, header kept in view).
   return (
@@ -426,8 +438,28 @@ export function TableView() {
       {all.length === 0 ? (
         <div className="p-4"><EmptyState title="No papers were retrieved">Go back to the searches and broaden them.</EmptyState></div>
       ) : mode === "map" ? (
-        <div className="mx-auto w-full max-w-4xl shrink-0 px-4 pb-4 pt-3">
-          <PaperMap points={points} colorBy={view.colorBy} onColorBy={view.setColorBy} topics={topicList} onOpen={(id) => { mark("opened-paper"); openPaper(id); }} layers={topicList.length} title={stage === 5 ? "Papers by year and kind" : "Papers by year and score"} dimUnselected={ranked} colorChoices={(["study", "topic", "source", "evidence", "score"] as ColorBy[]).filter((c) => (c !== "score" || ranked) && (c !== "evidence" || all.some((p) => p.appraisal)))} />
+        <div className="mx-auto w-full max-w-4xl shrink-0 space-y-3 px-4 pb-4 pt-3">
+          {rowsImpact.withCitationData > 0 && (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-md border border-line bg-bg-1 px-3 py-2">
+                <p className="text-12 text-fg-2">Total citations</p>
+                <p className="text-16 font-semibold tabular-nums text-fg-0">{fmtInt(rowsImpact.totalCitations)}</p>
+              </div>
+              <div className="rounded-md border border-line bg-bg-1 px-3 py-2">
+                <p className="text-12 text-fg-2">h-index</p>
+                <p className="text-16 font-semibold tabular-nums text-fg-0">{rowsImpact.hIndex}</p>
+              </div>
+              <div className="rounded-md border border-line bg-bg-1 px-3 py-2">
+                <p className="text-12 text-fg-2">Avg citations / yr</p>
+                <p className="text-16 font-semibold tabular-nums text-fg-0">{rowsImpact.avgCitationsPerYear}</p>
+              </div>
+              <div className="rounded-md border border-line bg-bg-1 px-3 py-2">
+                <p className="text-12 text-fg-2">High-impact papers</p>
+                <p className="text-16 font-semibold tabular-nums text-fg-0">{fmtInt(rowsImpact.highlyCitedCount)}</p>
+              </div>
+            </div>
+          )}
+          <PaperMap points={points} colorBy={view.colorBy} onColorBy={view.setColorBy} topics={topicList} onOpen={(id) => { mark("opened-paper"); openPaper(id); }} layers={topicList.length} title={stage === 5 ? "Papers by year and impact" : "Papers by year, score and impact"} dimUnselected={ranked} colorChoices={(["study", "topic", "impact", "source", "evidence", "score"] as ColorBy[]).filter((c) => (c !== "score" || ranked) && (c !== "evidence" || all.some((p) => p.appraisal)))} />
         </div>
       ) : (
         <>
@@ -473,7 +505,7 @@ function Facets({ rows, filters, toggle, topics, ranked }: { rows: Row[]; filter
       </div>
     );
   };
-  const more = (["period", "source", "access", ...(ranked ? (["selected"] as const) : []), "evidence"] as Dimension[]).filter((d) => d !== "evidence" || rows.some((r) => r.appraisal));
+  const more = (["impact", "period", "source", "access", ...(ranked ? (["selected"] as const) : []), "evidence"] as Dimension[]).filter((d) => d !== "evidence" || rows.some((r) => r.appraisal));
   const moreActive = more.reduce((a, d) => a + (filters[d]?.length ?? 0), 0);
   return (
     <div className="space-y-2">

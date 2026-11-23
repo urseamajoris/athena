@@ -7,7 +7,7 @@ import { ActionButton } from "../panels/action-button";
 import { NextStepBar } from "./NextStepBar";
 import { TopicUndo } from "../panels/topic-undo";
 import { KindIcon } from "./icons";
-import { NodeStatusBadge, TrustBadges } from "./node-bits";
+import { ArticlePipelineStrip, AttentionBadge, NodeStatusBadge, TrustBadges } from "./node-bits";
 import { KIND_LABEL, frontierNodeId, type GNode, type Graph, type GraphInput } from "@/lib/canvas/graph";
 import { nextAction } from "@/lib/canvas/actions";
 import { taskFor } from "@/lib/canvas/tasks";
@@ -59,10 +59,38 @@ function ListItem({ it, depth, c }: { it: TreeItem; depth: number; c: ItemCtx })
               <span className="text-fg-2">{KIND_LABEL[n.kind]}</span>
               <span className="truncate tabular-nums">{n.key}{n.kind === "corpus" && c.corpusFrom > 1 ? ` · from ${c.corpusFrom} queries` : ""}</span>
             </span>
+            {n.articleStats && n.attention ? (
+              <span className="mt-1.5 block max-w-sm">
+                <ArticlePipelineStrip
+                  retrieved={n.articleStats.retrieved}
+                  rendered={n.articleStats.rendered}
+                  filed={n.articleStats.filed}
+                  selected={n.articleStats.selected}
+                  stageTones={n.attention.stageTones}
+                  totalCitations={n.articleStats.totalCitations}
+                  hIndex={n.articleStats.hIndex}
+                  compact
+                />
+              </span>
+            ) : n.pipelineCounts ? (
+              <span className="mt-1.5 block max-w-sm">
+                <ArticlePipelineStrip
+                  retrieved={n.pipelineCounts.retrieved}
+                  rendered={n.pipelineCounts.rendered}
+                  filed={n.pipelineCounts.filed}
+                  selected={n.pipelineCounts.selected}
+                  stageTones={n.pipelineCounts.stageTones}
+                  totalCitations={n.impactSummary?.totalCitations}
+                  hIndex={n.impactSummary?.hIndex}
+                  compact
+                />
+              </span>
+            ) : null}
           </span>
           <ChevronRight className="h-4 w-4 shrink-0 text-fg-2" strokeWidth={1.5} aria-hidden />
         </button>
-        <span className="flex items-center gap-3">
+        <span className="flex flex-wrap items-center gap-2">
+          {n.attention && (n.attention.tone === "err" || n.attention.tone === "warn") && <AttentionBadge attention={n.attention} />}
           <NodeStatusBadge node={n} />
           <TrustBadges node={n} verbose />
         </span>

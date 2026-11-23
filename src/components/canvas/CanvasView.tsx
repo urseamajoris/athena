@@ -3,9 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Background, BackgroundVariant, MiniMap, ReactFlow, ReactFlowProvider, useNodesInitialized, useReactFlow, useStore, type Edge, type NodeChange } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
 import { useReducedMotion } from "motion/react";
-import { Map as MapIcon, Maximize, Minus, Plus } from "lucide-react";
+import { Map as MapIcon, Maximize, Minus, Plus, Layers } from "lucide-react";
 import { canvasStore, useCanvas, useSession } from "../session/SessionContext";
 import { NodeCard, type FlowNode, type NodeData } from "./NodeCard";
+import { CanvasTopicHud } from "./CanvasTopicHud";
 import dynamic from "next/dynamic";
 import { canvasCommands, focusNode } from "./focus";
 import { nextAction } from "@/lib/canvas/actions";
@@ -45,6 +46,7 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
   const panel = useCanvas((s) => s.panel);
   const addMenuOpen = useCanvas((s) => !!s.addMenu);
   const [rfReady, setRfReady] = useState(false);
+  const [hudOpen, setHudOpen] = useState(true);
   const rf = useReactFlow<FlowNode>();
   const reduced = useReducedMotion();
   const shape = shapeKey(graph);
@@ -313,7 +315,8 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
         {!far && <Background variant={BackgroundVariant.Dots} gap={24} size={1} />}
         {ui.minimap && <MiniMap pannable zoomable nodeClassName={(n) => `mm-${(n.data as NodeData).node.status}`} ariaLabel="Minimap" />}
       </ReactFlow>
-      <CanvasControls />
+      <CanvasControls hudOpen={hudOpen} onToggleHud={() => setHudOpen((o) => !o)} hasHud={!!(summary?.topicStats?.length && ((states["4"] ?? "not_started") !== "not_started" || summary.topicStats.some((t) => t.retrieved > 0)))} />
+      {!panel && !readOnly && <CanvasTopicHud open={hudOpen} onToggle={() => setHudOpen((o) => !o)} />}
       <div className="pointer-events-none absolute inset-x-0 top-3 z-10 mx-auto w-fit max-w-[calc(100%-24px)]"><NextStepBar floating /></div>
       {/* Undo after deleting a topic, above the zoom controls (the side panel never covers the left edge). The
           topic list shows its own Undo, so not while it is open. */}
@@ -323,7 +326,7 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
   );
 }
 
-function CanvasControls() {
+function CanvasControls({ hudOpen, onToggleHud, hasHud }: { hudOpen: boolean; onToggleHud: () => void; hasHud: boolean }) {
   const rf = useReactFlow();
   const { projectId, ui } = useSession();
   const reduced = useReducedMotion();
@@ -335,6 +338,7 @@ function CanvasControls() {
       <button className={btn} onClick={() => rf.zoomOut({ duration: d })} aria-label="Zoom out"><Minus className="h-4 w-4" strokeWidth={1.5} aria-hidden /></button>
       <button className={btn} onClick={() => rf.fitView({ padding: 0.2, maxZoom: 1, duration: d })} aria-label="Fit view (F)"><Maximize className="h-4 w-4" strokeWidth={1.5} aria-hidden /></button>
       <button className={btn} onClick={() => canvasStore.getState().toggleMinimap(projectId)} aria-pressed={ui.minimap} aria-label="Minimap (M)"><MapIcon className="h-4 w-4" strokeWidth={1.5} aria-hidden /></button>
+      {hasHud && <button className={btn} onClick={onToggleHud} aria-pressed={hudOpen} aria-label="Topic pipeline overview" title="Toggle topic pipeline overview"><Layers className="h-4 w-4" strokeWidth={1.5} aria-hidden /></button>}
     </div>
   );
 }

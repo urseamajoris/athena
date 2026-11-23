@@ -173,6 +173,14 @@ export function scoreHex(band: string, theme: Theme): string {
   return i < 0 ? NONE[theme] : SEQUENTIAL[theme][i];
 }
 
+export const IMPACT_TIERS: Category[] = [
+  { key: "high", label: "High impact", hint: "100+ citations or 12+ citations per year since publication.", slot: 3, shape: "star" },
+  { key: "notable", label: "Notable impact", hint: "25–99 citations or 5–11.9 citations per year.", slot: 1, shape: "diamond" },
+  { key: "moderate", label: "Moderate impact", hint: "5–24 citations or 1.5–4.9 citations per year.", slot: 4, shape: "circle" },
+  { key: "low", label: "Low / emerging", hint: "Under 5 citations and under 1.5 citations per year.", slot: 7, shape: "square" },
+  { key: "unknown", label: "Citations not reported", hint: "Neither OpenAlex nor Crossref reported a citation count.", slot: null, shape: "ring" },
+];
+
 /** Topics take slots in their importance order (max 8 topics, so never cycled). */
 export function topicCategories(topics: { id: string; name: string }[]): Category[] {
   const shapes: Shape[] = ["circle", "square", "triangle", "diamond", "star", "cross", "hexagon", "ring"];
@@ -180,21 +188,23 @@ export function topicCategories(topics: { id: string; name: string }[]): Categor
 }
 
 // ---------- "Color by" ----------
-export type ColorBy = "study" | "topic" | "source" | "evidence" | "score";
+export type ColorBy = "study" | "topic" | "impact" | "source" | "evidence" | "score";
 export const COLOR_BY: { key: ColorBy; label: string }[] = [
   { key: "study", label: "Study type" },
   { key: "topic", label: "Topic" },
+  { key: "impact", label: "Citation impact" },
   { key: "source", label: "Source database" },
   { key: "evidence", label: "Evidence status" },
   { key: "score", label: "Ranking score" },
 ];
 
 /** Filter / group dimensions available in the table and maps. */
-export type Dimension = "study" | "article" | "topic" | "source" | "period" | "access" | "selected" | "evidence";
+export type Dimension = "study" | "article" | "topic" | "impact" | "source" | "period" | "access" | "selected" | "evidence";
 export const DIMENSIONS: { key: Dimension; label: string; plural: string }[] = [
   { key: "study", label: "Study type", plural: "study types" },
   { key: "article", label: "Article type", plural: "article types" },
   { key: "topic", label: "Topic", plural: "topics" },
+  { key: "impact", label: "Citation impact", plural: "impact tiers" },
   { key: "source", label: "Source database", plural: "sources" },
   { key: "period", label: "Year", plural: "periods" },
   { key: "access", label: "Full text", plural: "access" },
@@ -207,6 +217,7 @@ export function categoriesFor(dim: Dimension | ColorBy, topics: { id: string; na
     case "study": return STUDY_GROUPS;
     case "article": return ARTICLE_TYPES;
     case "topic": return topicCategories(topics);
+    case "impact": return IMPACT_TIERS;
     case "source": return SOURCES;
     case "period": return PERIODS;
     case "access": return ACCESS;

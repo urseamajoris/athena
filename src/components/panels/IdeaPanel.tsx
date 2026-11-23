@@ -15,6 +15,9 @@ import { TopicUndo } from "./topic-undo";
 const TopicConstellation = dynamic(() => import("../viz/TopicConstellation").then((m) => m.TopicConstellation), { ssr: false, loading: () => <Loading label="Drawing your topics…" /> });
 import { stageAction } from "@/lib/canvas/actions";
 import { frontierStage, isGhostTopic } from "@/lib/canvas/graph";
+import { evaluateTopicAttention } from "@/lib/shared/canvas";
+import { ArticlePipelineStrip, AttentionBadge } from "../canvas/node-bits";
+import { fmtInt } from "@/lib/shared/format";
 
 interface Topic { id: string; name: string; synonyms: string[]; controlledTerms: string[]; rationale: string; origin: string; approved: boolean }
 export interface ScopingData {
@@ -425,7 +428,7 @@ function ManageTopics({ topics, onChange }: { topics: Topic[]; onChange: (d: Sco
 
 /** Topic node: edit one topic (name, synonyms, MeSH), or accept / dismiss it while it is a suggestion. */
 export function TopicPanel({ topicId }: { topicId: string }) {
-  const { projectId, confirmEdit, refresh, states, input, run, graph, announce } = useSession();
+  const { projectId, confirmEdit, refresh, states, input, run, graph, announce, summary } = useSession();
   const { data, mutate } = useApi<ScopingData>(projectPath(projectId, "scoping"));
   const [err, setErr] = useState<unknown>(null);
   // Set when an edit here reopened the approved step 2 (any topic change does, on the server): said, not silent.
@@ -435,6 +438,8 @@ export function TopicPanel({ topicId }: { topicId: string }) {
   if (!t) return <p className="text-fg-2">This topic no longer exists.</p>;
   const ghost = isGhostTopic({ ...t, synonyms: 0, controlledTerms: 0 }, states, input.client.acceptedTopics);
   const approved2 = states["2"] === "approved";
+  const topicStat = summary?.topicStats?.find((x) => x.topicId === topicId);
+  const topicAttn = topicStat && ((states["4"] ?? "not_started") !== "not_started" || topicStat.retrieved > 0) ? evaluateTopicAttention(topicStat, states) : null;
   async function patch(body: Record<string, unknown>) {
     if (!(await confirmEdit(2))) return;
     const reopens = states["2"] === "approved";
@@ -469,6 +474,32 @@ export function TopicPanel({ topicId }: { topicId: string }) {
             <span><strong className="font-semibold">Step 2 is open again.</strong> You changed a topic, so the topics need approving again. Check the topics, then press “Use these topics” below to continue.</span>
           </p>
         </div>
+      )}
+      {topicStat && topicAttn && (
+        <section aria-label="Topic article status and impact" className="space-y-2 rounded-md border border-line bg-bg-0/60 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-12 font-semibold text-fg-0">Articles &amp; impact</span>
+            <AttentionBadge attention={topicAttn} />
+          </div>
+          <ArticlePipelineStrip
+            retrieved={topicStat.retrieved}
+            rendered={topicStat.rendered}
+            filed={topicStat.filed}
+            selected={topicStat.selected}
+            stageTones={topicAttn.stageTones}
+            totalCitations={topicStat.totalCitations}
+            hIndex={topicStat.hIndex}
+          />
+          <p className="text-12 text-fg-2">{topicAttn.detail}</p>
+          {topicStat.retrieved > 0 && (
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-12 tabular-nums text-fg-1">
+              <span>Total citations <strong className="text-fg-0">{fmtInt(topicStat.totalCitations)}</strong></span>
+              <span>h-index <strong className="text-fg-0">{topicStat.hIndex}</strong></span>
+              <span>Avg <strong className="text-fg-0">{topicStat.avgCitationsPerYear}</strong>/yr</span>
+              <span>Open access <strong className="text-fg-0">{topicStat.openAccessCount}/{topicStat.retrieved}</strong></span>
+            </div>
+          )}
+        </section>
       )}
       <div>
         <label htmlFor={`tn-${t.id}`} className="label">Topic name</label>
