@@ -9,6 +9,8 @@ import { chunk, errMsg, newId } from "../util";
 import { getProject, logDecision } from "../project";
 import type { JobContext } from "./runner";
 import { citationScore, recencyScore, weightedTotal } from "../scoring";
+import { detectCriteriaFlags } from "../shared/criteria";
+import { buildRankingPromptVars, selectInitialRankingIds } from "../review-guards";
 
 const BATCH = 10;
 export const DEFAULT_SELECT = 4;
@@ -73,17 +75,14 @@ export async function rankingJob(ctx: JobContext) {
           schema: RankingBatch,
           projectId,
           stage: 6,
-          vars: {
-            idea: wrapData("research idea", p.idea),
-            summary: wrapData("scoping summary", JSON.stringify(p.scopingSummary ?? {})),
-            topic: `${topic.name} — ${topic.rationale}`,
-            papers: batch
-              .map((x) => {
-                const s = sum.get(x.id);
-                return wrapData(`paper ${x.id}`, `ID: ${x.id}\nTitle: ${x.title}\nYear: ${x.year ?? "n/a"}\nStudy type (from abstract): ${s?.studyType ?? "n/a"}\nSetting (from abstract): ${s?.setting ?? "n/a"}\nKey finding (from abstract): ${s?.keyFinding ?? "n/a"}\nAbstract excerpt: ${(x.abstract ?? "none").slice(0, 700)}`);
-              })
-              .join("\n\n"),
-          },
+          vars: buildRankingPromptVars({
+            idea: p.idea,
+            scopingSummary: p.scopingSummary,
+            criteria: p.criteria,
+            topic,
+            batch,
+            summaries: sum,
+          }),
           mockInput: { batch, summaries: batch.map((x) => sum.get(x.id) ?? null), topic },
           normalize: (o) => ({ scores: o.scores.map((r) => ({ ...r, paperId: repairId(r.paperId, ids) })) }),
           check: (o) => {
@@ -119,13 +118,16 @@ export async function rankingJob(ctx: JobContext) {
     }),
   );
 
-  // Select top N per topic (on a retry, only where nothing is selected yet).
+  // Select top N per topic. A retry leaves an existing selection alone. Flagged and excluded papers stay visible but are not auto-selected.
   const all = db.select().from(schema.scores).where(inArray(schema.scores.topicId, topicIds.concat(["-"]))).all();
+  const paperFlagsById = new Map(
+    papers.map((x) => [x.id, { flags: detectCriteriaFlags(x, sum.get(x.id), p.criteria), excluded: !!x.excluded }]),
+  );
   for (const t of topics) {
     const ts = all.filter((s) => s.topicId === t.id);
     if (retry && ts.some((s) => s.selected)) continue;
-    const top = ts.sort((a, b) => b.total - a.total).slice(0, DEFAULT_SELECT);
-    for (const s of top) db.update(schema.scores).set({ selected: true }).where(eq(schema.scores.id, s.id)).run();
+    const topIds = selectInitialRankingIds(ts, paperFlagsById, DEFAULT_SELECT);
+    for (const sid of topIds) db.update(schema.scores).set({ selected: true }).where(eq(schema.scores.id, sid)).run();
   }
 
   // Order topics by importance (a retry keeps the existing order).

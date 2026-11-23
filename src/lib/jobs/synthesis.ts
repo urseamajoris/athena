@@ -5,18 +5,33 @@ import { structuredCall, unknownIds, BudgetError, repairId } from "../ai/client"
 import { wrapData } from "../ai/prompts";
 import { Synthesis } from "../stages/ai-schemas";
 import { STUDY_TYPE_LABEL, type StudyType } from "../shared/stages";
+import { detectCriteriaFlags, formatCriteriaGuidance, hasNonStudyFlag } from "../shared/criteria";
+import { fullTextSourceLabel } from "../appraisal-text";
+import { filterClaimsForSynthesis, validateSynthesisKnownFindings } from "../review-guards";
 import { errMsg, newId } from "../util";
 import { getProject, logDecision } from "../project";
 import type { JobContext } from "./runner";
 
-/** Claims that synthesis may cite: verified quotes, or unverified ones the user explicitly accepted. */
+/**
+ * Claims that synthesis may cite: verified quotes within text actually sent to the model (or
+ * user-accepted quotes not sourced solely from an unread tail), excluding any paper the
+ * researcher has marked excluded.
+ */
 export function usableClaims(paperIds: string[]) {
-  return db
-    .select()
-    .from(schema.claims)
-    .where(inArray(schema.claims.paperId, paperIds.concat(["-"])))
-    .all()
-    .filter((c) => !c.notReported && !c.userRejected && (c.verified || c.userAccepted));
+  const safeIds = paperIds.concat(["-"]);
+  const claims = db.select().from(schema.claims).where(inArray(schema.claims.paperId, safeIds)).all();
+  if (!claims.length) return [];
+  const papers = db.select().from(schema.papers).where(inArray(schema.papers.id, safeIds)).all();
+  const appIds = [...new Set(claims.map((c) => c.appraisalId))];
+  const apps = db.select().from(schema.appraisals).where(inArray(schema.appraisals.id, appIds.concat(["-"]))).all();
+  const stIds = [...new Set(apps.map((a) => a.sourceTextId).filter((x): x is string => !!x))];
+  const sts = stIds.length ? db.select().from(schema.sourceTexts).where(inArray(schema.sourceTexts.id, stIds)).all() : [];
+  return filterClaimsForSynthesis({
+    claims,
+    papersById: new Map(papers.map((p) => [p.id, p])),
+    appraisalsById: new Map(apps.map((a) => [a.id, a])),
+    sourceTextsById: new Map(sts.map((s) => [s.id, s])),
+  });
 }
 
 export async function synthesisJob(ctx: JobContext) {
@@ -44,9 +59,16 @@ export async function synthesisJob(ctx: JobContext) {
       if (ctx.cancelled()) return;
       try {
         const sel = db.select().from(schema.scores).where(and(eq(schema.scores.topicId, t.id), eq(schema.scores.selected, true))).all();
-        const pids = sel.map((s) => s.paperId);
-        const papers = db.select().from(schema.papers).where(inArray(schema.papers.id, pids.concat(["-"]))).all();
+        const rawPids = sel.map((s) => s.paperId);
+        const allSelectedPapers = db.select().from(schema.papers).where(inArray(schema.papers.id, rawPids.concat(["-"]))).all();
+        const excludedCount = allSelectedPapers.filter((x) => x.excluded).length;
+        if (excludedCount > 0) ctx.log(`Topic "${t.name}": skipped ${excludedCount} excluded paper(s).`);
+        const papers = allSelectedPapers.filter((x) => !x.excluded);
+        const pids = papers.map((x) => x.id);
         const apps = db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, pids.concat(["-"]))).all();
+        const stIds = [...new Set(apps.map((a) => a.sourceTextId).filter((x): x is string => !!x))];
+        const sts = stIds.length ? db.select().from(schema.sourceTexts).where(inArray(schema.sourceTexts.id, stIds)).all() : [];
+        const stById = new Map(sts.map((s) => [s.id, s]));
         const sums = db.select().from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, pids.concat(["-"]))).all();
         const claims = usableClaims(pids);
         if (claims.length < 2) {
@@ -58,6 +80,11 @@ export async function synthesisJob(ctx: JobContext) {
         }
         const claimIds = claims.map((c) => c.id);
         const paperIds = papers.map((x) => x.id);
+        const nonStudyPaperIds = new Set(
+          papers
+            .filter((x) => hasNonStudyFlag(detectCriteriaFlags(x, sums.find((y) => y.paperId === x.id), p.criteria)))
+            .map((x) => x.id),
+        );
         const { data } = await structuredCall({
           prompt: "synthesis",
           role: "reasoning",
@@ -66,6 +93,7 @@ export async function synthesisJob(ctx: JobContext) {
           stage: 8,
           vars: {
             idea: wrapData("research idea", p.idea),
+            criteria: wrapData("review criteria", formatCriteriaGuidance(p.criteria)),
             topic: `${t.name} — ${t.rationale}`,
             papers: wrapData(
               "papers",
@@ -73,13 +101,18 @@ export async function synthesisJob(ctx: JobContext) {
                 .map((x) => {
                   const a = apps.find((y) => y.paperId === x.id);
                   const s = sums.find((y) => y.paperId === x.id);
-                  return `${x.id} — ${x.title} — ${x.year ?? "n/a"} — ${STUDY_TYPE_LABEL[(s?.studyType ?? "not_reported") as StudyType] ?? s?.studyType} — ${a?.textSource === "full_text" ? "full text" : "abstract only"}`;
+                  const st = a?.sourceTextId ? stById.get(a.sourceTextId) : undefined;
+                  const truncated = !!(a?.charsSentToModel && st && a.charsSentToModel < st.fullLength);
+                  const srcLabel = fullTextSourceLabel(a?.textSource ?? "abstract", st?.source, truncated);
+                  const flags = detectCriteriaFlags(x, s, p.criteria);
+                  const flagTag = flags.length ? ` [FLAGGED: ${flags.map((f) => f.label).join(", ")}]` : "";
+                  return `${x.id} — ${x.title} — ${x.year ?? "n/a"} — ${STUDY_TYPE_LABEL[(s?.studyType ?? "not_reported") as StudyType] ?? s?.studyType} — ${srcLabel}${flagTag}`;
                 })
                 .join("\n"),
             ),
             claims: wrapData("claims", claims.map((c) => `${c.id} | ${c.paperId} | ${c.field} | ${c.statement} | quote: "${c.quote}"`).join("\n")),
           },
-          mockInput: { claims, papers, topic: t },
+          mockInput: { claims, papers, topic: t, nonStudyPaperIds: [...nonStudyPaperIds] },
           normalize: (o) => {
             const fc = (a: string[]) => a.map((x) => repairId(x, claimIds));
             return {
@@ -102,6 +135,8 @@ export async function synthesisJob(ctx: JobContext) {
             if (sameP.length) return "Each contradiction must cite claims from at least two different papers.";
             const wrongPaper = o.matrix.filter((m) => m.claimIds.some((id) => byId.get(id) !== m.paperId));
             if (wrongPaper.length) return "Matrix cells may only cite claims from the same paper as the cell.";
+            const knownErr = validateSynthesisKnownFindings(o.known, byId, nonStudyPaperIds);
+            if (knownErr) return knownErr;
             if (!o.known.length && !o.contested.length && !o.unknown.length) return "Provide at least one known, contested or unknown statement.";
             return null;
           },

@@ -3,12 +3,14 @@ import { useEffect, useRef } from "react";
 import { projectPath, useApi } from "../api";
 import { AbstractBadge, Badge, ErrorState, Loading, TextSourceBadge } from "../ui";
 import { RUBRIC, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
+import type { PaperFlag } from "@/lib/shared/criteria";
 import { useWizard } from "./Wizard";
 
 interface Detail {
-  paper: { id: string; title: string; authors: string[]; year: number | null; journal: string | null; abstract: string | null; doi: string | null; pmid: string | null; pmcid: string | null; openalexId: string | null; citationCount: number | null; oaUrl: string | null; oaStatus: string | null; license: string | null; sourceDatabases: string[]; publicationTypes: string[] };
+  paper: { id: string; title: string; authors: string[]; year: number | null; journal: string | null; abstract: string | null; doi: string | null; pmid: string | null; pmcid: string | null; openalexId: string | null; citationCount: number | null; oaUrl: string | null; oaStatus: string | null; license: string | null; sourceDatabases: string[]; publicationTypes: string[]; excluded?: boolean; excludedReason?: string | null };
   summary: { studyType: string; setting: string; keyFinding: string; edited: boolean } | null;
-  appraisal: { id: string; status: string; textSource: string } | null;
+  flags?: PaperFlag[];
+  appraisal: { id: string; status: string; textSource: string; sourceOrigin?: string | null; truncated?: boolean } | null;
   foundBy: { database?: string; query?: string; topic?: string; rank: number; wasNew: boolean }[];
   scores: { id: string; topicName?: string; total: number; selected: boolean; rationale: string; subScores: Record<string, number>; rationales: Record<string, string> }[];
 }
@@ -44,9 +46,13 @@ export function PaperDrawer({ paperId, onClose }: { paperId: string | null; onCl
                 <p className="mt-1 text-gray-600">{p.authors.slice(0, 6).join(", ")}{p.authors.length > 6 ? " et al." : ""}</p>
                 <p className="text-gray-500">{p.journal ?? "Journal not reported"} · {p.year ?? "year n/a"} · {p.citationCount ?? "?"} citations</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
+                  {p.excluded && <Badge tone="gray" title={p.excludedReason ?? "Excluded by researcher"}>Excluded</Badge>}
+                  {(data.flags ?? []).map((f, idx) => (
+                    <Badge key={idx} tone={f.kind === "publication_type" ? "rose" : "amber"} title={f.reason}>⚠ {f.label}</Badge>
+                  ))}
                   {p.sourceDatabases.map((d) => <Badge key={d} tone="sky">Found in {d}</Badge>)}
                   {p.publicationTypes.slice(0, 3).map((t) => <Badge key={t}>{t}</Badge>)}
-                  {data.appraisal && <TextSourceBadge source={data.appraisal.textSource} />}
+                  {data.appraisal && <TextSourceBadge source={data.appraisal.textSource} origin={data.appraisal.sourceOrigin} truncated={data.appraisal.truncated} />}
                 </div>
               </div>
               <section>

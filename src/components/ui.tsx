@@ -54,11 +54,35 @@ export function AbstractBadge() {
   );
 }
 
-export function TextSourceBadge({ source }: { source: string }) {
-  return source === "full_text" ? (
-    <Badge tone="emerald" title="The appraisal was done on the open-access full text">Full text</Badge>
-  ) : (
-    <Badge tone="amber" title="Full text was not legally available; only the abstract was read">Abstract only</Badge>
+export function TextSourceBadge({ source, origin, truncated }: { source: string; origin?: string | null; truncated?: boolean }) {
+  if (source !== "full_text") {
+    return <Badge tone="amber" title="Full text was not legally available; only the abstract was read">Abstract only</Badge>;
+  }
+  const part = truncated ? " · partial" : "";
+  if (origin === "europepmc" || origin === "pmc") {
+    return (
+      <Badge
+        tone="teal"
+        title="Europe PMC JATS XML: prose and table/figure captions only; table and figure bodies were not included (differs from PDF extraction)"
+      >
+        Full text · XML (no table bodies){part}
+      </Badge>
+    );
+  }
+  if (origin === "unpaywall_pdf") {
+    return (
+      <Badge
+        tone="emerald"
+        title="Extracted from open-access PDF via Unpaywall (includes raw table text, which may be garbled; differs from Europe PMC XML)"
+      >
+        Full text · PDF{part}
+      </Badge>
+    );
+  }
+  return (
+    <Badge tone="emerald" title="The appraisal was done on the open-access full text">
+      Full text{part}
+    </Badge>
   );
 }
 

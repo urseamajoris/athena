@@ -4,13 +4,14 @@ import { db, schema } from "../db";
 import type { ChecklistItem } from "../db/schema";
 import { config } from "../config";
 import { structuredCall, BudgetError } from "../ai/client";
-import { wrapData } from "../ai/prompts";
 import { Appraisal, EXTRACTION_FIELDS } from "../stages/ai-schemas";
-import { CHECKLISTS, FIELD_GUIDANCE, TEMPLATE_LABEL, templateFor } from "../stages/templates";
+import { CHECKLISTS, templateFor } from "../stages/templates";
 import { closestPassage, normalizeWithMap, sectionAt, verifyQuote } from "../quotes";
 import { errMsg, newId } from "../util";
-import { logDecision } from "../project";
+import { getProject, logDecision } from "../project";
 import { claimIdsOfAppraisals, dropOutputCiting } from "../evidence";
+import { buildAppraisalInput, reconstructSentText } from "../appraisal-text";
+import { buildAppraisalPromptVars, verifyQuoteInSentRanges } from "../review-guards";
 import { getAppraisalText } from "./fulltext";
 import type { JobContext } from "./runner";
 
@@ -46,12 +47,16 @@ export function reverifyProject(projectId: string) {
     if (!a.sourceTextId) continue;
     const st = db.select().from(schema.sourceTexts).where(eq(schema.sourceTexts.id, a.sourceTextId)).get();
     if (!st) continue;
-    const sent = a.charsSentToModel ? st.text.slice(0, a.charsSentToModel) : st.text;
+    const sentRanges =
+      a.sentRanges && a.sentRanges.length
+        ? a.sentRanges
+        : [{ start: 0, end: a.charsSentToModel ? Math.min(a.charsSentToModel, st.text.length) : st.text.length }];
+    const sent = reconstructSentText(st.text, sentRanges);
     const pre = normalizeWithMap(sent);
     for (const c of db.select().from(schema.claims).where(eq(schema.claims.appraisalId, a.id)).all()) {
       if (c.notReported) continue;
       checked++;
-      const v = checkQuote(sent, st.sections, c.quote, pre);
+      const v = verifyQuoteInSentRanges(st.text, st.sections, sentRanges, c.quote, pre);
       if (v.verified !== c.verified) changed++;
       db.update(schema.claims).set(v).where(eq(schema.claims.id, c.id)).run();
     }
@@ -62,11 +67,16 @@ export function reverifyProject(projectId: string) {
 export function selectedPaperIds(projectId: string): string[] {
   const topics = db.select({ id: schema.topics.id }).from(schema.topics).where(eq(schema.topics.projectId, projectId)).all().map((t) => t.id);
   const sel = db.select().from(schema.scores).where(inArray(schema.scores.topicId, topics.concat(["-"]))).all().filter((s) => s.selected);
-  return [...new Set(sel.map((s) => s.paperId))];
+  const pids = [...new Set(sel.map((s) => s.paperId))];
+  if (!pids.length) return [];
+  const active = db.select({ id: schema.papers.id, excluded: schema.papers.excluded }).from(schema.papers).where(inArray(schema.papers.id, pids)).all();
+  const ok = new Set(active.filter((p) => !p.excluded).map((p) => p.id));
+  return pids.filter((id) => ok.has(id));
 }
 
 export async function appraisalJob(ctx: JobContext) {
   const { projectId } = ctx;
+  const project = getProject(projectId);
   const ids = selectedPaperIds(projectId);
   if (!ids.length) throw new Error("No papers are selected in the Ranking stage.");
   const onlyIds = (ctx.params.paperIds as string[] | undefined) ?? null;
@@ -98,30 +108,29 @@ export async function appraisalJob(ctx: JobContext) {
       try {
         const txt = await getAppraisalText(paper, (l) => ctx.log(l));
         const st = db.select().from(schema.sourceTexts).where(eq(schema.sourceTexts.id, txt.sourceTextId)).get()!;
-        const truncated = st.text.length > config.appraisalMaxChars;
-        const sent = truncated ? st.text.slice(0, config.appraisalMaxChars) : st.text;
-        const note = txt.note + (truncated ? ` The model was given the first ${config.appraisalMaxChars.toLocaleString()} of ${st.text.length.toLocaleString()} characters; content after that was not read.` : "");
-        db.update(schema.appraisals).set({ sourceTextId: st.id, textSource: txt.kind, textNote: note, charsSentToModel: sent.length }).where(eq(schema.appraisals.id, appraisalId)).run();
+        const input = buildAppraisalInput(st.text, st.sections, config.appraisalMaxChars);
+        const note = [txt.note, input.note].filter(Boolean).join(" ");
+        db.update(schema.appraisals)
+          .set({ sourceTextId: st.id, textSource: txt.kind, textNote: note, charsSentToModel: input.charsSent, sentRanges: input.sentRanges })
+          .where(eq(schema.appraisals.id, appraisalId))
+          .run();
         const checklist = CHECKLISTS[template];
-        const guidance = FIELD_GUIDANCE[template];
         const { data, model, promptVersion } = await structuredCall({
           prompt: "appraisal",
           role: "reasoning",
           schema: Appraisal,
           projectId,
           stage: 7,
-          vars: {
-            textSource: txt.kind === "full_text" ? "FULL TEXT" : "ABSTRACT ONLY (the full text was not available; do not imply you read it)",
-            textNote: truncated ? `Only the first part of the full text is provided.` : "",
-            template: TEMPLATE_LABEL[template],
-            fields: EXTRACTION_FIELDS.map((f) => `- ${f}: ${guidance[f]}`).join("\n"),
-            checklist: checklist.map((c, i) => `${i + 1}. ${c}`).join("\n"),
-            paperId: paper.id,
-            title: paper.title,
-            year: String(paper.year ?? "n/a"),
-            text: wrapData(`source text of ${paper.id}`, sent),
-          },
-          mockInput: { paper, text: sent, checklist },
+          vars: buildAppraisalPromptVars({
+            criteria: project.criteria,
+            paper,
+            template,
+            textSourceKind: txt.kind,
+            sourceOrigin: st.source,
+            input,
+            sourceNote: txt.note,
+          }),
+          mockInput: { paper, text: input.text, checklist },
           check: (o) => {
             const missing = EXTRACTION_FIELDS.filter((f) => !o.extractions.some((e) => e.field === f));
             if (missing.length) return `Missing extraction fields: ${missing.join(", ")}`;
@@ -137,12 +146,14 @@ export async function appraisalJob(ctx: JobContext) {
           },
         });
 
-        // Verify every quote against the text that was actually retrieved and sent.
-        const pre = normalizeWithMap(sent);
+        // Verify every quote strictly against the ranges actually sent to the model, mapped back to st.text offsets.
+        const pre = normalizeWithMap(input.text);
         const claimRows: (typeof schema.claims.$inferInsert)[] = [];
         const mk = (field: string, statement: string, quote: string, location: string, notReported: boolean) => {
           const id = newId("c");
-          const v = notReported ? { verified: false, matchStart: null, matchEnd: null, verificationNote: "Marked not reported — no quote needed." } : checkQuote(sent, st.sections, quote, pre);
+          const v = notReported
+            ? { verified: false, matchStart: null, matchEnd: null, verificationNote: "Marked not reported — no quote needed." }
+            : verifyQuoteInSentRanges(st.text, st.sections, input.sentRanges, quote, pre);
           claimRows.push({ id, appraisalId, paperId: paper.id, field, statement, quote, location, notReported, ...v });
           return id;
         };

@@ -4,11 +4,18 @@ import { api, projectPath, useApi } from "../api";
 import { Badge, EmptyState, ErrorState, Loading, Spinner, Tooltip, cx } from "../ui";
 import { JobPanel, useJobRefresh, useWizard } from "../wizard/Wizard";
 import { RUBRIC, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
+import type { PaperFlag } from "@/lib/shared/criteria";
 
 interface ScoreRow {
   id: string; paperId: string; total: number; selected: boolean; userChanged: boolean; rationale: string;
   subScores: Record<string, number>; rationales: Record<string, string>;
-  paper: { id: string; title: string; year: number | null; journal: string | null; citationCount: number | null; studyType: string | null };
+  paper: {
+    id: string; title: string; year: number | null; journal: string | null; citationCount: number | null; studyType: string | null;
+    publicationTypes?: string[];
+    excluded?: boolean;
+    excludedReason?: string | null;
+    flags?: PaperFlag[];
+  };
 }
 interface RankingData { topics: { id: string; name: string; importanceRank: number | null; importanceJustification: string | null; candidates: number; unscored: number; scores: ScoreRow[] }[] }
 
@@ -38,6 +45,13 @@ export function RankingStage() {
   }
   const toggle = (s: ScoreRow) => change(() => api(projectPath(projectId, "ranking/select"), { body: { scoreId: s.id, selected: !s.selected } }));
   const swap = (outId: string, inId: string) => change(() => api(projectPath(projectId, "ranking/swap"), { body: { outId, inId } }));
+  const toggleExclude = (s: ScoreRow) =>
+    change(async () => {
+      const next = !s.paper.excluded;
+      const reason = next ? s.paper.flags?.map((f) => f.reason).join("; ") || "Excluded by researcher" : null;
+      await api(projectPath(projectId, `papers/${s.paperId}/exclude`), { method: "PATCH", body: { excluded: next, reason, stage: 6 } });
+      return api<RankingData>(projectPath(projectId, "ranking"));
+    });
   const hasScores = data.topics.some((t) => t.scores.length);
   const unscored = data.topics.reduce((a, t) => a + t.unscored, 0);
   const job = jobs["6"];
@@ -66,7 +80,7 @@ export function RankingStage() {
             <li key={r.key} className="flex items-center gap-2"><span className={cx("inline-block h-3 w-3 rounded-sm", SEG[i])} /> <strong>{r.label}</strong> — weight {Math.round(r.weight * 100)}% · {r.by === "AI" ? "scored by the AI from title/abstract" : "calculated by a fixed formula"}</li>
           ))}
         </ul>
-        <p className="mt-2 text-xs text-gray-500">Total = weighted sum, out of 100. The top 4 per topic are pre-selected. Hover a bar for the reasons behind each score.</p>
+        <p className="mt-2 text-xs text-gray-500">Total = weighted sum, out of 100. Up to 4 unflagged, non-excluded papers per topic are pre-selected. Papers flagged by publication type (protocol, editorial, letter, comment, erratum) or stored exclusion criteria stay unselected for your review. Hover a score for the reasons behind it.</p>
       </details>
       {err ? <ErrorState error={err} /> : null}
       {unscored > 0 && !jobRunning && (
@@ -80,8 +94,9 @@ export function RankingStage() {
       ) : (
         <div className="flex gap-4 overflow-x-auto pb-3" role="list" aria-label="Topics in order of importance">
           {data.topics.map((t) => {
-            const sel = t.scores.filter((s) => s.selected);
-            const rest = t.scores.filter((s) => !s.selected);
+            const sel = t.scores.filter((s) => s.selected && !s.paper.excluded);
+            const rest = t.scores.filter((s) => !s.selected || s.paper.excluded);
+            const swapEligible = rest.filter((s) => !s.paper.excluded);
             return (
               <section key={t.id} role="listitem" className="card w-[340px] shrink-0 p-3" aria-label={`Topic ${t.name}`}>
                 <div className="mb-2">
@@ -92,12 +107,12 @@ export function RankingStage() {
                   {t.unscored > 0 && <p className="mt-0.5 text-xs font-medium text-rose-700">{t.unscored} not scored (batch failed) — partial ranking</p>}
                 </div>
                 <ul className="space-y-2">
-                  {sel.map((s) => <ScoreCard key={s.id} s={s} onToggle={() => toggle(s)} swapOptions={rest} onSwap={(inId) => swap(s.id, inId)} />)}
+                  {sel.map((s) => <ScoreCard key={s.id} s={s} onToggle={() => toggle(s)} onExclude={() => toggleExclude(s)} swapOptions={swapEligible} onSwap={(inId) => swap(s.id, inId)} />)}
                 </ul>
                 {rest.length > 0 && (
                   <details className="mt-3">
                     <summary className="cursor-pointer text-xs font-medium text-gray-600">Other candidates ({rest.length})</summary>
-                    <ul className="mt-2 space-y-2">{rest.map((s) => <ScoreCard key={s.id} s={s} onToggle={() => toggle(s)} />)}</ul>
+                    <ul className="mt-2 space-y-2">{rest.map((s) => <ScoreCard key={s.id} s={s} onToggle={() => toggle(s)} onExclude={() => toggleExclude(s)} />)}</ul>
                   </details>
                 )}
               </section>
@@ -109,15 +124,38 @@ export function RankingStage() {
   );
 }
 
-function ScoreCard({ s, onToggle, swapOptions, onSwap }: { s: ScoreRow; onToggle: () => void; swapOptions?: ScoreRow[]; onSwap?: (inId: string) => void }) {
+function ScoreCard({ s, onToggle, onExclude, swapOptions, onSwap }: { s: ScoreRow; onToggle: () => void; onExclude: () => void; swapOptions?: ScoreRow[]; onSwap?: (inId: string) => void }) {
   const { openPaper } = useWizard();
+  const flags = s.paper.flags ?? [];
+  const excluded = !!s.paper.excluded;
   return (
-    <li className={cx("rounded-lg border p-2", s.selected ? "border-emerald-300 bg-emerald-50/40" : "border-gray-200")}>
+    <li className={cx("rounded-lg border p-2", excluded ? "border-gray-200 bg-gray-50 opacity-70" : s.selected ? "border-emerald-300 bg-emerald-50/40" : flags.length ? "border-amber-200 bg-amber-50/30" : "border-gray-200")}>
       <div className="flex items-start gap-2">
-        <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-700" checked={s.selected} onChange={onToggle} aria-label={`${s.selected ? "Deselect" : "Select"} ${s.paper.title}`} />
+        <input
+          type="checkbox"
+          className="mt-1 h-4 w-4 accent-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
+          checked={s.selected && !excluded}
+          disabled={excluded}
+          onChange={onToggle}
+          title={excluded ? "Restore this paper before selecting it" : undefined}
+          aria-label={`${s.selected ? "Deselect" : "Select"} ${s.paper.title}`}
+        />
         <div className="min-w-0 flex-1">
-          <button className="text-left text-sm font-medium leading-snug text-gray-900 hover:underline" onClick={() => openPaper(s.paperId)}>{s.paper.title}</button>
+          <button className={cx("text-left text-sm font-medium leading-snug text-gray-900 hover:underline", excluded && "line-through text-gray-500")} onClick={() => openPaper(s.paperId)}>{s.paper.title}</button>
           <p className="text-[11px] text-gray-500">{s.paper.year ?? "n.d."} · {s.paper.studyType ? STUDY_TYPE_LABEL[s.paper.studyType as StudyType] : "?"} · {s.paper.citationCount ?? "?"} cites {s.userChanged && <Badge tone="teal">changed by you</Badge>}</p>
+          {(flags.length > 0 || excluded) && (
+            <div className="mt-1 flex flex-wrap items-center gap-1">
+              {excluded && <Badge tone="gray" title={s.paper.excludedReason ?? "Excluded by researcher"}>Excluded</Badge>}
+              {flags.map((f, idx) => (
+                <Badge key={idx} tone={f.kind === "publication_type" ? "rose" : "amber"} title={f.reason}>
+                  ⚠ {f.label}
+                </Badge>
+              ))}
+            </div>
+          )}
+          {flags.length > 0 && !excluded && (
+            <p className="mt-0.5 text-[11px] text-amber-900">{flags[0].reason}</p>
+          )}
           <div className="mt-1.5 flex items-center gap-2">
             <div className="flex h-2.5 flex-1 overflow-hidden rounded bg-gray-100" aria-hidden>
               {RUBRIC.map((r, i) => (
@@ -128,13 +166,18 @@ function ScoreCard({ s, onToggle, swapOptions, onSwap }: { s: ScoreRow; onToggle
               <span className="cursor-help text-sm font-semibold tabular-nums text-gray-800" aria-label={`Total score ${s.total} out of 100. ${s.rationale}`}>{s.total}</span>
             </Tooltip>
           </div>
-          <details className="mt-1">
-            <summary className="cursor-pointer text-[11px] text-gray-500">Why this score</summary>
-            <p className="mt-1 text-xs text-gray-700">{s.rationale}</p>
-            <ul className="mt-1 space-y-0.5 text-[11px] text-gray-600">
-              {RUBRIC.map((r) => <li key={r.key}><strong>{r.label} {s.subScores[r.key]}/5:</strong> {s.rationales[r.key]}</li>)}
-            </ul>
-          </details>
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <details className="flex-1">
+              <summary className="cursor-pointer text-[11px] text-gray-500">Why this score</summary>
+              <p className="mt-1 text-xs text-gray-700">{s.rationale}</p>
+              <ul className="mt-1 space-y-0.5 text-[11px] text-gray-600">
+                {RUBRIC.map((r) => <li key={r.key}><strong>{r.label} {s.subScores[r.key]}/5:</strong> {s.rationales[r.key]}</li>)}
+              </ul>
+            </details>
+            <button type="button" className={cx("text-[11px] underline", excluded ? "text-teal-800" : "text-gray-500 hover:text-rose-700")} onClick={onExclude}>
+              {excluded ? "Restore" : "Exclude"}
+            </button>
+          </div>
           {swapOptions && swapOptions.length > 0 && onSwap && (
             <label className="mt-1.5 flex items-center gap-1 text-[11px] text-gray-600">Swap for
               <select className="input py-0.5 text-[11px]" value="" onChange={(e) => e.target.value && onSwap(e.target.value)}>

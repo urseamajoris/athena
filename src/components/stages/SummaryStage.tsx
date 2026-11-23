@@ -4,9 +4,14 @@ import { api, projectPath, useApi } from "../api";
 import { AbstractBadge, Badge, EmptyState, ErrorState, Loading, Spinner, cx } from "../ui";
 import { JobPanel, useJobRefresh, useWizard } from "../wizard/Wizard";
 import { STUDY_TYPES, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
+import type { PaperFlag } from "@/lib/shared/criteria";
 
 interface Row {
   id: string; title: string; authors: string[]; year: number | null; journal: string | null; citationCount: number | null; oaUrl: string | null; sourceDatabases: string[]; doi: string | null; pmid: string | null; openalexId: string | null; hasAbstract: boolean;
+  publicationTypes?: string[];
+  excluded?: boolean;
+  excludedReason?: string | null;
+  flags?: PaperFlag[];
   summary: { studyType: string; setting: string; keyFinding: string; edited: boolean } | null;
   topicIds: string[];
 }
@@ -22,6 +27,7 @@ export function SummaryStage() {
   const [studyType, setStudyType] = useState("");
   const [topic, setTopic] = useState("");
   const [oaOnly, setOaOnly] = useState(false);
+  const [flaggedOnly, setFlaggedOnly] = useState(false);
   const [group, setGroup] = useState(true);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "year", dir: -1 });
   const [editing, setEditing] = useState<{ id: string; field: "setting" | "keyFinding" | "studyType" } | null>(null);
@@ -36,6 +42,7 @@ export function SummaryStage() {
       if (studyType && p.summary?.studyType !== studyType) return false;
       if (topic && !p.topicIds.includes(topic)) return false;
       if (oaOnly && !p.oaUrl) return false;
+      if (flaggedOnly && !(p.flags?.length || p.excluded)) return false;
       if (needle && !`${p.title} ${p.authors.join(" ")} ${p.journal ?? ""} ${p.summary?.setting ?? ""} ${p.summary?.keyFinding ?? ""}`.toLowerCase().includes(needle)) return false;
       return true;
     });
@@ -50,7 +57,7 @@ export function SummaryStage() {
       }
     };
     return [...r].sort((a, b) => (val(a) > val(b) ? 1 : val(a) < val(b) ? -1 : 0) * sort.dir);
-  }, [data, q, studyType, topic, oaOnly, sort]);
+  }, [data, q, studyType, topic, oaOnly, flaggedOnly, sort]);
 
   if (states["4"] !== "approved" && (states["5"] ?? "not_started") === "not_started") return <EmptyState title="Approve retrieval first">The summary table is built from the papers retrieved in step 4.</EmptyState>;
   if (isLoading) return <Loading />;
@@ -59,6 +66,8 @@ export function SummaryStage() {
 
   const groups = group ? data.topics.map((t) => ({ id: t.id, name: t.name, rows: rows.filter((r) => r.topicIds.includes(t.id)) })).filter((g) => g.rows.length) : [{ id: "all", name: "", rows }];
   const missing = data.papers.filter((p) => !p.summary).length;
+  const flaggedCount = data.papers.filter((p) => (p.flags?.length ?? 0) > 0).length;
+  const excludedCount = data.papers.filter((p) => p.excluded).length;
 
   /** Save a corrected cell. Unchanged values are not edits; changed ones go through the same stale warning as any edit. */
   async function saveCell(id: string, field: "setting" | "keyFinding" | "studyType", value: string) {
@@ -90,6 +99,15 @@ export function SummaryStage() {
   }
   const job = jobs["5"];
   const jobRunning = job && (job.status === "running" || job.status === "queued");
+
+  async function toggleExclude(p: Row) {
+    if (!(await confirmEdit(5))) return;
+    const next = !p.excluded;
+    const reason = next ? p.flags?.map((f) => f.reason).join("; ") || "Excluded by researcher" : null;
+    await api(projectPath(projectId, `papers/${p.id}/exclude`), { method: "PATCH", body: { excluded: next, reason, stage: 5 } });
+    await mutate();
+    await refresh();
+  }
 
   const th = (key: SortKey, label: string, cls = "") => (
     <th scope="col" aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"} className={cx("whitespace-nowrap px-2 py-2", cls)}>
@@ -126,10 +144,16 @@ export function SummaryStage() {
           </select>
         </label>
         <label className="flex items-center gap-1.5 pb-2 text-sm text-gray-700"><input type="checkbox" className="accent-teal-700" checked={oaOnly} onChange={(e) => setOaOnly(e.target.checked)} /> Open access only</label>
+        <label className="flex items-center gap-1.5 pb-2 text-sm text-gray-700"><input type="checkbox" className="accent-teal-700" checked={flaggedOnly} onChange={(e) => setFlaggedOnly(e.target.checked)} /> Flagged / excluded ({flaggedCount + excludedCount})</label>
         <label className="flex items-center gap-1.5 pb-2 text-sm text-gray-700"><input type="checkbox" className="accent-teal-700" checked={group} onChange={(e) => setGroup(e.target.checked)} /> Group by topic</label>
-        <p className="pb-2 text-xs text-gray-500">{rows.length} of {data.papers.length} papers{missing ? ` · ${missing} not yet summarised` : ""}</p>
+        <p className="pb-2 text-xs text-gray-500">
+          {rows.length} of {data.papers.length} papers
+          {flaggedCount ? ` · ${flaggedCount} flagged by criteria/type` : ""}
+          {excludedCount ? ` · ${excludedCount} excluded` : ""}
+          {missing ? ` · ${missing} not yet summarised` : ""}
+        </p>
       </div>
-      <p className="flex items-center gap-2 text-xs text-gray-500"><AbstractBadge /> cells were filled by the AI from the abstract only. Double-click a cell (or press Enter on it) to correct it. Click a title for full details.</p>
+      <p className="flex flex-wrap items-center gap-2 text-xs text-gray-500"><AbstractBadge /> cells were filled by the AI from the abstract only. Double-click a cell (or press Enter on it) to correct it. Flagged records (non-study publication types or criteria exclusions) are kept visible so you can exclude them before appraisal.</p>
       {data.papers.length === 0 ? (
         <EmptyState title="No papers were retrieved">Go back to the search builder and broaden the queries.</EmptyState>
       ) : (
@@ -148,8 +172,25 @@ export function SummaryStage() {
                   <tr><th colSpan={10} scope="rowgroup" className="bg-teal-50/60 px-2 py-1.5 text-xs font-semibold text-teal-900">{g.name} · {g.rows.length}</th></tr>
                 )}
                 {(expanded.has(g.id) ? g.rows : g.rows.slice(0, PAGE)).map((p) => (
-                  <tr key={`${g.id}-${p.id}`} className="border-t border-gray-100 align-top hover:bg-gray-50">
-                    <td className="px-2 py-2"><button className="text-left font-medium text-gray-900 hover:underline" onClick={() => openPaper(p.id)}>{p.title}</button></td>
+                  <tr key={`${g.id}-${p.id}`} className={cx("border-t border-gray-100 align-top hover:bg-gray-50", p.excluded && "bg-gray-50/70 opacity-65")}>
+                    <td className="px-2 py-2">
+                      <button className={cx("text-left font-medium text-gray-900 hover:underline", p.excluded && "line-through text-gray-500")} onClick={() => openPaper(p.id)}>{p.title}</button>
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                        {p.excluded && <Badge tone="gray" title={p.excludedReason ?? "Excluded by researcher"}>Excluded</Badge>}
+                        {(p.flags ?? []).map((f, idx) => (
+                          <Badge key={idx} tone={f.kind === "publication_type" ? "rose" : "amber"} title={f.reason}>
+                            ⚠ {f.label}
+                          </Badge>
+                        ))}
+                        <button
+                          type="button"
+                          className={cx("text-[11px] underline", p.excluded ? "text-teal-800" : "text-gray-500 hover:text-rose-700")}
+                          onClick={() => toggleExclude(p)}
+                        >
+                          {p.excluded ? "Restore" : "Exclude"}
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-2 py-2 text-xs text-gray-600">{p.authors[0] ?? "–"}{p.authors.length > 1 ? " et al." : ""}</td>
                     <td className="px-2 py-2 tabular-nums">{p.year ?? "–"}</td>
                     <td className="px-2 py-2 text-xs text-gray-600">{p.journal ?? "–"}</td>

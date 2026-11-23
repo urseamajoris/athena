@@ -201,6 +201,27 @@ on("PATCH", "papers/:pid/summary", ({ projectId, params, body }) => {
   markDownstreamStale(projectId, 5, "A summary-table cell was corrected");
   return { ok: true, changed: true };
 });
+on("PATCH", "papers/:pid/exclude", ({ projectId, params, body }) => {
+  const { excluded, reason, stage } = parse(
+    z.object({
+      excluded: z.boolean(),
+      reason: z.string().trim().max(300).nullable().optional(),
+      stage: z.number().int().min(5).max(6).optional(),
+    }),
+    body,
+  );
+  const p = db.select().from(schema.papers).where(and(eq(schema.papers.id, params.pid), eq(schema.papers.projectId, projectId))).get();
+  if (!p) throw new HttpError(404, "Paper not found");
+  const excludedReason = excluded ? (reason ?? p.excludedReason ?? "Excluded by researcher") : null;
+  db.update(schema.papers).set({ excluded, excludedReason }).where(eq(schema.papers.id, p.id)).run();
+  if (excluded) {
+    db.update(schema.scores).set({ selected: false, userChanged: true }).where(eq(schema.scores.paperId, p.id)).run();
+  }
+  const fromStage = stage ?? 5;
+  logDecision(projectId, fromStage, excluded ? "paper_excluded" : "paper_restored", { paperId: p.id, excluded: p.excluded }, { excluded, excludedReason });
+  markDownstreamStale(projectId, fromStage, excluded ? "A paper was excluded" : "An excluded paper was restored");
+  return { ok: true, excluded, excludedReason };
+});
 
 // ---------- stage 6 ----------
 on("GET", "ranking", ({ projectId }) => rankingView(projectId));
@@ -208,6 +229,10 @@ on("POST", "ranking/select", ({ projectId, body }) => {
   const { scoreId, selected } = parse(z.object({ scoreId: z.string(), selected: z.boolean() }), body);
   const s = db.select().from(schema.scores).where(eq(schema.scores.id, scoreId)).get();
   if (!s) throw new HttpError(404, "Score not found");
+  if (selected) {
+    const paper = db.select({ excluded: schema.papers.excluded }).from(schema.papers).where(eq(schema.papers.id, s.paperId)).get();
+    if (paper?.excluded) throw new HttpError(400, "Restore this excluded paper before selecting it.");
+  }
   db.update(schema.scores).set({ selected, userChanged: true }).where(eq(schema.scores.id, scoreId)).run();
   logDecision(projectId, 6, selected ? "paper_selected" : "paper_deselected", { paperId: s.paperId, topicId: s.topicId, selected: s.selected }, { selected });
   markDownstreamStale(projectId, 6, "The selected papers changed");
@@ -218,6 +243,8 @@ on("POST", "ranking/swap", ({ projectId, body }) => {
   const a = db.select().from(schema.scores).where(eq(schema.scores.id, outId)).get();
   const b = db.select().from(schema.scores).where(eq(schema.scores.id, inId)).get();
   if (!a || !b || a.topicId !== b.topicId) throw new HttpError(400, "Both papers must be in the same topic.");
+  const inPaper = db.select({ excluded: schema.papers.excluded }).from(schema.papers).where(eq(schema.papers.id, b.paperId)).get();
+  if (inPaper?.excluded) throw new HttpError(400, "Restore this excluded paper before selecting it.");
   db.update(schema.scores).set({ selected: false, userChanged: true }).where(eq(schema.scores.id, outId)).run();
   db.update(schema.scores).set({ selected: true, userChanged: true }).where(eq(schema.scores.id, inId)).run();
   logDecision(projectId, 6, "papers_swapped", { out: a.paperId }, { in: b.paperId, topicId: a.topicId });
