@@ -49,6 +49,8 @@ test("redaction removes known keys and key-shaped strings", () => {
   assert.ok(!out.includes("SAMPLEKEY"));
   assert.ok(!out.includes("abcdefghijklmnop"));
   assert.equal(redactSecrets("token my-secret-value-123 here", ["my-secret-value-123"]), "token [redacted] here");
+  assert.equal(redactSecrets("err sk-ant-api03-abcdefghijklmnopqrstuvwx"), "err [redacted]");
+  assert.equal(redactSecrets("err AIzaSyD1234567890abcdefghijklmnopqrs"), "err [redacted]");
 });
 
 test("login rate limit: per email and per IP, inside the window only", () => {

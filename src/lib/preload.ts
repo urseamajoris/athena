@@ -9,7 +9,7 @@ import { totalSpend } from "./ai/client";
 import { canvasView, papersTableView, projectView, questionsView, rankingTableView } from "./views";
 import { exportPreview } from "./api";
 import { ownedProject, type SessionUser } from "./auth/server";
-import { aiState, budgetLimit, effectiveXaiKey } from "./settings";
+import { aiState, budgetLimit, effectiveProviderKey, providerConfigStatus } from "./settings";
 
 /** GET /api/projects */
 export async function projectsList(ownerId: string) {
@@ -28,13 +28,21 @@ export async function statusView(user: SessionUser) {
     ai: await aiState(),
   };
   if (user.role !== "admin") return base;
+  const providerConfig = await providerConfigStatus();
   return {
     ...base,
     paidCalls,
     spendUsd: (await totalSpend()),
     budgetUsd: await budgetLimit(),
-    // xai: a key in force from the environment or set in the dashboard (scripts refuse to drive a server that has one).
-    keys: { xai: !!(await effectiveXaiKey()).key, openalex: !!config.openalexApiKey, contactEmail: !!config.contactEmail },
+    providerConfig,
+    // xai / anthropic / gemini: a key in force from the environment or set in the dashboard.
+    keys: {
+      xai: !!(await effectiveProviderKey("xai")).key,
+      anthropic: !!(await effectiveProviderKey("anthropic")).key,
+      gemini: !!(await effectiveProviderKey("gemini")).key,
+      openalex: !!config.openalexApiKey,
+      contactEmail: !!config.contactEmail,
+    },
     simulatedFailures: config.simulateFailure,
   };
 }

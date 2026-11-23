@@ -8,18 +8,19 @@ import { ErrorState, Loading, cx } from "./ui";
 import { Disclosure } from "./disclosure";
 import { AppMenu } from "./AppMenu";
 import { applyThemePref, readThemePref, type ThemePref } from "@/lib/theme";
+import { providerLabel, type AiProvider } from "@/lib/shared/ai-providers";
 
 interface Status {
   production: boolean;
   models: Record<string, { resolved: string; status: string; note: string }>;
   maxResultsPerQuery: number;
   user: { email: string; role: "user" | "admin" };
-  ai: { enabled: boolean; budgetReached: boolean; keyMissing: boolean };
+  ai: { enabled: boolean; budgetReached: boolean; keyMissing: boolean; provider?: AiProvider; activeModel?: string };
   // Admins only:
   spendUsd?: number;
   budgetUsd?: number;
   paidCalls?: { attempted: number };
-  keys?: { xai: boolean; openalex: boolean; contactEmail: boolean };
+  keys?: { xai: boolean; anthropic?: boolean; gemini?: boolean; openalex: boolean; contactEmail: boolean };
   simulatedFailures?: string[];
 }
 
@@ -61,10 +62,16 @@ export function SettingsView() {
                 <li className="flex items-start gap-3">
                   {data.ai.keyMissing || !data.ai.enabled ? <PauseCircle className="mt-0.5 h-4 w-4 shrink-0 text-warn" strokeWidth={2} aria-hidden /> : <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-fg-1" strokeWidth={1.5} aria-hidden />}
                   <span>
-                    <strong className="font-medium">{data.ai.keyMissing ? "AI not set up: no xAI key" : !data.ai.enabled ? "AI switched off by the administrator" : "Live AI and databases"}</strong>
+                    <strong className="font-medium">
+                      {data.ai.keyMissing
+                        ? `AI not set up: no ${data.ai.provider ? providerLabel(data.ai.provider) : "AI"} key`
+                        : !data.ai.enabled
+                          ? "AI switched off by the administrator"
+                          : `Live AI (${data.ai.provider ? providerLabel(data.ai.provider) : "AI"}) and databases`}
+                    </strong>
                     <span className="block text-fg-1">
                       {data.ai.keyMissing
-                        ? "Searches run on PubMed and OpenAlex. Steps that need AI wait until an administrator adds an xAI API key; your work is saved."
+                        ? `Searches run on PubMed and OpenAlex. Steps that need AI wait until an administrator adds a ${data.ai.provider ? providerLabel(data.ai.provider) : "provider"} API key; your work is saved.`
                         : !data.ai.enabled
                           ? "Searches run on PubMed and OpenAlex. Your work is saved; AI steps continue when it is back on."
                           : "Searches run on PubMed and OpenAlex, and the AI reads the papers you choose."}
@@ -89,7 +96,7 @@ export function SettingsView() {
                 <ul className="space-y-1 text-fg-1">
                   <li>Spend: <span className="tabular-nums">${data.spendUsd?.toFixed(2)}</span> of <span className="tabular-nums">${data.budgetUsd?.toFixed(2)}</span></li>
                   <li>Paid API calls since this instance started: {data.paidCalls?.attempted ?? 0}</li>
-                  <li>Keys in the environment: xAI {data.keys.xai ? "set" : "not set"}, OpenAlex {data.keys.openalex ? "set" : "not set"}, contact email {data.keys.contactEmail ? "set" : "not set"}</li>
+                  <li>Keys configured: Anthropic {data.keys.anthropic ? "set" : "not set"}, Gemini {data.keys.gemini ? "set" : "not set"}, xAI {data.keys.xai ? "set" : "not set"}, OpenAlex {data.keys.openalex ? "set" : "not set"}, contact email {data.keys.contactEmail ? "set" : "not set"}</li>
                   <li>Models: {Object.entries(data.models).map(([r, m]) => `${r} ${m.resolved}`).join(", ")}</li>
                   {data.simulatedFailures?.length ? <li>Simulated source failures: {data.simulatedFailures.join(", ")}</li> : null}
                 </ul>

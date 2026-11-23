@@ -25,7 +25,7 @@ export function graphToTree(graph: Graph): TreeItem[] {
   const items = new Map<string, TreeItem>(graph.nodes.map((n) => [n.id, { node: n, children: [] }]));
   const roots: TreeItem[] = [];
   for (const n of graph.nodes) {
-    const parent = n.kind === "corpus" ? "idea" : n.parents[0];
+    const parent = n.kind === "corpus" || n.kind === "table" ? "idea" : n.parents[0];
     const p = parent ? items.get(parent) : undefined;
     if (p && parent !== n.id) p.children.push(items.get(n.id)!);
     else roots.push(items.get(n.id)!);
@@ -90,6 +90,12 @@ function ListItem({ it, depth, c }: { it: TreeItem; depth: number; c: ItemCtx })
           <ChevronRight className="h-4 w-4 shrink-0 text-fg-2" strokeWidth={1.5} aria-hidden />
         </button>
         <span className="flex flex-wrap items-center gap-2">
+          {n.expandable && (
+            <ActionButton
+              action={{ cmd: { type: "toggleExpand", nodeId: n.id }, label: n.expanded ? "Collapse" : `Expand ${n.expandLabel ?? ""}`.trim() }}
+              size="sm"
+            />
+          )}
           {n.attention && (n.attention.tone === "err" || n.attention.tone === "warn") && <AttentionBadge attention={n.attention} />}
           <NodeStatusBadge node={n} />
           <TrustBadges node={n} verbose />

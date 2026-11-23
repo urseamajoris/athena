@@ -10,6 +10,8 @@ import { AppMenu } from "../AppMenu";
 import { LogoMark } from "../Logo";
 import { BudgetBar, DailyBars, HBars, Stat } from "./charts";
 import { UsersTable } from "./UsersTable";
+import { AiProviderWorkflow } from "../panels/AiConfigPanel";
+import { PROVIDER_META } from "@/lib/shared/ai-providers";
 import { STUDY_GROUPS, slotVar } from "@/lib/shared/categories";
 import { relTime } from "@/lib/shared/format";
 import type { AdminOverview } from "@/lib/admin/overview";
@@ -264,12 +266,11 @@ function AiKeyPanel({ d, refresh }: { d: AdminOverview; refresh: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [confirmOff, setConfirmOff] = useState(false);
-  const [keyInput, setKeyInput] = useState("");
-  const [editKey, setEditKey] = useState(false);
   const [limit, setLimit] = useState("");
   const [confirmRaise, setConfirmRaise] = useState<string | null>(null);
   const k = d.ai.key;
   const b = d.ai.budget;
+  const activeProv = PROVIDER_META[d.ai.providerConfig.activeProvider];
   const act = async (name: string, fn: () => Promise<unknown>) => {
     setBusy(name);
     setErr(null);
@@ -306,70 +307,40 @@ function AiKeyPanel({ d, refresh }: { d: AdminOverview; refresh: () => void }) {
 
   return (
     <section aria-labelledby="aikey-title" className="rounded-md border border-line-strong bg-bg-1 p-4">
-      <h2 id="aikey-title" className="flex items-center gap-2 font-semibold"><KeyRound className="h-4 w-4" strokeWidth={1.5} aria-hidden /> AI &amp; API key</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="aikey-title" className="flex items-center gap-2 font-semibold"><KeyRound className="h-4 w-4" strokeWidth={1.5} aria-hidden /> AI provider, model &amp; API key workflow</h2>
+        <span className="rounded-sm border border-line-strong bg-bg-2 px-2 py-0.5 text-12 text-fg-1">
+          Active: <strong className="text-fg-0">{activeProv.label}</strong> · <span className="font-mono">{d.ai.providerConfig.activeModels.reasoning}</span>
+        </span>
+      </div>
       {b.pct >= 0.8 && (
         <p role="alert" className={cx("mt-3 rounded-sm border px-3 py-2", b.pct >= 1 ? "border-err-line bg-err-soft text-fg-0" : "border-warn-line bg-warn-soft text-fg-0")}>
           {b.pct >= 1 ? `The AI budget is used up (${usd(b.spentUsd)} of ${usd(b.limitUsd)}). AI steps are stopped and users see "AI budget reached".` : `AI spend has reached ${Math.round(b.pct * 100)}% of the limit (${usd(b.spentUsd)} of ${usd(b.limitUsd)}).`}
         </p>
       )}
       {err && <p role="alert" className="mt-3 rounded-sm border border-err-line px-3 py-2 text-err">{err}</p>}
-      <div className="mb-4 mt-4 grid gap-6 lg:grid-cols-3">
+
+      {/* Provider selector, API key workflow, and pipeline model toggle */}
+      <div className="mt-4">
+        <AiProviderWorkflow config={d.ai.providerConfig} onUpdated={refresh} />
+      </div>
+
+      {/* AI kill switch & Spend limit */}
+      <div className="mb-4 mt-6 grid gap-6 border-t border-line pt-4 lg:grid-cols-2">
         {/* 1. On/off */}
         <div>
           <h3 className="text-12 font-medium text-fg-2">AI for everyone</h3>
           <p className={cx("mt-1 flex items-center gap-2 text-16 font-semibold", d.ai.enabled ? "text-ok" : "text-warn")}>
             <Power className="h-4 w-4" strokeWidth={2} aria-hidden /> {d.ai.enabled ? "On" : "Off"}
           </p>
-          <p className="mt-1 text-fg-1">{d.ai.enabled ? (k.inUse === "none" ? "Users can run AI steps once an xAI key is set." : "Users can run AI steps.") : "No model calls are made and nothing is spent. Users see “AI is paused by the administrator. Your work is saved.” Database searches still work."}</p>
+          <p className="mt-1 text-fg-1">{d.ai.enabled ? (k.inUse === "none" ? `Users can run AI steps once a ${activeProv.shortLabel} API key is set.` : `Users can run AI steps via ${activeProv.label}.`) : "No model calls are made and nothing is spent. Users see “AI is paused by the administrator. Your work is saved.” Database searches still work."}</p>
           {d.ai.changedAt && <p className="mt-1 text-12 text-fg-2" suppressHydrationWarning>Changed {relTime(d.ai.changedAt)}{d.ai.changedBy ? ` by ${d.ai.changedBy}` : ""}</p>}
           <button className={cx("mt-3 min-h-11", d.ai.enabled ? "btn-secondary" : "btn-primary")} disabled={busy === "ai"} onClick={() => (d.ai.enabled ? setConfirmOff(true) : toggle(true))}>
             {busy === "ai" && <Spinner />} {d.ai.enabled ? "Turn AI off…" : "Turn AI back on"}
           </button>
         </div>
 
-        {/* 2. Key */}
-        <div>
-          <h3 className="text-12 font-medium text-fg-2">xAI API key</h3>
-          <p className="mt-1 text-16 font-semibold">{k.inUse === "none" ? "No key" : <span className="font-mono">{k.masked}</span>}</p>
-          <p className="mt-1 text-fg-1">
-            {k.inUse === "admin" ? <>Set here{k.admin && <span suppressHydrationWarning> {relTime(k.admin.setAt)} by {k.admin.setBy ?? "an admin"}</span>}. It overrides the environment key.</> : k.inUse === "environment" ? "From the server environment (XAI_API_KEY)." : "Neither the environment nor this dashboard provides a key."}
-          </p>
-          {/* With no key, AI steps pause before any call: nothing is spent until a key is added. */}
-          {k.inUse === "none" && <p className="mt-1 font-medium text-fg-0">AI is not set up: AI steps pause and nothing is spent until a key is added.</p>}
-          {k.problem && <p className="mt-1 text-12 text-warn">{k.problem}</p>}
-          {k.lastTest && (
-            <p className={cx("mt-1 flex items-start gap-1 text-12", k.lastTest.ok ? "text-ok" : "text-fg-1")}>
-              {k.lastTest.ok ? <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" aria-hidden /> : <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-warn" aria-hidden />}
-              <span>Last test <span suppressHydrationWarning>{relTime(k.lastTest.at)}</span>: {k.lastTest.message}</span>
-            </p>
-          )}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button className="btn-secondary min-h-11" disabled={!!busy || k.inUse === "none"} onClick={() => act("test", () => api("/api/admin/key/test", { body: {} }))}>{busy === "test" && <Spinner />}Test key</button>
-            <button className="btn-secondary min-h-11" onClick={() => setEditKey(!editKey)} aria-expanded={editKey}>{k.admin ? "Replace key" : "Set a key"}</button>
-            {k.admin && <button className="btn-ghost min-h-11" disabled={!!busy} onClick={() => act("clear", () => api("/api/admin/key", { method: "DELETE" }))}>Clear (use environment key)</button>}
-          </div>
-          {editKey && (
-            <form
-              className="mt-3 space-y-2"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (await act("key", () => api("/api/admin/key", { method: "PUT", body: { key: keyInput } }))) {
-                  setKeyInput("");
-                  setEditKey(false);
-                }
-              }}
-            >
-              <label className="label block">
-                New xAI key
-                <input className="input mt-1 w-full font-mono" type="password" autoComplete="off" spellCheck={false} value={keyInput} onChange={(e) => setKeyInput(e.target.value)} disabled={!k.encryption.ready} />
-              </label>
-              <p className="text-12 text-fg-2">{k.encryption.ready ? "Stored encrypted (AES-256-GCM). It is never shown again; only the last 4 characters." : k.encryption.problem}</p>
-              <button className="btn-primary min-h-11" disabled={!k.encryption.ready || keyInput.trim().length < 20 || busy === "key"}>{busy === "key" && <Spinner />}Save key</button>
-            </form>
-          )}
-        </div>
-
-        {/* 3. Budget */}
+        {/* 2. Budget */}
         <div>
           <h3 className="text-12 font-medium text-fg-2">Spend limit</h3>
           <p className="mt-1 text-16 font-semibold tabular-nums">{usd(b.spentUsd)} <span className="font-normal text-fg-2">of {usd(b.limitUsd)}</span></p>

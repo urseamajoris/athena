@@ -7,9 +7,9 @@ import { hashPassword } from "../auth/password";
 import { audit, endOtherSessions, type SessionUser } from "../auth/server";
 import { deleteUserAndData } from "../auth/account";
 import { fingerprint } from "../auth/secrets";
-import { config } from "../config";
-import { testKey } from "../ai/models";
-import { aiEnabled, aiSwitch, budgetSetting, clearBudget, clearXaiKey, effectiveXaiKey, keyStatus, recordKeyTest, saveXaiKey, setAiEnabled, setBudget, SettingsError } from "../settings";
+import { config, envKeyFor, type AiProvider, type ModelRole } from "../config";
+import { resetModelCache, testProviderKey } from "../ai/models";
+import { activeProvider, aiEnabled, aiSwitch, budgetSetting, clearBudget, clearProviderKey, effectiveProviderKey, keyStatus, providerConfigStatus, recordProviderKeyTest, saveProviderKey, setActiveProvider, setAiEnabled, setBudget, setProviderModels, SettingsError } from "../settings";
 import { resumePausedJobs } from "../jobs";
 
 async function target(id: string) {
@@ -73,31 +73,64 @@ export async function setAi(admin: SessionUser, enabled: boolean) {
   return { ...(await aiSwitch()), resumedJobs: resumed };
 }
 
-export async function setKey(admin: SessionUser, key: string) {
-  const hadKey = !!(await effectiveXaiKey()).key;
+export async function setKey(admin: SessionUser, key: string, provider?: AiProvider) {
+  const p = provider ?? (await activeProvider());
+  const curProvider = await activeProvider();
+  const hadKey = !!(await effectiveProviderKey(curProvider)).key;
   try {
-    const { fingerprint: fp } = await saveXaiKey(key, admin.id);
-    await audit("admin", "xai_key_set", { actorId: admin.id, detail: { fingerprint: fp } });
+    const { fingerprint: fp } = await saveProviderKey(p, key, admin.id);
+    await audit("admin", `${p}_key_set`, { actorId: admin.id, detail: { provider: p, fingerprint: fp } });
   } catch (e) {
     if (e instanceof SettingsError) throw new HttpError(409, e.message);
     throw e;
   }
-  // Jobs paused for want of a key pick up again, as they do when AI is switched back on.
-  const resumed = !hadKey && (await aiEnabled()) ? await resumePausedJobs() : 0;
-  return { ...(await keyStatus()), resumedJobs: resumed };
+  resetModelCache();
+  // Jobs paused for want of a key pick up again if the active provider now has a key.
+  const nowHasKey = !!(await effectiveProviderKey(curProvider)).key;
+  const resumed = !hadKey && nowHasKey && (await aiEnabled()) ? await resumePausedJobs() : 0;
+  return { ...(await keyStatus(p)), providerConfig: await providerConfigStatus(), resumedJobs: resumed };
 }
 
-export async function clearKey(admin: SessionUser) {
-  await clearXaiKey();
-  await audit("admin", "xai_key_cleared", { actorId: admin.id, detail: { fallback: config.xaiApiKey ? "environment" : "none", envFingerprint: config.xaiApiKey ? fingerprint(config.xaiApiKey) : null } });
-  return keyStatus();
+export async function clearKey(admin: SessionUser, provider?: AiProvider) {
+  const p = provider ?? (await activeProvider());
+  await clearProviderKey(p);
+  resetModelCache();
+  const envKey = envKeyFor(p);
+  await audit("admin", `${p}_key_cleared`, { actorId: admin.id, detail: { provider: p, fallback: envKey ? "environment" : "none", envFingerprint: envKey ? fingerprint(envKey) : null } });
+  return { ...(await keyStatus(p)), providerConfig: await providerConfigStatus() };
 }
 
-export async function runKeyTest(admin: SessionUser) {
-  const r = await testKey();
-  await recordKeyTest({ ...r, at: new Date().toISOString() }, admin.id);
-  await audit("admin", "xai_key_tested", { actorId: admin.id, detail: { ok: r.ok, source: r.source } });
-  return keyStatus();
+export async function runKeyTest(admin: SessionUser, provider?: AiProvider) {
+  const p = provider ?? (await activeProvider());
+  const r = await testProviderKey(p);
+  await recordProviderKeyTest(p, { ...r, at: new Date().toISOString() }, admin.id);
+  await audit("admin", `${p}_key_tested`, { actorId: admin.id, detail: { provider: p, ok: r.ok, source: r.source } });
+  return { ...(await keyStatus(p)), providerConfig: await providerConfigStatus() };
+}
+
+export async function updateAiProvider(
+  admin: SessionUser,
+  patch: { provider?: AiProvider; model?: string | null; models?: Partial<Record<ModelRole, string | null>> },
+) {
+  const beforeProvider = await activeProvider();
+  const hadKey = !!(await effectiveProviderKey(beforeProvider)).key;
+  const targetProvider = patch.provider ?? beforeProvider;
+  if (patch.provider && patch.provider !== beforeProvider) {
+    await setActiveProvider(patch.provider, admin.id);
+    await audit("admin", "ai_provider_changed", { actorId: admin.id, detail: { from: beforeProvider, to: patch.provider } });
+  }
+  if (patch.model !== undefined) {
+    const val = patch.model === null ? null : patch.model.trim() || null;
+    await setProviderModels(targetProvider, { fast: val, summary: val, reasoning: val }, admin.id);
+    await audit("admin", "ai_models_changed", { actorId: admin.id, detail: { provider: targetProvider, model: val ?? "default" } });
+  } else if (patch.models && Object.keys(patch.models).length > 0) {
+    await setProviderModels(targetProvider, patch.models, admin.id);
+    await audit("admin", "ai_models_changed", { actorId: admin.id, detail: { provider: targetProvider, models: patch.models } });
+  }
+  resetModelCache();
+  const nowHasKey = !!(await effectiveProviderKey(targetProvider)).key;
+  const resumed = !hadKey && nowHasKey && (await aiEnabled()) ? await resumePausedJobs() : 0;
+  return { ...(await providerConfigStatus()), resumedJobs: resumed };
 }
 
 export async function changeBudget(admin: SessionUser, limitUsd: number | null, confirmAboveEnv: boolean) {

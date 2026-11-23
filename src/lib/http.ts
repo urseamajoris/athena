@@ -23,7 +23,7 @@ export function errorResponse(e: unknown) {
 
 /** An error message with any API key removed (env key, admin-set key, and anything key-shaped). */
 export function safeError(e: unknown): string {
-  return redactSecrets(errMsg(e), [config.xaiApiKey, config.openalexApiKey, process.env.SETTINGS_ENCRYPTION_KEY]);
+  return redactSecrets(errMsg(e), [config.xaiApiKey, config.anthropicApiKey, config.geminiApiKey, config.openalexApiKey, process.env.SETTINGS_ENCRYPTION_KEY]);
 }
 
 let lastPrune = 0;

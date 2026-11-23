@@ -14,6 +14,9 @@ export type Cmd =
   | { type: "acceptTopic"; topicId: string }
   | { type: "dismissTopic"; topicId: string }
   | { type: "addTopic" }
+  | { type: "addQuery"; topicId: string }
+  | { type: "deleteQuery"; queryId: string; topicId: string }
+  | { type: "toggleExpand"; nodeId: string }
   | { type: "buildQueries" }
   | { type: "rerunDownstream" }
   | { type: "pinQuote" }
@@ -123,13 +126,25 @@ export function childOptions(node: GNode, graph: Graph, input: GraphInput): Chil
     case "topic": {
       if (node.ghost) return [];
       const q = `query:${node.topicId}`;
-      if (has(q)) return [opt("query", "Open its query", { type: "open", nodeId: q })];
-      return [opt("query", "Query", { type: "buildQueries" }, st(states, 2) === "approved" ? undefined : "Approve your topics first")];
+      const addQ = opt("query_item", "Add a search query", { type: "addQuery", topicId: node.topicId! }, st(states, 2) === "approved" ? undefined : "Approve your topics first");
+      if (has(q)) return [opt("query", "Open its queries", { type: "open", nodeId: q }), addQ];
+      return [opt("query", "Build all queries (AI)", { type: "buildQueries" }, st(states, 2) === "approved" ? undefined : "Approve your topics first"), addQ];
     }
-    case "query":
-      if (has("corpus")) return [opt("corpus", "Open the corpus", { type: "open", nodeId: "corpus" })];
-      return [opt("corpus", "Corpus (run the search)", { type: "approve", stage: 3 }, gate(states, 3, "Build the queries first"))];
+    case "query": {
+      const tc = `corpus:topic:${node.topicId}`;
+      const addQ = opt("query_item", "Add another query", { type: "addQuery", topicId: node.topicId! });
+      if (has(tc)) return [opt("topic_corpus", "Open retrieved papers", { type: "open", nodeId: tc }), addQ];
+      if (has("corpus")) return [opt("corpus", "Open the corpus", { type: "open", nodeId: "corpus" }), addQ];
+      return [opt("topic_corpus", "Corpus (run the search)", { type: "approve", stage: 3 }, gate(states, 3, "Build the queries first")), addQ];
+    }
+    case "query_item": {
+      const tc = `corpus:topic:${node.topicId}`;
+      if (has(tc)) return [opt("topic_corpus", "Open retrieved papers", { type: "open", nodeId: tc })];
+      return [opt("topic_corpus", "Corpus (run the search)", { type: "approve", stage: 3 }, gate(states, 3, "Build the queries first"))];
+    }
     case "corpus":
+    case "topic_corpus":
+    case "query_corpus":
       if (has("table")) return [opt("table", "Open the table", { type: "open", nodeId: "table" })];
       return [opt("table", "Table (summarise papers)", { type: "approve", stage: 4 }, gate(states, 4, "Wait for retrieval to finish"))];
     case "table":

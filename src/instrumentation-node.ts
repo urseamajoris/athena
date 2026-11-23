@@ -3,7 +3,8 @@ import { checkModels } from "./lib/ai/models";
 import { resumeJobs, resumeJobsPausedForNoKey } from "./lib/jobs";
 import { ready } from "./lib/db";
 import { ensureAdminFromEnv } from "./lib/auth/server";
-import { aiState, budgetLimit, effectiveXaiKey } from "./lib/settings";
+import { aiState, budgetLimit, effectiveProviderKey } from "./lib/settings";
+import { providerLabel } from "./lib/shared/ai-providers";
 
 // Apply database migrations (local file or Turso) before anything reads the database.
 // A remote database (Turso) can time out on a cold start: retry, and never crash the server over it
@@ -23,8 +24,10 @@ for (let attempt = 1; attempt <= 3 && !dbReady; attempt++) {
 // With no key every AI step pauses before any call, so nothing is spent.
 if (!config.production) {
   try {
-    const [{ key }, limit] = dbReady ? await Promise.all([effectiveXaiKey(), budgetLimit()]) : [{ key: config.xaiApiKey }, config.budgetUsd];
-    if (key) console.warn(`[athena] An xAI key is set: AI steps will call xAI and spend real money (budget $${limit}).`);
+    const [{ key, provider }, limit] = dbReady
+      ? await Promise.all([effectiveProviderKey(), budgetLimit()])
+      : [{ key: config.xaiApiKey || config.anthropicApiKey || config.geminiApiKey, provider: config.defaultProvider }, config.budgetUsd];
+    if (key) console.warn(`[athena] A ${providerLabel(provider)} API key is set: AI steps will call ${providerLabel(provider)} and spend real money (budget $${limit}).`);
   } catch (e) {
     console.error("[athena] could not read the key settings:", e);
   }

@@ -1,5 +1,6 @@
 import "server-only";
 import { countPaidCall, resolveMode, type PaidCalls } from "./paid-guard";
+import { isAiProvider, PROVIDER_META, type AiProvider, type ModelRole } from "./shared/ai-providers";
 
 const mode = resolveMode(process.env);
 
@@ -8,11 +9,25 @@ function num(v: string | undefined, d: number) {
   return v !== undefined && v !== "" && Number.isFinite(n) ? n : d;
 }
 
+function resolveDefaultProvider(env: Record<string, string | undefined>): AiProvider {
+  const explicit = env.AI_PROVIDER?.trim().toLowerCase();
+  if (isAiProvider(explicit)) return explicit;
+  if (env.XAI_API_KEY?.trim()) return "xai";
+  if (env.ANTHROPIC_API_KEY?.trim()) return "anthropic";
+  if (env.GEMINI_API_KEY?.trim() || env.GOOGLE_API_KEY?.trim()) return "gemini";
+  return "xai";
+}
+
 export const config = {
-  /** ATHENA_ENV=production: the live deployment. Whether AI runs depends on the xAI key, not on this flag. */
+  /** ATHENA_ENV=production: the live deployment. Whether AI runs depends on the active provider's API key, not on this flag. */
   production: mode.production,
+  defaultProvider: resolveDefaultProvider(process.env),
   xaiApiKey: process.env.XAI_API_KEY ?? "",
   xaiBaseUrl: process.env.XAI_BASE_URL || "https://api.x.ai/v1",
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
+  anthropicBaseUrl: process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com/v1",
+  geminiApiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? "",
+  geminiBaseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta",
   openalexApiKey: process.env.OPENALEX_API_KEY ?? "",
   ncbiApiKey: process.env.NCBI_API_KEY ?? "",
   contactEmail: process.env.CONTACT_EMAIL ?? "",
@@ -21,6 +36,23 @@ export const config = {
     summary: process.env.XAI_MODEL_SUMMARY || process.env.XAI_MODEL_FAST || "grok-4.3",
     reasoning: process.env.XAI_MODEL_REASONING || "grok-4.3",
   },
+  providerModels: {
+    anthropic: {
+      fast: process.env.ANTHROPIC_MODEL_FAST || PROVIDER_META.anthropic.defaultModels.fast,
+      summary: process.env.ANTHROPIC_MODEL_SUMMARY || process.env.ANTHROPIC_MODEL_FAST || PROVIDER_META.anthropic.defaultModels.summary,
+      reasoning: process.env.ANTHROPIC_MODEL_REASONING || PROVIDER_META.anthropic.defaultModels.reasoning,
+    },
+    gemini: {
+      fast: process.env.GEMINI_MODEL_FAST || PROVIDER_META.gemini.defaultModels.fast,
+      summary: process.env.GEMINI_MODEL_SUMMARY || process.env.GEMINI_MODEL_FAST || PROVIDER_META.gemini.defaultModels.summary,
+      reasoning: process.env.GEMINI_MODEL_REASONING || PROVIDER_META.gemini.defaultModels.reasoning,
+    },
+    xai: {
+      fast: process.env.XAI_MODEL_FAST || PROVIDER_META.xai.defaultModels.fast,
+      summary: process.env.XAI_MODEL_SUMMARY || process.env.XAI_MODEL_FAST || PROVIDER_META.xai.defaultModels.summary,
+      reasoning: process.env.XAI_MODEL_REASONING || PROVIDER_META.xai.defaultModels.reasoning,
+    },
+  } as Record<AiProvider, Record<ModelRole, string>>,
   fastReasoningEffort: process.env.XAI_FAST_REASONING_EFFORT ?? "low",
   /** Effort for the reasoning role (appraisal, synthesis, questions). Low keeps thinking tokens, billed as output, small. */
   reasoningEffort: process.env.XAI_REASONING_EFFORT ?? "low",
@@ -36,19 +68,23 @@ export const config = {
    * a true value does not invent model output, and production leaves it false.
    */
   mockAi: process.env.MOCK_MODE === "true",
-  /** USD per 1M tokens, used only when the API does not report cost. Source: docs.x.ai/docs/models (Oct 2026). */
+  /** USD per 1M tokens, used only when the API does not report cost. */
   pricing: {
     default: { input: 1.25, cachedInput: 0.2, output: 2.5 },
-    "grok-4.3": { input: 1.25, cachedInput: 0.2, output: 2.5 },
-    "grok-4.20-0309-reasoning": { input: 1.25, cachedInput: 0.2, output: 2.5 },
-    "grok-4.20-0309-non-reasoning": { input: 1.25, cachedInput: 0.2, output: 2.5 },
+    ...Object.fromEntries(Object.values(PROVIDER_META).flatMap((p) => p.catalog.map((m) => [m.id, m.pricing]))),
   } as Record<string, { input: number; cachedInput: number; output: number }>,
 };
 
-export type ModelRole = keyof typeof config.models;
+export type { AiProvider, ModelRole };
+
+export function envKeyFor(provider: AiProvider): string {
+  if (provider === "anthropic") return config.anthropicApiKey;
+  if (provider === "gemini") return config.geminiApiKey;
+  return config.xaiApiKey;
+}
 
 const g = globalThis as unknown as { __paidCalls?: PaidCalls };
-/** Every call to a paid API (xAI, OpenAlex) since the server started; tests run with no keys and expect zero. */
+/** Every call to a paid API (AI providers, OpenAlex) since the server started; tests run with no keys and expect zero. */
 export const paidCalls = (g.__paidCalls ??= { attempted: 0, blocked: 0 });
 
 /** Call immediately before any network request to a paid API. Counts it for the admin telemetry; never throws. */

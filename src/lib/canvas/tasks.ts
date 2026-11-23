@@ -33,6 +33,13 @@ export function taskFor(node: GNode, input: GraphInput): Task {
   if (state === "stale") return { ...base, headline: "This step is out of date", help: "Something earlier changed after these results were made. You can still read them; the notice below says what to do." };
   if (state === "failed") return { ...base, headline: "This step did not finish", help: "Read what went wrong below, then try again." };
   switch (node.kind) {
+    case "ai_config":
+      return {
+        step: null,
+        headline: "Choose the AI provider, API key & pipeline model",
+        help: "Switch between Anthropic (Claude), Google Gemini, or xAI (Grok), configure encrypted API keys, and toggle which model runs the review pipeline.",
+        next: null,
+      };
     case "idea": {
       if (st(states, 1) !== "approved") {
         // The idea was typed on the New review page: this step only confirms it, so it must not read as asking again.
@@ -59,12 +66,23 @@ export function taskFor(node: GNode, input: GraphInput): Task {
       return { ...base, step: 2, headline: "Edit this search topic", help: "Its name, synonyms and MeSH terms (PubMed's official keywords) decide what the searches find." };
     }
     case "query":
-      if (!s?.queries.length) return { ...base, headline: "Turn the topics into database searches", help: "Athena writes one search per topic for PubMed and for OpenAlex. You can read and edit each one." };
-      if (state === "approved") return { ...base, headline: "The searches for this topic", help: "These searches have run. Editing one marks the later steps out of date." };
-      return { ...base, headline: "Check the searches before they run", help: "Each topic is searched in PubMed and OpenAlex. The counts show how many papers each search would find. Run them when they look right." };
+      if (!s?.queries.length) return { ...base, headline: "Turn the topics into database searches", help: "Athena writes searches per topic for PubMed and OpenAlex. You can add extra queries and edit each one." };
+      if (state === "approved") return { ...base, headline: "The searches for this topic", help: "These searches have run. Add or edit a query any time; later steps will be marked out of date." };
+      return { ...base, headline: "Check the searches before they run", help: "Each topic can have one or more searches across PubMed and OpenAlex. Check match counts, then run them." };
+    case "query_item":
+      return { ...base, step: 3, headline: "Inspect or edit this search query", help: "Check how many records this query matches, edit its terms, or remove it from the topic." };
     case "corpus":
       if (state === "running") return { ...base, headline: "Collecting papers from PubMed and OpenAlex", help: "This runs on the server; you can close the page. Papers found twice are merged as they arrive." };
       return { ...base, headline: "Check what was found, then summarise the papers", help: "See how many papers each database returned and how many were duplicates. Then let the AI summarise each abstract." };
+    case "topic_corpus":
+      if (state === "running") return { ...base, step: 4, headline: "Collecting papers for this topic", help: "Papers are arriving from this topic's queries and merging duplicates automatically." };
+      return { ...base, step: 4, headline: "Retrieved papers for this topic", help: "See how many papers each query retrieved and which ones need your attention. Expand the box on the canvas to drill into individual queries." };
+    case "query_corpus":
+      return { ...base, step: 4, headline: "Papers retrieved by this query", help: "Inspect the exact papers this search returned, how many were new unique records, and which ones need user attention." };
+    case "paper_group":
+      return node.paperGroupKind === "attention"
+        ? { ...base, step: n, headline: "Papers needing your attention in this query", help: "Review the flagged papers below — open any paper to inspect its summary, scores, or undecided quotes." }
+        : { ...base, step: 4, headline: "Cleared papers from this query", help: "These papers have no open items needing attention right now. Click any paper to inspect its details." };
     case "table":
       if (n === 5 && state === "running") return { ...base, headline: "Summarising every paper", help: "The AI reads each abstract and drafts its study type, setting and key finding. You can browse the table meanwhile." };
       if (n === 5) return { ...base, headline: "Skim the papers and fix any wrong cells", help: "Each row is drafted by the AI from the abstract only. Correct anything that looks wrong, then rank the papers." };

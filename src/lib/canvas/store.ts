@@ -11,6 +11,8 @@ export interface SessionUi {
   pinned: Record<string, Pos>;
   acceptedTopics: string[];
   pinnedQuotes: string[];
+  /** Node IDs currently expanded into sub-boxes on the canvas (queries, topic retrieval, query papers). */
+  expandedNodes: string[];
   /** Appraisals the user has stepped through with "Next paper". */
   reviewed: string[];
   /** null = automatic (List view below 768 px, canvas above). */
@@ -23,7 +25,7 @@ export interface SessionUi {
   seen: string[];
 }
 
-export const DEFAULT_SESSION: SessionUi = { pinned: {}, acceptedTopics: [], pinnedQuotes: [], reviewed: [], view: null, minimap: false, cascade: false, viewport: null, seen: [] };
+export const DEFAULT_SESSION: SessionUi = { pinned: {}, acceptedTopics: [], pinnedQuotes: [], expandedNodes: [], reviewed: [], view: null, minimap: false, cascade: false, viewport: null, seen: [] };
 
 export interface AddMenuState {
   nodeId: string;
@@ -58,6 +60,8 @@ export interface CanvasState {
   acceptTopics(sid: string, topicIds: string[]): void;
   pinQuotes(sid: string, claimIds: string[]): void;
   unpinQuote(sid: string, claimId: string): void;
+  toggleExpand(sid: string, nodeId: string): void;
+  setExpandedNodes(sid: string, nodeIds: string[]): void;
   markReviewed(sid: string, appraisalId: string): void;
   setView(sid: string, view: ViewMode | null): void;
   toggleMinimap(sid: string): void;
@@ -128,6 +132,11 @@ export function createCanvasStore(storage?: StateStorage) {
           acceptTopics: (sid, ids) => patch(sid, (s) => ({ acceptedTopics: uniq([...s.acceptedTopics, ...ids]) })),
           pinQuotes: (sid, ids) => patch(sid, (s) => ({ pinnedQuotes: uniq([...s.pinnedQuotes, ...ids]) })),
           unpinQuote: (sid, id) => patch(sid, (s) => ({ pinnedQuotes: s.pinnedQuotes.filter((x) => x !== id) })),
+          toggleExpand: (sid, nodeId) =>
+            patch(sid, (s) => ({
+              expandedNodes: s.expandedNodes.includes(nodeId) ? s.expandedNodes.filter((x) => x !== nodeId) : [...s.expandedNodes, nodeId],
+            })),
+          setExpandedNodes: (sid, nodeIds) => patch(sid, () => ({ expandedNodes: uniq(nodeIds) })),
           markReviewed: (sid, id) => patch(sid, (s) => ({ reviewed: uniq([...s.reviewed, id]) })),
           setView: (sid, view) => patch(sid, () => ({ view })),
           toggleMinimap: (sid) => patch(sid, (s) => ({ minimap: !s.minimap })),

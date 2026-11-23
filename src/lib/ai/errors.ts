@@ -1,5 +1,6 @@
 // Dependency-free errors and rules for when an AI call may not run. Kept out of client.ts (which is server-only
 // and needs the database) so the rules can be unit-tested directly.
+import { providerLabel, type AiProvider } from "../shared/ai-providers";
 
 export class AiValidationError extends Error {
   constructor(message: string, public raw?: string) {
@@ -13,11 +14,15 @@ export class AiPausedError extends Error {
     super(message);
   }
 }
-/** No xAI key is configured. Handled like the AI switch: the job pauses and resumes once a key is added. */
+/** No AI API key is configured for the active provider. Handled like the AI switch: the job pauses and resumes once a key is added. */
 export const NO_KEY_MESSAGE = "AI is not set up on this server yet: no xAI API key is configured. An administrator can add one in the dashboard. Your work is saved.";
+export function noKeyMessage(provider: AiProvider = "xai") {
+  const label = providerLabel(provider);
+  return `AI is not set up on this server yet: no ${label} API key is configured. An administrator can add one in the dashboard. Your work is saved.`;
+}
 export class AiUnavailableError extends AiPausedError {
-  constructor() {
-    super(NO_KEY_MESSAGE);
+  constructor(provider: AiProvider = "xai") {
+    super(noKeyMessage(provider));
   }
 }
 /** Errors that must stop a whole job (not just one batch): it pauses or fails cleanly and can be resumed. */
@@ -27,8 +32,11 @@ export const isAiStop = (e: unknown) => e instanceof BudgetError || e instanceof
  * Why an AI call must not be sent, checked before any network request: the ai_calls row to log (no cost) and
  * the error to throw, or null when the call may go ahead. The switch is checked first, then the key.
  */
-export function aiRefusal(s: { enabled: boolean; key: string }): { row: { status: "paused"; error: string }; error: AiPausedError } | null {
+export function aiRefusal(s: { enabled: boolean; key: string; provider?: AiProvider }): { row: { status: "paused"; error: string }; error: AiPausedError } | null {
   if (!s.enabled) return { row: { status: "paused", error: "AI switched off by an administrator" }, error: new AiPausedError() };
-  if (!s.key) return { row: { status: "paused", error: "no xAI API key configured" }, error: new AiUnavailableError() };
+  if (!s.key) {
+    const p = s.provider ?? "xai";
+    return { row: { status: "paused", error: `no ${providerLabel(p)} API key configured` }, error: new AiUnavailableError(p) };
+  }
   return null;
 }

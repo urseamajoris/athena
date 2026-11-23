@@ -6,7 +6,8 @@ import { db, schema } from "../db";
 import { config, paidCalls } from "../config";
 import { totalSpend } from "../ai/client";
 import { modelResolutions } from "../ai/models";
-import { aiSwitch, budgetSetting, keyStatus } from "../settings";
+import { aiSwitch, budgetSetting, keyStatus, providerConfigStatus } from "../settings";
+import { providerLabel } from "../shared/ai-providers";
 import { STAGES } from "../shared/stages";
 import { studyGroupOf, STUDY_GROUPS } from "../shared/categories";
 import { BROWSER } from "./client-errors";
@@ -47,7 +48,7 @@ export async function adminOverview() {
   const since24 = iso(now - 24 * H);
   const sinceHour = iso(now - H);
 
-  const [database, ai, budget, key, spent] = await Promise.all([dbHealth(), aiSwitch(), budgetSetting(), keyStatus(), totalSpend()]);
+  const [database, ai, budget, key, providerConfig, spent] = await Promise.all([dbHealth(), aiSwitch(), budgetSetting(), keyStatus(), providerConfigStatus(), totalSpend()]);
 
   // ---- users ----
   const users = await db.select({ id: schema.users.id, role: schema.users.role, disabled: schema.users.disabled, createdAt: schema.users.createdAt, lastActiveAt: schema.users.lastActiveAt }).from(schema.users).all();
@@ -210,7 +211,7 @@ export async function adminOverview() {
       spent,
       limit: budget.limitUsd,
       sourceErrorRates: sources.map((s) => ({ source: s.source, requests: s.requests, errorRate: s.errorRate })),
-      keyProblem: key.problem ?? (key.inUse === "none" ? "No xAI key is configured: AI steps are paused until one is added." : null),
+      keyProblem: key.problem ?? (key.inUse === "none" ? `No ${providerLabel(providerConfig.activeProvider)} API key is configured: AI steps are paused until one is added.` : null),
       modelProblems,
     }),
     health: {
@@ -232,6 +233,7 @@ export async function adminOverview() {
       changedAt: ai.changedAt,
       changedBy: ai.changedBy ? emails.get(ai.changedBy) ?? (await db.select({ e: schema.users.email }).from(schema.users).where(eq(schema.users.id, ai.changedBy)).get())?.e ?? "a deleted account" : null,
       key,
+      providerConfig,
       paidCalls,
       models,
       budget: { ...budget, spentUsd: spent, pct: budget.limitUsd > 0 ? spent / budget.limitUsd : 0, ...exhaustion },

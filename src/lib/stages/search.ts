@@ -1,11 +1,12 @@
 import "server-only";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db, schema, batchWrite, type BatchItem } from "../db";
 import type { Criteria } from "../db/schema";
 import { structuredCall, unknownIds } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { SearchBuild } from "./ai-schemas";
 import { getProject, HttpError, logDecision, markDownstreamStale, setStageState } from "../project";
+import { dropPapersWithoutHits } from "../evidence";
 import { newId, nowIso, errMsg } from "../util";
 import { adapters } from "../sources";
 import { SEARCH_DATABASES, type SearchDatabase } from "../sources/types";
@@ -67,6 +68,49 @@ export async function buildQueries(projectId: string) {
   (await setStageState(projectId, 3, "needs_review"));
   if (had.length) (await markDownstreamStale(projectId, 3, "Search queries were regenerated"));
   return (await searchState(projectId));
+}
+
+export async function addQuery(
+  projectId: string,
+  topicId: string,
+  input: { database: SearchDatabase; queryString: string; rationale?: string },
+) {
+  const topic = await db.select().from(schema.topics).where(and(eq(schema.topics.id, topicId), eq(schema.topics.projectId, projectId))).get();
+  if (!topic) throw new HttpError(404, "Topic not found");
+  const cleaned = dropEmptyGroups(input.queryString.trim());
+  if (cleaned.length < 2) throw new HttpError(400, "Write a search query with at least 2 characters.");
+  const existing = await db.select({ id: schema.queries.id }).from(schema.queries).where(eq(schema.queries.topicId, topicId)).all();
+  if (existing.length >= 12) throw new HttpError(400, "A topic can have at most 12 queries.");
+  const id = newId("q");
+  const rationale = input.rationale?.trim() || "Added by you";
+  await db
+    .insert(schema.queries)
+    .values({
+      id,
+      projectId,
+      topicId,
+      database: input.database,
+      queryString: cleaned,
+      aiQueryString: cleaned,
+      rationale,
+      edited: true,
+    })
+    .run();
+  await logDecision(projectId, 3, "query_added", null, { id, topicId, database: input.database, queryString: cleaned, rationale });
+  const p = await getProject(projectId);
+  if (p.stageStates["3"] === "not_started") await setStageState(projectId, 3, "needs_review");
+  await markDownstreamStale(projectId, 3, `A ${adapters[input.database].label} search query was added to "${topic.name}"`);
+  return { id, state: await searchState(projectId) };
+}
+
+export async function deleteQuery(projectId: string, queryId: string) {
+  const q = await db.select().from(schema.queries).where(eq(schema.queries.id, queryId)).get();
+  if (!q || q.projectId !== projectId) throw new HttpError(404, "Query not found");
+  await db.delete(schema.queries).where(eq(schema.queries.id, queryId)).run();
+  await logDecision(projectId, 3, "query_deleted", q, null);
+  await dropPapersWithoutHits(projectId, 3, "A search query was deleted, and no remaining search found these papers");
+  await markDownstreamStale(projectId, 3, "A search query was deleted");
+  return searchState(projectId);
 }
 
 export async function updateQuery(projectId: string, queryId: string, queryString: string) {

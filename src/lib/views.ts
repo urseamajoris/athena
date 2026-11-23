@@ -4,7 +4,7 @@ import { db, schema } from "./db";
 import { getProject, latestJob, stageCosts } from "./project";
 import { MIN_TOPIC_FIT, STAGES, scrubIds } from "./shared/stages";
 import { detectCriteriaFlags } from "./shared/criteria";
-import { isUndecided, type CanvasSummary, type ClaimLite, type TopicArticleStats } from "./shared/canvas";
+import { isUndecided, type CanvasSummary, type ClaimLite, type QueryPaperPreview, type QueryPaperStats, type TopicArticleStats } from "./shared/canvas";
 import { citationsPerYear, computeHIndex, summarizeCorpusImpact } from "./shared/impact";
 import type { Criteria } from "./db/schema";
 import { scopingState } from "./stages/scoping";
@@ -407,13 +407,165 @@ function computeTopicStats(params: {
   });
 }
 
+const DB_LABEL_MAP: Record<string, string> = { pubmed: "PubMed", openalex: "OpenAlex" };
+
+/** Compute per-query retrieved paper counts and user-attention stats from paper_hits. */
+function computeQueryStats(params: {
+  queries: { id: string; topicId: string; database: string; queryString: string }[];
+  runs: { id: string; queryId: string; status: string; resultCount: number | null; error: string | null }[];
+  hits: { paperId: string; searchRunId: string; wasNew: boolean; rank: number }[];
+  papers: { id: string; title: string; year: number | null; citationCount: number | null }[];
+  summarisedPaperIds: Set<string>;
+  scores: { topicId: string; paperId: string; selected: boolean }[];
+  appraisals: { id: string; paperId: string; status: string }[];
+  undecidedByAppraisal: Map<string, number>;
+  stageStates: Record<string, string>;
+}): QueryPaperStats[] {
+  const { queries, runs, hits, papers, summarisedPaperIds, scores, appraisals, undecidedByAppraisal, stageStates } = params;
+  const paperById = new Map(papers.map((p) => [p.id, p]));
+  const appByPaper = new Map(appraisals.map((a) => [a.paperId, a]));
+  const scoreByKey = new Map(scores.map((s) => [`${s.topicId}:${s.paperId}`, s]));
+  const hitsByRun = new Map<string, typeof hits>();
+  for (const h of hits) {
+    const arr = hitsByRun.get(h.searchRunId) ?? [];
+    arr.push(h);
+    hitsByRun.set(h.searchRunId, arr);
+  }
+  const s5Active = ["needs_review", "approved", "failed"].includes(stageStates["5"] ?? "");
+  const s6Active = ["needs_review", "approved", "failed"].includes(stageStates["6"] ?? "");
+  const s7Active = ["needs_review", "approved", "failed"].includes(stageStates["7"] ?? "");
+
+  // Count how many queries share the same (topicId, database) so we number them "#1", "#2" when >1.
+  const dbTotals = new Map<string, number>();
+  for (const q of queries) {
+    const k = `${q.topicId}:${q.database}`;
+    dbTotals.set(k, (dbTotals.get(k) ?? 0) + 1);
+  }
+  const dbIndex = new Map<string, number>();
+
+  return queries.map((q) => {
+    const k = `${q.topicId}:${q.database}`;
+    const idx = (dbIndex.get(k) ?? 0) + 1;
+    dbIndex.set(k, idx);
+    const baseDb = DB_LABEL_MAP[q.database] ?? q.database;
+    const label = (dbTotals.get(k) ?? 1) > 1 ? `${baseDb} #${idx}` : baseDb;
+
+    // Pick the latest run for this query.
+    const qRuns = runs.filter((r) => r.queryId === q.id);
+    const run = qRuns[qRuns.length - 1] ?? null;
+    const runHits = run ? hitsByRun.get(run.id) ?? [] : [];
+    const seen = new Set<string>();
+    let newUnique = 0;
+    let rendered = 0;
+    let selected = 0;
+    let filed = 0;
+    let missingSummary = 0;
+    let unscored = 0;
+    let failedAppraisal = 0;
+    let undecidedQuotesPapers = 0;
+    let undecidedQuoteCount = 0;
+    let needsAttention = 0;
+    const previews: QueryPaperPreview[] = [];
+
+    for (const h of runHits) {
+      if (seen.has(h.paperId)) continue;
+      seen.add(h.paperId);
+      const paper = paperById.get(h.paperId);
+      if (!paper) continue;
+      if (h.wasNew) newUnique++;
+      const hasSummary = summarisedPaperIds.has(paper.id);
+      if (hasSummary) rendered++;
+      const sc = scoreByKey.get(`${q.topicId}:${paper.id}`);
+      const isSelected = !!sc?.selected;
+      if (isSelected) selected++;
+      const app = appByPaper.get(paper.id);
+      const isAppraised = app?.status === "done";
+      const isFailedApp = isSelected && app?.status === "failed";
+      const uq = isSelected && isAppraised ? (undecidedByAppraisal.get(app!.id) ?? 0) : 0;
+      if (isSelected && isAppraised && uq === 0) filed++;
+
+      const reasons: string[] = [];
+      if (s5Active && !hasSummary) {
+        missingSummary++;
+        reasons.push("Missing summary");
+      }
+      if (s6Active && !sc) {
+        unscored++;
+        reasons.push("Not scored");
+      }
+      if (isFailedApp) {
+        failedAppraisal++;
+        reasons.push("Appraisal failed");
+      } else if (s7Active && isSelected && !isAppraised) {
+        reasons.push("Awaiting appraisal");
+      }
+      if (uq > 0) {
+        undecidedQuotesPapers++;
+        undecidedQuoteCount += uq;
+        reasons.push(`${uq} quote${uq === 1 ? "" : "s"} to check`);
+      }
+
+      const attn = reasons.length > 0;
+      if (attn) needsAttention++;
+      previews.push({
+        id: paper.id,
+        title: paper.title,
+        year: paper.year,
+        citations: paper.citationCount,
+        hasSummary,
+        selected: isSelected,
+        appraised: isAppraised,
+        failedAppraisal: isFailedApp,
+        undecidedQuotes: uq,
+        needsAttention: attn,
+        attentionReason: reasons[0] ?? null,
+      });
+    }
+
+    previews.sort((a, b) => {
+      if (a.needsAttention !== b.needsAttention) return a.needsAttention ? -1 : 1;
+      if (a.selected !== b.selected) return a.selected ? -1 : 1;
+      return (b.citations ?? -1) - (a.citations ?? -1);
+    });
+
+    const retrieved = seen.size;
+    return {
+      queryId: q.id,
+      topicId: q.topicId,
+      database: q.database,
+      queryString: q.queryString,
+      label,
+      runStatus: (run?.status as QueryPaperStats["runStatus"]) ?? "not_run",
+      resultCount: run?.resultCount ?? null,
+      error: run?.error ?? null,
+      retrieved,
+      newUnique,
+      duplicates: Math.max(0, retrieved - newUnique),
+      rendered,
+      selected,
+      filed,
+      needsAttention,
+      attentionBreakdown: {
+        missingSummary,
+        unscored,
+        failedAppraisal,
+        undecidedQuotes: undecidedQuotesPapers,
+        undecidedQuoteCount,
+      },
+      papers: previews.slice(0, 24),
+    };
+  });
+}
+
 /** Compact summary for the canvas: one key number per node, cheap enough to stream over SSE. */
 export async function canvasView(projectId: string): Promise<CanvasSummary> {
   const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
   const sc = (await scopingState(projectId));
   const qs = (await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
-  const runs = (await db.select().from(schema.searchRuns).where(eq(schema.searchRuns.projectId, projectId)).all());
-  const criteria = (await db.select({ criteria: schema.projects.criteria }).from(schema.projects).where(eq(schema.projects.id, projectId)).get())?.criteria ?? null;
+  const runs = (await db.select().from(schema.searchRuns).where(eq(schema.searchRuns.projectId, projectId)).orderBy(asc(schema.searchRuns.order)).all());
+  const projRow = (await db.select({ criteria: schema.projects.criteria, stageStates: schema.projects.stageStates }).from(schema.projects).where(eq(schema.projects.id, projectId)).get());
+  const criteria = projRow?.criteria ?? null;
+  const stageStates = projRow?.stageStates ?? {};
   const papers = (await db.select({
     id: schema.papers.id,
     title: schema.papers.title,
@@ -426,6 +578,9 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
   }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all());
   const paperIds = papers.map((p) => p.id);
   const paperTopicLinks = (await db.select().from(schema.paperTopics).where(inArray(schema.paperTopics.paperId, ids(paperIds))).all());
+  const hits = runs.length
+    ? (await db.select().from(schema.paperHits).where(inArray(schema.paperHits.searchRunId, ids(runs.map((r) => r.id)))).all())
+    : [];
   const sums = (await db.select({ paperId: schema.paperSummaries.paperId, edited: schema.paperSummaries.edited, studyType: schema.paperSummaries.studyType }).from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, ids(paperIds))).all());
   const scores = (await db.select({ topicId: schema.scores.topicId, paperId: schema.scores.paperId, selected: schema.scores.selected, subScores: schema.scores.subScores }).from(schema.scores).where(inArray(schema.scores.topicId, ids(topics.map((t) => t.id)))).all());
   const apps = (await db.select({ id: schema.appraisals.id, paperId: schema.appraisals.paperId, status: schema.appraisals.status, textSource: schema.appraisals.textSource }).from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids(paperIds))).all());
@@ -459,6 +614,17 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
     appraisals: apps,
     undecidedByAppraisal,
   });
+  const queryStats = computeQueryStats({
+    queries: qs,
+    runs,
+    hits,
+    papers,
+    summarisedPaperIds,
+    scores,
+    appraisals: apps,
+    undecidedByAppraisal,
+    stageStates,
+  });
   const impact = summarizeCorpusImpact(papers.map((p) => ({ ...p, studyType: studyByPaper.get(p.id) ?? null })));
   return {
     topics: topics.map((t) => ({ id: t.id, name: t.name, origin: t.origin, approved: t.approved, synonyms: t.synonyms.length, controlledTerms: t.controlledTerms.length })),
@@ -467,7 +633,7 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
       // The query's retrieval result, while it still describes this query (same text and database filters).
       const r = runs.find((x) => x.queryId === q.id && (x.status === "done" || x.status === "failed"));
       const current = !!r && r.queryString === q.queryString && filtersKey(r.criteria) === filtersKey(criteria);
-      return { id: q.id, topicId: q.topicId, database: q.database, dryRunCount: q.dryRunCount, dryRunError: q.dryRunError, run: r && current ? { count: r.resultCount, failed: r.status === "failed" } : null };
+      return { id: q.id, topicId: q.topicId, database: q.database, queryString: q.queryString, rationale: q.rationale, dryRunCount: q.dryRunCount, dryRunError: q.dryRunError, run: r && current ? { count: r.resultCount, failed: r.status === "failed" } : null };
     }),
     retrieval: {
       runs: runs.length,
@@ -517,6 +683,7 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
     synthesis: { statements: items.length, contradictions: cxCount, known: items.filter((i) => i.kind === "known").length, contested: items.filter((i) => i.kind === "contested").length, unknown: items.filter((i) => i.kind === "unknown").length },
     questions: { count: rqs.length, chosenId: chosen?.id ?? null, chosenText: chosen ? scrubIds(chosen.text) : null },
     topicStats,
+    queryStats,
     impact,
   };
 }
