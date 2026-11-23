@@ -42,6 +42,7 @@ export interface RQ {
   id: string; text: string; framework: string; structure: Record<string, string>; design: string; gap: string; feasibility: string; weakness: string;
   noveltyQueries: { database: string; query: string; count: number | null; error: string | null }[];
   noveltyMatches: Match[]; noveltyStatus: string; chosen: boolean; edited: boolean; claimIds: string[];
+  gapOutdated?: boolean; noveltySearchesOutdated?: boolean;
 }
 export interface QData { questions: RQ[]; claims: Record<string, ClaimRef>; papers: Record<string, PaperRef>; ownTitles?: string[] }
 
@@ -161,6 +162,9 @@ export function QuestionsPanel() {
                     </dl>
                     <h4 className="label mt-3">Gap it addresses</h4>
                     <p>{q.gap}</p>
+                    {q.gapOutdated && (
+                      <button className="btn-secondary mt-2" onClick={async () => { mutate(await api<QData>(projectPath(projectId, `questions/${q.id}/gap-confirm`), { body: {} }), { revalidate: false }); }}>The gap still applies</button>
+                    )}
                     <div className="mt-1 flex flex-wrap gap-1">{q.claimIds.map((id) => <ClaimChip key={id} id={id} claims={data.claims} papers={data.papers} />)}</div>
                     <h4 className="label mt-3">Feasibility</h4>
                     <p>{q.feasibility}</p>
@@ -195,21 +199,38 @@ function MatchLink({ m }: { m: Match }) {
 function Novelty({ q, ownTitles, onRerun }: { q: RQ; ownTitles?: string[]; onRerun: (d: QData) => void }) {
   const { projectId } = useSession();
   const [busy, setBusy] = useState(false);
+  const [queries, setQueries] = useState(q.noveltyQueries.map((n) => n.query));
   const v = noveltyVerdict(q, { ownTitles });
+  const dirty = queries.some((text, i) => text !== q.noveltyQueries[i]?.query);
+  const rerunLabel = q.noveltySearchesOutdated ? "Re-run these earlier searches" : q.noveltyStatus === "outdated" ? "Re-run with the edited searches" : "Re-run";
   return (
     <div className="mt-3 rounded-sm bg-bg-2 p-3 text-12">
       <div className="flex items-center justify-between gap-2">
         <p className="font-medium text-fg-1">Novelty check: what was found</p>
-        <button className="btn-ghost btn-sm" disabled={busy} onClick={async () => { setBusy(true); try { onRerun(await api(projectPath(projectId, `questions/${q.id}/novelty`), { body: {} })); } finally { setBusy(false); } }}>{busy ? <Spinner className="h-3 w-3" /> : "Re-run"}</button>
+        <button className="btn-ghost btn-sm" disabled={busy} onClick={async () => { setBusy(true); try { onRerun(await api(projectPath(projectId, `questions/${q.id}/novelty`), { body: {} })); } finally { setBusy(false); } }}>{busy ? <Spinner className="h-3 w-3" /> : rerunLabel}</button>
       </div>
+      {q.noveltySearchesOutdated && <p className="mt-1 text-fg-0">These searches were written for an earlier wording. Edit a search string and save it before a re-run can check the question as it reads now.</p>}
       {/* The verdict first: whether a top record looks like the same question, then what the counts mean. */}
       <p className="mt-1 text-fg-0">{v.headline}</p>
       {v.notes.map((n) => <p key={n} className="mt-1 text-fg-1">{n}</p>)}
-      <ul className="mt-2 space-y-1 text-fg-2">
-        {q.noveltyQueries.map((n) => (
-          <li key={n.database}><strong className="font-medium">{n.database}</strong>: {n.error ? <span className="text-err">failed: {n.error}</span> : `${n.count == null ? "?" : fmtInt(n.count)} records contain the search words`}<code className="block truncate font-mono" title={n.query}>{n.query}</code></li>
+      <ul className="mt-2 space-y-2 text-fg-2">
+        {q.noveltyQueries.map((n, i) => (
+          <li key={n.database}>
+            <label className="font-medium text-fg-1">{n.database}
+              <textarea className="input mt-1 min-h-16 font-mono text-12" value={queries[i] ?? n.query} onChange={(e) => setQueries(queries.map((text, j) => j === i ? e.target.value : text))} />
+            </label>
+            <span className="mt-1 block">{n.error ? <span className="text-err">failed: {n.error}</span> : `${n.count == null ? "?" : fmtInt(n.count)} records contain the search words`}</span>
+          </li>
         ))}
       </ul>
+      {dirty && (
+        <button className="btn-secondary mt-2" disabled={busy} onClick={async () => {
+          setBusy(true);
+          try {
+            onRerun(await api(projectPath(projectId, `questions/${q.id}`), { method: "PATCH", body: { noveltyQueries: q.noveltyQueries.map((n, i) => ({ database: n.database, query: queries[i] ?? n.query })) } }));
+          } finally { setBusy(false); }
+        }}>Save these searches</button>
+      )}
       {q.noveltyMatches.length > 0 && <p className="mt-2 text-fg-2">Top records:</p>}
       <ol className="mt-1 space-y-2">
         {q.noveltyMatches.map((m, i) => (

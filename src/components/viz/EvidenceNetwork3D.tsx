@@ -5,6 +5,7 @@ import Scene3D, { Label } from "./Scene3D";
 import { shapeTexture } from "./shapes3d";
 import type { EvGraph } from "./evidence-graph";
 import { STUDY_GROUPS, slotHex } from "@/lib/shared/categories";
+import { fmtInt } from "@/lib/shared/format";
 
 const KIND_HEX = { light: { known: "#0a7446", contested: "#6250d6", unknown: "#5c5c67" }, dark: { known: "#3dd68c", contested: "#9085e9", unknown: "#8a8a94" } } as const;
 
@@ -39,8 +40,9 @@ export default function EvidenceNetwork3D({ g, theme, animate, label, isolated, 
           {g.papers.map((p) => {
             const c = STUDY_GROUPS.find((x) => x.key === p.group);
             const faded = !!isolated && isolated !== p.group;
+            const scale = typeof p.citationCount === "number" && p.citationCount > 0 ? Math.min(0.68, 0.38 + Math.log10(p.citationCount + 1) * 0.1) : 0.42;
             return (
-              <sprite key={p.id} position={[p.x, p.y, p.z]} scale={[0.42, 0.42, 0.42]} onPointerOver={() => setHover(`${p.label} · ${c?.label ?? ""}`)} onPointerOut={() => setHover(null)} onClick={() => onOpenPaper(p.id)}>
+              <sprite key={p.id} position={[p.x, p.y, p.z]} scale={[scale, scale, scale]} onPointerOver={() => setHover(`${p.label} · ${c?.label ?? ""}${typeof p.citationCount === "number" ? ` · ${fmtInt(p.citationCount)} citations` : ""}`)} onPointerOut={() => setHover(null)} onClick={() => onOpenPaper(p.id)}>
                 <spriteMaterial map={shapeTexture(c?.shape ?? "ring")} color={slotHex(c?.slot ?? null, theme)} transparent opacity={faded ? 0.12 : 1} />
               </sprite>
             );

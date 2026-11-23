@@ -1,7 +1,7 @@
 // The canvas graph is derived, not stored: server state (stages, topics, queries, counts) plus a little
 // per-browser state (accepted ghost topics, pinned quotes) → nodes and edges. Pure; unit-tested.
 import { STAGES, type StageState } from "../shared/stages";
-import { isUndecided, type CanvasSummary, type ClaimLite, type JobLite, type StageStates } from "../shared/canvas";
+import { evaluateTopicAttention, isUndecided, type AttentionTone, type CanvasSummary, type ClaimLite, type CorpusImpactSummary, type JobLite, type StageStates, type TopicArticleStats, type TopicAttention } from "../shared/canvas";
 import { fmtInt } from "../shared/format";
 
 export type NodeKind = "idea" | "topic" | "query" | "corpus" | "table" | "appraisal" | "synthesis" | "questions" | "export" | "quote";
@@ -39,6 +39,14 @@ export interface Trust {
   stale: boolean;
 }
 
+export interface PipelineCounts {
+  retrieved: number;
+  rendered: number;
+  filed: number;
+  selected: number;
+  stageTones: { retrieved: AttentionTone; rendered: AttentionTone; filed: AttentionTone };
+}
+
 export interface GNode {
   id: string;
   kind: NodeKind;
@@ -57,6 +65,14 @@ export interface GNode {
   paused?: boolean;
   trust?: Trust;
   staleReason?: string;
+  /** Per-topic retrieved / rendered / filed counts and citation impact (Topic & Query nodes). */
+  articleStats?: TopicArticleStats;
+  /** Color-coded attention indicator showing which stage needs attention for this node. */
+  attention?: TopicAttention;
+  /** Corpus-wide retrieved / rendered / filed counts (Corpus, Table, Appraisal nodes). */
+  pipelineCounts?: PipelineCounts;
+  /** Corpus-wide impact summary (Corpus / Table nodes). */
+  impactSummary?: CorpusImpactSummary;
 }
 
 export interface GEdge {
@@ -140,9 +156,29 @@ export function buildGraph(input: GraphInput): Graph {
     staleReason: ideaStatus === "stale" ? reason(2) : undefined,
   });
 
+  const topicStatsById = new Map((s?.topicStats ?? []).map((ts) => [ts.topicId, ts]));
+  const s4All = st(states, 4);
+  const s5All = st(states, 5);
+  const s6All = st(states, 6);
+  const s7All = st(states, 7);
+
+  const corpusPipeline: PipelineCounts | undefined = s && (s4All !== "not_started" || s.retrieval.unique > 0) ? (() => {
+    const retrieved = s.retrieval.unique;
+    const rendered = s.table.summarised;
+    const selected = s.table.selectedPapers ?? s.ranking.reduce((acc, r) => acc + r.selected, 0);
+    // Cleanly filed papers = appraised papers when no pending undecided quotes, or sum of cleanly filed unique count bounded by done appraisals.
+    const filed = s.appraisal.done > 0 ? Math.max(0, s.appraisal.done - (s.appraisal.pending > 0 ? Math.min(s.appraisal.done, s.appraisal.pending) : 0)) : 0;
+    const retTone: AttentionTone = s4All === "failed" || s.retrieval.failed > 0 || ((s4All === "needs_review" || s4All === "approved") && retrieved === 0) ? "err" : s4All === "running" ? "run" : s4All === "stale" || s4All === "needs_review" ? "warn" : retrieved > 0 ? "ok" : "idle";
+    const renTone: AttentionTone = s5All === "failed" ? "err" : s5All === "running" ? "run" : s5All === "stale" ? "warn" : (s5All === "needs_review" || s5All === "approved") ? (rendered < retrieved ? "warn" : "ok") : "idle";
+    const filTone: AttentionTone = s7All === "failed" || s.appraisal.failed > 0 || s6All === "failed" ? "err" : s6All === "running" || s7All === "running" ? "run" : s6All === "stale" || s7All === "stale" ? "warn" : (s7All === "needs_review" || s7All === "approved") ? (s.appraisal.pending > 0 || filed < selected ? "warn" : "ok") : (s6All === "needs_review" || s6All === "approved") ? (selected === 0 ? "err" : "warn") : "idle";
+    return { retrieved, rendered, filed, selected, stageTones: { retrieved: retTone, rendered: renTone, filed: filTone } };
+  })() : undefined;
+
   // 2. Topics.
   for (const t of topics) {
     const ghost = isGhostTopic(t, states, client.acceptedTopics);
+    const ts = topicStatsById.get(t.id);
+    const showStats = !!ts && (s4All !== "not_started" || ts.retrieved > 0 || ts.failedRuns > 0 || ts.runningRuns > 0);
     add({
       id: `topic:${t.id}`,
       kind: "topic",
@@ -155,6 +191,8 @@ export function buildGraph(input: GraphInput): Graph {
       ghost,
       topicId: t.id,
       staleReason: s2 === "stale" ? reason(2) : undefined,
+      articleStats: showStats ? ts : undefined,
+      attention: showStats && ts ? evaluateTopicAttention(ts, states) : undefined,
     });
   }
 
@@ -170,7 +208,21 @@ export function buildGraph(input: GraphInput): Graph {
     // "Ran:" only when every search of the topic has a current run; otherwise each run count says so itself.
     const ran = qs.every((q) => q.run);
     const counts = qs.map((q) => `${DB_LABEL[q.database] ?? q.database} ${q.run ? (q.run.failed ? "failed" : q.run.count === null ? "done" : `${fmt(q.run.count)}${ran ? "" : " (ran)"}`) : q.dryRunError ? "failed" : q.dryRunCount === null ? "not counted" : fmt(q.dryRunCount)}`);
-    add({ id, kind: "query", stages: [3], title: t.name, status: toStatus(s3), key: `${ran ? "Ran: " : ""}${counts.join(" · ")}`, parents: [`topic:${t.id}`], topicId: t.id, staleReason: s3 === "stale" ? reason(3) : undefined });
+    const ts = topicStatsById.get(t.id);
+    const showStats = !!ts && (s4All !== "not_started" || ts.retrieved > 0 || ts.failedRuns > 0 || ts.runningRuns > 0);
+    add({
+      id,
+      kind: "query",
+      stages: [3],
+      title: t.name,
+      status: toStatus(s3),
+      key: `${ran ? "Ran: " : ""}${counts.join(" · ")}`,
+      parents: [`topic:${t.id}`],
+      topicId: t.id,
+      staleReason: s3 === "stale" ? reason(3) : undefined,
+      articleStats: showStats ? ts : undefined,
+      attention: showStats && ts ? evaluateTopicAttention(ts, states) : undefined,
+    });
   }
 
   // 4. Corpus: every query merges into one retrieval.
@@ -179,7 +231,7 @@ export function buildGraph(input: GraphInput): Graph {
     const r = s?.retrieval;
     const running = s4 === "running";
     const key = !r ? "Retrieval" : running ? `${plural(r.unique, "paper")} so far` : `${plural(r.unique, "paper")}, ${fmt(Math.max(0, r.fetched - r.unique))} dupes removed${r.failed ? ` · ${r.failed} failed` : ""}`;
-    add({ id: "corpus", kind: "corpus", stages: [4], title: "Retrieved papers", status: toStatus(s4), key, parents: queryIds.length ? queryIds : ["idea"], progress: jobProgress(input.jobs, 4), staleReason: s4 === "stale" ? reason(4) : undefined });
+    add({ id: "corpus", kind: "corpus", stages: [4], title: "Retrieved papers", status: toStatus(s4), key, parents: queryIds.length ? queryIds : ["idea"], progress: jobProgress(input.jobs, 4), staleReason: s4 === "stale" ? reason(4) : undefined, pipelineCounts: corpusPipeline, impactSummary: s?.impact });
     if (running) for (const e of edges) if (e.target === "corpus") e.running = true;
   }
 
@@ -192,7 +244,7 @@ export function buildGraph(input: GraphInput): Graph {
     const t = s?.table;
     const selected = t?.selectedPapers ?? (s?.ranking ?? []).reduce((a, x) => a + x.selected, 0);
     const key = !t ? "Summary table" : s5 === "running" ? `${fmt(t.summarised)} of ${fmt(t.papers)} summarised` : s6 === "not_started" || s6 === "running" ? `${plural(t.papers, "row")}${s6 === "running" ? " · ranking" : ""}` : `${plural(t.papers, "row")} · ${plural(selected, "paper")} selected`;
-    add({ id: "table", kind: "table", stages: [5, 6], title: "Summary & ranking", status: toStatus(tableState), key, parents: ["corpus"], progress: jobProgress(input.jobs, s5 === "approved" ? 6 : 5), staleReason: tableState === "stale" ? reason(s5 === "stale" ? 5 : 6) : undefined });
+    add({ id: "table", kind: "table", stages: [5, 6], title: "Summary & ranking", status: toStatus(tableState), key, parents: ["corpus"], progress: jobProgress(input.jobs, s5 === "approved" ? 6 : 5), staleReason: tableState === "stale" ? reason(s5 === "stale" ? 5 : 6) : undefined, pipelineCounts: corpusPipeline, impactSummary: s?.impact });
   }
 
   // 7. Appraisal (batch over the selected papers).
@@ -210,6 +262,7 @@ export function buildGraph(input: GraphInput): Graph {
       progress: jobProgress(input.jobs, 7),
       trust: a ? { verified: a.verified, unverified: a.pending, accepted: a.accepted, stale: s7 === "stale" } : undefined,
       staleReason: s7 === "stale" ? reason(7) : undefined,
+      pipelineCounts: corpusPipeline,
     });
   }
 

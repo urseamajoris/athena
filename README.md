@@ -170,6 +170,16 @@ src/lib/export.ts        Markdown report, CSV, BibTeX
 - Every edit endpoint calls `markDownstreamStale`. That includes edits to the idea, topics, queries and criteria, summary cells, selections, claim decisions and synthesis statements.
 - Before the first edit to an approved stage with downstream work, the UI asks for confirmation.
 - A stale stage shows a banner with the reason and two choices: "Re-run this step" or "Keep current results and review them". Nothing re-runs silently.
+- Starting any job (a re-run, or a single-paper re-appraisal) marks every later stage that has output stale before the job deletes anything. A re-run that removes claims first removes the synthesis statements, matrix cells, contradictions and research questions that cite them (their text is kept in the decision log).
+- Cancelling a re-run leaves the stage "needs review" (job never started) or "stale" (it started) when an earlier run finished; only a stage that never finished becomes "failed".
+- A re-run of the summary table (full re-run), appraisals, synthesis or research questions builds its new output first and swaps it in at the end, only if the run was not cancelled and did not fail. A failed or cancelled re-run therefore still shows the earlier results, including corrected summary cells, accept/reject decisions, edited synthesis statements and the chosen question. A successful re-run writes the text it replaces to the decision log first. The Re-run control says what it replaces and asks before starting.
+- Deleting a topic also removes the papers that only its searches found (logged); a paper another stored search still found stays.
+
+**Approval gates** (`src/lib/gates.ts`)
+
+- Approving a stage checks its definition of done against what is stored, e.g. every query dry-run, retrieval matching the stored queries and criteria, no missing summary rows or unscored candidates, 3–5 papers per topic, every selected paper appraised and every unverified quote accepted or rejected, every skipped synthesis topic seen, each topic's synthesis citing only quotes from papers still selected for that topic, no stored paper that no stored search found, and a novelty check whose search strings were written for (and run after) the chosen question's current wording, structure and design.
+- Some items (a zero-hit or failed dry run, partial query failures, a selection outside 3–5, papers left unscored by the 60-per-topic limit, a skipped synthesis topic, a topic that kept its earlier synthesis because its re-run failed, failed novelty searches) can be waived, but only by ticking each one; waivers are logged with the approval. The approve bar lists what is outstanding.
+- Exports made while any stage is not approved are labelled DRAFT (top of the report, the file name, the sidebar and the final page).
 
 **Logging**
 
@@ -245,7 +255,8 @@ Room for later features is already in the schema:
 - **Rubric:** topic fit, design strength and setting match are scored by the AI (0–5) with a reason each. Recency and citation impact are computed by a fixed, displayed formula (citations per year, log-banded), which is more accurate and transparent than asking a model.
   - Weights: topic fit 35%, design 20%, setting 20%, recency 15%, citations 10%.
   - The top 4 per topic are pre-selected.
-  - At most 60 papers per topic are scored, highest database relevance first, to bound cost.
+  - At most 60 papers per topic are scored, highest database relevance first, to bound cost. The ranking view shows how many found papers were left unscored, and approval asks the researcher to accept that.
+  - "Retry unscored papers" never re-selects a paper the researcher deselected; only a topic that has never had a selection gets the default pick.
 - **Appraisal:** each paper is appraised once, even when it is selected under several topics.
   - Templates: trial, cohort (which also covers case-control), cross-sectional, qualitative (which also covers mixed methods), systematic review (which also covers scoping reviews), other.
   - Checklists are short CASP/JBI-style lists defined in `src/lib/stages/templates.ts`.

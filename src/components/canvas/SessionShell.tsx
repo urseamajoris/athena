@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { TransitionLink } from "../vt";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence } from "motion/react";
-import { Command, LayoutGrid, List as ListIcon, X } from "lucide-react";
+import { BarChart3, Command, LayoutGrid, List as ListIcon, X } from "lucide-react";
 import { useApi } from "../api";
 import { ErrorState, Kbd, Loading, cx } from "../ui";
 import { MotionRoot } from "../motion";
@@ -20,6 +20,7 @@ import { STAGE_KEY_TO_NODE, nodeForStage } from "@/lib/canvas/graph";
 const SessionUnavailable = dynamic(() => import("../session/SessionUnavailable").then((m) => m.SessionUnavailable), { ssr: false });
 
 const CanvasView = dynamic(() => import("./CanvasView"), { ssr: false, loading: () => <Loading label="Drawing the canvas…" /> });
+const GraphView = dynamic(() => import("../viz/GraphView").then((m) => m.GraphView), { ssr: false, loading: () => <Loading label="Loading impact graphs…" /> });
 const CommandPalette = dynamic(() => import("./CommandPalette"), { ssr: false });
 // Server-rendered: before hydration the viewport is unknown, so phones get the List view in the first HTML.
 const ListView = dynamic(() => import("./ListView").then((m) => m.ListView), { loading: () => <Loading /> });
@@ -157,6 +158,8 @@ function Shell() {
         st.toggleMinimap(projectId);
       } else if (e.key === "l" || e.key === "L") {
         st.setView(projectId, view === "list" ? "canvas" : "list");
+      } else if (e.key === "g" || e.key === "G") {
+        st.setView(projectId, view === "graph" ? "canvas" : "graph");
       } else if (e.key === "Escape" && st.panel) {
         st.closePanel();
       }
@@ -165,8 +168,8 @@ function Shell() {
     return () => window.removeEventListener("keydown", on);
   }, [graph, projectId, view]);
 
-  const viewBtn = (v: "canvas" | "list", label: string, Icon: typeof ListIcon) => (
-    <button className={cx("inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-sm px-3", view === v ? "bg-bg-3 text-fg-0" : "text-fg-1 hover:text-fg-0")} aria-pressed={view === v} onClick={() => canvasStore.getState().setView(projectId, v)} title={`${label} (L)`}>
+  const viewBtn = (v: "canvas" | "graph" | "list", label: string, Icon: typeof ListIcon, shortcut: string) => (
+    <button className={cx("inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-sm px-3", view === v ? "bg-bg-3 text-fg-0" : "text-fg-1 hover:text-fg-0")} aria-pressed={view === v} onClick={() => canvasStore.getState().setView(projectId, v)} title={`${label} (${shortcut})`}>
       <Icon className="h-4 w-4" strokeWidth={1.5} aria-hidden />
       <span className={mobile ? "sr-only" : ""}>{label}</span>
     </button>
@@ -192,8 +195,9 @@ function Shell() {
           )}
         </div>
         <div className="flex items-center rounded-md border border-line" role="group" aria-label="View">
-          {viewBtn("canvas", "Canvas", LayoutGrid)}
-          {viewBtn("list", "List", ListIcon)}
+          {viewBtn("canvas", "Canvas", LayoutGrid, "L")}
+          {viewBtn("graph", "Graph", BarChart3, "G")}
+          {viewBtn("list", "List", ListIcon, "L")}
         </div>
         <button className="btn-ghost h-11 min-w-11 px-2" onClick={() => { setPaletteLoaded(true); canvasStore.getState().setPalette(true); }} aria-label="Command palette (⌘K or /)">
           <Command className="h-4 w-4" strokeWidth={1.5} aria-hidden />
@@ -203,7 +207,7 @@ function Shell() {
       </header>
       <AiPausedBanner />
       </div>
-      <main id="main" className="relative flex-1 overflow-hidden" aria-label={view === "list" ? "Review list" : "Review canvas"}>
+      <main id="main" className="relative flex-1 overflow-hidden" aria-label={view === "list" ? "Review list" : view === "graph" ? "Impact and topic graph" : "Review canvas"}>
         {!hydrated ? (
           <>
             <div className="h-full md:hidden"><ListView /></div>
@@ -211,6 +215,8 @@ function Shell() {
           </>
         ) : view === "canvas" ? (
           <CanvasView readOnly={mobile} />
+        ) : view === "graph" ? (
+          <GraphView />
         ) : (
           <ListView />
         )}

@@ -8,6 +8,9 @@ import { AbstractBadge, Badge, ErrorState, Loading, TextSourceBadge } from "../u
 import { Disclosure } from "../disclosure";
 import { useReturnFocus } from "../overlays";
 import { RUBRIC, STUDY_TYPES, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
+import { paperImpactEvaluation } from "@/lib/shared/impact";
+import { CategoryChip } from "../categories";
+import { fmtInt } from "@/lib/shared/format";
 import { useSession } from "./SessionContext";
 
 interface Detail {
@@ -46,11 +49,39 @@ export function PaperDialog({ paperId, onClose }: { paperId: string | null; onCl
                   <h2 className="text-16 font-semibold text-fg-0">{p.title}</h2>
                   <p className="mt-1 text-fg-1">{p.authors.slice(0, 6).join(", ")}{p.authors.length > 6 ? " et al." : ""}</p>
                   <p className="text-fg-2">{p.journal ?? "Journal not reported"} · {p.year ?? "year n/a"} · <span className="tabular-nums">{p.citationCount ?? "?"}</span> citations</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
+                    <div className="mt-2 flex flex-wrap gap-2">
                     {p.sourceDatabases.map((d) => <Badge key={d}>Found in {d}</Badge>)}
                     {data.appraisal && <TextSourceBadge source={data.appraisal.textSource} />}
                   </div>
                 </div>
+                {(() => {
+                  const imp = paperImpactEvaluation({ ...p, studyType: data.summary?.studyType ?? null });
+                  return (
+                    <section aria-label="Scholarly impact evaluation" className="rounded-md border border-line bg-bg-0/60 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="label mb-0">Impact evaluation</h3>
+                        <CategoryChip dim="impact" value={imp.tier} />
+                      </div>
+                      <div className="mt-2 grid grid-cols-3 gap-2 text-12 tabular-nums">
+                        <div className="rounded-sm bg-bg-2 px-2 py-1.5">
+                          <span className="block text-fg-2">Citations</span>
+                          <span className="text-14 font-semibold text-fg-0">{typeof p.citationCount === "number" ? fmtInt(p.citationCount) : "n/a"}</span>
+                        </div>
+                        <div className="rounded-sm bg-bg-2 px-2 py-1.5">
+                          <span className="block text-fg-2">Cites / year</span>
+                          <span className="text-14 font-semibold text-fg-0">{imp.citationsPerYear !== null ? imp.citationsPerYear.toFixed(1) : "n/a"}</span>
+                        </div>
+                        <div className="rounded-sm bg-bg-2 px-2 py-1.5">
+                          <span className="block text-fg-2">Impact index</span>
+                          <span className="text-14 font-semibold text-fg-0">{imp.score}/100</span>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-12 text-fg-2">
+                        Subscores (0–5): citations {imp.breakdown.citation}/5 (50%) · design {imp.breakdown.design}/5 (25%) · recency {imp.breakdown.recency}/5 (15%) · access {imp.breakdown.accessibility}/5 (10%).
+                      </p>
+                    </section>
+                  );
+                })()}
                 <section>
                   <h3 className="label">Identifiers and links</h3>
                   <ul className="space-y-1">

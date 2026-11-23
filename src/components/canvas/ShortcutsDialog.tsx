@@ -14,6 +14,7 @@ export const SHORTCUTS: [string[], string][] = [
   [["F"], "Fit the view"],
   [["M"], "Show or hide the minimap"],
   [["L"], "Switch between canvas and list view"],
+  [["G"], "Switch between canvas and impact graph view"],
   [["/"], "Command palette (also ⌘K)"],
   [["?"], "This list"],
 ];

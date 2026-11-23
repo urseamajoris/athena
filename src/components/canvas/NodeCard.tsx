@@ -5,11 +5,12 @@ import { m } from "motion/react";
 import { Check, X } from "lucide-react";
 import { cx } from "../ui";
 import { useSessionActions } from "../session/SessionContext";
-import { NodeStatusBadge, TrustBadges, nodeAriaLabel } from "./node-bits";
+import { NodeStatusBadge, TrustBadges, ArticlePipelineStrip, AttentionBadge, ATTENTION_STYLE, nodeAriaLabel } from "./node-bits";
 import { ActionButton } from "../panels/action-button";
 import { KindIcon } from "./icons";
 import { KIND_LABEL, type GNode, type NodeStatus } from "@/lib/canvas/graph";
 import type { Action } from "@/lib/canvas/actions";
+import type { AttentionTone } from "@/lib/shared/canvas";
 import { NODE_H, NODE_W, QUOTE_H } from "@/lib/canvas/layout";
 
 export interface NodeData extends Record<string, unknown> {
@@ -25,13 +26,42 @@ export interface NodeData extends Record<string, unknown> {
 }
 export type FlowNode = Node<NodeData, "athena">;
 
-const STATUS_BORDER: Record<NodeStatus, string> = { idle: "border-line-strong", running: "border-run-line", review: "border-line-control", done: "border-line-strong", stale: "border-warn", error: "border-err" };
+const STATUS_TO_TONE: Record<NodeStatus, AttentionTone> = {
+  idle: "idle",
+  running: "run",
+  review: "warn",
+  done: "ok",
+  stale: "warn",
+  error: "err",
+};
+
+const TONE_SURFACE: Record<AttentionTone, string> = {
+  err: "border-err bg-bg-1",
+  warn: "border-warn-line bg-bg-1",
+  run: "border-run-line bg-bg-1",
+  ok: "border-ok-line bg-bg-1",
+  idle: "border-line-strong bg-bg-1",
+};
+
+function effectiveTone(node: GNode): AttentionTone {
+  if (node.ghost) return "warn";
+  if (node.status === "error" || node.attention?.tone === "err") return "err";
+  if (node.status === "stale" || node.status === "review" || node.attention?.tone === "warn") return "warn";
+  if (node.status === "running" || node.attention?.tone === "run") return "run";
+  return STATUS_TO_TONE[node.status];
+}
 
 function NodeCardImpl({ id, data }: NodeProps<FlowNode>) {
   const { node, action, primary, selected, tabbable, readOnly, spawn } = data;
   const { run } = useSessionActions();
   const quote = node.kind === "quote";
   const h = quote ? QUOTE_H : NODE_H;
+  const tone = effectiveTone(node);
+  const showAttention = !!node.attention && (node.attention.tone === "err" || node.attention.tone === "warn");
+  const stats = node.articleStats;
+  const pipe = node.pipelineCounts;
+  const citations = stats ? stats.totalCitations : node.impactSummary?.totalCitations;
+  const hIndex = stats ? stats.hIndex : node.impactSummary?.hIndex;
   return (
     <>
     <Handle type="target" position={Position.Left} isConnectable={false} className="athena-handle" />
@@ -47,26 +77,54 @@ function NodeCardImpl({ id, data }: NodeProps<FlowNode>) {
       data-node-id={id}
       data-kind={node.kind}
       data-status={node.ghost ? "ghost" : node.status}
+      data-tone={tone}
       style={{ width: NODE_W, height: h }}
       className={cx(
-        "flex flex-col rounded-md border bg-bg-1 p-3 text-left",
-        node.ghost ? "border-dashed border-line-control" : STATUS_BORDER[node.status],
-        node.status === "stale" && !node.ghost && "border-2",
+        "relative flex flex-col overflow-hidden rounded-md border pl-4 pr-3 py-2.5 text-left",
+        node.ghost ? "border-dashed border-line-control bg-bg-1" : TONE_SURFACE[tone],
+        (tone === "err" || node.status === "stale") && !node.ghost && "border-2",
         selected && "ring-2 ring-fg-1 ring-offset-2 ring-offset-bg-0",
       )}
     >
+      {/* Left colour-coded status rail for instant at-a-glance triage */}
+      <span aria-hidden className={cx("absolute inset-y-0 left-0 w-1.5", node.ghost ? "bg-line-control" : ATTENTION_STYLE[tone].accent)} />
       <div className="flex items-center gap-2 text-12 text-fg-2">
         <KindIcon kind={node.kind} className="h-4 w-4 shrink-0" />
         <span className="min-w-0 flex-1 truncate">{KIND_LABEL[node.kind]}</span>
         <NodeStatusBadge node={node} />
       </div>
-      <p className={cx("mt-2 text-14 font-medium text-fg-0", quote ? "line-clamp-2 italic" : "line-clamp-2")}>{node.title}</p>
+      <p className={cx("mt-1.5 text-14 font-medium leading-snug text-fg-0", quote ? "line-clamp-2 italic" : "line-clamp-2")}>{node.title}</p>
       <div className="mt-1 flex min-w-0 items-center gap-2" data-detail={node.trust && !quote ? undefined : ""}>
         <p className="min-w-0 flex-1 truncate text-12 tabular-nums text-fg-1">{node.key}</p>
         <TrustBadges node={node} />
       </div>
+      {stats && node.attention ? (
+        <div className="mt-2" data-detail="">
+          <ArticlePipelineStrip
+            retrieved={stats.retrieved}
+            rendered={stats.rendered}
+            filed={stats.filed}
+            selected={stats.selected}
+            stageTones={node.attention.stageTones}
+            totalCitations={citations}
+            hIndex={hIndex}
+          />
+        </div>
+      ) : pipe ? (
+        <div className="mt-2" data-detail="">
+          <ArticlePipelineStrip
+            retrieved={pipe.retrieved}
+            rendered={pipe.rendered}
+            filed={pipe.filed}
+            selected={pipe.selected}
+            stageTones={pipe.stageTones}
+            totalCitations={citations}
+            hIndex={hIndex}
+          />
+        </div>
+      ) : null}
       {node.ghost ? (
-        <div className="mt-auto flex gap-2">
+        <div className="mt-auto flex gap-2 pt-1">
           <button tabIndex={tabbable ? 0 : -1} className="btn-secondary btn-sm flex-1" onClick={(e) => { e.stopPropagation(); run({ type: "acceptTopic", topicId: node.topicId! }); }}>
             <Check className="h-3 w-3" strokeWidth={2} aria-hidden /> Keep
           </button>
@@ -75,8 +133,12 @@ function NodeCardImpl({ id, data }: NodeProps<FlowNode>) {
           </button>
         </div>
       ) : action && !readOnly ? (
-        <div className="mt-auto" data-tabbable={tabbable} data-detail={primary || tabbable || selected ? undefined : ""}>
+        <div className="mt-auto pt-1" data-tabbable={tabbable} data-detail={primary || tabbable || selected ? undefined : ""}>
           <ActionButton action={action} primary={primary} size="sm" />
+        </div>
+      ) : showAttention && node.attention ? (
+        <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+          <AttentionBadge attention={node.attention} />
         </div>
       ) : null}
     </m.div>

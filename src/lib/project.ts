@@ -15,7 +15,8 @@ export async function getProject(id: string) {
 }
 
 export class HttpError extends Error {
-  constructor(public status: number, message: string) {
+  /** Extra JSON fields returned with the error, for example `{ blockers }` on a 409. */
+  constructor(public status: number, message: string, public extra?: Record<string, unknown>) {
     super(message);
   }
 }
@@ -24,11 +25,12 @@ export async function logDecision(projectId: string, stage: number, action: stri
   (await db.insert(schema.decisionLog).values({ id: newId("log"), projectId, stage, actor, action, before: before ?? null, after: after ?? null }).run());
 }
 
-export async function setStageState(projectId: string, stage: number, state: StageState, extra?: { currentStage?: number }) {
+export async function setStageState(projectId: string, stage: number, state: StageState, extra?: { currentStage?: number; reason?: string }) {
   const p = (await getProject(projectId));
   const states = { ...p.stageStates, [String(stage)]: state };
   const reasons = { ...p.staleReasons };
   if (state !== "stale") delete reasons[String(stage)];
+  else if (extra?.reason) reasons[String(stage)] = extra.reason;
   (await db.update(schema.projects)
         .set({ stageStates: states, staleReasons: reasons, updatedAt: nowIso(), ...(extra?.currentStage ? { currentStage: extra.currentStage } : {}) })
         .where(eq(schema.projects.id, projectId))

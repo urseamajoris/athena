@@ -9,7 +9,7 @@ import { Spinner, cx } from "../ui";
 import { criteriaDrafts } from "../panels/criteria-draft";
 import { topicUndo } from "../panels/topic-undo";
 import dynamic from "next/dynamic";
-import { STAGES, STATE_LABEL, thinTopics, type StageState } from "@/lib/shared/stages";
+import { RERUN_REPLACES, STAGES, STATE_LABEL, thinTopics, type StageState } from "@/lib/shared/stages";
 import type { CanvasSummary, ClaimLite, JobLite } from "@/lib/shared/canvas";
 import { buildGraph, nodeForStage, type Graph, type GraphInput, type NodeKind } from "@/lib/canvas/graph";
 import { cascadeStep, type Cmd } from "@/lib/canvas/actions";
@@ -351,6 +351,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
         }
         case "run":
           return step(async () => {
+            if (jobs[String(cmd.stage)] && RERUN_REPLACES[cmd.stage] && !window.confirm(RERUN_REPLACES[cmd.stage])) return;
             await api(projectPath(projectId, `stages/${cmd.stage}/run`), { body: { force: true } });
             await refresh();
             announce(`${STAGES[cmd.stage - 1].title} started.`);
@@ -427,7 +428,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
           return;
       }
     },
-    [approve, projectId, refresh, announce, confirmEdit, summary, focusStage, graph, router, states],
+    [approve, projectId, refresh, announce, confirmEdit, summary, focusStage, graph, router, states, jobs],
   );
 
   const runRef = useRef(run);
@@ -451,6 +452,10 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
     cascading.current = key;
     (async () => {
       try {
+        if (step.kind === "run" && RERUN_REPLACES[step.stage] && !window.confirm(RERUN_REPLACES[step.stage])) {
+          canvasStore.getState().setCascade(projectId, false);
+          return;
+        }
         await api(projectPath(projectId, `stages/${step.stage}/${step.kind === "run" ? "run" : "keep"}`), { body: step.kind === "run" ? { force: true } : {} });
         await refresh();
         const id = nodeForStage(graph, step.stage);

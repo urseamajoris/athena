@@ -12,7 +12,7 @@ import { errMsg, newId } from "./util";
 export const RETENTION_DAYS = 14;
 
 export function errorResponse(e: unknown) {
-  if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
+  if (e instanceof HttpError) return NextResponse.json({ error: e.message, ...e.extra }, { status: e.status });
   if (e instanceof AiPausedError) return NextResponse.json({ error: e.message, kind: "ai_paused" }, { status: 503 });
   if (e instanceof BudgetError) return NextResponse.json({ error: e.message, kind: "budget" }, { status: 402 });
   if (e instanceof AiValidationError) return NextResponse.json({ error: e.message, kind: "ai_validation" }, { status: 502 });

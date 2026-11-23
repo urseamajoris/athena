@@ -1,10 +1,11 @@
 import "server-only";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema, batchWrite, type BatchItem } from "../db";
 import { structuredCall } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { ScopingTopics, ScopingTurn } from "./ai-schemas";
 import { getProject, HttpError, logDecision, markDownstreamStale, setStageState } from "../project";
+import { dropPapersWithoutHits } from "../evidence";
 import { newId, nowIso, forEachSeq } from "../util";
 
 export const MAX_SCOPING_QUESTIONS = 5;
@@ -26,6 +27,23 @@ function lastCoverage(msgs: { role: string; meta: unknown }[]) {
   return (m?.meta ?? null) as TurnMeta;
 }
 
+/**
+ * True when the scoping conversation was restarted after the current topics were built, so the topics (and the
+ * scoping summary) describe the earlier conversation, not the one on screen. Approval waits for a regeneration.
+ */
+export async function topicsFromEarlierChat(projectId: string): Promise<boolean> {
+  const D = schema.decisionLog;
+  const last = await db
+    .select({ action: D.action })
+    .from(D)
+    .where(and(eq(D.projectId, projectId), inArray(D.action, ["scoping_restarted", "topics_generated"])))
+    .orderBy(sql`rowid desc`)
+    .limit(1)
+    .get();
+  if (last?.action !== "scoping_restarted") return false;
+  return (await db.select({ id: schema.topics.id }).from(schema.topics).where(eq(schema.topics.projectId, projectId)).all()).length > 0;
+}
+
 export async function scopingState(projectId: string) {
   const t = (await transcript(projectId));
   const last = [...t.msgs].reverse().find((m) => m.role === "assistant");
@@ -42,9 +60,19 @@ export async function scopingState(projectId: string) {
     done: !!meta?.done || t.asked >= MAX_SCOPING_QUESTIONS,
     awaitingAnswer: last?.role === "assistant" && meta?.kind === "question" && t.msgs[t.msgs.length - 1]?.id === last.id,
     topics,
+    topicsFromEarlierChat: await topicsFromEarlierChat(projectId),
     conceptMap: p.conceptMap,
     summary: p.scopingSummary,
   };
+}
+
+/** Restart the conversation. Later steps go stale and the old topics cannot be approved until regenerated. */
+export async function restartScoping(projectId: string) {
+  await db.delete(schema.scopingMessages).where(eq(schema.scopingMessages.projectId, projectId)).run();
+  await logDecision(projectId, 2, "scoping_restarted");
+  await markDownstreamStale(projectId, 2, "The scoping conversation was restarted");
+  await setStageState(projectId, 2, "needs_review", { currentStage: 2 });
+  return nextScopingTurn(projectId);
 }
 
 async function addMessage(projectId: string, role: "user" | "assistant", text: string, meta: Record<string, unknown> | null = null) {
@@ -167,7 +195,21 @@ export async function deleteTopic(projectId: string, topicId: string) {
   if (!before || before.projectId !== projectId) throw new HttpError(404, "Topic not found");
   (await db.delete(schema.topics).where(eq(schema.topics.id, topicId)).run());
   (await logDecision(projectId, 2, "topic_deleted", before, null));
+  // The topic's queries, runs and hits went with it. Papers that only those searches found are no longer backed
+  // by any stored search, so they leave the review; a paper another topic's search also found is kept.
+  await dropPapersWithoutHits(projectId, 2, `Topic "${before.name}" was deleted, and no remaining search found these papers`);
   (await touchTopics(projectId, `Topic "${before.name}" was deleted`));
+}
+
+/** Why the topic list cannot be approved yet (fewer than 4 topics is allowed; the editor warns about it). */
+export async function topicBlockers(projectId: string): Promise<string[]> {
+  const n = (await db.select({ id: schema.topics.id }).from(schema.topics).where(eq(schema.topics.projectId, projectId)).all()).length;
+  const out: string[] = [];
+  if (n < 1) out.push("Add at least one search topic before approving.");
+  if (n > 8) out.push("Keep at most 8 topics: merge or delete some first.");
+  if (await topicsFromEarlierChat(projectId))
+    out.push("You restarted the scoping conversation after these topics were built, so they describe the earlier conversation. Finish the new conversation and regenerate the topics before approving.");
+  return out;
 }
 
 /**

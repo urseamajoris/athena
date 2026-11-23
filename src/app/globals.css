@@ -433,9 +433,9 @@ svg.lucide {
   border-radius: var(--radius-sm);
 }
 .react-flow__minimap-node { fill: var(--bg-3); stroke: none; }
-.react-flow__minimap-node.mm-done { fill: var(--fg-2); }
+.react-flow__minimap-node.mm-done { fill: var(--ok); }
 .react-flow__minimap-node.mm-running { fill: var(--run); }
-.react-flow__minimap-node.mm-review { fill: var(--fg-1); }
+.react-flow__minimap-node.mm-review { fill: var(--warn); }
 .react-flow__minimap-node.mm-stale { fill: var(--warn); }
 .react-flow__minimap-node.mm-error { fill: var(--err); }
 

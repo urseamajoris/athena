@@ -5,6 +5,7 @@ import { Legend, ShapeIcon, shapePath } from "../categories";
 import { useReducedMotion, useTheme, useVizMode } from "./support";
 import { layoutEvidence, type EvPaper, type EvStatement } from "./evidence-graph";
 import { STUDY_GROUPS, categoryVar } from "@/lib/shared/categories";
+import { fmtInt } from "@/lib/shared/format";
 
 const EvidenceNetwork3D = dynamic(() => import("./EvidenceNetwork3D"), { ssr: false, loading: () => <div className="h-[360px]" /> });
 // Statement kinds: colour plus shape (square, diamond, ring), never colour alone.
@@ -42,7 +43,7 @@ export function EvidenceNetwork({ statements, papers, onOpenPaper }: { statement
             return (
               <g key={p.id} transform={`translate(292 ${17 + i * 18})`} opacity={iso && iso !== p.group ? 0.15 : 1} className="cursor-pointer" onClick={() => onOpenPaper(p.id)}>
                 <path d={shapePath(c?.shape ?? "ring")} transform="scale(0.8)" fill={categoryVar("study", p.group)} fillRule="evenodd" />
-                <text x={16} y={10} fontSize="10" fill="var(--fg-1)">{p.label}</text>
+                <text x={16} y={10} fontSize="10" fill="var(--fg-1)">{p.label}{typeof p.citationCount === "number" ? ` (${fmtInt(p.citationCount)} cites)` : ""}</text>
               </g>
             );
           })}

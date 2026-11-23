@@ -31,6 +31,7 @@ export default function CommandPalette({ open, onClose, onFit, onShortcuts }: { 
     ...graph.nodes.map((n) => ({ id: `node-${n.id}`, label: `Open ${KIND_LABEL[n.kind]}: ${n.title.slice(0, 80)}`, group: "Nodes", run: () => go(n.id) })),
     { id: "fit", label: "Fit the view", group: "View", hint: "F", run: onFit },
     { id: "list", label: ui.view === "list" ? "Switch to the canvas" : "Switch to the list view", group: "View", hint: "L", run: () => st.setView(projectId, ui.view === "list" ? "canvas" : "list") },
+    { id: "graph", label: ui.view === "graph" ? "Switch to the canvas" : "Switch to the impact & topic graph view", group: "View", hint: "G", run: () => st.setView(projectId, ui.view === "graph" ? "canvas" : "graph") },
     { id: "minimap", label: ui.minimap ? "Hide the minimap" : "Show the minimap", group: "View", hint: "M", run: () => st.toggleMinimap(projectId) },
     { id: "reset", label: "Tidy layout (forget hand-placed positions)", group: "View", run: () => st.resetLayout(projectId) },
     { id: "pin-all", label: "Pin every quote to the canvas", group: "Evidence", run: () => claims && st.pinQuotes(projectId, claims.map((c) => c.id)), disabled: graph.nodes.some((n) => n.id === "appraisal") ? undefined : "No appraisals yet" },

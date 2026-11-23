@@ -131,6 +131,8 @@ export const papers = sqliteTable("papers", {
   license: text("license"),
   sourceDatabases: text("source_databases", { mode: "json" }).$type<string[]>().notNull().default([]),
   enrichment: text("enrichment", { mode: "json" }).$type<Record<string, string>>().notNull().default({}),
+  excluded: integer("excluded", { mode: "boolean" }).notNull().default(false),
+  excludedReason: text("excluded_reason"),
   createdAt: createdAt(),
 }, (t) => [
   index("papers_project_idx").on(t.projectId),
@@ -211,6 +213,7 @@ export const appraisals = sqliteTable("appraisals", {
   textSource: text("text_source").notNull(), // full_text | abstract
   textNote: text("text_note").notNull().default(""), // e.g. truncation, licence, why abstract-only
   charsSentToModel: integer("chars_sent_to_model"),
+  sentRanges: text("sent_ranges", { mode: "json" }).$type<{ start: number; end: number }[] | null>(),
   templateType: text("template_type").notNull(), // trial | cohort | cross_sectional | qualitative | systematic_review | other
   checklist: text("checklist", { mode: "json" }).$type<ChecklistItem[]>().notNull().default([]),
   status: text("status").notNull().default("pending"), // pending | running | done | failed

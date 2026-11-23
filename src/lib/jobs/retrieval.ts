@@ -12,8 +12,18 @@ import { newId, nowIso, normalizeTitle, errMsg, forEachSeq } from "../util";
 import type { JobContext } from "./runner";
 
 type Paper = typeof schema.papers.$inferSelect;
+type Ids = { doi: string | null; pmid: string | null; openalexId: string | null };
 
-/** Dedup order: DOI, then PMID, then normalised title. */
+/** Both records carry the same kind of identifier with different values, so they are different works. */
+export function identifiersConflict(a: Ids, b: Ids): boolean {
+  const differ = (x: string | null, y: string | null) => !!x && !!y && x.trim().toLowerCase() !== y.trim().toLowerCase();
+  return differ(a.doi, b.doi) || differ(a.pmid, b.pmid) || differ(a.openalexId, b.openalexId);
+}
+
+/**
+ * Dedup order: DOI, then PMID, then OpenAlex ID, then normalised title. A title match is only a duplicate when no
+ * identifier contradicts it (two papers can share a title such as "Telemedicine in Asia: a review").
+ */
 export async function findExisting(projectId: string, r: SourceRecord): Promise<Paper | undefined> {
   const P = schema.papers;
   if (r.doi) {
@@ -30,15 +40,17 @@ export async function findExisting(projectId: string, r: SourceRecord): Promise<
   }
   const nt = normalizeTitle(r.title);
   if (nt.length > 15) {
-    const m = (await db.select().from(P).where(and(eq(P.projectId, projectId), eq(P.normTitle, nt))).get());
+    const rows = await db.select().from(P).where(and(eq(P.projectId, projectId), eq(P.normTitle, nt))).all();
+    const m = rows.find((x) => !identifiersConflict(x, r));
     if (m) return m;
   }
   return undefined;
 }
 
-/** Merge a record into an existing paper: fill gaps, never overwrite with nulls. */
+/** Merge a record into an existing paper: fill gaps, never overwrite with nulls. Never merges conflicting identifiers. */
 export function mergeInto(p: Paper, r: SourceRecord, source: string): Partial<Paper> {
   const set: Partial<Paper> = {};
+  if (identifiersConflict(p, r)) return set;
   const fill = <K extends keyof Paper>(k: K, v: Paper[K] | null | undefined) => {
     if ((p[k] === null || p[k] === undefined || p[k] === "") && v !== null && v !== undefined && v !== "") (set as Record<string, unknown>)[k as string] = v;
   };

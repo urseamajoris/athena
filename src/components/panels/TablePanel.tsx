@@ -37,7 +37,7 @@ export function TablePanel() {
               <li key={r.topicId} className="flex items-center gap-3 px-3 py-2">
                 <span className="w-8 shrink-0 text-12 tabular-nums text-fg-2">#{r.importanceRank ?? "–"}</span>
                 <span className="min-w-0 flex-1 truncate">{r.name}</span>
-                <span className={`text-12 tabular-nums ${r.selected < 3 || r.selected > 5 ? "text-warn" : "text-fg-1"}`}>{r.selected} of {r.scored}</span>
+                <span className={`text-12 tabular-nums ${r.selected < 3 || r.selected > 5 ? "text-warn" : "text-fg-1"}`}>{r.selected} of {r.scored}{(r.notScoredOverLimit ?? 0) > 0 ? ` · ${r.notScoredOverLimit} not scored` : ""}</span>
               </li>
             ))}
           </ul>

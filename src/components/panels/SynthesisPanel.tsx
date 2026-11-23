@@ -23,7 +23,7 @@ interface Cell { id: string; theme: string; paperId: string; value: string; stan
 interface Contradiction { id: string; theme: string; description: string; claimIds: string[]; paperIds: string[] }
 interface Item { id: string; kind: string; statement: string; claimIds: string[]; edited: boolean }
 export interface SynData {
-  topics: { id: string; name: string; importanceRank: number | null; items: Item[]; cells: Cell[]; contradictions: Contradiction[] }[];
+  topics: { id: string; name: string; importanceRank: number | null; skipped: string | null; keptFromEarlierRun: string | null; items: Item[]; cells: Cell[]; contradictions: Contradiction[] }[];
   claims: Record<string, ClaimRef>;
   papers: Record<string, PaperRef>;
 }
@@ -57,6 +57,8 @@ export function SynthesisPanel() {
   const ran = ["needs_review", "approved", "stale"].includes(states["8"] ?? "");
   const empty = ran ? data.topics.filter((t) => !t.items.length && !t.cells.length) : [];
   const whyEmpty = (id: string) => {
+    const logged = data.topics.find((t) => t.id === id)?.skipped;
+    if (logged && states["8"] !== "stale") return logged;
     // When the synthesis is out of date the current selection is not the one it was built from: no reason then.
     if (states["8"] === "stale") return "the synthesis was made before the latest changes";
     const r = summary?.ranking.find((x) => x.topicId === id);
@@ -77,7 +79,7 @@ export function SynthesisPanel() {
   const edited = topics.some((t) => t.items.some((i) => i.edited));
   const network = {
     statements: topics.flatMap((t) => t.items.map((i) => ({ id: i.id, kind: i.kind as "known" | "contested" | "unknown", text: i.statement, paperIds: [...new Set(i.claimIds.map((id) => data.claims[id]?.paperId).filter(Boolean))] as string[] }))),
-    papers: Object.values(data.papers).map((p) => ({ id: p.id, label: short(p), studyType: p.studyType ?? null })),
+    papers: Object.values(data.papers).map((p) => ({ id: p.id, label: short(p), studyType: p.studyType ?? null, citationCount: p.citationCount ?? null })),
   };
   return (
     <div className="space-y-4">
@@ -120,6 +122,9 @@ export function SynthesisPanel() {
           </Tabs.List>
           {topics.map((t) => (
             <Tabs.Content key={t.id} value={t.id} className="space-y-4 pt-4">
+              {t.keptFromEarlierRun && (
+                <p role="note" className="rounded-md border border-warn-line bg-warn-soft px-3 py-2 text-12 text-fg-0">Kept from an earlier run: {t.keptFromEarlierRun}</p>
+              )}
               {t.contradictions.length > 0 && (
                 <section aria-label="Contradictions" className="rounded-md border border-[var(--cat-7)] p-3">
                   <SectionTitle>Contradictions between papers</SectionTitle>

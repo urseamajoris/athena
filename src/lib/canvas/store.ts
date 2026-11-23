@@ -4,7 +4,7 @@ import { createStore } from "zustand/vanilla";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 import type { Pos } from "./layout";
 
-export type ViewMode = "canvas" | "list";
+export type ViewMode = "canvas" | "graph" | "list";
 
 export interface SessionUi {
   /** Positions of nodes the user dragged by hand; auto-layout never moves these. */

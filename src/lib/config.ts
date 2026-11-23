@@ -31,6 +31,11 @@ export const config = {
   cacheTtlHours: num(process.env.HTTP_CACHE_TTL_HOURS, 168),
   simulateFailure: (process.env.SIMULATE_SOURCE_FAILURE ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
   databasePath: process.env.DATABASE_PATH || "data/athena.db",
+  /**
+   * Tests set this false so a missing key fails the job instead of pausing it. There is no mock responder:
+   * a true value does not invent model output, and production leaves it false.
+   */
+  mockAi: process.env.MOCK_MODE === "true",
   /** USD per 1M tokens, used only when the API does not report cost. Source: docs.x.ai/docs/models (Oct 2026). */
   pricing: {
     default: { input: 1.25, cachedInput: 0.2, output: 2.5 },
