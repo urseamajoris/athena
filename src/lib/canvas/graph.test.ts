@@ -66,21 +66,23 @@ test("after retrieval, a Query node shows what each search matched when it ran",
   assert.equal(g.nodes.find((n) => n.id === "query:t1")!.key, "PubMed 979 · OpenAlex 1,630");
 });
 
-test("all queries merge into one Corpus; its incoming edges animate while retrieval runs", () => {
+test("retrieved papers are divided into per-topic boxes; incoming edges animate while retrieval runs", () => {
   const running = buildGraph(input({ states: states(3, { 4: "running" }), summary: summary({ queries: QUERIES, retrieval: { runs: 4, done: 1, failed: 0, running: 3, fetched: 40, unique: 38, perSource: {} } }) }));
-  const corpus = running.nodes.find((n) => n.id === "corpus")!;
-  assert.deepEqual(corpus.parents, ["query:t1", "query:t2"]);
-  assert.equal(corpus.status, "running");
-  assert.equal(corpus.key, "38 papers so far");
-  assert.ok(running.edges.filter((e) => e.target === "corpus").every((e) => e.running));
+  const tc1 = running.nodes.find((n) => n.id === "corpus:topic:t1")!;
+  const tc2 = running.nodes.find((n) => n.id === "corpus:topic:t2")!;
+  assert.deepEqual(tc1.parents, ["query:t1"]);
+  assert.deepEqual(tc2.parents, ["query:t2"]);
+  assert.equal(tc1.status, "running");
+  assert.ok(running.edges.filter((e) => e.target === "corpus:topic:t1" || e.target === "corpus:topic:t2").every((e) => e.running));
   const done = buildGraph(input({ states: states(3), summary: summary({ queries: QUERIES, retrieval: { runs: 4, done: 4, failed: 0, running: 0, fetched: 400, unique: 195, perSource: {} } }) }));
-  assert.equal(done.nodes.find((n) => n.id === "corpus")!.key, "195 papers, 205 dupes removed");
+  assert.ok(done.nodes.some((n) => n.id === "corpus:topic:t1"));
+  assert.ok(done.nodes.some((n) => n.id === "corpus:topic:t2"));
   assert.ok(done.edges.every((e) => !e.running));
 });
 
-test("a finished review has the whole pipeline in order, with Export last", () => {
+test("a finished review has the whole pipeline in order with topic-divided retrieval boxes and Export last", () => {
   const g = buildGraph(finished());
-  assert.deepEqual(ids(g), ["idea", "topic:t1", "topic:t2", "query:t1", "query:t2", "corpus", "table", "appraisal", "synthesis", "questions", "export"]);
+  assert.deepEqual(ids(g), ["idea", "topic:t1", "topic:t2", "query:t1", "query:t2", "corpus:topic:t1", "corpus:topic:t2", "table", "appraisal", "synthesis", "questions", "export"]);
   assert.ok(g.nodes.every((n) => n.status === "done"));
   assert.equal(g.nodes.find((n) => n.id === "questions")!.title, "What drives adoption?");
   assert.deepEqual(g.nodes.find((n) => n.id === "appraisal")!.trust, { verified: 72, unverified: 6, accepted: 2, stale: false });
@@ -88,7 +90,7 @@ test("a finished review has the whole pipeline in order, with Export last", () =
 
 test("stale stages carry the stale status and the reason", () => {
   const g = buildGraph(finished({ states: states(1, { 2: "needs_review", 3: "stale", 4: "stale", 5: "stale", 6: "stale", 7: "stale", 8: "stale", 9: "stale" }), staleReasons: { 4: "Topic \"Adoption\" was edited" } }));
-  const corpus = g.nodes.find((n) => n.id === "corpus")!;
+  const corpus = g.nodes.find((n) => n.id === "corpus:topic:t1")!;
   assert.equal(corpus.status, "stale");
   assert.equal(corpus.staleReason, 'Topic "Adoption" was edited');
   assert.equal(g.nodes.find((n) => n.id === "appraisal")!.trust!.stale, true);
@@ -143,7 +145,7 @@ test("topicStats propagate Retrieved/Rendered/Filed counts, attention tones and 
   );
   const t1 = g.nodes.find((n) => n.id === "topic:t1")!;
   const t2 = g.nodes.find((n) => n.id === "topic:t2")!;
-  const corpus = g.nodes.find((n) => n.id === "corpus")!;
+  const table = g.nodes.find((n) => n.id === "table")!;
   assert.equal(t1.articleStats?.retrieved, 30);
   assert.equal(t1.articleStats?.rendered, 30);
   assert.equal(t1.articleStats?.filed, 4);
@@ -152,10 +154,94 @@ test("topicStats propagate Retrieved/Rendered/Filed counts, attention tones and 
   assert.equal(t2.attention?.stage, 5);
   assert.equal(t2.attention?.stageTones.rendered, "warn");
   assert.equal(t2.attention?.stageTones.filed, "warn");
-  assert.equal(corpus.pipelineCounts?.retrieved, 50);
-  assert.equal(corpus.pipelineCounts?.rendered, 47);
-  assert.equal(corpus.impactSummary?.totalCitations, 540);
-  assert.equal(corpus.impactSummary?.hIndex, 9);
+  assert.equal(table.pipelineCounts?.retrieved, 50);
+  assert.equal(table.pipelineCounts?.rendered, 47);
+  assert.equal(table.impactSummary?.totalCitations, 540);
+  assert.equal(table.impactSummary?.hIndex, 9);
+});
+
+test("expanding topic retrieval boxes fans out per-query retrieval and paper-attention sub-boxes", () => {
+  const queryStats = [
+    {
+      queryId: "q1",
+      topicId: "t1",
+      database: "pubmed",
+      queryString: '"telemedicine"[mh]',
+      label: "PubMed #1",
+      runStatus: "done" as const,
+      resultCount: 40,
+      error: null,
+      retrieved: 12,
+      newUnique: 12,
+      duplicates: 0,
+      rendered: 10,
+      selected: 4,
+      filed: 3,
+      needsAttention: 3,
+      attentionBreakdown: { missingSummary: 2, unscored: 0, failedAppraisal: 0, undecidedQuotes: 1, undecidedQuoteCount: 2 },
+      papers: [
+        { id: "p1", title: "Rural clinic study", year: 2023, citations: 18, hasSummary: true, selected: true, appraised: true, failedAppraisal: false, undecidedQuotes: 2, needsAttention: true, attentionReason: "2 quotes to check" },
+        { id: "p2", title: "Ready paper", year: 2022, citations: 25, hasSummary: true, selected: true, appraised: true, failedAppraisal: false, undecidedQuotes: 0, needsAttention: false, attentionReason: null },
+      ],
+    },
+    {
+      queryId: "q2",
+      topicId: "t1",
+      database: "pubmed",
+      queryString: '"telehealth"[tiab]',
+      label: "PubMed #2",
+      runStatus: "done" as const,
+      resultCount: 20,
+      error: null,
+      retrieved: 8,
+      newUnique: 5,
+      duplicates: 3,
+      rendered: 8,
+      selected: 2,
+      filed: 2,
+      needsAttention: 0,
+      attentionBreakdown: { missingSummary: 0, unscored: 0, failedAppraisal: 0, undecidedQuotes: 0, undecidedQuoteCount: 0 },
+      papers: [
+        { id: "p3", title: "Clean telehealth paper", year: 2024, citations: 10, hasSummary: true, selected: true, appraised: true, failedAppraisal: false, undecidedQuotes: 0, needsAttention: false, attentionReason: null },
+      ],
+    },
+  ];
+  const base = finished({
+    summary: summary({
+      queries: [
+        { id: "q1", topicId: "t1", database: "pubmed", queryString: '"telemedicine"[mh]', dryRunCount: 40, dryRunError: null },
+        { id: "q2", topicId: "t1", database: "pubmed", queryString: '"telehealth"[tiab]', dryRunCount: 20, dryRunError: null },
+      ],
+      queryStats,
+      retrieval: { runs: 2, done: 2, failed: 0, running: 0, fetched: 20, unique: 17, perSource: {} },
+      table: { papers: 17, summarised: 15, edited: 0 },
+    }),
+    client: { acceptedTopics: [], pinnedQuotes: [], expandedNodes: ["query:t1", "corpus:topic:t1", "corpus:query:q1"] },
+  });
+  const g = buildGraph(base);
+  assert.ok(g.nodes.some((n) => n.id === "query-item:q1" && n.kind === "query_item"));
+  assert.ok(g.nodes.some((n) => n.id === "query-item:q2" && n.kind === "query_item"));
+  const qc1 = g.nodes.find((n) => n.id === "corpus:query:q1")!;
+  assert.equal(qc1.kind, "query_corpus");
+  assert.equal(qc1.queryStats?.retrieved, 12);
+  assert.equal(qc1.queryStats?.needsAttention, 3);
+  const attnBox = g.nodes.find((n) => n.id === "papers:attention:q1")!;
+  const okBox = g.nodes.find((n) => n.id === "papers:ok:q1")!;
+  assert.equal(attnBox.kind, "paper_group");
+  assert.equal(attnBox.paperGroupKind, "attention");
+  assert.equal(attnBox.paperCount, 3);
+  assert.equal(okBox.paperGroupKind, "ok");
+  assert.equal(okBox.paperCount, 9);
+});
+
+test("admin AI engine box appears on the canvas only for admins", () => {
+  const nonAdmin = buildGraph(finished({ isAdmin: false }));
+  assert.equal(nonAdmin.nodes.find((n) => n.id === "admin:ai"), undefined);
+  const admin = buildGraph(finished({ isAdmin: true, ai: { enabled: true, budgetReached: false, keyMissing: false, provider: "anthropic", activeModel: "claude-sonnet-4-6" } }));
+  const box = admin.nodes.find((n) => n.id === "admin:ai")!;
+  assert.equal(box.kind, "ai_config");
+  assert.equal(box.status, "done");
+  assert.match(box.key, /Anthropic.*claude-sonnet-4-6/);
 });
 
 import { queryChips } from "./query-chips";

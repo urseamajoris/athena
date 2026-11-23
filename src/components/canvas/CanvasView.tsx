@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Background, BackgroundVariant, MiniMap, ReactFlow, ReactFlowProvider, useNodesInitialized, useReactFlow, useStore, type Edge, type NodeChange } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
 import { useReducedMotion } from "motion/react";
-import { Map as MapIcon, Maximize, Minus, Plus, Layers } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, FolderPlus, Map as MapIcon, Maximize, Minus, Plus, Layers } from "lucide-react";
 import { canvasStore, useCanvas, useSession } from "../session/SessionContext";
 import { NodeCard, type FlowNode, type NodeData } from "./NodeCard";
 import { CanvasTopicHud } from "./CanvasTopicHud";
@@ -11,7 +11,7 @@ import dynamic from "next/dynamic";
 import { canvasCommands, focusNode } from "./focus";
 import { nextAction } from "@/lib/canvas/actions";
 import { frontierNodeId, type GNode, type Graph } from "@/lib/canvas/graph";
-import { NODE_H, NODE_W, QUOTE_H, elkLayout, layeredLayout, withPinned, type Positions } from "@/lib/canvas/layout";
+import { NODE_H, NODE_W, QUOTE_H, elkLayout, layeredLayout, nodeHeight, withPinned, type Positions } from "@/lib/canvas/layout";
 import { loadElk } from "./elk";
 
 const nodeTypes = { athena: NodeCard };
@@ -117,7 +117,7 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
       const node: FlowNode =
         prev && prev.key === key
           ? prev.node
-          : { id: n.id, type: "athena", position: pos, data, draggable: !readOnly, connectable: !readOnly, selectable: false, focusable: false, width: NODE_W, height: n.kind === "quote" ? QUOTE_H : NODE_H, ...(measured.current.has(n.id) ? { measured: measured.current.get(n.id) } : {}) };
+          : { id: n.id, type: "athena", position: pos, data, draggable: !readOnly, connectable: !readOnly, selectable: false, focusable: false, width: NODE_W, height: nodeHeight(n.kind), ...(measured.current.has(n.id) ? { measured: measured.current.get(n.id) } : {}) };
       next.set(n.id, { key, node });
       return node;
     });
@@ -169,7 +169,7 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
     centred.current = panel;
     const { zoom } = rf.getViewport();
     const panelW = readOnly ? 0 : window.innerWidth >= 1280 ? PANEL_W.xl : PANEL_W.md;
-    const h = panel.startsWith("quote:") ? QUOTE_H : NODE_H;
+    const h = nodeHeight(graph.nodes.find((x) => x.id === panel)?.kind ?? (panel.startsWith("quote:") ? "quote" : "idea"));
     rf.setCenter(panelPos.x + NODE_W / 2 + panelW / 2 / zoom, panelPos.y + h / 2, { zoom, duration: reduced ? 0 : 180 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panel, rfReady, panelPos?.x, panelPos?.y]);
@@ -315,7 +315,12 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
         {!far && <Background variant={BackgroundVariant.Dots} gap={24} size={1} />}
         {ui.minimap && <MiniMap pannable zoomable nodeClassName={(n) => `mm-${(n.data as NodeData).node.status}`} ariaLabel="Minimap" />}
       </ReactFlow>
-      <CanvasControls hudOpen={hudOpen} onToggleHud={() => setHudOpen((o) => !o)} hasHud={!!(summary?.topicStats?.length && ((states["4"] ?? "not_started") !== "not_started" || summary.topicStats.some((t) => t.retrieved > 0)))} />
+      <CanvasControls
+        hudOpen={hudOpen}
+        onToggleHud={() => setHudOpen((o) => !o)}
+        hasHud={!!(summary?.topicStats?.length && ((states["4"] ?? "not_started") !== "not_started" || summary.topicStats.some((t) => t.retrieved > 0)))}
+        readOnly={readOnly}
+      />
       {!panel && !readOnly && <CanvasTopicHud open={hudOpen} onToggle={() => setHudOpen((o) => !o)} />}
       <div className="pointer-events-none absolute inset-x-0 top-3 z-10 mx-auto w-fit max-w-[calc(100%-24px)]"><NextStepBar floating /></div>
       {/* Undo after deleting a topic, above the zoom controls (the side panel never covers the left edge). The
@@ -326,19 +331,51 @@ function Canvas({ readOnly }: { readOnly: boolean }) {
   );
 }
 
-function CanvasControls({ hudOpen, onToggleHud, hasHud }: { hudOpen: boolean; onToggleHud: () => void; hasHud: boolean }) {
+function CanvasControls({ hudOpen, onToggleHud, hasHud, readOnly }: { hudOpen: boolean; onToggleHud: () => void; hasHud: boolean; readOnly: boolean }) {
   const rf = useReactFlow();
-  const { projectId, ui } = useSession();
+  const { projectId, ui, graph, states, summary, run } = useSession();
   const reduced = useReducedMotion();
   const d = reduced ? 0 : 180;
   const btn = "btn-ghost h-11 w-11 px-0";
+  const canAddTopic = !readOnly && states["1"] === "approved" && (summary?.topics.length ?? 0) < 8;
+  const expandableIds = graph.nodes.filter((n) => n.expandable).map((n) => n.id);
+  const anyExpanded = ui.expandedNodes.length > 0;
+  function toggleAllExpand() {
+    if (anyExpanded) {
+      canvasStore.getState().setExpandedNodes(projectId, []);
+    } else {
+      const topicCorpusIds = graph.nodes.filter((n) => n.kind === "topic_corpus" && n.expandable).map((n) => n.id);
+      const targets = topicCorpusIds.length ? topicCorpusIds : expandableIds;
+      canvasStore.getState().setExpandedNodes(projectId, targets);
+    }
+  }
   return (
-    <div role="toolbar" aria-label="Canvas view" className="absolute bottom-4 left-4 z-10 flex gap-1 rounded-md border border-line bg-bg-1 p-1">
+    <div role="toolbar" aria-label="Canvas view" className="absolute bottom-4 left-4 z-10 flex items-center gap-1 rounded-md border border-line bg-bg-1 p-1">
       <button className={btn} onClick={() => rf.zoomIn({ duration: d })} aria-label="Zoom in"><Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden /></button>
       <button className={btn} onClick={() => rf.zoomOut({ duration: d })} aria-label="Zoom out"><Minus className="h-4 w-4" strokeWidth={1.5} aria-hidden /></button>
       <button className={btn} onClick={() => rf.fitView({ padding: 0.2, maxZoom: 1, duration: d })} aria-label="Fit view (F)"><Maximize className="h-4 w-4" strokeWidth={1.5} aria-hidden /></button>
       <button className={btn} onClick={() => canvasStore.getState().toggleMinimap(projectId)} aria-pressed={ui.minimap} aria-label="Minimap (M)"><MapIcon className="h-4 w-4" strokeWidth={1.5} aria-hidden /></button>
+      {expandableIds.length > 0 && (
+        <button
+          className={btn}
+          onClick={toggleAllExpand}
+          aria-pressed={anyExpanded}
+          aria-label={anyExpanded ? "Collapse expanded boxes" : "Expand topic boxes into query sub-boxes"}
+          title={anyExpanded ? "Collapse all sub-boxes" : "Expand topic boxes into query sub-boxes"}
+        >
+          {anyExpanded ? <ChevronsDownUp className="h-4 w-4" strokeWidth={1.5} aria-hidden /> : <ChevronsUpDown className="h-4 w-4" strokeWidth={1.5} aria-hidden />}
+        </button>
+      )}
       {hasHud && <button className={btn} onClick={onToggleHud} aria-pressed={hudOpen} aria-label="Topic pipeline overview" title="Toggle topic pipeline overview"><Layers className="h-4 w-4" strokeWidth={1.5} aria-hidden /></button>}
+      {canAddTopic && (
+        <button
+          className="btn-secondary btn-sm ml-1 h-9 px-2.5"
+          onClick={() => run({ type: "addTopic" })}
+          title="Add a new topic to the canvas"
+        >
+          <FolderPlus className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Add topic
+        </button>
+      )}
     </div>
   );
 }

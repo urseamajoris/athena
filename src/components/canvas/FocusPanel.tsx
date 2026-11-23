@@ -17,6 +17,7 @@ import { stageAction } from "@/lib/canvas/actions";
 import { STAGES } from "@/lib/shared/stages";
 import { ArrowRight } from "lucide-react";
 
+const AiConfigPanel = dynamic(() => import("../panels/AiConfigPanel").then((x) => x.AiConfigPanel), { loading: () => <Loading /> });
 const IdeaPanel = dynamic(() => import("../panels/IdeaPanel").then((x) => x.IdeaPanel), { loading: () => <Loading /> });
 const TopicPanel = dynamic(() => import("../panels/IdeaPanel").then((x) => x.TopicPanel), { loading: () => <Loading /> });
 const QueryPanel = dynamic(() => import("../panels/QueryPanel").then((x) => x.QueryPanel), { loading: () => <Loading /> });
@@ -30,10 +31,15 @@ const QuotePanel = dynamic(() => import("../panels/QuotePanel").then((x) => x.Qu
 
 function Body({ node }: { node: GNode }) {
   switch (node.kind) {
+    case "ai_config": return <AiConfigPanel />;
     case "idea": return <IdeaPanel />;
     case "topic": return <TopicPanel topicId={node.topicId!} />;
     case "query": return <QueryPanel topicId={node.topicId!} />;
+    case "query_item": return <QueryPanel topicId={node.topicId!} focusQueryId={node.queryId} />;
     case "corpus": return <CorpusPanel />;
+    case "topic_corpus": return <CorpusPanel topicId={node.topicId} />;
+    case "query_corpus": return <CorpusPanel topicId={node.topicId} queryId={node.queryId} />;
+    case "paper_group": return <CorpusPanel topicId={node.topicId} queryId={node.queryId} attentionOnly={node.paperGroupKind === "attention"} />;
     case "table": return <TablePanel />;
     case "appraisal": return <AppraisalPanel />;
     case "synthesis": return <SynthesisPanel />;
@@ -77,14 +83,23 @@ function useNodeMenu(node: GNode): MenuItem[] {
       ];
     case "topic":
       return [
+        { label: "Add a search query", onSelect: () => run({ type: "addQuery", topicId: node.topicId! }), disabled: states["2"] !== "approved" && !(summary?.queries.length) },
         { label: "Add a sibling topic", onSelect: () => run({ type: "addTopic" }), disabled: (summary?.topics.length ?? 0) >= 8 },
         { label: "Delete topic", danger: true, onSelect: () => run({ type: "dismissTopic", topicId: node.topicId! }) },
       ];
     case "query":
       return [
+        { label: "Add another query to this topic", onSelect: () => run({ type: "addQuery", topicId: node.topicId! }) },
         { label: unsavedCriteria ? "Count matches for every search (save your criteria changes first)" : "Count matches for every search", onSelect: post("search/dryrun-all"), disabled: unsavedCriteria },
         { label: "Rewrite all searches", onSelect: () => run({ type: "buildQueries" }) },
       ];
+    case "query_item":
+      return [
+        { label: "Add another query to this topic", onSelect: () => run({ type: "addQuery", topicId: node.topicId! }) },
+        { label: "Delete this query", danger: true, onSelect: () => run({ type: "deleteQuery", queryId: node.queryId!, topicId: node.topicId! }) },
+      ];
+    case "ai_config":
+      return [];
     case "appraisal":
       return [
         ...jobMenu,
@@ -149,7 +164,15 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
   // A node can hold a later step's work (before any search exists, step 3 opens on the first topic): the
   // badge then shows that step's state, matching the "Step N of 9" beside it.
   const badgeNode = task.step && !node.stages.includes(task.step) ? { ...node, status: toStatus(st(states, task.step)) } : node;
-  const showTitle = node.kind === "topic" || node.kind === "query" || node.kind === "quote" || (node.kind === "idea" && input.states["1"] === "approved");
+  const showTitle =
+    node.kind === "topic" ||
+    node.kind === "query" ||
+    node.kind === "query_item" ||
+    node.kind === "topic_corpus" ||
+    node.kind === "query_corpus" ||
+    node.kind === "paper_group" ||
+    node.kind === "quote" ||
+    (node.kind === "idea" && input.states["1"] === "approved");
   const headingRef = useRef<HTMLHeadingElement>(null);
   const asideRef = useRef<HTMLElement>(null);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
@@ -242,7 +265,7 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-12 text-fg-1">
             <KindIcon kind={node.kind} />
-            <span className="font-medium">{task.step ? `${viewing ? "Viewing step" : "Step"} ${task.step} of 9 · ${STAGES[task.step - 1].title}` : "Finished"}</span>
+            <span className="font-medium">{node.kind === "ai_config" ? "Admin · AI pipeline" : task.step ? `${viewing ? "Viewing step" : "Step"} ${task.step} of 9 · ${STAGES[task.step - 1].title}` : "Finished"}</span>
             <span aria-hidden className="text-fg-2">·</span>
             <NodeStatusBadge node={badgeNode} />
           </p>
@@ -268,7 +291,7 @@ export function FocusPanel({ node, mobile, top = 48 }: { node: GNode; mobile: bo
       {/* Writing the searches is one long request, not a job: say what is happening next to the button that started it. */}
       {writingSince && <div className="border-t border-line bg-bg-1 px-4 py-3"><SearchWritingStatus /></div>}
       <div ref={setSlot} data-panel-footer className="border-t border-line bg-bg-1 empty:hidden short:sticky short:bottom-0" />
-      {!slotUsed && <div className="border-t border-line bg-bg-1 empty:hidden short:sticky short:bottom-0"><WayForward node={node} step={task.step} /></div>}
+      {!slotUsed && node.kind !== "ai_config" && <div className="border-t border-line bg-bg-1 empty:hidden short:sticky short:bottom-0"><WayForward node={node} step={task.step} /></div>}
     </m.aside>
   );
 }

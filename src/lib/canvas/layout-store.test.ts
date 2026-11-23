@@ -14,7 +14,7 @@ function memoryStorage(): StateStorage & { data: Map<string, string> } {
 test("layered layout: one column per stage, left to right, no overlaps", () => {
   const g = buildGraph(finished());
   const pos = layeredLayout(g.nodes);
-  assert.ok(pos.idea.x < pos["topic:t1"].x && pos["topic:t1"].x < pos["query:t1"].x && pos["query:t1"].x < pos.corpus.x && pos.corpus.x < pos.export.x);
+  assert.ok(pos.idea.x < pos["topic:t1"].x && pos["topic:t1"].x < pos["query:t1"].x && pos["query:t1"].x < pos["corpus:topic:t1"].x && pos["corpus:topic:t1"].x < pos.export.x);
   assert.equal(pos["topic:t1"].x, pos["topic:t2"].x);
   assert.notEqual(pos["topic:t1"].y, pos["topic:t2"].y);
   const boxes = Object.values(pos);
@@ -27,7 +27,7 @@ test("layered layout: one column per stage, left to right, no overlaps", () => {
 test("300 pinned quotes pack into a grid below the pipeline instead of one tall column", () => {
   const claims = Array.from({ length: 290 }, (_, i) => ({ id: `c${i}`, appraisalId: "a1", paperId: "p", paperTitle: "P", field: "aim", statement: "s", quote: `q${i}`, verified: i % 7 !== 0, userAccepted: false, userRejected: false }));
   const g = buildGraph(finished({ claims, client: { acceptedTopics: [], pinnedQuotes: claims.map((c) => c.id) } }));
-  assert.equal(g.nodes.length, 301);
+  assert.equal(g.nodes.length, 302);
   const pos = layeredLayout(g.nodes);
   const quoteYs = g.nodes.filter((n) => n.kind === "quote").map((n) => pos[n.id].y);
   const mainBottom = Math.max(...g.nodes.filter((n) => n.kind !== "quote").map((n) => pos[n.id].y));
@@ -39,8 +39,8 @@ test("300 pinned quotes pack into a grid below the pipeline instead of one tall 
 test("auto-layout never moves a node the user placed by hand", () => {
   const g = buildGraph(finished());
   const auto = layeredLayout(g.nodes);
-  const merged = withPinned(auto, { corpus: { x: 999, y: -42 }, "node:that-no-longer-exists": { x: 1, y: 1 } });
-  assert.deepEqual(merged.corpus, { x: 999, y: -42 });
+  const merged = withPinned(auto, { "corpus:topic:t1": { x: 999, y: -42 }, "node:that-no-longer-exists": { x: 1, y: 1 } });
+  assert.deepEqual(merged["corpus:topic:t1"], { x: 999, y: -42 });
   assert.deepEqual(merged.idea, auto.idea);
   assert.equal("node:that-no-longer-exists" in merged, false);
 });
@@ -84,4 +84,10 @@ test("store: unpin, reset layout, reviewed papers, cascade flag", () => {
   s.getState().unpinQuote("p", "nope");
   s.getState().toggleMinimap("p");
   assert.equal(st().minimap, true);
+  s.getState().toggleExpand("p", "corpus:topic:t1");
+  assert.deepEqual(st().expandedNodes, ["corpus:topic:t1"]);
+  s.getState().toggleExpand("p", "corpus:topic:t1");
+  assert.deepEqual(st().expandedNodes, []);
+  s.getState().setExpandedNodes("p", ["query:t1", "query:t1", "corpus:topic:t1"]);
+  assert.deepEqual(st().expandedNodes, ["query:t1", "corpus:topic:t1"]);
 });

@@ -36,6 +36,13 @@ export function CanvasTopicHud({ open, onToggle }: { open: boolean; onToggle: ()
   const maxRet = Math.max(1, ...stats.map((s) => s.retrieved));
 
   function focusTopicStage(stat: TopicArticleStats, stage: number | null) {
+    if (stage === 4) {
+      const tcId = `corpus:topic:${stat.topicId}`;
+      if (graph.nodes.some((n) => n.id === tcId)) {
+        canvasStore.getState().openPanel(tcId);
+        return;
+      }
+    }
     if (stage && stage >= 4) {
       const id = nodeForStage(graph, stage);
       if (id) {

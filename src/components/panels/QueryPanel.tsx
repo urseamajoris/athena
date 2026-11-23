@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { api, projectPath, useApi } from "../api";
 import { Badge, ErrorState, Loading, Spinner, cx } from "../ui";
 import { Disclosure } from "../disclosure";
@@ -27,9 +27,9 @@ export function useSearchData() {
 /** The parts of the criteria that change what a database returns (inclusion/exclusion only guide ranking). */
 const countInputs = (c: Criteria | null) => ({ years: [c?.yearFrom ?? null, c?.yearTo ?? null], languages: c?.languages ?? [], hardFilter: c?.hardFilter ?? [] });
 
-/** Query node: one topic's PubMed and OpenAlex queries, readable as chips; run the search. */
-export function QueryPanel({ topicId }: { topicId: string }) {
-  const { projectId, graph, input, states } = useSession();
+/** Query node: all of one topic's PubMed and OpenAlex queries (supports multiple per topic), readable as chips. */
+export function QueryPanel({ topicId, focusQueryId }: { topicId: string; focusQueryId?: string }) {
+  const { projectId, graph, input, states, run } = useSession();
   const { data, error, isLoading, mutate } = useSearchData();
   const { data: status } = useApi<{ maxResultsPerQuery?: number }>("/api/status");
   const live = useLiveRetrieval() as { runs: Run[] } | null;
@@ -40,32 +40,59 @@ export function QueryPanel({ topicId }: { topicId: string }) {
   const topic = data?.topics.find((t) => t.id === topicId);
   if (!data || !topic) return <p className="text-fg-2">No queries for this topic yet.</p>;
   const node = graph.nodes.find((n) => n.id === `query:${topicId}`);
-  // Every topic's searches offer step 3's action while step 3 is current, not only the first topic's
-  // (which is the frontier node): checking the second topic must not turn the footer into "Go to step 3".
   const action = node ? nextAction(node, graph, input) ?? (frontierStage(states) === 3 ? stageAction(3, input) : null) : null;
   const runs = (live ?? fetched)?.runs ?? [];
   const fields = [...new Set(topic.queries.flatMap((q) => queryBlocks(q.queryString).flatMap((b) => b.terms.map((t) => t.field)).filter(Boolean)))] as string[];
+  const dbLabel = (id: string) => data.databases.find((d) => d.id === id)?.label ?? id;
+  const dbTotals = new Map<string, number>();
+  for (const q of topic.queries) dbTotals.set(q.database, (dbTotals.get(q.database) ?? 0) + 1);
+  const dbIdx = new Map<string, number>();
+  const labeledQueries = topic.queries.map((q) => {
+    const idx = (dbIdx.get(q.database) ?? 0) + 1;
+    dbIdx.set(q.database, idx);
+    const label = (dbTotals.get(q.database) ?? 1) > 1 ? `${dbLabel(q.database)} #${idx}` : dbLabel(q.database);
+    return { q, label };
+  });
   return (
     <div className="space-y-4">
       <StaleNotice stage={3} />
       <WhatHappens stage={3} />
-      {data.databases.map((db) => {
-        const q = topic.queries.find((x) => x.database === db.id);
-        return q ? <QueryPreview key={q.id} q={q} label={db.label} criteria={data.criteria} run={runs.find((r) => r.queryId === q.id) ?? null} cap={status?.maxResultsPerQuery ?? 40} beforeCount={crit.dirty ? crit.save : null} onChange={(d) => mutate(d, { revalidate: false })} /> : <p key={db.id} className="text-fg-2">No {db.label} query.</p>;
-      })}
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-12 text-fg-2">{topic.queries.length} quer{topic.queries.length === 1 ? "y" : "ies"} for this topic</p>
+        <button type="button" className="btn-secondary btn-sm" onClick={() => run({ type: "addQuery", topicId })}>
+          <Plus className="h-3.5 w-3.5" aria-hidden /> Add query
+        </button>
+      </div>
+      {labeledQueries.map(({ q, label }) => (
+        <QueryPreview
+          key={q.id}
+          q={q}
+          label={label}
+          topicId={topicId}
+          highlighted={focusQueryId === q.id}
+          canDelete={topic.queries.length > 1}
+          criteria={data.criteria}
+          run={runs.find((r) => r.queryId === q.id) ?? null}
+          cap={status?.maxResultsPerQuery ?? 40}
+          beforeCount={crit.dirty ? crit.save : null}
+          onChange={(d) => mutate(d, { revalidate: false })}
+        />
+      ))}
+      {!labeledQueries.length && <p className="text-fg-2">No searches written for this topic yet. Click “Add query” above or write searches for all topics.</p>}
       {fields.length > 0 && (
         <p className="text-12 text-fg-2">
           Small labels say where a word must appear: {fields.map((f, i) => <span key={f}>{i ? "; " : ""}<span className="font-medium text-fg-1">{FIELD_LABEL[f] ?? f}</span>{f === "mh" ? " (MeSH: PubMed's official keyword for a subject)" : f === "tiab" ? " (the word appears in the title or abstract)" : ""}</span>)}.
         </p>
       )}
-      <Disclosure title="Edit the search text">
-        <div className="space-y-4">
-          {data.databases.map((db) => {
-            const q = topic.queries.find((x) => x.database === db.id);
-            return q ? <QueryEditor key={q.id} q={q} label={db.label} onChange={(d) => mutate(d, { revalidate: false })} /> : null;
-          })}
-        </div>
-      </Disclosure>
+      {labeledQueries.length > 0 && (
+        <Disclosure title="Edit the search text" defaultOpen={!!focusQueryId}>
+          <div className="space-y-4">
+            {labeledQueries.map(({ q, label }) => (
+              <QueryEditor key={q.id} q={q} label={label} onChange={(d) => mutate(d, { revalidate: false })} />
+            ))}
+          </div>
+        </Disclosure>
+      )}
       <Disclosure title="Keywords you can add" meta={`${topic.controlledTerms.length + topic.synonyms.length}`}>
         <p className="mb-2 text-12 text-fg-2">This topic's synonyms and MeSH terms (PubMed's official keywords), ready to paste into the search text. Click one to copy it.</p>
         <ul className="flex flex-wrap gap-2">
@@ -117,8 +144,8 @@ function changedParts(a: string, b: string) {
   return parts.join(" and ") || "the search";
 }
 
-function QueryPreview({ q, label, criteria, run, cap: MAX, beforeCount, onChange }: { q: Query; label: string; criteria: Criteria | null; run: Run | null; cap: number; beforeCount: (() => Promise<boolean>) | null; onChange: (d: SearchData) => void }) {
-  const { projectId } = useSession();
+function QueryPreview({ q, label, topicId, highlighted, canDelete, criteria, run, cap: MAX, beforeCount, onChange }: { q: Query; label: string; topicId: string; highlighted?: boolean; canDelete?: boolean; criteria: Criteria | null; run: Run | null; cap: number; beforeCount: (() => Promise<boolean>) | null; onChange: (d: SearchData) => void }) {
+  const { projectId, run: runCmd } = useSession();
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState<{ count: number | null; error: string | null } | null>(q.dryRunAt ? { count: q.dryRunCount, error: q.dryRunError } : null);
   useEffect(() => setRes(q.dryRunAt ? { count: q.dryRunCount, error: q.dryRunError } : null), [q.dryRunAt, q.dryRunCount, q.dryRunError]);
@@ -159,8 +186,27 @@ function QueryPreview({ q, label, criteria, run, cap: MAX, beforeCount, onChange
     ? `It was ${fmtInt(track.before.count)} before you changed ${changedParts(track.before.inputs, inputs)}.`
     : !res && track && track.inputs !== inputs ? `It was ${fmtInt(track.count)} before you changed ${changedParts(track.inputs, inputs)}; count again to see the new number.` : null;
   return (
-    <section aria-label={`${label} search`} className="rounded-md border border-line p-3">
-      <SectionTitle right={q.edited ? <Badge>edited by you</Badge> : undefined}>{label}</SectionTitle>
+    <section aria-label={`${label} search`} className={cx("rounded-md border p-3", highlighted ? "border-fg-1 bg-bg-2/40" : "border-line")}>
+      <SectionTitle
+        right={
+          <span className="flex items-center gap-1.5">
+            {q.edited ? <Badge>edited by you</Badge> : null}
+            {canDelete && (
+              <button
+                type="button"
+                className="btn-ghost btn-sm text-fg-2 hover:text-err"
+                onClick={() => runCmd({ type: "deleteQuery", queryId: q.id, topicId })}
+                aria-label={`Delete ${label} query`}
+                title="Delete this query"
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            )}
+          </span>
+        }
+      >
+        {label}
+      </SectionTitle>
       {run && (
         <p className="mb-2 flex items-start gap-2" aria-live="polite">
           {!ranDone ? <Spinner className="mt-0.5 h-4 w-4 text-run" label="Running" />

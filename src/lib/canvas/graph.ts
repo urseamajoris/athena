@@ -1,17 +1,52 @@
 // The canvas graph is derived, not stored: server state (stages, topics, queries, counts) plus a little
-// per-browser state (accepted ghost topics, pinned quotes) → nodes and edges. Pure; unit-tested.
+// per-browser state (accepted ghost topics, pinned quotes, expanded boxes) → nodes and edges. Pure; unit-tested.
 import { STAGES, type StageState } from "../shared/stages";
-import { evaluateTopicAttention, isUndecided, type AttentionTone, type CanvasSummary, type ClaimLite, type CorpusImpactSummary, type JobLite, type StageStates, type TopicArticleStats, type TopicAttention } from "../shared/canvas";
+import {
+  evaluateQueryAttention,
+  evaluateTopicAttention,
+  isUndecided,
+  type AttentionTone,
+  type CanvasSummary,
+  type ClaimLite,
+  type CorpusImpactSummary,
+  type JobLite,
+  type QueryPaperPreview,
+  type QueryPaperStats,
+  type StageStates,
+  type TopicArticleStats,
+  type TopicAttention,
+} from "../shared/canvas";
+import { providerLabel, type AiProvider } from "../shared/ai-providers";
 import { fmtInt } from "../shared/format";
 
-export type NodeKind = "idea" | "topic" | "query" | "corpus" | "table" | "appraisal" | "synthesis" | "questions" | "export" | "quote";
+export type NodeKind =
+  | "ai_config"
+  | "idea"
+  | "topic"
+  | "query"
+  | "query_item"
+  | "corpus"
+  | "topic_corpus"
+  | "query_corpus"
+  | "paper_group"
+  | "table"
+  | "appraisal"
+  | "synthesis"
+  | "questions"
+  | "export"
+  | "quote";
 export type NodeStatus = "idle" | "running" | "review" | "done" | "stale" | "error";
 
 export const KIND_LABEL: Record<NodeKind, string> = {
+  ai_config: "Admin · AI Engine",
   idea: "Idea",
   topic: "Topic",
-  query: "Query",
+  query: "Queries",
+  query_item: "Query",
   corpus: "Corpus",
+  topic_corpus: "Retrieved · Topic",
+  query_corpus: "Retrieved · Query",
+  paper_group: "Papers",
   table: "Table",
   appraisal: "Appraisal",
   synthesis: "Synthesis",
@@ -29,8 +64,24 @@ export const STATUS_LABEL: Record<NodeStatus, string> = {
   error: "Failed",
 };
 
-/** Layout column per kind (left → right follows the review). */
-export const KIND_COLUMN: Record<NodeKind, number> = { idea: 0, topic: 1, query: 2, corpus: 3, table: 4, appraisal: 5, synthesis: 6, questions: 7, export: 8, quote: 5 };
+/** Layout column per kind (left → right follows the review). Empty columns are compacted by layout.ts. */
+export const KIND_COLUMN: Record<NodeKind, number> = {
+  ai_config: 0,
+  idea: 0,
+  topic: 1,
+  query: 2,
+  query_item: 3,
+  corpus: 4,
+  topic_corpus: 4,
+  query_corpus: 5,
+  paper_group: 6,
+  table: 7,
+  appraisal: 8,
+  synthesis: 9,
+  questions: 10,
+  export: 11,
+  quote: 8,
+};
 
 export interface Trust {
   verified: number;
@@ -59,14 +110,31 @@ export interface GNode {
   parents: string[];
   ghost?: boolean;
   topicId?: string;
+  queryId?: string;
+  database?: string;
+  queryString?: string;
+  queryCount?: number;
   claimId?: string;
   progress?: { done: number; total: number };
-  /** Its job is paused (AI switched off, no xAI key, or budget reached): work is kept and resumes later. */
+  /** Its job is paused (AI switched off, no key, or budget reached): work is kept and resumes later. */
   paused?: boolean;
   trust?: Trust;
   staleReason?: string;
-  /** Per-topic retrieved / rendered / filed counts and citation impact (Topic & Query nodes). */
+  /** Expandable container box state. */
+  expandable?: boolean;
+  expanded?: boolean;
+  childCount?: number;
+  expandLabel?: string;
+  /** Per-topic retrieved / rendered / filed counts and citation impact (Topic, Query & Topic Corpus nodes). */
   articleStats?: TopicArticleStats;
+  /** Per-query stats for Query sub-boxes and Query Retrieval boxes. */
+  queryStats?: QueryPaperStats;
+  /** All queries' retrieval stats for a Topic Corpus box (renders the mini per-query bar visualization). */
+  topicQueryStats?: QueryPaperStats[];
+  /** Papers inside an expanded paper_group sub-box. */
+  paperGroupKind?: "attention" | "ok";
+  paperCount?: number;
+  papers?: QueryPaperPreview[];
   /** Color-coded attention indicator showing which stage needs attention for this node. */
   attention?: TopicAttention;
   /** Corpus-wide retrieved / rendered / filed counts (Corpus, Table, Appraisal nodes). */
@@ -86,6 +154,15 @@ export interface GEdge {
 export interface ClientCanvasState {
   acceptedTopics: string[];
   pinnedQuotes: string[];
+  expandedNodes?: string[];
+}
+
+export interface GraphAiState {
+  enabled: boolean;
+  budgetReached: boolean;
+  keyMissing: boolean;
+  provider?: AiProvider;
+  activeModel?: string;
 }
 
 export interface GraphInput {
@@ -97,6 +174,9 @@ export interface GraphInput {
   summary: CanvasSummary | null;
   claims: ClaimLite[] | null;
   client: ClientCanvasState;
+  /** When true, the Canvas renders the Admin AI Engine box (choose Anthropic / Gemini / xAI and pipeline model). */
+  isAdmin?: boolean;
+  ai?: GraphAiState;
 }
 
 export interface Graph {
@@ -130,8 +210,52 @@ function jobProgress(jobs: GraphInput["jobs"], n: number) {
   return j && (j.status === "running" || j.status === "queued") ? { done: j.progress.done, total: j.progress.total } : undefined;
 }
 
+function synthesizeQueryStats(
+  qs: CanvasSummary["queries"],
+  topicId: string,
+  s4: StageState,
+): QueryPaperStats[] {
+  const mine = qs.filter((q) => q.topicId === topicId);
+  const dbTotals = new Map<string, number>();
+  for (const q of mine) dbTotals.set(q.database, (dbTotals.get(q.database) ?? 0) + 1);
+  const dbIdx = new Map<string, number>();
+  return mine.map((q) => {
+    const idx = (dbIdx.get(q.database) ?? 0) + 1;
+    dbIdx.set(q.database, idx);
+    const base = DB_LABEL[q.database] ?? q.database;
+    const label = (dbTotals.get(q.database) ?? 1) > 1 ? `${base} #${idx}` : base;
+    const runStatus: QueryPaperStats["runStatus"] = q.run
+      ? q.run.failed
+        ? "failed"
+        : "done"
+      : s4 === "running"
+        ? "running"
+        : "not_run";
+    return {
+      queryId: q.id,
+      topicId: q.topicId,
+      database: q.database,
+      queryString: q.queryString ?? "",
+      label,
+      runStatus,
+      resultCount: q.run?.count ?? null,
+      error: q.dryRunError,
+      retrieved: q.run && !q.run.failed ? (q.run.count ?? 0) : 0,
+      newUnique: q.run && !q.run.failed ? (q.run.count ?? 0) : 0,
+      duplicates: 0,
+      rendered: 0,
+      selected: 0,
+      filed: 0,
+      needsAttention: 0,
+      attentionBreakdown: { missingSummary: 0, unscored: 0, failedAppraisal: 0, undecidedQuotes: 0, undecidedQuoteCount: 0 },
+      papers: [],
+    };
+  });
+}
+
 export function buildGraph(input: GraphInput): Graph {
   const { states, summary: s, client } = input;
+  const expanded = new Set(client.expandedNodes ?? []);
   const nodes: GNode[] = [];
   const edges: GEdge[] = [];
   const reason = (n: number) => input.staleReasons[String(n)];
@@ -139,6 +263,29 @@ export function buildGraph(input: GraphInput): Graph {
     nodes.push(n);
     for (const p of n.parents) edges.push({ id: `${p}->${n.id}`, source: p, target: n.id });
   };
+
+  // 0. Admin AI Engine box (only visible to admins: choose Anthropic / Gemini / xAI and pipeline model).
+  if (input.isAdmin) {
+    const ai = input.ai;
+    const prov = ai?.provider ? providerLabel(ai.provider) : "AI";
+    const status: NodeStatus = ai?.budgetReached ? "error" : ai?.keyMissing || ai?.enabled === false ? "review" : "done";
+    const keyLine = ai?.keyMissing
+      ? `${prov} · No API key set`
+      : ai?.enabled === false
+        ? `${prov} · Paused`
+        : ai?.budgetReached
+          ? `${prov} · Budget reached`
+          : `${prov}${ai?.activeModel ? ` · ${ai.activeModel}` : " · Ready"}`;
+    add({
+      id: "admin:ai",
+      kind: "ai_config",
+      stages: [],
+      title: "AI Provider & Pipeline Model",
+      status,
+      key: keyLine,
+      parents: [],
+    });
+  }
 
   // 1. Idea (stage 1, plus the stage-2 scoping chat).
   const s1 = st(states, 1);
@@ -157,6 +304,7 @@ export function buildGraph(input: GraphInput): Graph {
   });
 
   const topicStatsById = new Map((s?.topicStats ?? []).map((ts) => [ts.topicId, ts]));
+  const queryStatsById = new Map((s?.queryStats ?? []).map((qs) => [qs.queryId, qs]));
   const s4All = st(states, 4);
   const s5All = st(states, 5);
   const s6All = st(states, 6);
@@ -166,7 +314,6 @@ export function buildGraph(input: GraphInput): Graph {
     const retrieved = s.retrieval.unique;
     const rendered = s.table.summarised;
     const selected = s.table.selectedPapers ?? s.ranking.reduce((acc, r) => acc + r.selected, 0);
-    // Cleanly filed papers = appraised papers when no pending undecided quotes, or sum of cleanly filed unique count bounded by done appraisals.
     const filed = s.appraisal.done > 0 ? Math.max(0, s.appraisal.done - (s.appraisal.pending > 0 ? Math.min(s.appraisal.done, s.appraisal.pending) : 0)) : 0;
     const retTone: AttentionTone = s4All === "failed" || s.retrieval.failed > 0 || ((s4All === "needs_review" || s4All === "approved") && retrieved === 0) ? "err" : s4All === "running" ? "run" : s4All === "stale" || s4All === "needs_review" ? "warn" : retrieved > 0 ? "ok" : "idle";
     const renTone: AttentionTone = s5All === "failed" ? "err" : s5All === "running" ? "run" : s5All === "stale" ? "warn" : (s5All === "needs_review" || s5All === "approved") ? (rendered < retrieved ? "warn" : "ok") : "idle";
@@ -178,6 +325,7 @@ export function buildGraph(input: GraphInput): Graph {
   for (const t of topics) {
     const ghost = isGhostTopic(t, states, client.acceptedTopics);
     const ts = topicStatsById.get(t.id);
+    const qCount = (s?.queries ?? []).filter((q) => q.topicId === t.id).length;
     const showStats = !!ts && (s4All !== "not_started" || ts.retrieved > 0 || ts.failedRuns > 0 || ts.runningRuns > 0);
     add({
       id: `topic:${t.id}`,
@@ -186,30 +334,34 @@ export function buildGraph(input: GraphInput): Graph {
       title: t.name,
       // A kept topic is done: what step 2 still needs ("Use these topics") is on the Idea card, not on every topic.
       status: ghost ? "review" : s2 === "needs_review" || s2 === "not_started" ? "done" : toStatus(s2),
-      key: ghost ? "Suggested subtopic" : `${plural(t.synonyms, "synonym")} · ${t.controlledTerms} MeSH`,
+      key: ghost ? "Suggested subtopic" : `${plural(t.synonyms, "synonym")} · ${t.controlledTerms} MeSH${qCount ? ` · ${plural(qCount, "query", "queries")}` : ""}`,
       parents: ["idea"],
       ghost,
       topicId: t.id,
+      queryCount: qCount,
       staleReason: s2 === "stale" ? reason(2) : undefined,
       articleStats: showStats ? ts : undefined,
       attention: showStats && ts ? evaluateTopicAttention(ts, states) : undefined,
     });
   }
 
-  // 3. One Query node per topic (holds that topic's PubMed and OpenAlex queries).
+  // 3. Queries per topic (each topic may have 1 or many queries; expandable into individual query sub-boxes).
   const s3 = st(states, 3);
-  const queryIds: string[] = [];
+  const queryOutByTopic = new Map<string, string[]>();
+  const allQueryHubIds: string[] = [];
   for (const t of topics) {
     const qs = (s?.queries ?? []).filter((q) => q.topicId === t.id);
     if (!qs.length) continue;
     const id = `query:${t.id}`;
-    queryIds.push(id);
-    // After retrieval: what each search matched when it ran. Before: the dry-run counts, in words when missing.
-    // "Ran:" only when every search of the topic has a current run; otherwise each run count says so itself.
+    allQueryHubIds.push(id);
     const ran = qs.every((q) => q.run);
-    const counts = qs.map((q) => `${DB_LABEL[q.database] ?? q.database} ${q.run ? (q.run.failed ? "failed" : q.run.count === null ? "done" : `${fmt(q.run.count)}${ran ? "" : " (ran)"}`) : q.dryRunError ? "failed" : q.dryRunCount === null ? "not counted" : fmt(q.dryRunCount)}`);
+    const counts = qs.map((q) => {
+      const lbl = queryStatsById.get(q.id)?.label ?? DB_LABEL[q.database] ?? q.database;
+      return `${lbl} ${q.run ? (q.run.failed ? "failed" : q.run.count === null ? "done" : `${fmt(q.run.count)}${ran ? "" : " (ran)"}`) : q.dryRunError ? "failed" : q.dryRunCount === null ? "not counted" : fmt(q.dryRunCount)}`;
+    });
     const ts = topicStatsById.get(t.id);
     const showStats = !!ts && (s4All !== "not_started" || ts.retrieved > 0 || ts.failedRuns > 0 || ts.runningRuns > 0);
+    const isExp = expanded.has(id);
     add({
       id,
       kind: "query",
@@ -219,32 +371,235 @@ export function buildGraph(input: GraphInput): Graph {
       key: `${ran ? "Ran: " : ""}${counts.join(" · ")}`,
       parents: [`topic:${t.id}`],
       topicId: t.id,
+      queryCount: qs.length,
+      expandable: true,
+      expanded: isExp,
+      childCount: qs.length,
+      expandLabel: `${plural(qs.length, "query", "queries")}`,
       staleReason: s3 === "stale" ? reason(3) : undefined,
       articleStats: showStats ? ts : undefined,
       attention: showStats && ts ? evaluateTopicAttention(ts, states) : undefined,
     });
+
+    if (isExp) {
+      const subIds: string[] = [];
+      const dbTotals = new Map<string, number>();
+      for (const q of qs) dbTotals.set(q.database, (dbTotals.get(q.database) ?? 0) + 1);
+      const dbIdx = new Map<string, number>();
+      for (const q of qs) {
+        const idx = (dbIdx.get(q.database) ?? 0) + 1;
+        dbIdx.set(q.database, idx);
+        const baseDb = DB_LABEL[q.database] ?? q.database;
+        const qStat = queryStatsById.get(q.id);
+        const lbl = qStat?.label ?? ((dbTotals.get(q.database) ?? 1) > 1 ? `${baseDb} #${idx}` : baseDb);
+        const itemId = `query-item:${q.id}`;
+        subIds.push(itemId);
+        const itemKey = q.run
+          ? q.run.failed
+            ? "Search failed"
+            : q.run.count === null
+              ? "Ran"
+              : `Ran: ${fmt(q.run.count)} hits`
+          : q.dryRunError
+            ? `Dry run failed`
+            : q.dryRunCount === null
+              ? "Not counted yet"
+              : `${fmt(q.dryRunCount)} matches (dry run)`;
+        const itemStatus: NodeStatus = q.run?.failed || q.dryRunError ? "error" : toStatus(s3);
+        add({
+          id: itemId,
+          kind: "query_item",
+          stages: [3],
+          title: `${lbl} · ${t.name}`,
+          status: itemStatus,
+          key: itemKey,
+          parents: [id],
+          topicId: t.id,
+          queryId: q.id,
+          database: q.database,
+          queryString: q.queryString ?? qStat?.queryString,
+          queryStats: qStat,
+          staleReason: s3 === "stale" ? reason(3) : undefined,
+        });
+      }
+      queryOutByTopic.set(t.id, subIds);
+    } else {
+      queryOutByTopic.set(t.id, [id]);
+    }
   }
 
-  // 4. Corpus: every query merges into one retrieval.
+  // 4. Retrieved papers: divided into multiple boxes based on topic, each expandable into query sub-boxes
+  //    (showing retrieved papers & papers needing attention per query) and further expandable into paper sub-boxes.
   const s4 = st(states, 4);
+  const retrievalOutIds: string[] = [];
   if (s4 !== "not_started") {
-    const r = s?.retrieval;
     const running = s4 === "running";
-    const key = !r ? "Retrieval" : running ? `${plural(r.unique, "paper")} so far` : `${plural(r.unique, "paper")}, ${fmt(Math.max(0, r.fetched - r.unique))} dupes removed${r.failed ? ` · ${r.failed} failed` : ""}`;
-    add({ id: "corpus", kind: "corpus", stages: [4], title: "Retrieved papers", status: toStatus(s4), key, parents: queryIds.length ? queryIds : ["idea"], progress: jobProgress(input.jobs, 4), staleReason: s4 === "stale" ? reason(4) : undefined, pipelineCounts: corpusPipeline, impactSummary: s?.impact });
-    if (running) for (const e of edges) if (e.target === "corpus") e.running = true;
+    if (topics.length > 0) {
+      for (const t of topics) {
+        const tcId = `corpus:topic:${t.id}`;
+        const parents = queryOutByTopic.get(t.id) ?? [`topic:${t.id}`];
+        const ts = topicStatsById.get(t.id);
+        const rawQStats = (s?.queryStats ?? []).filter((q) => q.topicId === t.id);
+        const tQueryStats = rawQStats.length ? rawQStats : synthesizeQueryStats(s?.queries ?? [], t.id, s4);
+        const totalRetrieved = ts?.retrieved ?? tQueryStats.reduce((acc, q) => acc + q.retrieved, 0);
+        const totalAttention = tQueryStats.reduce((acc, q) => acc + q.needsAttention, 0);
+        const failedQueries = tQueryStats.filter((q) => q.runStatus === "failed").length;
+        const attn = ts ? evaluateTopicAttention(ts, states) : undefined;
+        const tcStatus: NodeStatus = running
+          ? "running"
+          : failedQueries > 0 && totalRetrieved === 0
+            ? "error"
+            : s4 === "stale"
+              ? "stale"
+              : attn?.tone === "err"
+                ? "error"
+                : attn?.tone === "warn" && s4 === "approved"
+                  ? "review"
+                  : toStatus(s4);
+        const tcKey = running
+          ? `${plural(totalRetrieved, "paper")} so far`
+          : `${plural(totalRetrieved, "paper")}${totalAttention > 0 ? ` · ${totalAttention} need attention` : failedQueries > 0 ? ` · ${failedQueries} failed` : tQueryStats.length ? ` · ${plural(tQueryStats.length, "query", "queries")}` : ""}`;
+        const isExp = expanded.has(tcId) && tQueryStats.length > 0;
+
+        add({
+          id: tcId,
+          kind: "topic_corpus",
+          stages: [4],
+          title: t.name,
+          status: tcStatus,
+          key: tcKey,
+          parents,
+          topicId: t.id,
+          progress: running ? jobProgress(input.jobs, 4) : undefined,
+          staleReason: s4 === "stale" ? reason(4) : undefined,
+          articleStats: ts,
+          attention: attn,
+          topicQueryStats: tQueryStats,
+          expandable: tQueryStats.length > 0,
+          expanded: isExp,
+          childCount: tQueryStats.length,
+          expandLabel: plural(tQueryStats.length, "query", "queries"),
+        });
+
+        if (running) {
+          for (const e of edges) if (e.target === tcId) e.running = true;
+        }
+
+        if (isExp) {
+          for (const qs of tQueryStats) {
+            const qcId = `corpus:query:${qs.queryId}`;
+            const qAttn = evaluateQueryAttention(qs, states);
+            const okCount = Math.max(0, qs.retrieved - qs.needsAttention);
+            const groupCount = (qs.needsAttention > 0 ? 1 : 0) + (okCount > 0 ? 1 : 0);
+            const qcExp = expanded.has(qcId) && groupCount > 0;
+            const qcStatus: NodeStatus =
+              qs.runStatus === "running" || qs.runStatus === "queued"
+                ? "running"
+                : qs.runStatus === "failed" || qAttn.tone === "err"
+                  ? "error"
+                  : s4 === "stale"
+                    ? "stale"
+                    : qAttn.tone === "warn"
+                      ? "review"
+                      : qs.retrieved > 0
+                        ? "done"
+                        : toStatus(s4);
+            const qcKey =
+              qs.runStatus === "failed"
+                ? "Search failed"
+                : qs.runStatus === "running" || qs.runStatus === "queued"
+                  ? `${plural(qs.retrieved, "paper")} so far`
+                  : `${plural(qs.retrieved, "paper")} (${qs.newUnique} new) · ${qs.needsAttention > 0 ? `${qs.needsAttention} need attention` : "all clear"}`;
+
+            add({
+              id: qcId,
+              kind: "query_corpus",
+              stages: [4],
+              title: qs.label,
+              status: qcStatus,
+              key: qcKey,
+              parents: [tcId],
+              topicId: t.id,
+              queryId: qs.queryId,
+              database: qs.database,
+              queryString: qs.queryString,
+              queryStats: qs,
+              attention: qAttn,
+              staleReason: s4 === "stale" ? reason(4) : undefined,
+              expandable: groupCount > 0,
+              expanded: qcExp,
+              childCount: groupCount,
+              expandLabel: plural(qs.retrieved, "paper"),
+            });
+
+            if (qcExp) {
+              const attnPapers = (qs.papers ?? []).filter((p) => p.needsAttention);
+              const okPapers = (qs.papers ?? []).filter((p) => !p.needsAttention);
+              if (qs.needsAttention > 0) {
+                const pgId = `papers:attention:${qs.queryId}`;
+                add({
+                  id: pgId,
+                  kind: "paper_group",
+                  stages: [qAttn.stage ?? 4],
+                  title: `Needs attention · ${qs.label}`,
+                  status: qs.attentionBreakdown.failedAppraisal > 0 ? "error" : "review",
+                  key: `${plural(qs.needsAttention, "paper")} · ${qAttn.detail}`,
+                  parents: [qcId],
+                  topicId: t.id,
+                  queryId: qs.queryId,
+                  database: qs.database,
+                  queryStats: qs,
+                  attention: qAttn,
+                  paperGroupKind: "attention",
+                  paperCount: qs.needsAttention,
+                  papers: attnPapers,
+                });
+              }
+              if (okCount > 0) {
+                const pgId = `papers:ok:${qs.queryId}`;
+                add({
+                  id: pgId,
+                  kind: "paper_group",
+                  stages: [4],
+                  title: `Ready papers · ${qs.label}`,
+                  status: "done",
+                  key: `${plural(okCount, "paper")} · no action needed`,
+                  parents: [qcId],
+                  topicId: t.id,
+                  queryId: qs.queryId,
+                  database: qs.database,
+                  queryStats: qs,
+                  paperGroupKind: "ok",
+                  paperCount: okCount,
+                  papers: okPapers,
+                });
+              }
+            }
+            retrievalOutIds.push(qcId);
+          }
+        } else {
+          retrievalOutIds.push(tcId);
+        }
+      }
+    } else {
+      // Fallback single corpus node if there are no topics.
+      const r = s?.retrieval;
+      const key = !r ? "Retrieval" : running ? `${plural(r.unique, "paper")} so far` : `${plural(r.unique, "paper")}, ${fmt(Math.max(0, r.fetched - r.unique))} dupes removed${r.failed ? ` · ${r.failed} failed` : ""}`;
+      add({ id: "corpus", kind: "corpus", stages: [4], title: "Retrieved papers", status: toStatus(s4), key, parents: allQueryHubIds.length ? allQueryHubIds : ["idea"], progress: jobProgress(input.jobs, 4), staleReason: s4 === "stale" ? reason(4) : undefined, pipelineCounts: corpusPipeline, impactSummary: s?.impact });
+      if (running) for (const e of edges) if (e.target === "corpus") e.running = true;
+      retrievalOutIds.push("corpus");
+    }
   }
 
   // 5–6. Table: summary rows, then ranking.
   const s5 = st(states, 5);
   const s6 = st(states, 6);
-  if (s5 !== "not_started" && nodes.some((n) => n.id === "corpus")) {
+  if (s5 !== "not_started" && retrievalOutIds.length > 0) {
     const tableState: StageState = s5 !== "approved" ? s5 : s6 === "not_started" ? "needs_review" : s6;
-    // Different papers (a paper selected in two topics is appraised once), not the sum of the topics' counts.
     const t = s?.table;
     const selected = t?.selectedPapers ?? (s?.ranking ?? []).reduce((a, x) => a + x.selected, 0);
     const key = !t ? "Summary table" : s5 === "running" ? `${fmt(t.summarised)} of ${fmt(t.papers)} summarised` : s6 === "not_started" || s6 === "running" ? `${plural(t.papers, "row")}${s6 === "running" ? " · ranking" : ""}` : `${plural(t.papers, "row")} · ${plural(selected, "paper")} selected`;
-    add({ id: "table", kind: "table", stages: [5, 6], title: "Summary & ranking", status: toStatus(tableState), key, parents: ["corpus"], progress: jobProgress(input.jobs, s5 === "approved" ? 6 : 5), staleReason: tableState === "stale" ? reason(s5 === "stale" ? 5 : 6) : undefined, pipelineCounts: corpusPipeline, impactSummary: s?.impact });
+    add({ id: "table", kind: "table", stages: [5, 6], title: "Summary & ranking", status: toStatus(tableState), key, parents: retrievalOutIds, progress: jobProgress(input.jobs, s5 === "approved" ? 6 : 5), staleReason: tableState === "stale" ? reason(s5 === "stale" ? 5 : 6) : undefined, pipelineCounts: corpusPipeline, impactSummary: s?.impact });
   }
 
   // 7. Appraisal (batch over the selected papers).
@@ -346,7 +701,7 @@ export function nodeForStage(graph: Graph, n: number): string | null {
     case 1:
     case 2: return "idea";
     case 3: return first("query") ?? first("topic", (x) => !x.ghost) ?? first("topic") ?? "idea";
-    case 4: return has("corpus") ? "corpus" : nodeForStage(graph, 3);
+    case 4: return first("topic_corpus") ?? (has("corpus") ? "corpus" : nodeForStage(graph, 3));
     case 5:
     case 6: return has("table") ? "table" : nodeForStage(graph, 4);
     case 7: return has("appraisal") ? "appraisal" : nodeForStage(graph, 6);

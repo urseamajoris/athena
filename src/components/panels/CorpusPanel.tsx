@@ -14,7 +14,7 @@ import { ShapeIcon } from "../categories";
 import { useViewPrefs } from "../session/viewPrefs";
 import { ARTICLE_TYPES, STUDY_GROUPS, hasHues, articleTypeOf, categoryVar, sourceOf, studyGroupFromLabels, studyGroupOf, type Category, type Dimension } from "@/lib/shared/categories";
 import { paperImpactEvaluation } from "@/lib/shared/impact";
-import { evaluateTopicAttention, type CorpusImpactSummary, type TopicArticleStats } from "@/lib/shared/canvas";
+import { evaluateQueryAttention, evaluateTopicAttention, type CorpusImpactSummary, type QueryPaperStats, type TopicArticleStats } from "@/lib/shared/canvas";
 import { ArticlePipelineStrip, AttentionBadge } from "../canvas/node-bits";
 import type { MapPoint } from "../viz/paper-points";
 
@@ -78,9 +78,11 @@ interface Run { id: string; database: string; topicName: string; queryString: st
 interface RetrievalData { uniquePapers: number; runs: Run[] }
 const DB: Record<string, string> = { pubmed: "PubMed", openalex: "OpenAlex" };
 
-/** Corpus node: watch retrieval live (SSE), then review deduplication. */
-export function CorpusPanel() {
-  const { projectId, graph, input, states, openPaper } = useSession();
+/** Corpus node: watch retrieval live (SSE), inspect per-topic and per-query retrieved papers & attention. */
+export function CorpusPanel({ topicId, queryId, attentionOnly = false }: { topicId?: string; queryId?: string; attentionOnly?: boolean } = {}) {
+  const { projectId, graph, input, states, openPaper, summary } = useSession();
+  const [showAll, setShowAll] = useState(false);
+  const [onlyAttn, setOnlyAttn] = useState(attentionOnly);
   const live = useLiveRetrieval();
   const running = states["4"] === "running";
   const view = useViewPrefs();
@@ -94,10 +96,20 @@ export function CorpusPanel() {
   const failed = runs.filter((r) => r.status === "failed");
   const fetchedTotal = runs.reduce((a, r) => a + r.fetchedCount, 0);
   const sources = [...new Set(runs.map((r) => r.database))];
-  const node = graph.nodes.find((n) => n.id === "corpus");
+  const node = graph.nodes.find((n) => (topicId ? n.id === `corpus:topic:${topicId}` : n.id === "corpus")) ?? graph.nodes.find((n) => n.kind === "topic_corpus" || n.id === "corpus");
   const action = node ? nextAction(node, graph, input) : null;
   let cumulative = 0;
-  const ps = pts?.papers ?? [];
+  const activeTopicId = showAll ? undefined : topicId;
+  const activeQueryId = showAll ? undefined : queryId;
+  const allQueryStats: QueryPaperStats[] = summary?.queryStats ?? [];
+  const scopedQueries = activeQueryId
+    ? allQueryStats.filter((q) => q.queryId === activeQueryId)
+    : activeTopicId
+      ? allQueryStats.filter((q) => q.topicId === activeTopicId)
+      : allQueryStats;
+  const scopedTopicName = activeTopicId ? summary?.topics.find((t) => t.id === activeTopicId)?.name : undefined;
+  const psAll = pts?.papers ?? [];
+  const ps = activeTopicId ? psAll.filter((p) => p.topicIds.includes(activeTopicId)) : psAll;
   const summarised = ps.some((p) => p.studyType);
   const studyCounts: Record<string, number> = {};
   const articleCounts: Record<string, number> = {};
@@ -143,6 +155,88 @@ export function CorpusPanel() {
       <StaleNotice stage={4} />
       <JobStatus stage={4} />
       <WhatHappens stage={4} />
+      {(activeTopicId || activeQueryId) && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line-strong bg-bg-2 px-3 py-2 text-12">
+          <span className="text-fg-0">
+            Filtered to <strong>{scopedQueries.length === 1 && activeQueryId ? `${scopedQueries[0].label} (${scopedTopicName ?? "Topic"})` : scopedTopicName ?? "this topic"}</strong>
+          </span>
+          <button type="button" className="btn-ghost btn-sm" onClick={() => setShowAll(true)}>
+            Show all topics
+          </button>
+        </div>
+      )}
+      {scopedQueries.length > 0 && (
+        <section aria-label="Per-query retrieval and attention" className="space-y-3 rounded-md border border-line bg-bg-0/60 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-medium text-fg-0">Papers by query &amp; user attention</p>
+            <div className="flex items-center gap-1 text-12">
+              <button
+                type="button"
+                aria-pressed={!onlyAttn}
+                onClick={() => setOnlyAttn(false)}
+                className={cx("rounded-sm px-2 py-0.5", !onlyAttn ? "bg-bg-3 font-medium text-fg-0" : "text-fg-2 hover:text-fg-0")}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                aria-pressed={onlyAttn}
+                onClick={() => setOnlyAttn(true)}
+                className={cx("rounded-sm px-2 py-0.5", onlyAttn ? "bg-warn-soft font-medium text-warn" : "text-fg-2 hover:text-fg-0")}
+              >
+                Needs attention
+              </button>
+            </div>
+          </div>
+          <ul className="space-y-3">
+            {scopedQueries.map((qs) => {
+              const qAttn = evaluateQueryAttention(qs, states);
+              const list = (qs.papers ?? []).filter((p) => !onlyAttn || p.needsAttention);
+              return (
+                <li key={qs.queryId} className="space-y-2 rounded-sm border border-line bg-bg-1 p-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium text-fg-0">{qs.label}</span>
+                    <AttentionBadge attention={qAttn} compact />
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-12 tabular-nums text-fg-1">
+                    <span><strong className="text-fg-0">{fmtInt(qs.retrieved)}</strong> retrieved</span>
+                    <span><strong className="text-fg-0">{fmtInt(qs.newUnique)}</strong> new unique</span>
+                    <span className={qs.needsAttention > 0 ? "text-warn" : "text-ok"}>
+                      <strong>{fmtInt(qs.needsAttention)}</strong> need attention
+                    </span>
+                  </div>
+                  {qs.needsAttention > 0 && (
+                    <p className="text-12 text-fg-2">{qAttn.detail}</p>
+                  )}
+                  {list.length > 0 ? (
+                    <ul className="divide-y divide-line border-t border-line pt-1">
+                      {list.slice(0, 8).map((p) => (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            onClick={() => openPaper(p.id)}
+                            className="flex w-full items-center gap-2 py-1.5 text-left text-12 hover:bg-bg-2"
+                          >
+                            {p.needsAttention && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warn" aria-hidden />}
+                            <span className="min-w-0 flex-1 truncate text-fg-0">{p.title}</span>
+                            {p.attentionReason ? (
+                              <Badge tone={p.failedAppraisal ? "err" : "warn"}>{p.attentionReason}</Badge>
+                            ) : p.year ? (
+                              <span className="shrink-0 tabular-nums text-fg-2">{p.year}</span>
+                            ) : null}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-12 text-fg-2">{onlyAttn ? "No papers needing attention in this query." : "No papers retrieved for this query yet."}</p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
       {runs.length > 0 && (
         <p className="text-fg-0" aria-live="polite">
           {running ? "So far: " : ""}<span className="font-semibold tabular-nums">{fmtInt(fetchedTotal)}</span> results fetched, <span className="font-semibold tabular-nums">{fmtInt(dupes)}</span> were the same paper found twice, so <span className="font-semibold tabular-nums">{fmtInt(data?.uniquePapers ?? 0)}</span> different papers {running ? "so far" : "remain"}.

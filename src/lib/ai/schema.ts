@@ -20,6 +20,18 @@ export function toXaiSchema(schema: z.ZodType): Record<string, unknown> {
   return strip(js) as Record<string, unknown>;
 }
 
+/** zod → JSON Schema for Anthropic tool input_schema (standard JSON Schema without $schema header). */
+export function toAnthropicSchema(schema: z.ZodType): Record<string, unknown> {
+  const js = toXaiSchema(schema);
+  if (js.type !== "object") return { type: "object", properties: { result: js }, required: ["result"] };
+  return js;
+}
+
+/** zod → JSON Schema for Gemini responseJsonSchema (strips keywords Gemini rejects). */
+export function toGeminiSchema(schema: z.ZodType): Record<string, unknown> {
+  return toXaiSchema(schema);
+}
+
 export function zodErrorText(e: z.ZodError): string {
   return e.issues.slice(0, 12).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ");
 }

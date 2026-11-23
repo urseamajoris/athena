@@ -45,11 +45,60 @@ export interface TopicAttention {
   };
 }
 
+export interface QueryPaperPreview {
+  id: string;
+  title: string;
+  year: number | null;
+  citations: number | null;
+  hasSummary: boolean;
+  selected: boolean;
+  appraised: boolean;
+  failedAppraisal: boolean;
+  undecidedQuotes: number;
+  needsAttention: boolean;
+  attentionReason: string | null;
+}
+
+export interface QueryPaperStats {
+  queryId: string;
+  topicId: string;
+  database: string;
+  queryString: string;
+  /** Human label like "PubMed #1" when a topic has multiple queries in one database, else "PubMed". */
+  label: string;
+  runStatus: "not_run" | "queued" | "running" | "done" | "failed";
+  resultCount: number | null;
+  error: string | null;
+  /** Unique papers linked to this query's search run via paper_hits. */
+  retrieved: number;
+  /** Papers first discovered by this query (wasNew = true). */
+  newUnique: number;
+  /** Papers from this query that were already found by an earlier query. */
+  duplicates: number;
+  /** Retrieved papers from this query that have a summary row (step 5). */
+  rendered: number;
+  /** Retrieved papers from this query selected for appraisal in this topic (step 6). */
+  selected: number;
+  /** Selected papers from this query cleanly appraised & filed with 0 undecided quotes (step 7). */
+  filed: number;
+  /** Retrieved papers from this query currently needing user attention. */
+  needsAttention: number;
+  attentionBreakdown: {
+    missingSummary: number;
+    unscored: number;
+    failedAppraisal: number;
+    undecidedQuotes: number;
+    undecidedQuoteCount: number;
+  };
+  /** Compact paper previews for expandable query sub-boxes (attention papers sorted first). */
+  papers?: QueryPaperPreview[];
+}
+
 export interface CanvasSummary {
   topics: { id: string; name: string; origin: string; approved: boolean; synonyms: number; controlledTerms: number }[];
   scoping: { messages: number; asked: number; maxQuestions: number; done: boolean; awaitingAnswer: boolean };
   /** `run`: how the query went in retrieval, while its text and database filters are unchanged since. */
-  queries: { id: string; topicId: string; database: string; dryRunCount: number | null; dryRunError: string | null; run?: { count: number | null; failed: boolean } | null }[];
+  queries: { id: string; topicId: string; database: string; queryString?: string; rationale?: string; dryRunCount: number | null; dryRunError: string | null; run?: { count: number | null; failed: boolean } | null }[];
   retrieval: { runs: number; done: number; failed: number; running: number; fetched: number; unique: number; perSource: Record<string, { fetched: number; newUnique: number; failed: number }> };
   /** `selectedPapers`: different papers selected in any topic (the papers appraised); per-topic counts can overlap. */
   table: { papers: number; summarised: number; edited: number; selectedPapers?: number };
@@ -60,6 +109,8 @@ export interface CanvasSummary {
   questions: { count: number; chosenId: string | null; chosenText: string | null };
   /** Per-topic retrieved / rendered / filed counts and citation impact. */
   topicStats?: TopicArticleStats[];
+  /** Per-query retrieved paper counts and user-attention breakdown. */
+  queryStats?: QueryPaperStats[];
   /** Corpus-wide impact evaluation across all retrieved articles. */
   impact?: CorpusImpactSummary;
 }
@@ -165,6 +216,85 @@ export function evaluateTopicAttention(t: TopicArticleStats, states: StageStates
     return { tone: "ok", stage: null, label: "On track", detail: `${t.retrieved} retrieved · ${t.rendered} rendered`, stageTones };
   }
   return { tone: "idle", stage: null, label: "Not retrieved", detail: "Run searches to retrieve articles", stageTones };
+}
+
+/**
+ * Deterministic attention evaluation for a single query's retrieved papers.
+ */
+export function evaluateQueryAttention(q: QueryPaperStats, states: StageStates): TopicAttention {
+  const s4 = states["4"] ?? "not_started";
+  const s5 = states["5"] ?? "not_started";
+  const s6 = states["6"] ?? "not_started";
+  const s7 = states["7"] ?? "not_started";
+  const retTone: AttentionTone =
+    q.runStatus === "failed"
+      ? "err"
+      : q.runStatus === "running" || q.runStatus === "queued" || s4 === "running"
+        ? "run"
+        : q.runStatus === "done" && q.retrieved === 0
+          ? "err"
+          : q.retrieved > 0
+            ? "ok"
+            : "idle";
+  const renTone: AttentionTone =
+    s5 === "running"
+      ? "run"
+      : s5 === "failed"
+        ? "err"
+        : q.attentionBreakdown.missingSummary > 0
+          ? "warn"
+          : q.rendered > 0
+            ? "ok"
+            : "idle";
+  const filTone: AttentionTone =
+    s6 === "running" || s7 === "running"
+      ? "run"
+      : q.attentionBreakdown.failedAppraisal > 0
+        ? "err"
+        : q.attentionBreakdown.undecidedQuotes > 0 || q.attentionBreakdown.unscored > 0
+          ? "warn"
+          : q.filed > 0
+            ? "ok"
+            : "idle";
+  const stageTones = { retrieved: retTone, rendered: renTone, filed: filTone };
+
+  if (q.runStatus === "failed") {
+    return { tone: "err", stage: 4, label: "Search failed", detail: q.error || "Query failed during retrieval", stageTones };
+  }
+  if (q.runStatus === "running" || q.runStatus === "queued") {
+    return { tone: "run", stage: 4, label: "Retrieving", detail: `${q.retrieved} retrieved so far`, stageTones };
+  }
+  if (q.runStatus === "done" && q.retrieved === 0) {
+    return { tone: "err", stage: 3, label: "0 retrieved", detail: "No papers matched this query — edit or broaden it", stageTones };
+  }
+  if (q.attentionBreakdown.failedAppraisal > 0) {
+    const n = q.attentionBreakdown.failedAppraisal;
+    return { tone: "err", stage: 7, label: `${n} appraisal failed`, detail: `${n} paper${n === 1 ? "" : "s"} failed appraisal`, stageTones };
+  }
+  if (q.needsAttention > 0) {
+    const parts: string[] = [];
+    if (q.attentionBreakdown.undecidedQuotes > 0) parts.push(`${q.attentionBreakdown.undecidedQuotes} with quotes to decide`);
+    if (q.attentionBreakdown.missingSummary > 0) parts.push(`${q.attentionBreakdown.missingSummary} missing summary`);
+    if (q.attentionBreakdown.unscored > 0) parts.push(`${q.attentionBreakdown.unscored} unscored`);
+    const stage = q.attentionBreakdown.undecidedQuotes > 0 ? 7 : q.attentionBreakdown.unscored > 0 ? 6 : 5;
+    return {
+      tone: "warn",
+      stage,
+      label: `${q.needsAttention} need${q.needsAttention === 1 ? "s" : ""} attention`,
+      detail: parts.join(" · ") || `${q.needsAttention} paper${q.needsAttention === 1 ? "" : "s"} need attention`,
+      stageTones,
+    };
+  }
+  if (q.retrieved > 0) {
+    return {
+      tone: "ok",
+      stage: null,
+      label: "All clear",
+      detail: `${q.retrieved} retrieved (${q.newUnique} new) · 0 need attention`,
+      stageTones,
+    };
+  }
+  return { tone: "idle", stage: 3, label: "Not run yet", detail: "Run searches in step 3 to retrieve papers", stageTones };
 }
 
 /** Compact claim for pinned Quote nodes. */

@@ -42,7 +42,7 @@ export function fingerprint(key: string): string {
   return createHash("sha256").update(key).digest("hex").slice(0, 8);
 }
 
-const KEY_PATTERNS = [/\bxai-[A-Za-z0-9_-]{8,}/g, /\bsk-[A-Za-z0-9_-]{8,}/g, /\b(Bearer)\s+[A-Za-z0-9._~+/=-]{12,}/gi];
+const KEY_PATTERNS = [/\bxai-[A-Za-z0-9_-]{8,}/g, /\bsk-[A-Za-z0-9_-]{8,}/g, /\bAIza[A-Za-z0-9_-]{20,}/g, /\b(Bearer)\s+[A-Za-z0-9._~+/=-]{12,}/gi];
 
 /** Removes API keys from text bound for logs, the database or a response. `known` = secrets to remove verbatim. */
 export function redactSecrets(text: string, known: (string | null | undefined)[] = []): string {

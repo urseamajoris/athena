@@ -9,7 +9,7 @@ import { requireUser, ownedProject } from "./auth/server";
 import { startJob, cancelStage } from "./jobs";
 import { approvalBlockers, approveStage } from "./gates";
 import { addTopic, answerScoping, deleteTopic, generateTopics, mergeTopics, nextScopingTurn, restartScoping, restoreTopic, scopingState, skipScoping, updateTopic } from "./stages/scoping";
-import { buildQueries, dryRun, dryRunAll, searchState, updateCriteria, updateQuery } from "./stages/search";
+import { addQuery, buildQueries, deleteQuery, dryRun, dryRunAll, searchState, updateCriteria, updateQuery } from "./stages/search";
 import { paperPointsView, appraisalDetail, appraisalsView, canvasView, claimsView, decisionLogView, paperDetail, papersTableView, projectView, questionsView, rankingTableView, retrievalView, synthesisView } from "./views";
 import { htmlReport, markdownReport, selectedBibtex, summaryCsv } from "./export";
 import { REPORT_CSP } from "./report-html";
@@ -198,11 +198,23 @@ on("POST", "topics/merge", async ({ projectId, body }) => {
 // ---------- stage 3 ----------
 on("GET", "search", async ({ projectId }) => (await searchState(projectId)));
 on("POST", "search/build", async ({ projectId }) => (await buildQueries(projectId)));
+on("POST", "topics/:tid/queries", async ({ projectId, params, body }) => {
+  const input = parse(
+    z.object({
+      database: z.enum(["pubmed", "openalex"]),
+      queryString: z.string().trim().min(2, "Write a search query with at least 2 characters.").max(4000),
+      rationale: z.string().trim().max(400).optional(),
+    }),
+    body,
+  );
+  return addQuery(projectId, params.tid, input);
+});
 on("PATCH", "queries/:qid", async ({ projectId, params, body }) => {
   const { queryString } = parse(z.object({ queryString: z.string().trim().min(2).max(4000) }), body);
   (await updateQuery(projectId, params.qid, queryString));
   return (await searchState(projectId));
 });
+on("DELETE", "queries/:qid", async ({ projectId, params }) => deleteQuery(projectId, params.qid));
 on("POST", "queries/:qid/dryrun", async ({ projectId, params }) => (await dryRun(projectId, params.qid)));
 on("POST", "search/dryrun-all", async ({ projectId }) => ({ results: await dryRunAll(projectId), state: (await searchState(projectId)) }));
 const CriteriaSchema = z.object({

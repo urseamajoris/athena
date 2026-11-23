@@ -10,6 +10,7 @@ import { criteriaDrafts } from "../panels/criteria-draft";
 import { topicUndo } from "../panels/topic-undo";
 import dynamic from "next/dynamic";
 import { RERUN_REPLACES, STAGES, STATE_LABEL, thinTopics, type StageState } from "@/lib/shared/stages";
+import type { AiProvider, ProviderConfigStatus } from "@/lib/shared/ai-providers";
 import type { CanvasSummary, ClaimLite, JobLite } from "@/lib/shared/canvas";
 import { buildGraph, nodeForStage, type Graph, type GraphInput, type NodeKind } from "@/lib/canvas/graph";
 import { cascadeStep, type Cmd } from "@/lib/canvas/actions";
@@ -19,6 +20,7 @@ const PaperDialog = dynamic(() => import("./PaperDialog").then((m) => m.PaperDia
 const ConfirmEditDialog = dynamic(() => import("./SessionDialogs").then((m) => m.ConfirmEditDialog), { ssr: false });
 const ConfirmLeaveOutDialog = dynamic(() => import("./SessionDialogs").then((m) => m.ConfirmLeaveOutDialog), { ssr: false });
 const AddTopicDialog = dynamic(() => import("./SessionDialogs").then((m) => m.AddTopicDialog), { ssr: false });
+const AddQueryDialog = dynamic(() => import("./SessionDialogs").then((m) => m.AddQueryDialog), { ssr: false });
 const ThinTopicsDialog = dynamic(() => import("./SessionDialogs").then((m) => m.ThinTopicsDialog), { ssr: false });
 
 export type Job = JobLite;
@@ -49,8 +51,8 @@ export interface LiveData {
   canvas: CanvasSummary;
   ai?: AiState;
 }
-/** Whether AI steps can run right now (admin switch, server budget, and an xAI key on the server). */
-export interface AiState { enabled: boolean; budgetReached: boolean; keyMissing: boolean }
+/** Whether AI steps can run right now (admin switch, server budget, and active provider API key). */
+export interface AiState { enabled: boolean; budgetReached: boolean; keyMissing: boolean; provider?: AiProvider; activeModel?: string }
 
 /** One canvas store per browser tab; layout and choices persist per session. */
 export const canvasStore = createCanvasStore();
@@ -66,6 +68,9 @@ interface Ctx {
   jobs: Record<string, Job | null>;
   costs: Record<string, Cost>;
   ai: AiState;
+  isAdmin: boolean;
+  providerConfig: ProviderConfigStatus | null;
+  refreshStatus: () => Promise<unknown>;
   summary: CanvasSummary | null;
   claims: ClaimLite[] | null;
   graph: Graph;
@@ -174,6 +179,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const [err, setErr] = useState<unknown>(null);
   const [message, setMessage] = useState("");
   const [addTopic, setAddTopic] = useState<{ flowAt?: Pos } | null>(null);
+  const [addQuery, setAddQuery] = useState<{ topicId: string; topicName: string } | null>(null);
   // State, not a ref: the next stage's node is often in the graph already when the approval returns (a fast job
   // finished while refresh() was in flight), and the effect below must still run for it.
   // `wait`: open only once a node of that kind exists (new searches reach the graph a moment after the request).
@@ -203,7 +209,9 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
   const jobs = useStable(live?.jobs ?? data?.jobs ?? {});
   const costs = useStable(live?.costs ?? data?.costs ?? {});
   const liveRetrieval = useStable(live?.retrieval ?? null);
-  const { data: status } = useApi<{ ai?: AiState }>("/api/status");
+  const { data: status, mutate: mutateStatus } = useApi<{ ai?: AiState; user?: { role: "user" | "admin" }; providerConfig?: ProviderConfigStatus }>("/api/status");
+  const isAdmin = status?.user?.role === "admin";
+  const providerConfig = useStable(status?.providerConfig ?? null);
   const ai = useStable(live?.ai ?? status?.ai ?? { enabled: true, budgetReached: false, keyMissing: false });
 
   // Announce run-state changes to screen readers, and refresh the project when stages move.
@@ -241,9 +249,11 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
       jobs,
       summary,
       claims: claims ?? null,
-      client: { acceptedTopics: ui.acceptedTopics, pinnedQuotes: ui.pinnedQuotes },
+      client: { acceptedTopics: ui.acceptedTopics, pinnedQuotes: ui.pinnedQuotes, expandedNodes: ui.expandedNodes },
+      isAdmin,
+      ai,
     }),
-    [data, states, staleReasons, jobs, summary, claims, ui.acceptedTopics, ui.pinnedQuotes],
+    [data, states, staleReasons, jobs, summary, claims, ui.acceptedTopics, ui.pinnedQuotes, ui.expandedNodes, isAdmin, ai],
   );
   const graph = useMemo(() => buildGraph(input), [input]);
 
@@ -400,6 +410,23 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
         case "addTopic":
           setAddTopic({ flowAt: opts.flowAt });
           return;
+        case "addQuery": {
+          const topicName = summary?.topics.find((t) => t.id === cmd.topicId)?.name ?? "Topic";
+          setAddQuery({ topicId: cmd.topicId, topicName });
+          return;
+        }
+        case "deleteQuery":
+          return step(async () => {
+            if (!(await confirmEdit(3))) return;
+            await api(projectPath(projectId, `queries/${cmd.queryId}`), { method: "DELETE" });
+            if (store.selected === `query-item:${cmd.queryId}` || store.selected === `corpus:query:${cmd.queryId}`) store.select(`query:${cmd.topicId}`);
+            if (store.panel === `query-item:${cmd.queryId}` || store.panel === `corpus:query:${cmd.queryId}`) store.closePanel();
+            await refresh();
+            announce("Search query deleted.");
+          });
+        case "toggleExpand":
+          store.toggleExpand(projectId, cmd.nodeId);
+          return;
         case "buildQueries":
           return step(async () => {
             if (summary?.queries.length && !(await confirmEdit(3))) return;
@@ -480,6 +507,9 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
             jobs: input.jobs,
             costs,
             ai,
+            isAdmin,
+            providerConfig,
+            refreshStatus: () => mutateStatus(),
             summary,
             claims: claims ?? null,
             graph,
@@ -498,7 +528,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
             announce,
           }
         : null,
-    [data, projectId, states, input, costs, ai, summary, claims, graph, ui, goTo, refresh, confirmEdit, approve, run, busy, writingSince, err, announce],
+    [data, projectId, states, input, costs, ai, isAdmin, providerConfig, mutateStatus, summary, claims, graph, ui, goTo, refresh, confirmEdit, approve, run, busy, writingSince, err, announce],
   );
 
   // Data, not SWR's isLoading: that stays true while server-provided (fallback) data revalidates.
@@ -542,6 +572,7 @@ export function SessionProvider({ projectId, children, fallback }: { projectId: 
         />
       )}
       {addTopic && <AddTopicDialog state={addTopic} onClose={() => setAddTopic(null)} />}
+      {addQuery && <AddQueryDialog state={addQuery} onClose={() => setAddQuery(null)} />}
       {thin && (
         <ThinTopicsDialog
           topics={thin.topics}

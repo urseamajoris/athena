@@ -86,6 +86,104 @@ export function ConfirmLeaveOutDialog({ count, onCancel, onConfirm }: { count: n
   );
 }
 
+export function AddQueryDialog({
+  state,
+  onClose,
+}: {
+  state: { topicId: string; topicName: string } | null;
+  onClose: () => void;
+}) {
+  const { projectId, refresh, confirmEdit, announce } = useSession();
+  const [database, setDatabase] = useState<"pubmed" | "openalex">("pubmed");
+  const [queryString, setQueryString] = useState("");
+  const [rationale, setRationale] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (state) {
+      setDatabase("pubmed");
+      setQueryString(`"${state.topicName}"[tiab]`);
+      setRationale("");
+      setErr(null);
+    }
+  }, [state]);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!state || queryString.trim().length < 2) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      if (!(await confirmEdit(3))) return;
+      const r = await api<{ id: string }>(projectPath(projectId, `topics/${state.topicId}/queries`), {
+        body: { database, queryString: queryString.trim(), rationale: rationale.trim() || undefined },
+      });
+      await refresh();
+      const st = canvasStore.getState();
+      // Expand the topic's queries node so the newly added query sub-box is immediately visible.
+      const qHub = `query:${state.topicId}`;
+      if (!st.sessions[projectId]?.expandedNodes?.includes(qHub)) st.toggleExpand(projectId, qHub);
+      st.select(`query-item:${r.id}`);
+      announce(`Added ${database === "pubmed" ? "PubMed" : "OpenAlex"} query to “${state.topicName}”.`);
+      onClose();
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : String(e2));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal open={!!state} onClose={onClose} title={state ? `Add a query to “${state.topicName}”` : "Add a query"}>
+      <form onSubmit={submit} className="space-y-3" id="add-query-form">
+        <div>
+          <span className="label">Database</span>
+          <div className="mt-1 grid grid-cols-2 gap-2">
+            {(["pubmed", "openalex"] as const).map((db) => (
+              <button
+                key={db}
+                type="button"
+                aria-pressed={database === db}
+                onClick={() => {
+                  setDatabase(db);
+                  if (state && (queryString === `"${state.topicName}"[tiab]` || queryString === `"${state.topicName}"`)) {
+                    setQueryString(db === "pubmed" ? `"${state.topicName}"[tiab]` : `"${state.topicName}"`);
+                  }
+                }}
+                className={`min-h-10 rounded-sm border px-3 text-left text-13 font-medium ${database === db ? "border-fg-0 bg-bg-2 text-fg-0" : "border-line bg-bg-0 text-fg-1 hover:bg-bg-2"}`}
+              >
+                {db === "pubmed" ? "PubMed" : "OpenAlex"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label htmlFor="new-query-text" className="label">Search query</label>
+          <textarea
+            id="new-query-text"
+            className="input min-h-24 font-mono text-12 leading-relaxed"
+            autoFocus
+            value={queryString}
+            onChange={(e) => setQueryString(e.target.value)}
+            placeholder={database === "pubmed" ? 'e.g. ("telemedicine"[mh] OR telehealth[tiab]) AND "rural"[tiab]' : 'e.g. ("telemedicine" OR "telehealth") AND "rural"'}
+            spellCheck={false}
+          />
+          <p className="mt-1 text-12 text-fg-2">
+            {database === "pubmed" ? "Supports PubMed Boolean operators (AND, OR, NOT) and field tags like [tiab] or [mh]." : "Supports Boolean operators (AND, OR, NOT) and quoted phrases."}
+          </p>
+        </div>
+        <div>
+          <label htmlFor="new-query-rationale" className="label">Note / focus (optional)</label>
+          <input id="new-query-rationale" className="input" value={rationale} onChange={(e) => setRationale(e.target.value)} placeholder="e.g. Narrower query focused on clinical outcomes" />
+        </div>
+        {err && <p role="alert" className="text-err">{err}</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn-primary" disabled={busy || queryString.trim().length < 2}>{busy && <Spinner />} Add query</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export function AddTopicDialog({ state, onClose }: { state: { flowAt?: Pos } | null; onClose: () => void }) {
   const { projectId, refresh, confirmEdit, announce } = useSession();
   const [name, setName] = useState("");

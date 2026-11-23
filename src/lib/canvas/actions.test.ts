@@ -60,7 +60,7 @@ test("a stale frontier offers the single Re-run downstream action", () => {
   const inp = finished({ states: states(2, { 3: "stale", 4: "stale", 5: "stale" }) });
   const g = buildGraph(inp);
   assert.equal(nextAction(node(g, "query:t1"), g, inp)!.label, "Bring later steps up to date");
-  assert.equal(nextAction(node(g, "corpus"), g, inp), null, "later stale nodes do not repeat it");
+  assert.equal(nextAction(node(g, "corpus:topic:t1"), g, inp), null, "later stale nodes do not repeat it");
 });
 
 test("stage gating: a child type is offered only once its parent's work is ready", () => {
@@ -70,28 +70,29 @@ test("stage gating: a child type is offered only once its parent's work is ready
 
   const scoped = input({ states: states(2), summary: summary({ queries: QUERIES }) });
   const g1 = buildGraph(scoped);
-  const fromQuery = childOptions(node(g1, "query:t1"), g1, scoped)[0];
-  assert.equal(fromQuery.kind, "corpus");
-  assert.equal(fromQuery.reason, undefined, "queries are built and in review, so the corpus can be created");
-  assert.deepEqual(fromQuery.cmd, { type: "approve", stage: 3 });
+  const fromQuery = childOptions(node(g1, "query:t1"), g1, scoped);
+  assert.equal(fromQuery[0].kind, "topic_corpus");
+  assert.equal(fromQuery[0].reason, undefined, "queries are built and in review, so the corpus can be created");
+  assert.deepEqual(fromQuery[0].cmd, { type: "approve", stage: 3 });
+  assert.deepEqual(fromQuery[1].cmd, { type: "addQuery", topicId: "t1" });
 
   const running = finished({ states: states(3, { 4: "running" }) });
   const g2 = buildGraph(running);
-  assert.equal(childOptions(node(g2, "corpus"), g2, running)[0].reason, "Wait for this step to finish");
+  assert.equal(childOptions(node(g2, "corpus:topic:t1"), g2, running)[0].reason, "Wait for this step to finish");
 
   const stale = finished({ states: states(3, { 4: "stale" }) });
   const g3 = buildGraph(stale);
-  assert.equal(childOptions(node(g3, "corpus"), g3, stale)[0].reason, "Re-run or keep the stale results first");
+  assert.equal(childOptions(node(g3, "corpus:topic:t1"), g3, stale)[0].reason, "Re-run or keep the stale results first");
 
   const failed = finished({ states: states(3, { 4: "failed" }) });
   const g4 = buildGraph(failed);
-  assert.equal(childOptions(node(g4, "corpus"), g4, failed)[0].reason, "This step failed; retry it first");
+  assert.equal(childOptions(node(g4, "corpus:topic:t1"), g4, failed)[0].reason, "This step failed; retry it first");
 });
 
 test("existing children are opened rather than created twice", () => {
   const inp = finished();
   const g = buildGraph(inp);
-  assert.deepEqual(childOptions(node(g, "corpus"), g, inp)[0].cmd, { type: "open", nodeId: "table" });
+  assert.deepEqual(childOptions(node(g, "corpus:topic:t1"), g, inp)[0].cmd, { type: "open", nodeId: "table" });
   assert.deepEqual(childOptions(node(g, "export"), g, inp), []);
 });
 
