@@ -386,9 +386,9 @@ on("POST", "questions/:qid/novelty", async ({ projectId, params }) => {
 // ---------- view choices (category filters, grouping, colour) ----------
 const Keys = z.array(z.string().max(80)).max(40);
 const ViewPrefsSchema = z.object({
-  colorBy: z.enum(["study", "topic", "source", "evidence", "score"]).optional(),
-  filters: z.object({ study: Keys, article: Keys, topic: Keys, source: Keys, period: Keys, access: Keys, selected: Keys, evidence: Keys }).partial().optional(),
-  groupBy: z.enum(["study", "article", "topic", "source", "period", "access", "selected", "evidence"]).nullable().optional(),
+  colorBy: z.enum(["study", "topic", "impact", "source", "evidence", "score"]).optional(),
+  filters: z.object({ study: Keys, article: Keys, topic: Keys, impact: Keys, source: Keys, period: Keys, access: Keys, selected: Keys, evidence: Keys }).partial().optional(),
+  groupBy: z.enum(["study", "article", "topic", "impact", "source", "period", "access", "selected", "evidence"]).nullable().optional(),
 });
 /** Saved per project and listed in the report. A view choice: it never hides data from later steps or marks anything stale. */
 on("PUT", "view", async ({ projectId, body }) => {

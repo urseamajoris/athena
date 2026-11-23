@@ -120,6 +120,44 @@ test("frontier: the earliest stage that is not approved, and the node that holds
   assert.equal(nodeForStage(noQueries, 3), "topic:t1", "before queries exist, stage 3 lives on the first topic");
 });
 
+test("topicStats propagate Retrieved/Rendered/Filed counts, attention tones and impact onto canvas nodes", () => {
+  const g = buildGraph(
+    finished({
+      states: states(5, { 6: "approved", 7: "needs_review", 8: "not_started", 9: "not_started" }),
+      summary: summary({
+        topics: [
+          { id: "t1", name: "Adoption", origin: "ai", approved: true, synonyms: 3, controlledTerms: 1 },
+          { id: "t2", name: "Barriers", origin: "ai", approved: true, synonyms: 2, controlledTerms: 0 },
+        ],
+        queries: QUERIES,
+        retrieval: { runs: 4, done: 4, failed: 0, running: 0, fetched: 100, unique: 50, perSource: {} },
+        table: { papers: 50, summarised: 47, edited: 0, selectedPapers: 8 },
+        appraisal: { papers: 8, done: 8, failed: 0, running: 0, fullText: 5, claims: 40, verified: 38, pending: 2, accepted: 0, rejected: 0, notReported: 0, appraisalIds: ["a1"] },
+        topicStats: [
+          { topicId: "t1", name: "Adoption", retrieved: 30, rendered: 30, filed: 4, selected: 4, appraised: 4, failedAppraisals: 0, undecidedQuotes: 0, failedRuns: 0, runningRuns: 0, totalCitations: 450, citedPapers: 25, avgCitationsPerYear: 6.2, hIndex: 8, openAccessCount: 15, maxCitations: 120 },
+          { topicId: "t2", name: "Barriers", retrieved: 20, rendered: 17, filed: 2, selected: 4, appraised: 4, failedAppraisals: 0, undecidedQuotes: 2, failedRuns: 0, runningRuns: 0, totalCitations: 90, citedPapers: 12, avgCitationsPerYear: 2.1, hIndex: 4, openAccessCount: 8, maxCitations: 35 },
+        ],
+        impact: { totalCitations: 540, medianCitations: 12, meanCitations: 14.6, avgCitationsPerYear: 4.1, hIndex: 9, citedPapers: 37, withCitationData: 45, highlyCitedCount: 3, openAccessCount: 23, multiSourceCount: 10, topPaper: { id: "p1", title: "Top", year: 2023, citations: 120 } },
+      }),
+    }),
+  );
+  const t1 = g.nodes.find((n) => n.id === "topic:t1")!;
+  const t2 = g.nodes.find((n) => n.id === "topic:t2")!;
+  const corpus = g.nodes.find((n) => n.id === "corpus")!;
+  assert.equal(t1.articleStats?.retrieved, 30);
+  assert.equal(t1.articleStats?.rendered, 30);
+  assert.equal(t1.articleStats?.filed, 4);
+  assert.equal(t1.attention?.tone, "ok");
+  assert.equal(t2.attention?.tone, "warn");
+  assert.equal(t2.attention?.stage, 5);
+  assert.equal(t2.attention?.stageTones.rendered, "warn");
+  assert.equal(t2.attention?.stageTones.filed, "warn");
+  assert.equal(corpus.pipelineCounts?.retrieved, 50);
+  assert.equal(corpus.pipelineCounts?.rendered, 47);
+  assert.equal(corpus.impactSummary?.totalCitations, 540);
+  assert.equal(corpus.impactSummary?.hIndex, 9);
+});
+
 import { queryChips } from "./query-chips";
 test("query chips: terms keep their field tag, parentheses drop, operators stay", () => {
   assert.deepEqual(queryChips('("telemedicine"[mh] OR telehealth*[tiab]) AND ("Southeast Asia" OR Indonesia)'), [

@@ -2,10 +2,10 @@
 // refines it. Quotes pack into a grid under their parent. Nodes the user placed by hand never move.
 import { KIND_COLUMN, type GEdge, type GNode } from "./graph";
 
-export const NODE_W = 248;
-export const NODE_H = 156;
+export const NODE_W = 276;
+export const NODE_H = 196;
 export const QUOTE_H = 116;
-const COL_GAP = 80;
+const COL_GAP = 84;
 const ROW_GAP = 24;
 
 export type Pos = { x: number; y: number };

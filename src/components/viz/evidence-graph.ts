@@ -3,7 +3,7 @@
 import { studyGroupOf } from "@/lib/shared/categories";
 
 export interface EvStatement { id: string; kind: "known" | "contested" | "unknown"; text: string; paperIds: string[] }
-export interface EvPaper { id: string; label: string; studyType: string | null }
+export interface EvPaper { id: string; label: string; studyType: string | null; citationCount?: number | null }
 export interface EvGraph {
   statements: (EvStatement & { x: number; y: number; z: number })[];
   papers: (EvPaper & { x: number; y: number; z: number; group: string })[];

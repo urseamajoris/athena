@@ -4,7 +4,8 @@ import { db, schema } from "./db";
 import { getProject, latestJob, stageCosts } from "./project";
 import { MIN_TOPIC_FIT, STAGES, scrubIds } from "./shared/stages";
 import { detectCriteriaFlags } from "./shared/criteria";
-import { isUndecided, type CanvasSummary, type ClaimLite } from "./shared/canvas";
+import { isUndecided, type CanvasSummary, type ClaimLite, type TopicArticleStats } from "./shared/canvas";
+import { citationsPerYear, computeHIndex, summarizeCorpusImpact } from "./shared/impact";
 import type { Criteria } from "./db/schema";
 import { scopingState } from "./stages/scoping";
 import { MAX_PER_TOPIC, rankingCandidates } from "./jobs/ranking";
@@ -211,7 +212,7 @@ export async function synthesisView(projectId: string) {
   const links = (await db.select().from(schema.claimLinks).where(and(eq(schema.claimLinks.ownerType, "synthesis"), inArray(schema.claimLinks.ownerId, ids(items.map((i) => i.id))))).all());
   const claimIds = [...new Set([...links.map((l) => l.claimId), ...cells.flatMap((c) => c.claimIds), ...cx.flatMap((c) => c.claimIds)])];
   const claims = (await db.select().from(schema.claims).where(inArray(schema.claims.id, ids(claimIds))).all());
-  const papers0 = (await db.select({ id: schema.papers.id, title: schema.papers.title, year: schema.papers.year, authors: schema.papers.authors }).from(schema.papers).where(inArray(schema.papers.id, ids([...new Set([...cells.map((c) => c.paperId), ...claims.map((c) => c.paperId)])]))).all());
+  const papers0 = (await db.select({ id: schema.papers.id, title: schema.papers.title, year: schema.papers.year, authors: schema.papers.authors, citationCount: schema.papers.citationCount }).from(schema.papers).where(inArray(schema.papers.id, ids([...new Set([...cells.map((c) => c.paperId), ...claims.map((c) => c.paperId)])]))).all());
   // Study type per paper, for colour coding the evidence network (AI-derived from the abstract).
   const sts = (await db.select({ paperId: schema.paperSummaries.paperId, studyType: schema.paperSummaries.studyType }).from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, ids(papers0.map((p) => p.id)))).all());
   const papers = papers0.map((p) => ({ ...p, studyType: sts.find((x) => x.paperId === p.id)?.studyType ?? null }));
@@ -336,6 +337,76 @@ export async function decisionLogView(projectId: string) {
 /** The criteria that change what a database returns (inclusion/exclusion only guide ranking). */
 const filtersKey = (c: Criteria | null) => JSON.stringify([c?.yearFrom ?? null, c?.yearTo ?? null, c?.languages ?? [], c?.hardFilter ?? []]);
 
+/** Compute per-topic article stage counts (retrieved / rendered / filed) and citation impact metrics. */
+function computeTopicStats(params: {
+  topics: { id: string; name: string }[];
+  queries: { id: string; topicId: string }[];
+  runs: { queryId: string; status: string }[];
+  papers: { id: string; title: string; year: number | null; citationCount: number | null; oaUrl: string | null; pmcid: string | null; sourceDatabases: string[]; publicationTypes: string[] }[];
+  paperTopics: { paperId: string; topicId: string }[];
+  summarisedPaperIds: Set<string>;
+  scores: { topicId: string; paperId: string; selected: boolean }[];
+  appraisals: { id: string; paperId: string; status: string }[];
+  undecidedByAppraisal: Map<string, number>;
+}): TopicArticleStats[] {
+  const { topics, queries, runs, papers, paperTopics, summarisedPaperIds, scores, appraisals, undecidedByAppraisal } = params;
+  const paperById = new Map(papers.map((p) => [p.id, p]));
+  const appByPaper = new Map(appraisals.map((a) => [a.paperId, a]));
+  const queryTopic = new Map(queries.map((q) => [q.id, q.topicId]));
+  const now = new Date().getFullYear();
+
+  return topics.map((t) => {
+    const linkedIds = [...new Set(paperTopics.filter((l) => l.topicId === t.id).map((l) => l.paperId))];
+    const topicPapers = linkedIds.map((pid) => paperById.get(pid)).filter((p): p is NonNullable<typeof p> => !!p);
+    const rendered = linkedIds.filter((pid) => summarisedPaperIds.has(pid)).length;
+    const selectedIds = [...new Set(scores.filter((s) => s.topicId === t.id && s.selected).map((s) => s.paperId))];
+    let appraised = 0;
+    let failedAppraisals = 0;
+    let undecidedQuotes = 0;
+    let filed = 0;
+    for (const pid of selectedIds) {
+      const a = appByPaper.get(pid);
+      if (!a) continue;
+      if (a.status === "failed") failedAppraisals++;
+      if (a.status === "done") {
+        appraised++;
+        const u = undecidedByAppraisal.get(a.id) ?? 0;
+        undecidedQuotes += u;
+        if (u === 0) filed++;
+      }
+    }
+    const topicRuns = runs.filter((r) => queryTopic.get(r.queryId) === t.id);
+    const failedRuns = topicRuns.filter((r) => r.status === "failed").length;
+    const runningRuns = topicRuns.filter((r) => r.status === "running" || r.status === "queued").length;
+
+    const cited = topicPapers.filter((p): p is typeof p & { citationCount: number } => typeof p.citationCount === "number");
+    const totalCitations = cited.reduce((acc, p) => acc + p.citationCount, 0);
+    const velocities = cited.map((p) => citationsPerYear(p.citationCount, p.year, now) ?? 0);
+    const avgCitationsPerYear = velocities.length ? Math.round((velocities.reduce((a, b) => a + b, 0) / velocities.length) * 10) / 10 : 0;
+    const maxCitations = cited.length ? Math.max(...cited.map((p) => p.citationCount)) : 0;
+
+    return {
+      topicId: t.id,
+      name: t.name,
+      retrieved: topicPapers.length,
+      rendered,
+      filed,
+      selected: selectedIds.length,
+      appraised,
+      failedAppraisals,
+      undecidedQuotes,
+      failedRuns,
+      runningRuns,
+      totalCitations,
+      citedPapers: cited.filter((p) => p.citationCount > 0).length,
+      avgCitationsPerYear,
+      hIndex: computeHIndex(cited.map((p) => p.citationCount)),
+      openAccessCount: topicPapers.filter((p) => !!(p.oaUrl || p.pmcid)).length,
+      maxCitations,
+    };
+  });
+}
+
 /** Compact summary for the canvas: one key number per node, cheap enough to stream over SSE. */
 export async function canvasView(projectId: string): Promise<CanvasSummary> {
   const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
@@ -343,11 +414,22 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
   const qs = (await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
   const runs = (await db.select().from(schema.searchRuns).where(eq(schema.searchRuns.projectId, projectId)).all());
   const criteria = (await db.select({ criteria: schema.projects.criteria }).from(schema.projects).where(eq(schema.projects.id, projectId)).get())?.criteria ?? null;
-  const paperIds = (await db.select({ id: schema.papers.id }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all()).map((p) => p.id);
-  const sums = (await db.select({ edited: schema.paperSummaries.edited }).from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, ids(paperIds))).all());
+  const papers = (await db.select({
+    id: schema.papers.id,
+    title: schema.papers.title,
+    year: schema.papers.year,
+    citationCount: schema.papers.citationCount,
+    oaUrl: schema.papers.oaUrl,
+    pmcid: schema.papers.pmcid,
+    sourceDatabases: schema.papers.sourceDatabases,
+    publicationTypes: schema.papers.publicationTypes,
+  }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all());
+  const paperIds = papers.map((p) => p.id);
+  const paperTopicLinks = (await db.select().from(schema.paperTopics).where(inArray(schema.paperTopics.paperId, ids(paperIds))).all());
+  const sums = (await db.select({ paperId: schema.paperSummaries.paperId, edited: schema.paperSummaries.edited, studyType: schema.paperSummaries.studyType }).from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, ids(paperIds))).all());
   const scores = (await db.select({ topicId: schema.scores.topicId, paperId: schema.scores.paperId, selected: schema.scores.selected, subScores: schema.scores.subScores }).from(schema.scores).where(inArray(schema.scores.topicId, ids(topics.map((t) => t.id)))).all());
-  const apps = (await db.select({ id: schema.appraisals.id, status: schema.appraisals.status, textSource: schema.appraisals.textSource }).from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids(paperIds))).all());
-  const cl = (await db.select({ verified: schema.claims.verified, notReported: schema.claims.notReported, userAccepted: schema.claims.userAccepted, userRejected: schema.claims.userRejected }).from(schema.claims).where(inArray(schema.claims.appraisalId, ids(apps.map((a) => a.id)))).all());
+  const apps = (await db.select({ id: schema.appraisals.id, paperId: schema.appraisals.paperId, status: schema.appraisals.status, textSource: schema.appraisals.textSource }).from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids(paperIds))).all());
+  const cl = (await db.select({ appraisalId: schema.claims.appraisalId, verified: schema.claims.verified, notReported: schema.claims.notReported, userAccepted: schema.claims.userAccepted, userRejected: schema.claims.userRejected }).from(schema.claims).where(inArray(schema.claims.appraisalId, ids(apps.map((a) => a.id)))).all());
   const items = (await db.select({ kind: schema.synthesisItems.kind }).from(schema.synthesisItems).where(eq(schema.synthesisItems.projectId, projectId)).all());
   const cxCount = (await db.select({ id: schema.contradictions.id }).from(schema.contradictions).where(eq(schema.contradictions.projectId, projectId)).all()).length;
   const rqs = (await db.select({ id: schema.researchQuestions.id, chosen: schema.researchQuestions.chosen, text: schema.researchQuestions.text }).from(schema.researchQuestions).where(eq(schema.researchQuestions.projectId, projectId)).all());
@@ -360,6 +442,24 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
     if (r.status === "failed") s.failed++;
   }
   const extracted = cl.filter((c) => !c.notReported);
+  const undecidedByAppraisal = new Map<string, number>();
+  for (const c of cl) {
+    if (isUndecided(c)) undecidedByAppraisal.set(c.appraisalId, (undecidedByAppraisal.get(c.appraisalId) ?? 0) + 1);
+  }
+  const summarisedPaperIds = new Set(sums.map((s) => s.paperId));
+  const studyByPaper = new Map(sums.map((s) => [s.paperId, s.studyType]));
+  const topicStats = computeTopicStats({
+    topics,
+    queries: qs,
+    runs,
+    papers,
+    paperTopics: paperTopicLinks,
+    summarisedPaperIds,
+    scores,
+    appraisals: apps,
+    undecidedByAppraisal,
+  });
+  const impact = summarizeCorpusImpact(papers.map((p) => ({ ...p, studyType: studyByPaper.get(p.id) ?? null })));
   return {
     topics: topics.map((t) => ({ id: t.id, name: t.name, origin: t.origin, approved: t.approved, synonyms: t.synonyms.length, controlledTerms: t.controlledTerms.length })),
     scoping: { messages: sc.messages.length, asked: sc.asked, maxQuestions: sc.maxQuestions, done: sc.done, awaitingAnswer: sc.awaitingAnswer },
@@ -416,6 +516,8 @@ export async function canvasView(projectId: string): Promise<CanvasSummary> {
     },
     synthesis: { statements: items.length, contradictions: cxCount, known: items.filter((i) => i.kind === "known").length, contested: items.filter((i) => i.kind === "contested").length, unknown: items.filter((i) => i.kind === "unknown").length },
     questions: { count: rqs.length, chosenId: chosen?.id ?? null, chosenText: chosen ? scrubIds(chosen.text) : null },
+    topicStats,
+    impact,
   };
 }
 
@@ -428,16 +530,79 @@ export async function claimsView(projectId: string): Promise<ClaimLite[]> {
   return rows.map((c) => ({ id: c.id, appraisalId: c.appraisalId, paperId: c.paperId, paperTitle: title.get(c.paperId) ?? "", field: c.field, statement: c.statement, quote: c.quote, verified: c.verified, userAccepted: c.userAccepted, userRejected: c.userRejected }));
 }
 
-/** Minimal per-paper data for the live map and category mix (small enough to poll while retrieval runs). */
+/** Per-paper data for the live map, impact graphs, and category mix (compact enough to poll while retrieval runs). */
 export async function paperPointsView(projectId: string) {
-  const papers = (await db.select({ id: schema.papers.id, title: schema.papers.title, year: schema.papers.year, publicationTypes: schema.papers.publicationTypes, sourceDatabases: schema.papers.sourceDatabases }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all());
+  const papers = (await db.select({
+    id: schema.papers.id,
+    title: schema.papers.title,
+    authors: schema.papers.authors,
+    year: schema.papers.year,
+    journal: schema.papers.journal,
+    citationCount: schema.papers.citationCount,
+    oaUrl: schema.papers.oaUrl,
+    oaStatus: schema.papers.oaStatus,
+    pmcid: schema.papers.pmcid,
+    publicationTypes: schema.papers.publicationTypes,
+    sourceDatabases: schema.papers.sourceDatabases,
+  }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all());
   const pids = ids(papers.map((p) => p.id));
   const sums = (await db.select({ paperId: schema.paperSummaries.paperId, studyType: schema.paperSummaries.studyType }).from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, pids)).all());
   const links = (await db.select().from(schema.paperTopics).where(inArray(schema.paperTopics.paperId, pids)).all());
   const topics = (await db.select({ id: schema.topics.id, name: schema.topics.name }).from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
+  const qs = (await db.select({ id: schema.queries.id, topicId: schema.queries.topicId }).from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
+  const runs = (await db.select({ queryId: schema.searchRuns.queryId, status: schema.searchRuns.status }).from(schema.searchRuns).where(eq(schema.searchRuns.projectId, projectId)).all());
+  const scoreRows = (await db.select({ paperId: schema.scores.paperId, topicId: schema.scores.topicId, total: schema.scores.total, selected: schema.scores.selected, subScores: schema.scores.subScores }).from(schema.scores).where(inArray(schema.scores.topicId, ids(topics.map((t) => t.id)))).all());
+  const apps = (await db.select({ id: schema.appraisals.id, paperId: schema.appraisals.paperId, status: schema.appraisals.status, textSource: schema.appraisals.textSource }).from(schema.appraisals).where(inArray(schema.appraisals.paperId, pids)).all());
+  const claimRows = apps.length
+    ? (await db.select({ appraisalId: schema.claims.appraisalId, verified: schema.claims.verified, notReported: schema.claims.notReported, userAccepted: schema.claims.userAccepted, userRejected: schema.claims.userRejected }).from(schema.claims).where(inArray(schema.claims.appraisalId, ids(apps.map((a) => a.id)))).all())
+    : [];
+
+  const undecidedByAppraisal = new Map<string, number>();
+  for (const c of claimRows) {
+    if (isUndecided(c)) undecidedByAppraisal.set(c.appraisalId, (undecidedByAppraisal.get(c.appraisalId) ?? 0) + 1);
+  }
   const st = new Map(sums.map((x) => [x.paperId, x.studyType]));
+  const appByPaper = new Map(apps.map((a) => [a.paperId, a]));
+  const scoresByPaper = new Map<string, typeof scoreRows>();
+  for (const sc of scoreRows) scoresByPaper.set(sc.paperId, [...(scoresByPaper.get(sc.paperId) ?? []), sc]);
+
+  const topicStats = computeTopicStats({
+    topics,
+    queries: qs,
+    runs,
+    papers,
+    paperTopics: links,
+    summarisedPaperIds: new Set(sums.map((s) => s.paperId)),
+    scores: scoreRows,
+    appraisals: apps,
+    undecidedByAppraisal,
+  });
+  const impact = summarizeCorpusImpact(papers.map((p) => ({ ...p, studyType: st.get(p.id) ?? null })));
+
   return {
     topics,
-    papers: papers.map((p) => ({ ...p, studyType: st.get(p.id) ?? null, topicIds: links.filter((l) => l.paperId === p.id).map((l) => l.topicId) })),
+    topicStats,
+    impact,
+    papers: papers.map((p) => {
+      const pScores = scoresByPaper.get(p.id) ?? [];
+      const bestSelected = pScores.filter((s) => s.selected).sort((a, b) => b.total - a.total)[0];
+      const bestAny = [...pScores].sort((a, b) => b.total - a.total)[0];
+      const best = bestSelected ?? bestAny ?? null;
+      const app = appByPaper.get(p.id) ?? null;
+      const undecidedQuotes = app ? (undecidedByAppraisal.get(app.id) ?? 0) : 0;
+      const appraised = app?.status === "done";
+      return {
+        ...p,
+        studyType: st.get(p.id) ?? null,
+        hasSummary: st.has(p.id),
+        topicIds: links.filter((l) => l.paperId === p.id).map((l) => l.topicId),
+        score: best?.total ?? null,
+        selected: pScores.some((s) => s.selected),
+        appraised,
+        filed: appraised && undecidedQuotes === 0,
+        undecidedQuotes,
+        textSource: app?.status === "done" ? app.textSource : null,
+      };
+    }),
   };
 }

@@ -13,11 +13,30 @@ import { WhatHappens } from "../guide/WhatHappens";
 import { ShapeIcon } from "../categories";
 import { useViewPrefs } from "../session/viewPrefs";
 import { ARTICLE_TYPES, STUDY_GROUPS, hasHues, articleTypeOf, categoryVar, sourceOf, studyGroupFromLabels, studyGroupOf, type Category, type Dimension } from "@/lib/shared/categories";
+import { paperImpactEvaluation } from "@/lib/shared/impact";
+import { evaluateTopicAttention, type CorpusImpactSummary, type TopicArticleStats } from "@/lib/shared/canvas";
+import { ArticlePipelineStrip, AttentionBadge } from "../canvas/node-bits";
 import type { MapPoint } from "../viz/paper-points";
 
 const PaperMap = dynamic(() => import("../viz/PaperMap").then((m) => m.PaperMap), { ssr: false });
 
-interface PointsData { topics: { id: string; name: string }[]; papers: { id: string; title: string; year: number | null; publicationTypes: string[]; sourceDatabases: string[]; studyType: string | null; topicIds: string[] }[] }
+interface PointsData {
+  topics: { id: string; name: string }[];
+  topicStats?: TopicArticleStats[];
+  impact?: CorpusImpactSummary;
+  papers: {
+    id: string;
+    title: string;
+    year: number | null;
+    citationCount?: number | null;
+    oaUrl?: string | null;
+    pmcid?: string | null;
+    publicationTypes: string[];
+    sourceDatabases: string[];
+    studyType: string | null;
+    topicIds: string[];
+  }[];
+}
 
 /**
  * The mix of a category among the papers so far (bars with shape, colour and count: never colour alone). With
@@ -90,16 +109,35 @@ export function CorpusPanel() {
   }
   const dupes = Math.max(0, fetchedTotal - (data?.uniquePapers ?? 0));
   const topicList = pts?.topics ?? [];
+  const topicStats = pts?.topicStats ?? [];
+  const impact = pts?.impact;
   // Article type has no hue (only "Colour by" dimensions do), so it filters the chart from its mix bars instead.
   const chartPs = articleOnly ? ps.filter((p) => articleTypeOf(p.publicationTypes) === articleOnly) : ps;
-  const points: MapPoint[] = chartPs.map((p) => ({
-    id: p.id,
-    title: p.title,
-    year: p.year,
-    score: null,
-    layer: Math.max(-1, topicList.findIndex((t) => p.topicIds.includes(t.id))),
-    cat: view.colorBy === "topic" ? p.topicIds[0] ?? "" : view.colorBy === "source" ? sourceOf(p.sourceDatabases) : p.studyType ? studyGroupOf(p.studyType) : studyGroupFromLabels(p.publicationTypes),
-  }));
+  const points: MapPoint[] = chartPs.map((p) => {
+    const evaln = paperImpactEvaluation({ ...p, citationCount: p.citationCount ?? null });
+    return {
+      id: p.id,
+      title: p.title,
+      year: p.year,
+      score: null,
+      layer: Math.max(-1, topicList.findIndex((t) => p.topicIds.includes(t.id))),
+      cat:
+        view.colorBy === "topic"
+          ? p.topicIds[0] ?? ""
+          : view.colorBy === "impact"
+            ? evaln.tier
+            : view.colorBy === "source"
+              ? sourceOf(p.sourceDatabases)
+              : p.studyType
+                ? studyGroupOf(p.studyType)
+                : studyGroupFromLabels(p.publicationTypes),
+      citations: p.citationCount ?? null,
+      citationsPerYear: evaln.citationsPerYear,
+      impactScore: evaln.score,
+      impactTier: evaln.tier,
+      openAccess: !!(p.oaUrl || p.pmcid),
+    };
+  });
   return (
     <div className="space-y-4">
       <StaleNotice stage={4} />
@@ -113,7 +151,40 @@ export function CorpusPanel() {
       <div className="grid grid-cols-2 gap-2">
         <Stat label="Different papers" value={fmtInt(data?.uniquePapers ?? 0)} />
         <Stat label="Duplicates merged" value={fmtInt(dupes)} />
+        {impact && impact.withCitationData > 0 && (
+          <>
+            <Stat label="Total citations" value={fmtInt(impact.totalCitations)} />
+            <Stat label="Corpus h-index · cites/yr" value={`h-${impact.hIndex} · ${impact.avgCitationsPerYear}/y`} />
+          </>
+        )}
       </div>
+      {topicStats.length > 0 && (
+        <section aria-label="Per-topic article status" className="space-y-2 rounded-md border border-line bg-bg-1 p-3">
+          <p className="font-medium">Articles by topic (retrieved · rendered · filed)</p>
+          <ul className="space-y-2.5">
+            {topicStats.map((ts) => {
+              const attn = evaluateTopicAttention(ts, states);
+              return (
+                <li key={ts.topicId} className="space-y-1">
+                  <div className="flex items-center justify-between gap-2 text-12">
+                    <span className="min-w-0 flex-1 truncate font-medium text-fg-0">{ts.name}</span>
+                    <AttentionBadge attention={attn} compact />
+                  </div>
+                  <ArticlePipelineStrip
+                    retrieved={ts.retrieved}
+                    rendered={ts.rendered}
+                    filed={ts.filed}
+                    selected={ts.selected}
+                    stageTones={attn.stageTones}
+                    totalCitations={ts.totalCitations}
+                    hIndex={ts.hIndex}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
       {ps.length > 0 && (
         <div className="space-y-3 rounded-md border border-line bg-bg-1 p-3">
           <p className="font-medium">What kinds of papers you are getting</p>
@@ -144,7 +215,7 @@ export function CorpusPanel() {
         </div>
       )}
       {ps.length > 0 && (
-        <PaperMap points={points} of={ps.length} colorBy={view.colorBy === "topic" || view.colorBy === "source" ? view.colorBy : "study"} onColorBy={view.setColorBy} topics={topicList} onOpen={openPaper} layers={topicList.length} title={running ? "Papers as they arrive" : "The papers found"} colorChoices={["study", "topic", "source"]} />
+        <PaperMap points={points} of={ps.length} colorBy={view.colorBy === "topic" || view.colorBy === "source" || view.colorBy === "impact" ? view.colorBy : "study"} onColorBy={view.setColorBy} topics={topicList} onOpen={openPaper} layers={topicList.length} title={running ? "Papers as they arrive" : "The papers found (year vs impact)"} colorChoices={["study", "topic", "impact", "source"]} defaultY="citations" />
       )}
       <section aria-label="Per source">
         <ul className="space-y-3">

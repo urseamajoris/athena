@@ -3,8 +3,9 @@ import { useMemo, useState } from "react";
 import * as THREE from "three";
 import Scene3D, { Label } from "./Scene3D";
 import { shapeTexture } from "./shapes3d";
-import { place, type MapPoint, type Placed } from "./paper-points";
+import { place, type MapPoint, type Placed, type YAxisMetric } from "./paper-points";
 import { categoriesFor, categoryHex, type ColorBy } from "@/lib/shared/categories";
+import { fmtInt } from "@/lib/shared/format";
 
 function Cloud({ pts, color, shape, faded, onHover, onOpen, size }: { pts: Placed[]; color: string; shape: Parameters<typeof shapeTexture>[0]; faded: boolean; onHover: (p: Placed | null) => void; onOpen: (id: string) => void; size: number }) {
   const geo = useMemo(() => {
@@ -24,9 +25,9 @@ function Cloud({ pts, color, shape, faded, onHover, onOpen, size }: { pts: Place
   );
 }
 
-export default function PaperMap3D({ points, colorBy, topics, theme, isolated, highlight, animate, onOpen, layers, label, dimUnselected }: { points: MapPoint[]; colorBy: ColorBy; topics: { id: string; name: string }[]; theme: "light" | "dark"; isolated: string | null; highlight: string | null; animate: boolean; onOpen: (id: string) => void; layers: number; label: string; dimUnselected: boolean }) {
+export default function PaperMap3D({ points, colorBy, topics, theme, isolated, highlight, animate, onOpen, layers, label, dimUnselected, yMetric }: { points: MapPoint[]; colorBy: ColorBy; topics: { id: string; name: string }[]; theme: "light" | "dark"; isolated: string | null; highlight: string | null; animate: boolean; onOpen: (id: string) => void; layers: number; label: string; dimUnselected: boolean; yMetric?: YAxisMetric }) {
   const [hover, setHover] = useState<Placed | null>(null);
-  const { placed, yearMin, yearMax, scored } = useMemo(() => place(points, layers), [points, layers]);
+  const { placed, yearMin, yearMax, yAxis } = useMemo(() => place(points, layers, yMetric), [points, layers, yMetric]);
   const cats = categoriesFor(colorBy, topics);
   const groups = useMemo(() => {
     const m = new Map<string, Placed[]>();
@@ -38,6 +39,8 @@ export default function PaperMap3D({ points, colorBy, topics, theme, isolated, h
   }, [placed, dimUnselected]);
   const axis = theme === "light" ? "#7a7a86" : "#70707a";
   const ink = theme === "light" ? "#3e3e47" : "#b4b4bd";
+  const topLabel = yAxis.ticks.length ? `${yAxis.label} (${yAxis.ticks[yAxis.ticks.length - 1].label}) ↑` : "";
+  const bottomLabel = yAxis.ticks.length ? yAxis.ticks[0].label : "";
   return (
     <div className="relative">
       <Scene3D label={label} animate={animate} camera={[0, 0.6, 8.2]} className="h-[380px] w-full" pointThreshold={0.18}>
@@ -51,8 +54,8 @@ export default function PaperMap3D({ points, colorBy, topics, theme, isolated, h
           <Label position={[-4.9, -3.35, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>{yearMin}</Label>
           <Label position={[4.1, -3.35, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>{yearMax}</Label>
           <Label position={[-0.6, -3.35, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Year →</Label>
-          {scored && <Label position={[-6.1, 2.8, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>Score 100 ↑</Label>}
-          {scored && <Label position={[-5.7, -2.6, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>0</Label>}
+          {topLabel && <Label position={[-6.4, 2.8, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>{topLabel}</Label>}
+          {bottomLabel && <Label position={[-5.7, -2.6, -2.4]} style={{ color: ink, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none" }}>{bottomLabel}</Label>}
           {groups.map(([key, pts]) => {
             const [cat, dim] = key.split("|");
             const c = cats.find((x) => x.key === cat);
@@ -64,7 +67,14 @@ export default function PaperMap3D({ points, colorBy, topics, theme, isolated, h
       {hover && (
         <div role="tooltip" className="pointer-events-none absolute left-3 top-3 max-w-[80%] rounded-sm border border-line-strong bg-bg-2 px-2 py-1 text-12">
           <span className="block font-medium text-fg-0">{hover.title}</span>
-          <span className="text-fg-2">{hover.year ?? "year unknown"}{hover.score !== null ? ` · score ${Math.round(hover.score)}` : ""} · click to open</span>
+          <span className="tabular-nums text-fg-2">
+            {hover.year ?? "year unknown"}
+            {typeof hover.citations === "number" ? ` · ${fmtInt(hover.citations)} citations` : ""}
+            {typeof hover.citationsPerYear === "number" ? ` (${hover.citationsPerYear}/yr)` : ""}
+            {typeof hover.impactScore === "number" ? ` · impact ${hover.impactScore}/100` : ""}
+            {hover.score !== null ? ` · score ${Math.round(hover.score)}` : ""}
+            {" · click to open"}
+          </span>
         </div>
       )}
     </div>

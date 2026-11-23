@@ -79,7 +79,7 @@ export function SynthesisPanel() {
   const edited = topics.some((t) => t.items.some((i) => i.edited));
   const network = {
     statements: topics.flatMap((t) => t.items.map((i) => ({ id: i.id, kind: i.kind as "known" | "contested" | "unknown", text: i.statement, paperIds: [...new Set(i.claimIds.map((id) => data.claims[id]?.paperId).filter(Boolean))] as string[] }))),
-    papers: Object.values(data.papers).map((p) => ({ id: p.id, label: short(p), studyType: p.studyType ?? null })),
+    papers: Object.values(data.papers).map((p) => ({ id: p.id, label: short(p), studyType: p.studyType ?? null, citationCount: p.citationCount ?? null })),
   };
   return (
     <div className="space-y-4">
