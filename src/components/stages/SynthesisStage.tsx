@@ -11,7 +11,7 @@ interface Cell { id: string; theme: string; paperId: string; value: string; stan
 interface Contradiction { id: string; theme: string; description: string; claimIds: string[]; paperIds: string[] }
 interface Item { id: string; kind: string; statement: string; claimIds: string[]; edited: boolean }
 interface SynData {
-  topics: { id: string; name: string; importanceRank: number | null; skipped: string | null; items: Item[]; cells: Cell[]; contradictions: Contradiction[] }[];
+  topics: { id: string; name: string; importanceRank: number | null; skipped: string | null; keptFromEarlierRun: string | null; items: Item[]; cells: Cell[]; contradictions: Contradiction[] }[];
   claims: Record<string, ClaimRef>;
   papers: Record<string, PaperRef>;
 }
@@ -81,7 +81,7 @@ export function SynthesisStage() {
           <div role="tablist" aria-label="Topics" className="flex flex-wrap gap-1 border-b border-gray-200">
             {topics.map((x) => (
               <button key={x.id} role="tab" aria-selected={x.id === t.id} onClick={() => setTab(x.id)} className={cx("-mb-px rounded-t-lg border px-3 py-1.5 text-sm", x.id === t.id ? "border-gray-200 border-b-white bg-white font-semibold text-gray-900" : "border-transparent text-gray-600 hover:text-gray-900")}>
-                {x.name} {x.skipped && <Badge tone="amber">skipped</Badge>} {x.contradictions.length > 0 && <Badge tone="rose">{x.contradictions.length} conflict{x.contradictions.length === 1 ? "" : "s"}</Badge>}
+                {x.name} {x.skipped && <Badge tone="amber">skipped</Badge>} {x.keptFromEarlierRun && <Badge tone="amber">earlier run</Badge>} {x.contradictions.length > 0 && <Badge tone="rose">{x.contradictions.length} conflict{x.contradictions.length === 1 ? "" : "s"}</Badge>}
               </button>
             ))}
           </div>
@@ -93,6 +93,12 @@ export function SynthesisStage() {
             </div>
           ) : (
           <div role="tabpanel" className="space-y-4">
+            {t.keptFromEarlierRun && (
+              <div role="note" className="card border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                <p className="font-semibold">This is the synthesis from an earlier run</p>
+                <p className="mt-1">{t.keptFromEarlierRun} Nothing was replaced for “{t.name}”, so what you see may not reflect your current papers and quote decisions. Re-run this step, or confirm below that you are keeping it.</p>
+              </div>
+            )}
             <Matrix t={t} data={data} />
             {t.contradictions.length > 0 && (
               <section className="card border-rose-200 p-4">

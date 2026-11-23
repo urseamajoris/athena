@@ -197,14 +197,18 @@ test("stage 8: a skipped topic shows why and must be acknowledged; citing a reje
 test("stage 9: editing the chosen question outdates its novelty check and gap until re-checked", async () => {
   const s = seedReview();
   atStage(s.projectId, 9);
-  const r = await call(s, "PATCH", `questions/${s.questionId}`, { text: "Among rural clinics in Vietnam, does connectivity investment increase uptake?" });
+  // The question and the searches written for it are saved together, so one re-run checks the new wording.
+  const r = await call(s, "PATCH", `questions/${s.questionId}`, {
+    text: "Among rural clinics in Vietnam, does connectivity investment increase uptake?",
+    noveltyQueries: [{ database: "pubmed", query: "telemedicine AND connectivity AND Vietnam" }],
+  });
   assert.equal(r.status, 200);
   const q = r.data.questions.find((x: { id: string }) => x.id === s.questionId);
   assert.equal(q.noveltyStatus, "outdated");
   assert.equal(q.gapOutdated, true);
   blocks(s.projectId, 9, /novelty check ran/);
   await call(s, "POST", `questions/${s.questionId}/novelty`, {});
-  blocks(s.projectId, 9, /gap was written for the earlier wording/);
+  blocks(s.projectId, 9, /gap was written for the earlier version/);
   await call(s, "POST", `questions/${s.questionId}/gap-confirm`, {});
   assert.deepEqual(approvalBlockers(s.projectId, 9), []);
   const fin = await call(s, "POST", "stages/9/approve", {});

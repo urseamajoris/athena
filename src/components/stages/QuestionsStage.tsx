@@ -11,6 +11,8 @@ export interface RQ {
   id: string; text: string; framework: string; structure: Record<string, string>; design: string; gap: string; feasibility: string; weakness: string;
   noveltyQueries: { database: string; query: string; count: number | null; error: string | null }[];
   noveltyMatches: Match[]; noveltyStatus: string; chosen: boolean; edited: boolean; claimIds: string[]; gapOutdated: boolean;
+  /** The search strings were written for an earlier wording of the question and have not been edited since. */
+  noveltySearchesOutdated: boolean;
 }
 export interface QData { questions: RQ[]; claims: Record<string, ClaimRef>; papers: Record<string, PaperRef> }
 
@@ -60,7 +62,7 @@ export function QuestionsStage() {
                   {!Object.keys(q.structure).some((k) => /design/i.test(k)) && <div className="grid grid-cols-[96px_1fr] gap-2"><dt className="text-gray-500">Design</dt><dd className="text-gray-800">{q.design}</dd></div>}
                 </dl>
                 <Block title="Gap it addresses">
-                  {q.gapOutdated && <p className="mb-1 text-xs font-medium text-amber-800">Written for the earlier wording of this question — check it below.</p>}
+                  {q.gapOutdated && <p className="mb-1 text-xs font-medium text-amber-800">Written for the earlier version of this question — check it below.</p>}
                   <p>{q.gap}</p>
                   <div className="mt-1 flex flex-wrap gap-1">{q.claimIds.map((id) => <ClaimChip key={id} id={id} claims={data.claims} papers={data.papers} />)}</div>
                 </Block>
@@ -92,14 +94,19 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 function Novelty({ q, onRerun }: { q: RQ; onRerun: (d: QData) => void }) {
   const { projectId, refresh } = useWizard();
   const [busy, setBusy] = useState(false);
-  const outdated = q.noveltyStatus === "outdated";
+  const oldSearches = q.noveltySearchesOutdated;
+  const outdated = q.noveltyStatus === "outdated" || oldSearches;
   return (
     <div className={cx("mt-3 rounded-lg p-2.5 text-xs", outdated ? "bg-amber-50" : "bg-gray-50")}>
       <div className="flex items-center justify-between">
         <p className="font-semibold text-gray-700">Novelty check — here is what was found</p>
-        <button className={outdated ? "btn-secondary px-1.5 py-0.5 text-[11px]" : "btn-ghost px-1.5 py-0.5 text-[11px]"} disabled={busy} onClick={async () => { setBusy(true); try { onRerun(await api(projectPath(projectId, `questions/${q.id}/novelty`), { body: {} })); await refresh(); } finally { setBusy(false); } }}>{busy ? <Spinner className="h-3 w-3" /> : outdated ? "Re-run for the edited question" : "Re-run"}</button>
+        <button className={outdated ? "btn-secondary px-1.5 py-0.5 text-[11px]" : "btn-ghost px-1.5 py-0.5 text-[11px]"} disabled={busy} onClick={async () => { setBusy(true); try { onRerun(await api(projectPath(projectId, `questions/${q.id}/novelty`), { body: {} })); await refresh(); } finally { setBusy(false); } }}>{busy ? <Spinner className="h-3 w-3" /> : oldSearches ? "Re-run these earlier searches" : outdated ? "Re-run with the edited searches" : "Re-run"}</button>
       </div>
-      {outdated && <p className="mt-1 font-medium text-amber-900">Out of date: the question (or its searches) changed after this search ran, so the list below checks the old wording.</p>}
+      {oldSearches ? (
+        <p className="mt-1 font-medium text-amber-900">Out of date: the question changed after these searches were written, so they still search for the earlier wording. Re-running them does not check the question as it now reads. Edit the novelty searches under “Refine your chosen question” to fit it, save, then re-run.</p>
+      ) : outdated ? (
+        <p className="mt-1 font-medium text-amber-900">Out of date: the searches were edited after this list was produced. Re-run to see what the edited searches find.</p>
+      ) : null}
       <p className="mt-1 text-gray-500">Searched every year and language — your review’s year and language limits are not applied here — for journal articles, reviews and preprints. A low count or a short list does not show the question is new.</p>
       <ul className="mt-1 space-y-0.5 text-gray-500">
         {q.noveltyQueries.map((n) => (
@@ -171,11 +178,12 @@ function EditChosen({ q, onSaved }: { q: RQ; onSaved: (d: QData) => void }) {
       <textarea id="chosen-gap" className="input mt-0.5 min-h-16" value={gap} onChange={(e) => setGap(e.target.value)} />
       {q.gapOutdated && gap === q.gap && (
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-amber-900">
-          <span>The gap was written for the earlier wording of the question. Edit it, or confirm it still applies.</span>
+          <span>The gap was written before you changed the question, its structure or its design. Edit it, or confirm it still applies.</span>
           <button className="btn-ghost px-1.5 py-0.5 text-xs" disabled={busy} onClick={() => send(`questions/${q.id}/gap-confirm`, { body: {} })}>It still applies</button>
         </div>
       )}
       <p className="mt-3 text-xs text-gray-600">Novelty searches (run with no year or language limits)</p>
+      {q.noveltySearchesOutdated && !searchesDirty && <p className="mt-0.5 text-xs text-amber-900">These searches were written for the earlier wording. They are not rewritten for you: edit them to fit the question as it now reads, then save and re-run the novelty check.</p>}
       <div className="mt-0.5 grid gap-2 md:grid-cols-2">
         {searches.map((n, i) => (
           <label key={n.database} className="text-xs text-gray-600">{n.database}
@@ -190,7 +198,7 @@ function EditChosen({ q, onSaved }: { q: RQ; onSaved: (d: QData) => void }) {
           {busy && <Spinner />} Save edits
         </button>
       </div>
-      <p className="mt-2 text-xs text-gray-500">Changing the question or its searches puts the novelty check out of date: re-run it before you finish. When you are happy, press “Finish and see summary” below.</p>
+      <p className="mt-2 text-xs text-gray-500">Changing the question, its structure or its design puts the novelty check and the gap out of date. The novelty searches are not rewritten automatically: update them to fit the new wording, save, then re-run the check; and edit the gap or confirm it still applies. When you are happy, press “Finish and see summary” below.</p>
     </section>
   );
 }

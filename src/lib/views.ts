@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import { getProject, latestJob, stageCosts } from "./project";
 import { STAGES, scrubIds } from "./shared/stages";
-import { rankingCandidates } from "./jobs/ranking";
+import { MAX_PER_TOPIC, rankingCandidates } from "./jobs/ranking";
 import { detectCriteriaFlags } from "./shared/criteria";
 
 const ids = (a: string[]) => a.concat(["-"]);
@@ -125,13 +125,20 @@ export function rankingView(projectId: string) {
   const scores = db.select().from(schema.scores).where(inArray(schema.scores.topicId, ids(topics.map((t) => t.id)))).orderBy(desc(schema.scores.total)).all();
   const papers = db.select().from(schema.papers).where(inArray(schema.papers.id, ids([...new Set(scores.map((s) => s.paperId))]))).all();
   const sums = db.select().from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, ids(papers.map((p) => p.id)))).all();
-  const cands = new Map(rankingCandidates(projectId).map((c) => [c.topic.id, c.papers.map((p) => p.id)]));
+  const all = new Map(rankingCandidates(projectId).map((c) => [c.topic.id, c]));
+  const cands = new Map([...all].map(([id, c]) => [id, c.papers.map((p) => p.id)]));
+  const has = (topicId: string, paperId: string) => scores.some((s) => s.topicId === topicId && s.paperId === paperId);
   return {
+    /** The most papers the ranking job scores for one topic. */
+    maxPerTopic: MAX_PER_TOPIC,
     topics: topics.map((t) => ({
       ...t,
       // Papers that should have been scored for this topic but were not (a scoring batch failed).
       candidates: cands.get(t.id)?.length ?? 0,
-      unscored: (cands.get(t.id) ?? []).filter((pid) => !scores.some((s) => s.topicId === t.id && s.paperId === pid)).length,
+      unscored: (cands.get(t.id) ?? []).filter((pid) => !has(t.id, pid)).length,
+      /** Every paper a search found for this topic, and how many of them were left unscored by the per-topic limit. */
+      linked: all.get(t.id)?.linked ?? 0,
+      notScoredOverLimit: (all.get(t.id)?.beyondCap ?? []).filter((p) => !has(t.id, p.id)).length,
       scores: scores
         .filter((s) => s.topicId === t.id)
         .map((s) => {
@@ -232,6 +239,25 @@ export function synthesisSkips(projectId: string): Map<string, { reason: string;
   return out;
 }
 
+/**
+ * Topics whose stored synthesis comes from an earlier run because the latest (otherwise successful) run failed for
+ * that topic. The researcher re-runs, or explicitly keeps the earlier synthesis, before approving.
+ */
+export function synthesisKeptFromEarlierRun(projectId: string): Map<string, { reason: string; jobId: string }> {
+  const out = new Map<string, { reason: string; jobId: string }>();
+  const job = latestJob(projectId, 8);
+  if (!job || job.status !== "done") return out;
+  const withItems = new Set(db.select({ t: schema.synthesisItems.topicId }).from(schema.synthesisItems).where(eq(schema.synthesisItems.projectId, projectId)).all().map((r) => r.t));
+  const withCells = new Set(db.select({ t: schema.matrixCells.topicId }).from(schema.matrixCells).where(eq(schema.matrixCells.projectId, projectId)).all().map((r) => r.t));
+  const entries = db.select().from(schema.decisionLog).where(and(eq(schema.decisionLog.projectId, projectId), eq(schema.decisionLog.action, "synthesis_topic_skipped"))).all();
+  for (const d of entries) {
+    const a = d.after as { jobId?: string; topicId?: string; reason?: string; keptPrevious?: boolean } | null;
+    if (a?.jobId !== job.id || !a.keptPrevious || !a.topicId) continue;
+    if (withItems.has(a.topicId) || withCells.has(a.topicId)) out.set(a.topicId, { reason: a.reason ?? "The last synthesis run failed for this topic.", jobId: job.id });
+  }
+  return out;
+}
+
 export function synthesisView(projectId: string) {
   const topics = db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.importanceRank), asc(schema.topics.sortOrder)).all();
   const items = db.select().from(schema.synthesisItems).where(eq(schema.synthesisItems.projectId, projectId)).all();
@@ -242,12 +268,15 @@ export function synthesisView(projectId: string) {
   const claims = db.select().from(schema.claims).where(inArray(schema.claims.id, ids(claimIds))).all();
   const papers = db.select({ id: schema.papers.id, title: schema.papers.title, year: schema.papers.year, authors: schema.papers.authors }).from(schema.papers).where(inArray(schema.papers.id, ids([...new Set([...cells.map((c) => c.paperId), ...claims.map((c) => c.paperId)])]))).all();
   const skips = synthesisSkips(projectId);
+  const kept = synthesisKeptFromEarlierRun(projectId);
   return {
     topics: topics.map((t) => ({
       id: t.id,
       name: t.name,
       importanceRank: t.importanceRank,
       skipped: skips.get(t.id)?.reason ?? null,
+      /** Set when the synthesis shown is from an earlier run because the last run failed for this topic. */
+      keptFromEarlierRun: kept.get(t.id)?.reason ?? null,
       items: items.filter((i) => i.topicId === t.id).map((i) => ({ ...i, statement: scrubIds(i.statement), claimIds: links.filter((l) => l.ownerId === i.id).map((l) => l.claimId) })),
       cells: cells.filter((c) => c.topicId === t.id).map((c) => ({ ...c, value: scrubIds(c.value) })),
       contradictions: cx.filter((c) => c.topicId === t.id).map((c) => ({ ...c, description: scrubIds(c.description) })),
@@ -258,13 +287,14 @@ export function synthesisView(projectId: string) {
 }
 
 const GAP_ACTIONS = ["question_gap_outdated", "question_gap_edited", "question_gap_confirmed"];
+const SEARCH_ACTIONS = ["question_searches_outdated", "question_searches_edited"];
 
-/** Questions whose wording was edited after their gap was written, and the gap has not been edited or re-confirmed since. */
-export function gapOutdatedIds(projectId: string): Set<string> {
+/** Questions whose most recent decision-log entry among `actions` is `outdated`. */
+function lastLogged(projectId: string, actions: string[], outdated: string): Set<string> {
   const rows = db
     .select()
     .from(schema.decisionLog)
-    .where(and(eq(schema.decisionLog.projectId, projectId), inArray(schema.decisionLog.action, GAP_ACTIONS)))
+    .where(and(eq(schema.decisionLog.projectId, projectId), inArray(schema.decisionLog.action, actions)))
     .orderBy(sql`rowid`)
     .all();
   const last = new Map<string, string>();
@@ -272,17 +302,32 @@ export function gapOutdatedIds(projectId: string): Set<string> {
     const qid = (r.after as { questionId?: string } | null)?.questionId;
     if (qid) last.set(qid, r.action);
   }
-  return new Set([...last].filter(([, a]) => a === "question_gap_outdated").map(([q]) => q));
+  return new Set([...last].filter(([, a]) => a === outdated).map(([q]) => q));
+}
+
+/** Questions whose wording, structure or design was edited after their gap was written, and the gap has not been edited or re-confirmed since. */
+export function gapOutdatedIds(projectId: string): Set<string> {
+  return lastLogged(projectId, GAP_ACTIONS, "question_gap_outdated");
+}
+
+/**
+ * Questions whose novelty search strings were written for an earlier wording: the question's text, structure or
+ * design was edited and the search strings have not been edited in that save or since. Re-running those strings
+ * does not check the question as it now reads.
+ */
+export function noveltySearchesOutdatedIds(projectId: string): Set<string> {
+  return lastLogged(projectId, SEARCH_ACTIONS, "question_searches_outdated");
 }
 
 export function questionsView(projectId: string) {
   const qs = db.select().from(schema.researchQuestions).where(eq(schema.researchQuestions.projectId, projectId)).orderBy(asc(schema.researchQuestions.order)).all();
   const gapOld = gapOutdatedIds(projectId);
+  const searchesOld = noveltySearchesOutdatedIds(projectId);
   const links = db.select().from(schema.claimLinks).where(and(eq(schema.claimLinks.ownerType, "research_question"), inArray(schema.claimLinks.ownerId, ids(qs.map((q) => q.id))))).all();
   const claims = db.select().from(schema.claims).where(inArray(schema.claims.id, ids(links.map((l) => l.claimId)))).all();
   const papers = db.select({ id: schema.papers.id, title: schema.papers.title, year: schema.papers.year, authors: schema.papers.authors }).from(schema.papers).where(inArray(schema.papers.id, ids(claims.map((c) => c.paperId)))).all();
   return {
-    questions: qs.map((q) => ({ ...q, text: scrubIds(q.text), gap: scrubIds(q.gap), feasibility: scrubIds(q.feasibility), weakness: scrubIds(q.weakness), design: scrubIds(q.design), structure: Object.fromEntries(Object.entries(q.structure).map(([k, v]) => [k, scrubIds(v)])), claimIds: links.filter((l) => l.ownerId === q.id).map((l) => l.claimId), gapOutdated: gapOld.has(q.id) })),
+    questions: qs.map((q) => ({ ...q, text: scrubIds(q.text), gap: scrubIds(q.gap), feasibility: scrubIds(q.feasibility), weakness: scrubIds(q.weakness), design: scrubIds(q.design), structure: Object.fromEntries(Object.entries(q.structure).map(([k, v]) => [k, scrubIds(v)])), claimIds: links.filter((l) => l.ownerId === q.id).map((l) => l.claimId), gapOutdated: gapOld.has(q.id), noveltySearchesOutdated: searchesOld.has(q.id) })),
     claims: Object.fromEntries(withOrdinals(claims).map((c) => [c.id, c])),
     papers: Object.fromEntries(papers.map((p) => [p.id, p])),
   };

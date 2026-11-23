@@ -16,7 +16,7 @@ import { markdownReport, selectedBibtex, summaryCsv } from "./export";
 import { runNovelty } from "./jobs/questions";
 import { reverifyProject } from "./jobs/appraisal";
 import { nowIso, errMsg } from "./util";
-import { STUDY_TYPES, reviewProblems } from "./shared/stages";
+import { STUDY_TYPES, reviewProblems, scrubIds } from "./shared/stages";
 
 type Handler = (ctx: { projectId: string; params: Record<string, string>; body: unknown; url: URL }) => Promise<unknown> | unknown;
 interface Route { method: string; pattern: string[]; handler: Handler }
@@ -320,18 +320,37 @@ on("PATCH", "questions/:qid", ({ projectId, params, body }) => {
     body,
   );
   const q = projectQuestion(projectId, params.qid);
-  const textChanged = patch.text !== undefined && patch.text !== q.text;
-  const structureChanged = patch.structure !== undefined && JSON.stringify(patch.structure) !== JSON.stringify(q.structure);
-  const gapChanged = patch.gap !== undefined && patch.gap !== q.gap;
+  // The editor is filled from the view, which strips internal IDs from prose: sending that text back is not an edit.
+  const same = (sent: string, stored: string) => sent === stored || sent === scrubIds(stored);
+  const textChanged = patch.text !== undefined && !same(patch.text, q.text);
+  const structureChanged =
+    patch.structure !== undefined &&
+    (Object.keys(patch.structure).length !== Object.keys(q.structure).length || Object.entries(patch.structure).some(([k, v]) => q.structure[k] === undefined || !same(v, q.structure[k])));
+  const designChanged = patch.design !== undefined && !same(patch.design, q.design);
+  const gapChanged = patch.gap !== undefined && !same(patch.gap, q.gap);
+  // The question, its structure and its design together say what is being asked: a change to any of them is a
+  // change to the question the novelty searches and the gap were written for.
+  const wordingChanged = textChanged || structureChanged || designChanged;
   const searches = patch.noveltyQueries?.map((n) => ({ database: n.database, query: n.query, count: null, error: null }));
   const searchesChanged = !!searches && JSON.stringify(searches.map((n) => [n.database, n.query])) !== JSON.stringify(q.noveltyQueries.map((n) => [n.database, n.query]));
   const set: Partial<typeof schema.researchQuestions.$inferInsert> = { ...patch, noveltyQueries: searchesChanged ? searches : undefined, edited: true };
   // The novelty list was found for the old wording (or the old searches): it no longer checks this question.
-  if (textChanged || structureChanged || searchesChanged) set.noveltyStatus = "outdated";
+  if (wordingChanged || searchesChanged) set.noveltyStatus = "outdated";
   db.update(schema.researchQuestions).set(set).where(eq(schema.researchQuestions.id, q.id)).run();
-  logDecision(projectId, 9, "question_edited", { questionId: q.id, text: q.text, structure: q.structure, gap: q.gap }, { questionId: q.id, ...patch });
+  logDecision(
+    projectId,
+    9,
+    "question_edited",
+    { questionId: q.id, text: q.text, structure: q.structure, design: q.design, gap: q.gap, noveltyQueries: q.noveltyQueries.map((n) => ({ database: n.database, query: n.query })) },
+    { questionId: q.id, ...patch },
+  );
+  // The gap stays outdated until it is edited in this save or the researcher confirms it still applies.
   if (gapChanged) logDecision(projectId, 9, "question_gap_edited", null, { questionId: q.id });
-  else if (textChanged) logDecision(projectId, 9, "question_gap_outdated", null, { questionId: q.id }, "system");
+  else if (wordingChanged) logDecision(projectId, 9, "question_gap_outdated", null, { questionId: q.id }, "system");
+  // The stored search strings count as written for the current wording only if they were edited in this save or
+  // after it. Until then a re-run repeats the old searches, so it cannot clear the novelty check.
+  if (searchesChanged) logDecision(projectId, 9, "question_searches_edited", null, { questionId: q.id });
+  else if (wordingChanged) logDecision(projectId, 9, "question_searches_outdated", null, { questionId: q.id }, "system");
   if (getProject(projectId).stageStates["9"] === "approved") setStageState(projectId, 9, "needs_review");
   return questionsView(projectId);
 });

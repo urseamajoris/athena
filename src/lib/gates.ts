@@ -5,11 +5,12 @@ import type { Criteria } from "./db/schema";
 import { getProject, HttpError, latestJob, logDecision, setStageState } from "./project";
 import { STAGES } from "./shared/stages";
 import { topicBlockers } from "./stages/scoping";
-import { selectedPaperIds } from "./jobs/appraisal";
+import { selectedPaperIds, selectedPaperIdsByTopic } from "./jobs/appraisal";
 import { usableClaims } from "./jobs/synthesis";
-import { rankingCandidates } from "./jobs/ranking";
+import { MAX_PER_TOPIC, rankingCandidates } from "./jobs/ranking";
 import { startJob } from "./jobs";
-import { gapOutdatedIds, synthesisSkips } from "./views";
+import { papersWithoutHits } from "./evidence";
+import { gapOutdatedIds, noveltySearchesOutdatedIds, synthesisKeptFromEarlierRun, synthesisSkips } from "./views";
 import { nowIso } from "./util";
 
 /*
@@ -56,6 +57,14 @@ function searchBlockers(projectId: string): Blocker[] {
   return out;
 }
 
+/** Papers still stored although no stored search found them (the topic or query that did was removed). */
+function unsearchedPaperBlockers(projectId: string): Blocker[] {
+  const n = papersWithoutHits(projectId).length;
+  return n
+    ? [{ message: `${plural(n, "paper")} ${n === 1 ? "was" : "were"} not found by any search that is still stored (the topic or query that found ${n === 1 ? "it" : "them"} was removed). Re-run retrieval so the papers match the stored searches.` }]
+    : [];
+}
+
 function retrievalBlockers(projectId: string): Blocker[] {
   const p = getProject(projectId);
   const runs = db.select().from(schema.searchRuns).where(eq(schema.searchRuns.projectId, projectId)).all();
@@ -74,6 +83,7 @@ function retrievalBlockers(projectId: string): Blocker[] {
     else if (run.queryString !== q.queryString) out.push({ message: `The ${where} was edited after retrieval ran. Re-run retrieval so the papers match the stored search.` });
   }
   if (runs.some((r) => !sameFilters(r.criteria, p.criteria))) out.push({ message: "The year or language limits changed after retrieval ran. Re-run retrieval so the papers match them." });
+  out.push(...unsearchedPaperBlockers(projectId));
   const failed = runs.filter((r) => r.status === "failed");
   if (failed.length && failed.length < runs.length) {
     const job = latestJob(projectId, 4);
@@ -90,17 +100,27 @@ function summaryBlockers(projectId: string): Blocker[] {
   if (!papers.length) return [{ message: "There are no papers to summarise. Re-run retrieval first." }];
   const have = new Set(db.select({ id: schema.paperSummaries.paperId }).from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, ids(papers))).all().map((r) => r.id));
   const missing = papers.filter((id) => !have.has(id)).length;
-  return missing ? [{ message: `${plural(missing, "paper")} ${missing === 1 ? "has" : "have"} no summary row (a batch failed or did not run). Use “Retry missing summaries” before approving.` }] : [];
+  const out: Blocker[] = missing ? [{ message: `${plural(missing, "paper")} ${missing === 1 ? "has" : "have"} no summary row (a batch failed or did not run). Use “Retry missing summaries” before approving.` }] : [];
+  out.push(...unsearchedPaperBlockers(projectId));
+  return out;
 }
 
 function rankingBlockers(projectId: string): Blocker[] {
   const out: Blocker[] = [];
   const topicIds = topicsOf(projectId).map((t) => t.id);
   const scores = db.select().from(schema.scores).where(inArray(schema.scores.topicId, ids(topicIds))).all();
-  for (const { topic, papers } of rankingCandidates(projectId)) {
+  for (const { topic, papers, linked, beyondCap } of rankingCandidates(projectId)) {
     const ts = scores.filter((s) => s.topicId === topic.id);
     const unscored = papers.filter((p) => !ts.some((s) => s.paperId === p.id)).length;
     if (unscored) out.push({ message: `${unscored} of ${papers.length} candidate papers for “${topic.name}” could not be scored (a scoring batch failed), so its ranking is partial. Retry the unscored papers.` });
+    // The per-topic limit leaves the lower-ranked database results unscored. That is a limit of this ranking,
+    // so the researcher accepts it explicitly (logged) rather than reading "60 of 60 scored".
+    const overLimit = beyondCap.filter((p) => !ts.some((s) => s.paperId === p.id)).length;
+    if (overLimit)
+      out.push({
+        message: `${overLimit} of the ${linked} papers found for “${topic.name}” were not scored: only the ${MAX_PER_TOPIC} with the best database rank are scored per topic, so a relevant paper may be among those left out. Approve this ranking without them?`,
+        override: `ranking-limit:${topic.id}:${linked}:${overLimit}`,
+      });
     const n = ts.filter((s) => s.selected).length;
     if (!papers.length) out.push({ message: `“${topic.name}” has no retrieved papers to rank. Broaden its query (step 3) or remove the topic (step 2).` });
     else if (n === 0) out.push({ message: `Select at least one paper for “${topic.name}”.` });
@@ -139,13 +159,30 @@ function synthesisBlockers(projectId: string): Blocker[] {
     const s = skips.get(t.id);
     if (s) out.push({ message: `“${t.name}” has no synthesis: ${s.reason} Continue without this topic?`, override: `synthesis-skipped:${t.id}:${s.jobId ?? "-"}` });
   }
-  const items = db.select({ id: schema.synthesisItems.id }).from(schema.synthesisItems).where(eq(schema.synthesisItems.projectId, projectId)).all().map((r) => r.id);
-  const linked = db.select().from(schema.claimLinks).where(and(eq(schema.claimLinks.ownerType, "synthesis"), inArray(schema.claimLinks.ownerId, ids(items)))).all().map((l) => l.claimId);
-  const cells = db.select().from(schema.matrixCells).where(eq(schema.matrixCells.projectId, projectId)).all().flatMap((c) => c.claimIds);
-  const cx = db.select().from(schema.contradictions).where(eq(schema.contradictions.projectId, projectId)).all().flatMap((c) => c.claimIds);
-  const usable = new Set(usableClaims(selectedPaperIds(projectId)).map((c) => c.id));
-  const bad = [...new Set([...linked, ...cells, ...cx])].filter((id) => !usable.has(id)).length;
-  if (bad) out.push({ message: `The synthesis cites ${plural(bad, "quote")} that you have since rejected, that are no longer verified, or that belong to papers no longer selected. Re-run this step.` });
+  const kept = synthesisKeptFromEarlierRun(projectId);
+  for (const t of topics) {
+    const k = kept.get(t.id);
+    if (k) out.push({ message: `“${t.name}” still shows the synthesis from an earlier run: ${k.reason} Keep the earlier synthesis for this topic?`, override: `synthesis-kept:${t.id}:${k.jobId}` });
+  }
+  // Each topic's synthesis is built from that topic's own selected papers, so it is checked against them: a paper
+  // deselected here but still selected under another topic must not be cited here.
+  const items = db.select({ id: schema.synthesisItems.id, topicId: schema.synthesisItems.topicId }).from(schema.synthesisItems).where(eq(schema.synthesisItems.projectId, projectId)).all();
+  const links = db.select().from(schema.claimLinks).where(and(eq(schema.claimLinks.ownerType, "synthesis"), inArray(schema.claimLinks.ownerId, ids(items.map((i) => i.id))))).all();
+  const cells = db.select().from(schema.matrixCells).where(eq(schema.matrixCells.projectId, projectId)).all();
+  const cx = db.select().from(schema.contradictions).where(eq(schema.contradictions.projectId, projectId)).all();
+  const selectedFor = selectedPaperIdsByTopic(projectId);
+  for (const t of topics) {
+    const sel = selectedFor.get(t.id) ?? [];
+    const usable = new Set(usableClaims(sel).map((c) => c.id));
+    const own = new Set(items.filter((i) => i.topicId === t.id).map((i) => i.id));
+    const tCells = cells.filter((c) => c.topicId === t.id);
+    const tCx = cx.filter((c) => c.topicId === t.id);
+    const cited = new Set([...links.filter((l) => own.has(l.ownerId)).map((l) => l.claimId), ...tCells.flatMap((c) => c.claimIds), ...tCx.flatMap((c) => c.claimIds)]);
+    const bad = [...cited].filter((id) => !usable.has(id)).length;
+    const stray = new Set([...tCells.map((c) => c.paperId), ...tCx.flatMap((c) => c.paperIds)].filter((pid) => !sel.includes(pid))).size;
+    if (bad) out.push({ message: `The synthesis for “${t.name}” cites ${plural(bad, "quote")} that you have since rejected, that are no longer verified, or that belong to papers no longer selected for this topic. Re-run this step.` });
+    else if (stray) out.push({ message: `The synthesis for “${t.name}” still covers ${plural(stray, "paper")} no longer selected for this topic. Re-run this step.` });
+  }
   return out;
 }
 
@@ -153,10 +190,12 @@ function questionBlockers(projectId: string): Blocker[] {
   const q = db.select().from(schema.researchQuestions).where(and(eq(schema.researchQuestions.projectId, projectId), eq(schema.researchQuestions.chosen, true))).get();
   if (!q) return [{ message: "Pick one research question first." }];
   const out: Blocker[] = [];
-  if (q.noveltyStatus === "outdated") out.push({ message: "You edited the chosen question (or its novelty searches) after the novelty check ran. Re-run the novelty check so it checks the question as it now reads." });
+  if (noveltySearchesOutdatedIds(projectId).has(q.id))
+    out.push({ message: "You changed the chosen question after its novelty searches were written, so they still search for the earlier wording. Edit the novelty search strings to fit the question as it now reads, save, then re-run the novelty check." });
+  else if (q.noveltyStatus === "outdated") out.push({ message: "You edited the chosen question’s novelty searches after the novelty check ran. Re-run the novelty check so the list shows what those searches find." });
   else if (q.noveltyStatus === "pending") out.push({ message: "The novelty check for the chosen question has not finished." });
   else if (q.noveltyStatus === "failed") out.push({ message: "The novelty searches for the chosen question failed in every database. Finish without a novelty check?", override: `novelty-failed:${q.id}` });
-  if (gapOutdatedIds(projectId).has(q.id)) out.push({ message: "The gap was written for the earlier wording of the question. Edit the gap, or confirm it still applies." });
+  if (gapOutdatedIds(projectId).has(q.id)) out.push({ message: "The gap was written for the earlier version of the question (its wording, structure or design changed since). Edit the gap, or confirm it still applies." });
   const links = db.select().from(schema.claimLinks).where(and(eq(schema.claimLinks.ownerType, "research_question"), eq(schema.claimLinks.ownerId, q.id))).all().map((l) => l.claimId);
   const usable = new Set(usableClaims(selectedPaperIds(projectId)).map((c) => c.id));
   const bad = links.filter((id) => !usable.has(id)).length;

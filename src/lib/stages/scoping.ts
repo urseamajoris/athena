@@ -5,6 +5,7 @@ import { structuredCall } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { SCOPING_FIELDS, ScopingTopics, ScopingTurn } from "./ai-schemas";
 import { getProject, HttpError, logDecision, markDownstreamStale, setStageState } from "../project";
+import { dropPapersWithoutHits } from "../evidence";
 import { newId, nowIso } from "../util";
 
 export const MAX_SCOPING_QUESTIONS = 5;
@@ -193,6 +194,9 @@ export function deleteTopic(projectId: string, topicId: string) {
   if (!before || before.projectId !== projectId) throw new HttpError(404, "Topic not found");
   db.delete(schema.topics).where(eq(schema.topics.id, topicId)).run();
   logDecision(projectId, 2, "topic_deleted", before, null);
+  // The topic's queries, runs and hits went with it. Papers that only those searches found are no longer backed
+  // by any stored search, so they leave the review; a paper another topic's search also found is kept.
+  dropPapersWithoutHits(projectId, 2, `Topic "${before.name}" was deleted, and no remaining search found these papers`);
   touchTopics(projectId, `Topic "${before.name}" was deleted`);
 }
 

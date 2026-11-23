@@ -15,7 +15,7 @@ import { buildRankingPromptVars, selectInitialRankingIds } from "../review-guard
 const BATCH = 10;
 export const DEFAULT_SELECT = 4;
 /** Max papers scored per topic (highest database relevance first) to bound cost. */
-const MAX_PER_TOPIC = 60;
+export const MAX_PER_TOPIC = 60;
 
 type Paper = typeof schema.papers.$inferSelect;
 type Topic = typeof schema.topics.$inferSelect;
@@ -23,8 +23,9 @@ type Topic = typeof schema.topics.$inferSelect;
 /**
  * The papers the ranking job scores for each topic: every paper linked to the topic, best database rank first,
  * capped at MAX_PER_TOPIC. Shared with the approval gate, which compares it with the scores actually stored.
+ * `beyondCap` are the linked papers past the cap, which the job does not score.
  */
-export function rankingCandidates(projectId: string): { topic: Topic; papers: Paper[]; linked: number }[] {
+export function rankingCandidates(projectId: string): { topic: Topic; papers: Paper[]; linked: number; beyondCap: Paper[] }[] {
   const topics = db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all();
   const links = db.select().from(schema.paperTopics).where(inArray(schema.paperTopics.topicId, topics.map((t) => t.id).concat(["-"]))).all();
   const papers = db.select().from(schema.papers).where(eq(schema.papers.projectId, projectId)).all();
@@ -34,13 +35,15 @@ export function rankingCandidates(projectId: string): { topic: Topic; papers: Pa
   const byId = new Map(papers.map((x) => [x.id, x]));
   return topics.map((topic) => {
     const linked = links.filter((l) => l.topicId === topic.id).map((l) => byId.get(l.paperId)!).filter(Boolean);
-    return { topic, linked: linked.length, papers: linked.sort((a, b) => (bestRank.get(a.id) ?? 0) - (bestRank.get(b.id) ?? 0)).slice(0, MAX_PER_TOPIC) };
+    linked.sort((a, b) => (bestRank.get(a.id) ?? 0) - (bestRank.get(b.id) ?? 0));
+    return { topic, linked: linked.length, papers: linked.slice(0, MAX_PER_TOPIC), beyondCap: linked.slice(MAX_PER_TOPIC) };
   });
 }
 
 /**
  * Score papers per topic. With `retryMissing`, only candidates that have no score yet (a batch failed) are scored:
- * existing scores and the researcher's selections are kept, and only topics with nothing selected get a default pick.
+ * existing scores and the researcher's selections are kept, and only a topic that has never had a selection gets
+ * a default pick. A topic the researcher emptied by hand stays empty (the approval gate asks them to pick).
  */
 export async function rankingJob(ctx: JobContext) {
   const { projectId } = ctx;
@@ -57,7 +60,7 @@ export async function rankingJob(ctx: JobContext) {
 
   const jobs: { topic: (typeof topics)[number]; batch: typeof papers }[] = [];
   for (const { topic: t, papers: cands, linked } of rankingCandidates(projectId)) {
-    if (linked > MAX_PER_TOPIC) ctx.log(`Topic "${t.name}": scoring the ${MAX_PER_TOPIC} highest-relevance papers of ${linked}.`);
+    if (linked > MAX_PER_TOPIC) ctx.log(`Topic "${t.name}": scoring the ${MAX_PER_TOPIC} highest-relevance papers of ${linked}; ${linked - MAX_PER_TOPIC} are not scored (you will be asked to accept this before approving).`);
     const ps = cands.filter((x) => !scored.has(`${t.id}:${x.id}`));
     for (const b of chunk(ps, BATCH)) jobs.push({ topic: t, batch: b });
   }
@@ -118,15 +121,17 @@ export async function rankingJob(ctx: JobContext) {
     }),
   );
 
-  // Select top N per topic. A retry leaves an existing selection alone. Flagged and excluded papers stay visible but are not auto-selected.
+  // Select top N per topic. A retry leaves alone any topic that has, or has had, a selection: a row the researcher
+  // changed (selected, deselected, swapped or excluded) is never auto-selected. Flagged and excluded papers stay
+  // visible but are not auto-selected.
   const all = db.select().from(schema.scores).where(inArray(schema.scores.topicId, topicIds.concat(["-"]))).all();
   const paperFlagsById = new Map(
     papers.map((x) => [x.id, { flags: detectCriteriaFlags(x, sum.get(x.id), p.criteria), excluded: !!x.excluded }]),
   );
   for (const t of topics) {
     const ts = all.filter((s) => s.topicId === t.id);
-    if (retry && ts.some((s) => s.selected)) continue;
-    const topIds = selectInitialRankingIds(ts, paperFlagsById, DEFAULT_SELECT);
+    if (retry && ts.some((s) => s.selected || s.userChanged)) continue;
+    const topIds = selectInitialRankingIds(ts.filter((s) => !s.userChanged), paperFlagsById, DEFAULT_SELECT);
     for (const sid of topIds) db.update(schema.scores).set({ selected: true }).where(eq(schema.scores.id, sid)).run();
   }
 

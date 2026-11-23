@@ -34,24 +34,31 @@ export function usableClaims(paperIds: string[]) {
   });
 }
 
+/**
+ * Synthesise each topic. Nothing stored is touched until the run has finished: the new output is held in memory
+ * and swapped in at the end, in one transaction, only if the run was not cancelled and at least one topic was
+ * synthesised. A failed or cancelled run therefore still shows the previous synthesis, edited statements included.
+ * In a run that succeeds overall, a topic whose AI call failed keeps its previous synthesis (recorded, and
+ * acknowledged before approval); a topic with too little evidence loses it. Replaced text goes to the decision log.
+ */
 export async function synthesisJob(ctx: JobContext) {
   const { projectId } = ctx;
   const p = getProject(projectId);
   const topics = db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.importanceRank), asc(schema.topics.sortOrder)).all();
-  const oldItems = db.select({ id: schema.synthesisItems.id }).from(schema.synthesisItems).where(eq(schema.synthesisItems.projectId, projectId)).all().map((r) => r.id);
-  db.delete(schema.claimLinks).where(and(eq(schema.claimLinks.ownerType, "synthesis"), inArray(schema.claimLinks.ownerId, oldItems.concat(["-"])))).run();
-  for (const t of topics) {
-    db.delete(schema.synthesisItems).where(eq(schema.synthesisItems.topicId, t.id)).run();
-    db.delete(schema.matrixCells).where(eq(schema.matrixCells.topicId, t.id)).run();
-    db.delete(schema.contradictions).where(eq(schema.contradictions.topicId, t.id)).run();
-  }
+  type Topic = (typeof topics)[number];
+  type Outcome =
+    | { kind: "ok"; data: Synthesis; paperOfClaim: Map<string, string> }
+    /** Too little evidence: the topic has no synthesis now, whatever it had before. */
+    | { kind: "no_evidence"; reason: string }
+    /** The AI call failed: whatever the topic had before stays. */
+    | { kind: "failed"; reason: string };
+  const outcomes = new Map<string, Outcome>();
 
   let finished = 0;
   let ok = 0;
-  /** A topic with no synthesis gets a recorded reason, shown on its tab and acknowledged before approval. */
-  const skipTopic = (t: (typeof topics)[number], reason: string) => {
-    ctx.log(`✗ "${t.name}" skipped: ${reason}`);
-    logDecision(projectId, 8, "synthesis_topic_skipped", null, { topicId: t.id, topic: t.name, reason, jobId: ctx.jobId }, "system");
+  const skipTopic = (t: Topic, o: Exclude<Outcome, { kind: "ok" }>) => {
+    ctx.log(`✗ "${t.name}" skipped: ${o.reason}`);
+    outcomes.set(t.id, o);
   };
   ctx.progress(0, topics.length, `Synthesising ${topics.length} topics`);
   await Promise.all(
@@ -75,7 +82,7 @@ export async function synthesisJob(ctx: JobContext) {
           const reason = !pids.length
             ? "No papers are selected for this topic in Ranking, so there was no evidence to synthesise."
             : `Only ${claims.length} usable quote${claims.length === 1 ? "" : "s"} (verified, or unverified but accepted by you) came from its ${pids.length} selected paper${pids.length === 1 ? "" : "s"}; synthesis needs at least 2.`;
-          skipTopic(t, reason);
+          skipTopic(t, { kind: "no_evidence", reason });
           return;
         }
         const claimIds = claims.map((c) => c.id);
@@ -141,34 +148,81 @@ export async function synthesisJob(ctx: JobContext) {
             return null;
           },
         });
-        const byId = new Map(claims.map((c) => [c.id, c.paperId]));
-        db.transaction((tx) => {
-          for (const m of data.matrix) {
-            if (m.stance === "not_addressed" && !m.claimIds.length) continue;
-            tx.insert(schema.matrixCells).values({ id: newId("mx"), projectId, topicId: t.id, theme: m.theme, paperId: m.paperId, value: m.value, stance: m.stance, claimIds: m.claimIds }).run();
-          }
-          for (const c of data.contradictions) {
-            tx.insert(schema.contradictions).values({ id: newId("cx"), projectId, topicId: t.id, theme: c.theme, description: c.description, claimIds: c.claimIds, paperIds: [...new Set(c.claimIds.map((id) => byId.get(id)!))] }).run();
-          }
-          for (const kind of ["known", "contested", "unknown"] as const) {
-            for (const s of data[kind]) {
-              const id = newId("sy");
-              tx.insert(schema.synthesisItems).values({ id, projectId, topicId: t.id, kind, statement: s.statement }).run();
-              for (const cid of new Set(s.claimIds)) tx.insert(schema.claimLinks).values({ ownerType: "synthesis", ownerId: id, claimId: cid }).onConflictDoNothing().run();
-            }
-          }
-        });
+        outcomes.set(t.id, { kind: "ok", data, paperOfClaim: new Map(claims.map((c) => [c.id, c.paperId])) });
         ok++;
         ctx.log(`✓ "${t.name}": ${data.themes.length} themes, ${data.contradictions.length} contradictions`);
       } catch (e) {
         if (e instanceof BudgetError) throw e;
-        skipTopic(t, `The AI synthesis for this topic failed: ${errMsg(e)}. Re-run this step to try again.`);
+        skipTopic(t, { kind: "failed", reason: `The AI synthesis for this topic failed: ${errMsg(e)}. Re-run this step to try again.` });
       } finally {
         finished++;
         ctx.progress(finished, topics.length, `Synthesised ${finished}/${topics.length} topics`);
       }
     }),
   );
+  // Cancelled: the previous synthesis is untouched.
+  if (ctx.cancelled()) return;
+
+  const prevItems = db.select().from(schema.synthesisItems).where(eq(schema.synthesisItems.projectId, projectId)).all();
+  const prevCells = db.select({ topicId: schema.matrixCells.topicId }).from(schema.matrixCells).where(eq(schema.matrixCells.projectId, projectId)).all();
+  const prevCx = db.select().from(schema.contradictions).where(eq(schema.contradictions.projectId, projectId)).all();
+  const hadSynthesis = (t: Topic) => prevItems.some((i) => i.topicId === t.id) || prevCells.some((c) => c.topicId === t.id) || prevCx.some((c) => c.topicId === t.id);
+  // Why each skipped topic has no new synthesis, and whether its earlier one is still what is stored. When no
+  // topic succeeded the run fails and nothing is replaced, so every earlier synthesis is kept.
+  for (const t of topics) {
+    const o = outcomes.get(t.id);
+    if (!o || o.kind === "ok") continue;
+    const keptPrevious = hadSynthesis(t) && (o.kind === "failed" || !ok);
+    logDecision(projectId, 8, "synthesis_topic_skipped", null, { topicId: t.id, topic: t.name, reason: o.reason, jobId: ctx.jobId, ...(keptPrevious ? { keptPrevious: true } : {}) }, "system");
+  }
+  if (!ok) {
+    logDecision(projectId, 8, "synthesis_generated", null, { topics: topics.length, ok }, "ai");
+    throw new Error(`No topic could be synthesised. Check that appraisals produced verified claims.${prevItems.length ? " The previous synthesis was kept." : ""}`);
+  }
+
+  // Topics whose earlier synthesis is replaced (new output) or removed (too little evidence now).
+  const swap = topics.filter((t) => ["ok", "no_evidence"].includes(outcomes.get(t.id)?.kind ?? ""));
+  const replaced = swap.filter(hadSynthesis);
+  if (replaced.length) {
+    logDecision(
+      projectId,
+      8,
+      "synthesis_replaced",
+      replaced.map((t) => ({
+        topicId: t.id,
+        topic: t.name,
+        statements: prevItems.filter((i) => i.topicId === t.id).map((i) => ({ kind: i.kind, statement: i.statement, edited: i.edited })),
+        contradictions: prevCx.filter((c) => c.topicId === t.id).map((c) => c.description),
+      })),
+      { jobId: ctx.jobId, replaced: replaced.filter((t) => outcomes.get(t.id)?.kind === "ok").map((t) => t.name), removed: replaced.filter((t) => outcomes.get(t.id)?.kind === "no_evidence").map((t) => t.name) },
+      "system",
+    );
+  }
+  db.transaction((tx) => {
+    for (const t of swap) {
+      const old = prevItems.filter((i) => i.topicId === t.id).map((i) => i.id);
+      tx.delete(schema.claimLinks).where(and(eq(schema.claimLinks.ownerType, "synthesis"), inArray(schema.claimLinks.ownerId, old.concat(["-"])))).run();
+      tx.delete(schema.synthesisItems).where(eq(schema.synthesisItems.topicId, t.id)).run();
+      tx.delete(schema.matrixCells).where(eq(schema.matrixCells.topicId, t.id)).run();
+      tx.delete(schema.contradictions).where(eq(schema.contradictions.topicId, t.id)).run();
+      const o = outcomes.get(t.id)!;
+      if (o.kind !== "ok") continue;
+      const { data, paperOfClaim } = o;
+      for (const m of data.matrix) {
+        if (m.stance === "not_addressed" && !m.claimIds.length) continue;
+        tx.insert(schema.matrixCells).values({ id: newId("mx"), projectId, topicId: t.id, theme: m.theme, paperId: m.paperId, value: m.value, stance: m.stance, claimIds: m.claimIds }).run();
+      }
+      for (const c of data.contradictions) {
+        tx.insert(schema.contradictions).values({ id: newId("cx"), projectId, topicId: t.id, theme: c.theme, description: c.description, claimIds: c.claimIds, paperIds: [...new Set(c.claimIds.map((id) => paperOfClaim.get(id)!))] }).run();
+      }
+      for (const kind of ["known", "contested", "unknown"] as const) {
+        for (const s of data[kind]) {
+          const id = newId("sy");
+          tx.insert(schema.synthesisItems).values({ id, projectId, topicId: t.id, kind, statement: s.statement }).run();
+          for (const cid of new Set(s.claimIds)) tx.insert(schema.claimLinks).values({ ownerType: "synthesis", ownerId: id, claimId: cid }).onConflictDoNothing().run();
+        }
+      }
+    }
+  });
   logDecision(projectId, 8, "synthesis_generated", null, { topics: topics.length, ok }, "ai");
-  if (!ok) throw new Error("No topic could be synthesised. Check that appraisals produced verified claims.");
 }

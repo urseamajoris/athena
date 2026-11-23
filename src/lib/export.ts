@@ -136,7 +136,7 @@ export function markdownReport(projectId: string): string {
     L.push(`Framework: ${chosen.framework}\n`);
     for (const [k, v] of Object.entries(chosen.structure)) L.push(`- **${k}:** ${v}`);
     L.push(`\n- **Design:** ${chosen.design}\n- **Gap:** ${chosen.gap} ${chosen.claimIds.map(cite).join(" ")}\n- **Feasibility:** ${chosen.feasibility}\n- **Main weakness:** ${chosen.weakness}\n`);
-    L.push(`**Novelty check (all years and languages; what was found — not proof of novelty)${chosen.noveltyStatus === "outdated" ? " — OUT OF DATE: the question was edited after this search" : ""}:**\n`);
+    L.push(`**Novelty check (all years and languages; what was found — not proof of novelty)${chosen.noveltySearchesOutdated ? " — OUT OF DATE: these searches were written for an earlier wording of the question" : chosen.noveltyStatus === "outdated" ? " — OUT OF DATE: the question or its searches were edited after this search" : ""}:**\n`);
     for (const nq of chosen.noveltyQueries) L.push(`- ${nq.database}: \`${nq.query}\` → ${nq.error ? `failed (${nq.error})` : `${nq.count ?? "?"} hits`}`);
     for (const m of chosen.noveltyMatches) L.push(`  - ${m.title} (${m.year ?? "n.d."}) — ${ref(m)} — ${m.similarityNote}`);
     L.push("");
@@ -160,6 +160,7 @@ export function markdownReport(projectId: string): string {
   L.push(`Rubric (0–5 each): ${RUBRIC.map((r) => `${r.label} ${Math.round(r.weight * 100)}% (${r.by})`).join(", ")}.\n`);
   for (const t of rank.topics) {
     L.push(`### ${t.name}\n`);
+    if (t.notScoredOverLimit) L.push(`_${t.scores.length} of the ${t.linked} papers found for this topic were scored; ${t.notScoredOverLimit} were not, because only the ${rank.maxPerTopic} with the best database rank are scored per topic._\n`);
     for (const s of t.scores.filter((x) => x.selected)) {
       const pp = pById.get(s.paperId)!;
       L.push(`- **${pp.title}** (${pp.year ?? "n.d."}) — total ${s.total}/100 — ${ref(pp)}${s.userChanged ? " — _selection changed by user_" : ""}\n  - ${s.rationale}`);

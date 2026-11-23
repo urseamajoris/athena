@@ -230,8 +230,18 @@ try {
   await qbox.fill((await qbox.inputValue()).replace(/\?$/, "") + " between 2015 and 2025?");
   await page.getByRole("button", { name: "Save edits" }).click();
   await page.waitForTimeout(800);
-  check("editing the question puts its novelty check out of date", (await api("/questions")).questions.some((q) => q.chosen && q.noveltyStatus === "outdated" && q.gapOutdated));
-  await page.getByRole("button", { name: "Re-run for the edited question" }).click();
+  check("editing the question puts its novelty check out of date", (await api("/questions")).questions.some((q) => q.chosen && q.noveltyStatus === "outdated" && q.gapOutdated && q.noveltySearchesOutdated));
+  // The searches are not rewritten for the new wording: re-running the earlier ones does not clear the warning.
+  await page.getByRole("button", { name: "Re-run these earlier searches" }).click();
+  await page.waitForTimeout(1500);
+  check("re-running the earlier searches leaves the novelty check out of date", (await api("/questions")).questions.some((q) => q.chosen && q.noveltyStatus === "outdated"));
+  const sbox = page.getByLabel("pubmed", { exact: true });
+  await sbox.fill((await sbox.inputValue()) + " AND 2015:2025[dp]");
+  await page.getByRole("button", { name: "Save edits" }).click();
+  await page.waitForTimeout(800);
+  await page.getByRole("button", { name: "Re-run with the edited searches" }).click();
+  await page.waitForTimeout(1500);
+  check("searches edited for the new wording, then re-run, clear the novelty warning", (await api("/questions")).questions.some((q) => q.chosen && q.noveltyStatus !== "outdated" && !q.noveltySearchesOutdated));
   await page.getByRole("button", { name: "It still applies" }).click();
   await page.waitForTimeout(1500);
   await page.getByRole("button", { name: "Finish and see summary" }).click();

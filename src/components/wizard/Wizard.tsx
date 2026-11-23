@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSWRConfig } from "swr";
 import { ApiError, api, projectPath, useApi } from "../api";
 import { Badge, ErrorState, Loading, Modal, StateBadge, Spinner, cx } from "../ui";
-import { STAGES, STATE_LABEL, reviewProblems, type StageState } from "@/lib/shared/stages";
+import { RERUN_REPLACES, STAGES, STATE_LABEL, reviewProblems, type StageState } from "@/lib/shared/stages";
 import { PaperDrawer } from "./PaperDrawer";
 import { IdeaStage } from "../stages/IdeaStage";
 import { ScopingStage } from "../stages/ScopingStage";
@@ -304,6 +304,7 @@ function StaleBanner({ stage, reason }: { stage: number; reason?: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<unknown>(null);
   async function act(kind: "run" | "keep") {
+    if (kind === "run" && !confirmRerun(stage)) return;
     setBusy(kind);
     setErr(null);
     try {
@@ -338,9 +339,16 @@ function StaleBanner({ stage, reason }: { stage: number; reason?: string }) {
           {busy === "keep" && <Spinner />} Keep current results and review them
         </button>
       </div>
+      {def.job && RERUN_REPLACES[stage] && <p className="mt-2 text-xs text-orange-900">{RERUN_REPLACES[stage]}</p>}
       {err ? <div className="mt-2"><ErrorState error={err} /></div> : null}
     </div>
   );
+}
+
+/** A re-run of a stage that already has results replaces them: say what, and ask first. */
+function confirmRerun(stage: number): boolean {
+  const note = RERUN_REPLACES[stage];
+  return !note || window.confirm(`${note}\n\nRe-run this step now?`);
 }
 
 function StageBody({ stage }: { stage: number }) {
@@ -466,6 +474,8 @@ export function JobPanel({ stage, runLabel = "Run this step" }: { stage: number;
   const [showLog, setShowLog] = useState(false);
   const st = states[String(stage)];
   async function run() {
+    // `j` set means the step has run before, so this is a full re-run that replaces what is there.
+    if (j && !confirmRerun(stage)) return;
     setBusy(true);
     setErr(null);
     try {
@@ -509,6 +519,7 @@ export function JobPanel({ stage, runLabel = "Run this step" }: { stage: number;
           )}
         </div>
       </div>
+      {j && !running && RERUN_REPLACES[stage] && <p className="mt-2 text-xs text-gray-500"><strong>Re-run:</strong> {RERUN_REPLACES[stage]}</p>}
       {err ? <div className="mt-2"><ErrorState error={err} /></div> : null}
       {showLog && j && (
         <pre className="mt-3 max-h-64 overflow-auto rounded-lg bg-gray-900 p-3 text-[11px] leading-relaxed text-gray-100">{j.log.join("\n")}</pre>

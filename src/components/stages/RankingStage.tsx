@@ -17,7 +17,10 @@ interface ScoreRow {
     flags?: PaperFlag[];
   };
 }
-interface RankingData { topics: { id: string; name: string; importanceRank: number | null; importanceJustification: string | null; candidates: number; unscored: number; scores: ScoreRow[] }[] }
+interface RankingData {
+  maxPerTopic: number;
+  topics: { id: string; name: string; importanceRank: number | null; importanceJustification: string | null; candidates: number; unscored: number; linked: number; notScoredOverLimit: number; scores: ScoreRow[] }[];
+}
 
 const SEG = ["bg-teal-600", "bg-sky-500", "bg-lime-500", "bg-amber-400", "bg-violet-400"];
 
@@ -103,8 +106,9 @@ export function RankingStage() {
                   <p className="text-xs font-semibold text-teal-800">Importance #{t.importanceRank ?? "–"}</p>
                   <h3 className="font-semibold leading-snug text-gray-900">{t.name}</h3>
                   {t.importanceJustification && <p className="mt-0.5 text-xs text-gray-500">{t.importanceJustification}</p>}
-                  <p className={cx("mt-1 text-xs", sel.length < 3 || sel.length > 5 ? "text-amber-800" : "text-gray-500")}>{sel.length} selected {sel.length < 3 || sel.length > 5 ? "· aim for 3–5" : ""} · {t.scores.length} of {t.candidates} scored</p>
+                  <p className={cx("mt-1 text-xs", sel.length < 3 || sel.length > 5 ? "text-amber-800" : "text-gray-500")}>{sel.length} selected {sel.length < 3 || sel.length > 5 ? "· aim for 3–5" : ""} · {t.scores.length} of {t.linked} papers found for this topic scored</p>
                   {t.unscored > 0 && <p className="mt-0.5 text-xs font-medium text-rose-700">{t.unscored} not scored (batch failed) — partial ranking</p>}
+                  {t.notScoredOverLimit > 0 && <p className="mt-0.5 text-xs font-medium text-amber-800">{t.notScoredOverLimit} not scored: only the {data.maxPerTopic} with the best database rank are scored per topic. You will be asked to accept this before approving.</p>}
                 </div>
                 <ul className="space-y-2">
                   {sel.map((s) => <ScoreCard key={s.id} s={s} onToggle={() => toggle(s)} onExclude={() => toggleExclude(s)} swapOptions={swapEligible} onSwap={(inId) => swap(s.id, inId)} />)}

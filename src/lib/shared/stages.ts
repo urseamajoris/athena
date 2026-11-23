@@ -23,6 +23,19 @@ export const STAGES: StageDef[] = [
   { n: 9, key: "questions", title: "Research question", done: "Compare the three candidates, pick one, edit it if needed, then finish.", job: "questions" },
 ];
 
+/**
+ * What the stage's Re-run control replaces, shown beside the control and confirmed before a re-run of a stage that
+ * already has results. A re-run that fails or is cancelled leaves the existing results in place for stages 5, 7, 8 and 9.
+ */
+export const RERUN_REPLACES: Record<number, string> = {
+  4: "A re-run replaces every retrieved paper, and with them the summaries, scores, appraisals and synthesis built on them.",
+  5: "A full re-run replaces every existing summary, including cells you corrected (the corrected text is kept in the decision log). To fill in only papers without a summary, use “Retry missing summaries” instead.",
+  6: "A full re-run replaces every score and your selections. To score only papers whose batch failed, use “Retry unscored papers” instead.",
+  7: "A full re-run redoes every appraisal and replaces the existing ones, including your accept/reject decisions and edited statements (the decisions are kept in the decision log). To appraise only newly selected papers, use “Update appraisals for your selection” instead.",
+  8: "A re-run replaces the synthesis, including statements you edited (the replaced text is kept in the decision log).",
+  9: "A re-run replaces all three candidate questions, including the one you chose and edited (the replaced text is kept in the decision log).",
+};
+
 export const STATE_LABEL: Record<StageState, string> = {
   not_started: "Not started",
   running: "Running",
