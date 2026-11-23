@@ -6,15 +6,17 @@ import { db, schema } from "./db";
 import { getProject, HttpError, logDecision, markDownstreamStale, setStageState } from "./project";
 import { STAGES } from "./shared/stages";
 import { AiValidationError, BudgetError } from "./ai/client";
-import { startJob, cancelJob } from "./jobs";
-import { addTopic, answerScoping, approveTopics, deleteTopic, generateTopics, mergeTopics, nextScopingTurn, scopingState, skipScoping, updateTopic } from "./stages/scoping";
+import { startJob, cancelStage } from "./jobs";
+import { addTopic, answerScoping, deleteTopic, generateTopics, mergeTopics, nextScopingTurn, restartScoping, scopingState, skipScoping, updateScopingSummary, updateTopic } from "./stages/scoping";
+import { SCOPING_FIELDS } from "./stages/ai-schemas";
+import { approvalBlockers, approveStage } from "./gates";
 import { buildQueries, dryRun, dryRunAll, searchState, updateCriteria, updateQuery } from "./stages/search";
 import { appraisalDetail, appraisalsView, decisionLogView, paperDetail, papersView, projectView, questionsView, rankingView, retrievalView, synthesisView } from "./views";
 import { markdownReport, selectedBibtex, summaryCsv } from "./export";
 import { runNovelty } from "./jobs/questions";
 import { reverifyProject } from "./jobs/appraisal";
 import { nowIso, errMsg } from "./util";
-import { STUDY_TYPES } from "./shared/stages";
+import { STUDY_TYPES, reviewProblems } from "./shared/stages";
 
 type Handler = (ctx: { projectId: string; params: Record<string, string>; body: unknown; url: URL }) => Promise<unknown> | unknown;
 interface Route { method: string; pattern: string[]; handler: Handler }
@@ -28,7 +30,7 @@ function parse<T>(s: z.ZodType<T>, body: unknown): T {
 }
 
 export function errorResponse(e: unknown) {
-  if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
+  if (e instanceof HttpError) return NextResponse.json({ ...e.details, error: e.message }, { status: e.status });
   if (e instanceof BudgetError) return NextResponse.json({ error: e.message, kind: "budget" }, { status: 402 });
   if (e instanceof AiValidationError) return NextResponse.json({ error: e.message, kind: "ai_validation" }, { status: 502 });
   console.error("[athena] API error", e);
@@ -70,28 +72,11 @@ function requireUpstreamApproved(projectId: string, n: number) {
   }
 }
 
-on("POST", "stages/:n/approve", ({ projectId, params }) => {
-  const n = Number(params.n);
-  requireUpstreamApproved(projectId, n);
-  const p = getProject(projectId);
-  const state = p.stageStates[String(n)];
-  if (state === "running") throw new HttpError(409, "This stage is still running.");
-  if (n === 1 && !p.idea.trim()) throw new HttpError(400, "Write your idea first.");
-  if (n === 2) approveTopics(projectId);
-  if (n === 3 && !db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all().length) throw new HttpError(400, "Build the queries first.");
-  if (n === 9) {
-    const chosen = db.select().from(schema.researchQuestions).where(and(eq(schema.researchQuestions.projectId, projectId), eq(schema.researchQuestions.chosen, true))).get();
-    if (!chosen) throw new HttpError(400, "Pick one research question first.");
-  }
-  if (JOB_STAGES[n] && (state === "not_started" || state === "failed")) throw new HttpError(409, "Run this stage before approving it.");
-  setStageState(projectId, n, "approved", { currentStage: Math.min(9, n + 1) });
-  logDecision(projectId, n, "stage_approved");
-  // Kick off the next stage's background job if it has never run.
-  const next = n + 1;
-  if (JOB_STAGES[next] && getProject(projectId).stageStates[String(next)] === "not_started") {
-    startJob(projectId, JOB_STAGES[next], next);
-  }
-  if (n === 9) db.update(schema.projects).set({ status: "complete", updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run();
+on("GET", "stages/:n/blockers", ({ projectId, params }) => ({ blockers: approvalBlockers(projectId, Number(params.n)) }));
+
+on("POST", "stages/:n/approve", ({ projectId, params, body }) => {
+  const { overrides } = parse(z.object({ overrides: z.array(z.string().max(200)).max(50).optional() }), body ?? {});
+  approveStage(projectId, Number(params.n), overrides ?? []);
   return projectView(projectId);
 });
 
@@ -104,14 +89,7 @@ on("POST", "stages/:n/run", ({ projectId, params, body }) => {
   return { jobId };
 });
 
-on("POST", "stages/:n/cancel", ({ projectId, params }) => {
-  const n = Number(params.n);
-  const j = db.select().from(schema.jobs).where(and(eq(schema.jobs.projectId, projectId), eq(schema.jobs.stage, n))).all().filter((x) => x.status === "running" || x.status === "queued");
-  j.forEach((x) => cancelJob(x.id));
-  setStageState(projectId, n, "failed");
-  logDecision(projectId, n, "stage_cancelled");
-  return { cancelled: j.length };
-});
+on("POST", "stages/:n/cancel", ({ projectId, params }) => ({ cancelled: cancelStage(projectId, Number(params.n)) }));
 
 /** Keep stale results: the stage returns to "needs review" so the user re-checks and approves it. */
 on("POST", "stages/:n/keep", ({ projectId, params }) => {
@@ -150,12 +128,10 @@ on("POST", "scoping/start", async ({ projectId }) => {
   if (s.messages.length) return s;
   return nextScopingTurn(projectId);
 });
-on("POST", "scoping/restart", async ({ projectId }) => {
-  db.delete(schema.scopingMessages).where(eq(schema.scopingMessages.projectId, projectId)).run();
-  logDecision(projectId, 2, "scoping_restarted");
-  setStageState(projectId, 2, "needs_review");
-  return nextScopingTurn(projectId);
-});
+on("POST", "scoping/restart", async ({ projectId }) => restartScoping(projectId));
+on("PATCH", "scoping/summary", ({ projectId, body }) =>
+  updateScopingSummary(projectId, parse(z.object(Object.fromEntries(SCOPING_FIELDS.map((k) => [k, z.string().trim().min(1, `${k}: write something or "not specified"`).max(300)])) as Record<(typeof SCOPING_FIELDS)[number], z.ZodString>), body)),
+);
 on("POST", "scoping/answer", async ({ projectId, body }) => {
   const { text } = parse(z.object({ text: z.string().trim().min(1).max(2000) }), body);
   return answerScoping(projectId, text);
@@ -214,12 +190,16 @@ on("GET", "papers/:pid", ({ projectId, params }) => {
 });
 on("PATCH", "papers/:pid/summary", ({ projectId, params, body }) => {
   const patch = parse(z.object({ studyType: z.enum(STUDY_TYPES).optional(), setting: z.string().trim().min(1).max(300).optional(), keyFinding: z.string().trim().min(1).max(500).optional() }), body);
-  const s = db.select().from(schema.paperSummaries).where(eq(schema.paperSummaries.paperId, params.pid)).get();
+  const paper = db.select({ id: schema.papers.id }).from(schema.papers).where(and(eq(schema.papers.id, params.pid), eq(schema.papers.projectId, projectId))).get();
+  const s = paper && db.select().from(schema.paperSummaries).where(eq(schema.paperSummaries.paperId, params.pid)).get();
   if (!s) throw new HttpError(404, "Summary not found");
-  db.update(schema.paperSummaries).set({ ...patch, edited: true }).where(eq(schema.paperSummaries.id, s.id)).run();
-  logDecision(projectId, 5, "summary_cell_edited", { studyType: s.studyType, setting: s.setting, keyFinding: s.keyFinding }, patch);
+  // Only fields whose value actually changes count as an edit (a select that loses focus is not a correction).
+  const changed = Object.fromEntries(Object.entries(patch).filter(([k, v]) => v !== undefined && v !== s[k as keyof typeof patch]));
+  if (!Object.keys(changed).length) return { ok: true, changed: false };
+  db.update(schema.paperSummaries).set({ ...changed, edited: true }).where(eq(schema.paperSummaries.id, s.id)).run();
+  logDecision(projectId, 5, "summary_cell_edited", { paperId: s.paperId, studyType: s.studyType, setting: s.setting, keyFinding: s.keyFinding }, changed);
   markDownstreamStale(projectId, 5, "A summary-table cell was corrected");
-  return { ok: true };
+  return { ok: true, changed: true };
 });
 
 // ---------- stage 6 ----------
@@ -274,8 +254,10 @@ on("POST", "appraisals/reverify", ({ projectId }) => {
 });
 on("POST", "appraisals/:aid/redo", ({ projectId, params }) => {
   const a = db.select().from(schema.appraisals).where(eq(schema.appraisals.id, params.aid)).get();
-  if (!a) throw new HttpError(404, "Appraisal not found");
-  return { jobId: startJob(projectId, "appraisal", 7, { paperIds: [a.paperId] }) };
+  const paper = a && db.select().from(schema.papers).where(and(eq(schema.papers.id, a.paperId), eq(schema.papers.projectId, projectId))).get();
+  if (!a || !paper) throw new HttpError(404, "Appraisal not found");
+  requireUpstreamApproved(projectId, 7);
+  return { jobId: startJob(projectId, "appraisal", 7, { paperIds: [a.paperId] }, `“${paper.title.slice(0, 80)}” was re-appraised in step 7`) };
 });
 
 // ---------- stage 8 ----------
@@ -292,22 +274,56 @@ on("PATCH", "synthesis/:sid", ({ projectId, params, body }) => {
 
 // ---------- stage 9 ----------
 on("GET", "questions", ({ projectId }) => questionsView(projectId));
-on("PATCH", "questions/:qid", ({ projectId, params, body }) => {
-  const patch = parse(z.object({ text: z.string().trim().min(5).max(600).optional(), structure: z.record(z.string(), z.string().max(400)).optional(), design: z.string().max(300).optional(), feasibility: z.string().max(800).optional(), weakness: z.string().max(600).optional() }), body);
-  const q = db.select().from(schema.researchQuestions).where(eq(schema.researchQuestions.id, params.qid)).get();
+function projectQuestion(projectId: string, qid: string) {
+  const q = db.select().from(schema.researchQuestions).where(and(eq(schema.researchQuestions.id, qid), eq(schema.researchQuestions.projectId, projectId))).get();
   if (!q) throw new HttpError(404, "Not found");
-  db.update(schema.researchQuestions).set({ ...patch, edited: true }).where(eq(schema.researchQuestions.id, q.id)).run();
-  logDecision(projectId, 9, "question_edited", { text: q.text, structure: q.structure }, patch);
+  return q;
+}
+on("PATCH", "questions/:qid", ({ projectId, params, body }) => {
+  const patch = parse(
+    z.object({
+      text: z.string().trim().min(5).max(600).optional(),
+      structure: z.record(z.string(), z.string().max(400)).optional(),
+      design: z.string().max(300).optional(),
+      gap: z.string().trim().min(5).max(1000).optional(),
+      feasibility: z.string().max(800).optional(),
+      weakness: z.string().max(600).optional(),
+      noveltyQueries: z.array(z.object({ database: z.enum(["pubmed", "openalex"]), query: z.string().trim().min(3).max(800) })).min(1).max(2).optional(),
+    }),
+    body,
+  );
+  const q = projectQuestion(projectId, params.qid);
+  const textChanged = patch.text !== undefined && patch.text !== q.text;
+  const structureChanged = patch.structure !== undefined && JSON.stringify(patch.structure) !== JSON.stringify(q.structure);
+  const gapChanged = patch.gap !== undefined && patch.gap !== q.gap;
+  const searches = patch.noveltyQueries?.map((n) => ({ database: n.database, query: n.query, count: null, error: null }));
+  const searchesChanged = !!searches && JSON.stringify(searches.map((n) => [n.database, n.query])) !== JSON.stringify(q.noveltyQueries.map((n) => [n.database, n.query]));
+  const set: Partial<typeof schema.researchQuestions.$inferInsert> = { ...patch, noveltyQueries: searchesChanged ? searches : undefined, edited: true };
+  // The novelty list was found for the old wording (or the old searches): it no longer checks this question.
+  if (textChanged || structureChanged || searchesChanged) set.noveltyStatus = "outdated";
+  db.update(schema.researchQuestions).set(set).where(eq(schema.researchQuestions.id, q.id)).run();
+  logDecision(projectId, 9, "question_edited", { questionId: q.id, text: q.text, structure: q.structure, gap: q.gap }, { questionId: q.id, ...patch });
+  if (gapChanged) logDecision(projectId, 9, "question_gap_edited", null, { questionId: q.id });
+  else if (textChanged) logDecision(projectId, 9, "question_gap_outdated", null, { questionId: q.id }, "system");
   if (getProject(projectId).stageStates["9"] === "approved") setStageState(projectId, 9, "needs_review");
   return questionsView(projectId);
 });
+/** The researcher confirms the gap still describes the edited question. */
+on("POST", "questions/:qid/gap-confirm", ({ projectId, params }) => {
+  const q = projectQuestion(projectId, params.qid);
+  logDecision(projectId, 9, "question_gap_confirmed", { gap: q.gap }, { questionId: q.id });
+  return questionsView(projectId);
+});
 on("POST", "questions/:qid/choose", ({ projectId, params }) => {
+  const q = projectQuestion(projectId, params.qid);
   db.update(schema.researchQuestions).set({ chosen: false }).where(eq(schema.researchQuestions.projectId, projectId)).run();
-  db.update(schema.researchQuestions).set({ chosen: true }).where(eq(schema.researchQuestions.id, params.qid)).run();
-  logDecision(projectId, 9, "question_chosen", null, { id: params.qid });
+  db.update(schema.researchQuestions).set({ chosen: true }).where(eq(schema.researchQuestions.id, q.id)).run();
+  logDecision(projectId, 9, "question_chosen", null, { id: q.id });
+  if (getProject(projectId).stageStates["9"] === "approved") setStageState(projectId, 9, "needs_review");
   return questionsView(projectId);
 });
 on("POST", "questions/:qid/novelty", async ({ projectId, params }) => {
+  projectQuestion(projectId, params.qid);
   const reviewed = new Set(db.select({ t: schema.papers.normTitle }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all().map((r) => r.t));
   await runNovelty(params.qid, reviewed, () => {});
   return questionsView(projectId);
@@ -317,7 +333,8 @@ on("POST", "questions/:qid/novelty", async ({ projectId, params }) => {
 on("GET", "log", ({ projectId }) => decisionLogView(projectId));
 on("GET", "export/:kind", ({ projectId, params }) => {
   const p = getProject(projectId);
-  const slug = (p.title || "review").toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+  // Anything short of every stage approved is a draft, and the file name says so.
+  const slug = (p.title || "review").toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) + (reviewProblems(p.stageStates).length ? "-draft" : "");
   const send = (body: string, type: string, ext: string) =>
     new Response(body, { headers: { "Content-Type": `${type}; charset=utf-8`, "Content-Disposition": `attachment; filename="${slug}.${ext}"` } });
   logDecision(projectId, 9, "exported", null, { kind: params.kind }, "user");

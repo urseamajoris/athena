@@ -15,7 +15,8 @@ export function getProject(id: string) {
 }
 
 export class HttpError extends Error {
-  constructor(public status: number, message: string) {
+  /** `details` is merged into the JSON error body (e.g. the list of approval blockers). */
+  constructor(public status: number, message: string, public details?: Record<string, unknown>) {
     super(message);
   }
 }
@@ -24,13 +25,16 @@ export function logDecision(projectId: string, stage: number, action: string, be
   db.insert(schema.decisionLog).values({ id: newId("log"), projectId, stage, actor, action, before: before ?? null, after: after ?? null }).run();
 }
 
-export function setStageState(projectId: string, stage: number, state: StageState, extra?: { currentStage?: number }) {
+export function setStageState(projectId: string, stage: number, state: StageState, extra?: { currentStage?: number; reason?: string }) {
   const p = getProject(projectId);
   const states = { ...p.stageStates, [String(stage)]: state };
   const reasons = { ...p.staleReasons };
   if (state !== "stale") delete reasons[String(stage)];
+  else if (extra?.reason) reasons[String(stage)] = extra.reason;
+  // A finished review stops being "complete" as soon as any stage leaves "approved".
+  const status = p.status === "complete" && state !== "approved" ? "active" : p.status;
   db.update(schema.projects)
-    .set({ stageStates: states, staleReasons: reasons, updatedAt: nowIso(), ...(extra?.currentStage ? { currentStage: extra.currentStage } : {}) })
+    .set({ stageStates: states, staleReasons: reasons, status, updatedAt: nowIso(), ...(extra?.currentStage ? { currentStage: extra.currentStage } : {}) })
     .where(eq(schema.projects.id, projectId))
     .run();
 }
@@ -57,7 +61,8 @@ export function markDownstreamStale(projectId: string, fromStage: number, reason
   }
   // An edited upstream stage itself goes back to review.
   if (states[String(fromStage)] === "approved") states[String(fromStage)] = "needs_review";
-  db.update(schema.projects).set({ stageStates: states, staleReasons: reasons, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run();
+  const status = p.status === "complete" && STAGES.some((s) => states[String(s.n)] !== "approved") ? "active" : p.status;
+  db.update(schema.projects).set({ stageStates: states, staleReasons: reasons, status, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run();
   if (marked.length) logDecision(projectId, fromStage, "downstream_marked_stale", null, { stages: marked, reason }, "system");
   return marked;
 }
@@ -84,7 +89,7 @@ export function latestJob(projectId: string, stage: number) {
     .select()
     .from(schema.jobs)
     .where(and(eq(schema.jobs.projectId, projectId), eq(schema.jobs.stage, stage)))
-    .orderBy(sql`${schema.jobs.createdAt} desc`)
+    .orderBy(sql`${schema.jobs.createdAt} desc, rowid desc`)
     .limit(1)
     .get();
 }

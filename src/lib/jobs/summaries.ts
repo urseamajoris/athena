@@ -1,7 +1,7 @@
 import "server-only";
 import { eq, inArray } from "drizzle-orm";
 import { db, schema } from "../db";
-import { structuredCall, unknownIds, AiValidationError, BudgetError } from "../ai/client";
+import { structuredCall, unknownIds, AiValidationError, BudgetError, repairId } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { SummaryRows } from "../stages/ai-schemas";
 import { chunk, errMsg } from "../util";
@@ -50,6 +50,7 @@ export async function summariesJob(ctx: JobContext) {
               .join("\n\n"),
           },
           mockInput: batch,
+          normalize: (o) => ({ rows: o.rows.map((r) => ({ ...r, paperId: repairId(r.paperId, ids) })) }),
           check: (o) => {
             const bad = unknownIds(o.rows.map((r) => r.paperId), ids);
             if (bad.length) return `Unknown paperId(s): ${bad.join(", ")}`;

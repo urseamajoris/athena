@@ -145,6 +145,14 @@ src/lib/export.ts        Markdown report, CSV, BibTeX
 - Every edit endpoint calls `markDownstreamStale`. That includes edits to the idea, topics, queries and criteria, summary cells, selections, claim decisions and synthesis statements.
 - Before the first edit to an approved stage with downstream work, the UI asks for confirmation.
 - A stale stage shows a banner with the reason and two choices: "Re-run this step" or "Keep current results and review them". Nothing re-runs silently.
+- Starting any job (a re-run, or a single-paper re-appraisal) marks every later stage that has output stale before the job deletes anything. A re-run that removes claims first removes the synthesis statements, matrix cells, contradictions and research questions that cite them (their text is kept in the decision log).
+- Cancelling a re-run leaves the stage "needs review" (job never started) or "stale" (it started) when an earlier run finished; only a stage that never finished becomes "failed".
+
+**Approval gates** (`src/lib/gates.ts`)
+
+- Approving a stage checks its definition of done against what is stored, e.g. every query dry-run, retrieval matching the stored queries and criteria, no missing summary rows or unscored candidates, 3–5 papers per topic, every selected paper appraised and every unverified quote accepted or rejected, every skipped synthesis topic seen, and a novelty check that matches the chosen question's current wording.
+- Some items (a zero-hit or failed dry run, partial query failures, a selection outside 3–5, a skipped synthesis topic, failed novelty searches) can be waived, but only by ticking each one; waivers are logged with the approval. The approve bar lists what is outstanding.
+- Exports made while any stage is not approved are labelled DRAFT (top of the report, the file name, the sidebar and the final page).
 
 **Logging**
 

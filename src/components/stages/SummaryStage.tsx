@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { api, projectPath, useApi } from "../api";
-import { AbstractBadge, Badge, EmptyState, ErrorState, Loading, cx } from "../ui";
+import { AbstractBadge, Badge, EmptyState, ErrorState, Loading, Spinner, cx } from "../ui";
 import { JobPanel, useJobRefresh, useWizard } from "../wizard/Wizard";
 import { STUDY_TYPES, STUDY_TYPE_LABEL, type StudyType } from "@/lib/shared/stages";
 
@@ -15,7 +15,7 @@ const PAGE = 15;
 type SortKey = "title" | "year" | "journal" | "studyType" | "citationCount" | "authors";
 
 export function SummaryStage() {
-  const { projectId, states, openPaper } = useWizard();
+  const { projectId, states, openPaper, confirmEdit, refresh, jobs } = useWizard();
   const { data, error, isLoading, mutate } = useApi<PapersData>(projectPath(projectId, "papers"));
   useJobRefresh(5, mutate);
   const [q, setQ] = useState("");
@@ -26,6 +26,8 @@ export function SummaryStage() {
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "year", dir: -1 });
   const [editing, setEditing] = useState<{ id: string; field: "setting" | "keyFinding" | "studyType" } | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [retrying, setRetrying] = useState(false);
+  const [err, setErr] = useState<unknown>(null);
 
   const rows = useMemo(() => {
     if (!data) return [];
@@ -58,11 +60,36 @@ export function SummaryStage() {
   const groups = group ? data.topics.map((t) => ({ id: t.id, name: t.name, rows: rows.filter((r) => r.topicIds.includes(t.id)) })).filter((g) => g.rows.length) : [{ id: "all", name: "", rows }];
   const missing = data.papers.filter((p) => !p.summary).length;
 
-  async function saveCell(id: string, field: string, value: string) {
+  /** Save a corrected cell. Unchanged values are not edits; changed ones go through the same stale warning as any edit. */
+  async function saveCell(id: string, field: "setting" | "keyFinding" | "studyType", value: string) {
     setEditing(null);
-    await api(projectPath(projectId, `papers/${id}/summary`), { method: "PATCH", body: { [field]: value } });
-    mutate();
+    const row = data!.papers.find((p) => p.id === id);
+    if (!row?.summary || row.summary[field] === value) return;
+    if (!(await confirmEdit(5))) return;
+    setErr(null);
+    try {
+      await api(projectPath(projectId, `papers/${id}/summary`), { method: "PATCH", body: { [field]: value } });
+      await mutate();
+      await refresh();
+    } catch (e) {
+      setErr(e);
+    }
   }
+  /** Summarise only the papers that have no row yet (a failed batch). Existing rows, including your corrections, are kept. */
+  async function retryMissing() {
+    setRetrying(true);
+    setErr(null);
+    try {
+      await api(projectPath(projectId, "stages/5/run"), { body: {} });
+      await refresh();
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setRetrying(false);
+    }
+  }
+  const job = jobs["5"];
+  const jobRunning = job && (job.status === "running" || job.status === "queued");
 
   const th = (key: SortKey, label: string, cls = "") => (
     <th scope="col" aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"} className={cx("whitespace-nowrap px-2 py-2", cls)}>
@@ -75,6 +102,13 @@ export function SummaryStage() {
   return (
     <div className="space-y-4">
       <JobPanel stage={5} runLabel="Summarise papers" />
+      {missing > 0 && !jobRunning && job && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+          <span><strong>{missing} paper{missing === 1 ? " has" : "s have"} no summary</strong> because a summarising batch failed. The table below is incomplete; retry before approving.</span>
+          <button className="btn-secondary" onClick={retryMissing} disabled={retrying}>{retrying && <Spinner />} Retry missing summaries</button>
+        </div>
+      )}
+      {err ? <ErrorState error={err} /> : null}
       <div className="card flex flex-wrap items-end gap-3 p-3">
         <label className="min-w-48 flex-1 text-xs text-gray-600">Search papers
           <input className="input mt-0.5" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Title, author, setting, finding…" />
@@ -146,7 +180,7 @@ export function SummaryStage() {
   );
 }
 
-function AiCell({ p, field, editing, setEditing, onSave }: { p: Row; field: "setting" | "keyFinding" | "studyType"; editing: { id: string; field: string } | null; setEditing: (e: { id: string; field: "setting" | "keyFinding" | "studyType" } | null) => void; onSave: (id: string, field: string, v: string) => void }) {
+function AiCell({ p, field, editing, setEditing, onSave }: { p: Row; field: "setting" | "keyFinding" | "studyType"; editing: { id: string; field: string } | null; setEditing: (e: { id: string; field: "setting" | "keyFinding" | "studyType" } | null) => void; onSave: (id: string, field: "setting" | "keyFinding" | "studyType", v: string) => void }) {
   const s = p.summary;
   const isEditing = editing?.id === p.id && editing.field === field;
   if (!s) return <td className="px-2 py-2 text-xs italic text-gray-400">pending</td>;
@@ -155,7 +189,7 @@ function AiCell({ p, field, editing, setEditing, onSave }: { p: Row; field: "set
     return (
       <td className="px-2 py-2">
         {field === "studyType" ? (
-          <select autoFocus className="input text-xs" defaultValue={s.studyType} onBlur={(e) => onSave(p.id, field, e.target.value)} onKeyDown={(e) => e.key === "Escape" && setEditing(null)}>
+          <select autoFocus className="input text-xs" defaultValue={s.studyType} onChange={(e) => e.target.value !== s.studyType && onSave(p.id, field, e.target.value)} onBlur={() => setEditing(null)} onKeyDown={(e) => e.key === "Escape" && setEditing(null)}>
             {STUDY_TYPES.map((x) => <option key={x} value={x}>{STUDY_TYPE_LABEL[x]}</option>)}
           </select>
         ) : (

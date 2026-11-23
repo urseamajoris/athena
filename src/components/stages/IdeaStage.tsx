@@ -1,11 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, projectPath } from "../api";
 import { ErrorState, Spinner } from "../ui";
 import { useWizard } from "../wizard/Wizard";
 
 export function IdeaStage() {
-  const { project, projectId, refresh, confirmEdit, states, approve } = useWizard();
+  const { project, projectId, refresh, confirmEdit, states, approve, registerFlush } = useWizard();
   const [idea, setIdea] = useState(project.idea);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<unknown>(null);
@@ -13,23 +13,37 @@ export function IdeaStage() {
     setIdea(project.idea);
   }, [project.idea]);
   const dirty = idea.trim() !== project.idea.trim();
+  // The latest text and saved idea, for the flush the approve bar runs before approving.
+  const latest = useRef({ idea, saved: project.idea });
+  latest.current = { idea, saved: project.idea };
 
-  async function save(andApprove = false) {
+  /** Save the edited idea if it differs from the stored one. Returns false if the user cancelled or it failed. */
+  const flush = useCallback(async () => {
+    const { idea: text, saved } = latest.current;
+    if (text.trim() === saved.trim()) return true;
     setErr(null);
-    if (dirty) {
-      if (!(await confirmEdit(1))) return;
-      setSaving(true);
-      try {
-        await api(projectPath(projectId, "idea"), { method: "PATCH", body: { idea } });
-        await refresh();
-      } catch (e) {
-        setErr(e);
-        setSaving(false);
-        return;
-      }
+    if (!(await confirmEdit(1))) return false;
+    setSaving(true);
+    try {
+      await api(projectPath(projectId, "idea"), { method: "PATCH", body: { idea: text } });
+      latest.current = { idea: text, saved: text };
+      await refresh();
+      return true;
+    } catch (e) {
+      setErr(e);
+      return false;
+    } finally {
       setSaving(false);
     }
-    if (andApprove) await approve(1);
+  }, [confirmEdit, projectId, refresh]);
+  useEffect(() => {
+    registerFlush(1, flush);
+    return () => registerFlush(1, null);
+  }, [registerFlush, flush]);
+
+  async function save(andApprove = false) {
+    if (andApprove) return approve(1); // approve saves the idea first
+    await flush();
   }
 
   return (

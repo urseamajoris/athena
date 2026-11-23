@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, useApi } from "./api";
 import { ErrorState, Loading, StateBadge, Spinner } from "./ui";
-import { STAGES, type StageState } from "@/lib/shared/stages";
+import { STAGES, overallState, type StageState } from "@/lib/shared/stages";
 
 interface ProjectRow {
   id: string;
@@ -81,7 +81,7 @@ export function HomeClient() {
                     Stage {st.n}: {st.title} · updated {new Date(p.updatedAt).toLocaleString()}
                   </p>
                 </Link>
-                <StateBadge state={p.status === "complete" ? "approved" : (p.stageStates[String(st.n)] ?? "not_started")} />
+                <StateBadge state={overallState(p.stageStates, st.n)} />
                 <button className="btn-ghost text-xs text-gray-500" onClick={() => remove(p.id)} aria-label={`Delete review ${p.title}`}>
                   Delete
                 </button>

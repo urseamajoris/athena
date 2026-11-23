@@ -23,6 +23,19 @@ async function call(path, body, method) {
 const p = (s) => `/${pid}/${s}`;
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
+/**
+ * Approve a stage the way a researcher who accepts the AI's proposals would: items the gate allows to be waived
+ * (zero-hit queries, 3–5 selection, skipped synthesis topics…) are waived explicitly and logged; anything that
+ * cannot be waived stops the run.
+ */
+async function approve(n) {
+  const { blockers } = await call(p(`stages/${n}/blockers`));
+  const hard = blockers.filter((b) => !b.override);
+  if (hard.length) throw new Error(`stage ${n} cannot be approved: ${hard.map((b) => b.message).join(" | ")}`);
+  for (const b of blockers) log(`  waiving: ${b.message}`);
+  return call(p(`stages/${n}/approve`), { overrides: blockers.map((b) => b.override) });
+}
+
 async function waitStage(n) {
   for (;;) {
     const v = await call(`/${pid}`);
@@ -39,7 +52,7 @@ async function waitStage(n) {
   if (!pid) {
     pid = (await call("", { idea: IDEA })).id;
     log("project", pid);
-    await call(p("stages/1/approve"), {});
+    await approve(1);
   }
   if (until >= 2) {
     let s = await call(p("scoping/start"), {});
@@ -51,14 +64,14 @@ async function waitStage(n) {
     log("scoping done after", s.asked, "questions");
     s = await call(p("scoping/topics"), {});
     log("topics:", s.topics.map((t) => t.name).join(" | "));
-    await call(p("stages/2/approve"), {});
+    await approve(2);
   }
   if (until >= 3) {
     const q = await call(p("search/build"), {});
     for (const t of q.topics) for (const x of t.queries) log(`  [${x.database}] ${t.name}: ${x.queryString}`);
     const d = await call(p("search/dryrun-all"), {});
     log("dry runs:", d.results.map((r) => r.count ?? `ERR ${r.error}`).join(", "));
-    await call(p("stages/3/approve"), {}); // starts retrieval
+    await approve(3); // starts retrieval
   }
   for (let n = 4; n <= Math.min(until, 9); n++) {
     const v = await waitStage(n);
@@ -72,13 +85,18 @@ async function waitStage(n) {
     if (n === 7) {
       const a = await call(p("appraisals"));
       log(`  appraisals: ${a.appraisals.map((x) => `${x.textSource}/${x.status} v${x.counts.verified} u${x.counts.unverified}`).join("; ")}`);
+      // Unverified quotes need a decision; this run rejects them (the conservative choice).
+      for (const x of a.appraisals) {
+        const d = await call(p(`appraisals/${x.id}`));
+        for (const c of d.claims.filter((c) => !c.verified && !c.notReported && !c.userAccepted && !c.userRejected)) await call(p(`claims/${c.id}`), { decision: "reject" }, "PATCH");
+      }
     }
     if (n === 9) {
       const q = await call(p("questions"));
       q.questions.forEach((x, i) => log(`  RQ${i + 1}: ${x.text} [novelty: ${x.noveltyMatches.length} matches]`));
       await call(p(`questions/${q.questions[0].id}/choose`), {});
     }
-    await call(p(`stages/${n}/approve`), {});
+    await approve(n);
   }
   log("done; project", pid);
 })().catch((e) => {

@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db, schema } from "../db";
-import type { NoveltyMatch } from "../db/schema";
+import type { Criteria, NoveltyMatch } from "../db/schema";
 import { structuredCall, unknownIds, repairId } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { ResearchQuestions } from "../stages/ai-schemas";
@@ -91,16 +91,26 @@ export async function questionsJob(ctx: JobContext) {
   ctx.progress(4, 4, "Done");
 }
 
+/**
+ * Novelty search filters: the review's year and language limits are cleared, because an existing study outside the
+ * review's window still answers "has this been done?". The adapters' own record-type filter (OpenAlex: articles,
+ * reviews and preprints) still applies.
+ */
+export function noveltyCriteria(c: Criteria | null): Criteria | null {
+  return c ? { ...c, yearFrom: null, yearTo: null, languages: [] } : null;
+}
+
 export async function runNovelty(questionId: string, reviewed: Set<string>, log: (l: string) => void) {
   const q = db.select().from(schema.researchQuestions).where(eq(schema.researchQuestions.id, questionId)).get();
   if (!q) return;
   const project = getProject(q.projectId);
+  const criteria = noveltyCriteria(project.criteria);
   const matches: NoveltyMatch[] = [];
   const nq = [...q.noveltyQueries];
   for (const entry of nq) {
     try {
       const adapter = adapters[entry.database as "pubmed" | "openalex"];
-      const res = await adapter.search(entry.query, project.criteria, NOVELTY_TOP, { log });
+      const res = await adapter.search(entry.query, criteria, NOVELTY_TOP, { log });
       entry.count = res.total;
       entry.error = null;
       res.records.slice(0, NOVELTY_TOP).forEach((r, rank) =>

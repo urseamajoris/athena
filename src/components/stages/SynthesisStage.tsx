@@ -11,7 +11,7 @@ interface Cell { id: string; theme: string; paperId: string; value: string; stan
 interface Contradiction { id: string; theme: string; description: string; claimIds: string[]; paperIds: string[] }
 interface Item { id: string; kind: string; statement: string; claimIds: string[]; edited: boolean }
 interface SynData {
-  topics: { id: string; name: string; importanceRank: number | null; items: Item[]; cells: Cell[]; contradictions: Contradiction[] }[];
+  topics: { id: string; name: string; importanceRank: number | null; skipped: string | null; items: Item[]; cells: Cell[]; contradictions: Contradiction[] }[];
   claims: Record<string, ClaimRef>;
   papers: Record<string, PaperRef>;
 }
@@ -60,8 +60,9 @@ export function SynthesisStage() {
   if (isLoading) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
   if (!data) return null;
-  const topics = data.topics.filter((t) => t.items.length || t.cells.length);
-  const t = topics.find((x) => x.id === tab) ?? topics[0];
+  // Skipped topics keep a tab so the researcher sees that, and why, they have no synthesis.
+  const topics = data.topics.filter((t) => t.items.length || t.cells.length || t.skipped);
+  const t = topics.find((x) => x.id === tab) ?? topics.find((x) => !x.skipped) ?? topics[0];
 
   async function saveItem(id: string, statement: string) {
     setEditing(null);
@@ -80,10 +81,17 @@ export function SynthesisStage() {
           <div role="tablist" aria-label="Topics" className="flex flex-wrap gap-1 border-b border-gray-200">
             {topics.map((x) => (
               <button key={x.id} role="tab" aria-selected={x.id === t.id} onClick={() => setTab(x.id)} className={cx("-mb-px rounded-t-lg border px-3 py-1.5 text-sm", x.id === t.id ? "border-gray-200 border-b-white bg-white font-semibold text-gray-900" : "border-transparent text-gray-600 hover:text-gray-900")}>
-                {x.name} {x.contradictions.length > 0 && <Badge tone="rose">{x.contradictions.length} conflict{x.contradictions.length === 1 ? "" : "s"}</Badge>}
+                {x.name} {x.skipped && <Badge tone="amber">skipped</Badge>} {x.contradictions.length > 0 && <Badge tone="rose">{x.contradictions.length} conflict{x.contradictions.length === 1 ? "" : "s"}</Badge>}
               </button>
             ))}
           </div>
+          {t.skipped ? (
+            <div role="tabpanel" className="card border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+              <p className="font-semibold">No synthesis for “{t.name}”</p>
+              <p className="mt-1">{t.skipped}</p>
+              <p className="mt-2 text-xs">This topic will have no known / contested / unknown statements in the review. To approve this step without it you will be asked to confirm that below.</p>
+            </div>
+          ) : (
           <div role="tabpanel" className="space-y-4">
             <Matrix t={t} data={data} />
             {t.contradictions.length > 0 && (
@@ -123,6 +131,7 @@ export function SynthesisStage() {
               ))}
             </div>
           </div>
+          )}
         </>
       )}
     </div>

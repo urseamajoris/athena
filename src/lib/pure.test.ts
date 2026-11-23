@@ -49,3 +49,13 @@ test("repairId fixes only unambiguous formatting slips", () => {
   assert.equal(repairId("c_deadbeefdeadbeef", allowed), "c_deadbeefdeadbeef"); // unknown stays unknown → rejected later
   assert.equal(repairId("c_6fb22aab", allowed), "c_6fb22aab"); // truncated: not repaired
 });
+import { overallState, reviewProblems, STAGES, type StageState } from "./shared/stages";
+test("a finished review that has a stale or failed step is listed as stale/failed, not approved", () => {
+  const all = (s: StageState) => Object.fromEntries(STAGES.map((x) => [String(x.n), s])) as Record<string, StageState>;
+  assert.equal(overallState(all("approved"), 9), "approved");
+  assert.equal(overallState({ ...all("approved"), "4": "stale" }, 9), "stale");
+  assert.equal(overallState({ ...all("approved"), "7": "failed" }, 9), "failed");
+  assert.equal(overallState({ ...all("approved"), "9": "needs_review" }, 9), "needs_review");
+  assert.deepEqual(reviewProblems(all("approved")), []);
+  assert.deepEqual(reviewProblems({ ...all("approved"), "3": "stale" }, { "3": "Topics changed" }).map((p) => [p.n, p.state, p.reason]), [[3, "stale", "Topics changed"]]);
+});

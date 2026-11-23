@@ -2,7 +2,8 @@
 import useSWR, { type SWRConfiguration } from "swr";
 
 export class ApiError extends Error {
-  constructor(message: string, public status: number, public kind?: string) {
+  /** `data` is the parsed error body (e.g. `blockers` when an approval is refused). */
+  constructor(message: string, public status: number, public kind?: string, public data?: unknown) {
     super(message);
   }
 }
@@ -22,7 +23,7 @@ export async function api<T = unknown>(path: string, opts: { method?: string; bo
   }
   if (!res.ok) {
     const d = data as { error?: string; kind?: string } | null;
-    throw new ApiError(d?.error ?? `Request failed (${res.status})`, res.status, d?.kind);
+    throw new ApiError(d?.error ?? `Request failed (${res.status})`, res.status, d?.kind, data);
   }
   return data as T;
 }

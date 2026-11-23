@@ -5,9 +5,9 @@ import { Badge, EmptyState, ErrorState, Loading, Spinner, TextSourceBadge, cx } 
 import { JobPanel, useJobRefresh, useWizard } from "../wizard/Wizard";
 
 interface AppraisalRow {
-  id: string; paperId: string; status: string; error: string | null; textSource: string; textNote: string; templateType: string;
+  id: string; paperId: string; status: string; error: string | null; textSource: string; textNote: string; templateType: string; selected: boolean;
   paper: { id: string; title: string; year: number | null };
-  counts: { claims: number; verified: number; unverified: number; accepted: number; notReported: number };
+  counts: { claims: number; verified: number; unverified: number; accepted: number; rejected: number; undecided: number; notReported: number };
 }
 interface Claim { id: string; field: string; statement: string; quote: string; location: string; notReported: boolean; verified: boolean; userAccepted: boolean; userRejected: boolean; matchStart: number | null; matchEnd: number | null; verificationNote: string | null }
 interface Detail {
@@ -21,21 +21,49 @@ const FIELD_LABEL: Record<string, string> = { aim: "Aim", setting: "Setting", sa
 const TEMPLATE_LABEL: Record<string, string> = { trial: "Trial", cohort: "Cohort", cross_sectional: "Cross-sectional", qualitative: "Qualitative", systematic_review: "Systematic review", other: "Other" };
 
 export function AppraisalStage() {
-  const { projectId, states } = useWizard();
-  const { data, error, isLoading, mutate } = useApi<{ appraisals: AppraisalRow[] }>(projectPath(projectId, "appraisals"));
+  const { projectId, states, refresh } = useWizard();
+  const { data, error, isLoading, mutate } = useApi<{ appraisals: AppraisalRow[]; unappraised: { id: string; title: string }[] }>(projectPath(projectId, "appraisals"));
   useJobRefresh(7, mutate);
   const [active, setActive] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [err, setErr] = useState<unknown>(null);
   const list = data?.appraisals ?? [];
+  const unappraised = data?.unappraised ?? [];
+  const deselected = list.filter((a) => !a.selected);
+  /** Appraise newly selected papers and drop appraisals of deselected ones; finished appraisals are kept. */
+  async function syncSelection() {
+    setSyncing(true);
+    setErr(null);
+    try {
+      await api(projectPath(projectId, "stages/7/run"), { body: {} });
+      await refresh();
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setSyncing(false);
+    }
+  }
   const current = active ?? list.find((a) => a.status === "done")?.id ?? null;
 
   if (states["6"] !== "approved" && (states["7"] ?? "not_started") === "not_started") return <EmptyState title="Approve the ranking first">Appraisal reads each selected paper.</EmptyState>;
   if (isLoading) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={() => mutate()} />;
-  const totals = list.reduce((a, x) => ({ ft: a.ft + (x.textSource === "full_text" ? 1 : 0), unv: a.unv + x.counts.unverified - x.counts.accepted }), { ft: 0, unv: 0 });
+  const totals = list.reduce((a, x) => ({ ft: a.ft + (x.textSource === "full_text" ? 1 : 0), unv: a.unv + x.counts.undecided }), { ft: 0, unv: 0 });
 
   return (
     <div className="space-y-4">
       <JobPanel stage={7} runLabel="Appraise selected papers" />
+      {list.length > 0 && (unappraised.length > 0 || deselected.length > 0) && states["7"] !== "running" && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <span>
+            <strong>The appraisals do not match your current selection.</strong>{" "}
+            {unappraised.length > 0 && `${unappraised.length} selected paper${unappraised.length === 1 ? " is" : "s are"} not appraised. `}
+            {deselected.length > 0 && `${deselected.length} appraisal${deselected.length === 1 ? " belongs" : "s belong"} to papers you deselected.`}
+          </span>
+          <button className="btn-secondary" onClick={syncSelection} disabled={syncing}>{syncing && <Spinner />} Update appraisals for your selection</button>
+        </div>
+      )}
+      {err ? <ErrorState error={err} /> : null}
       {list.length > 0 && (
         <p className="text-sm text-gray-600">
           {list.length} papers · <strong>{totals.ft}</strong> appraised from open full text, <strong>{list.length - totals.ft}</strong> from the abstract only ·{" "}
@@ -54,8 +82,9 @@ export function AppraisalStage() {
                     <span className="line-clamp-2 font-medium text-gray-900">{a.paper.title}</span>
                     <span className="mt-1 flex flex-wrap gap-1">
                       {a.status === "done" ? <TextSourceBadge source={a.textSource} /> : a.status === "failed" ? <Badge tone="rose">failed</Badge> : <Badge tone="sky">{a.status}</Badge>}
-                      {a.counts.unverified - a.counts.accepted > 0 && <Badge tone="rose">{a.counts.unverified - a.counts.accepted} unverified</Badge>}
-                      {a.status === "done" && a.counts.unverified - a.counts.accepted <= 0 && <Badge tone="emerald">quotes checked</Badge>}
+                      {!a.selected && <Badge tone="gray">deselected</Badge>}
+                      {a.counts.undecided > 0 && <Badge tone="rose">{a.counts.undecided} awaiting decision</Badge>}
+                      {a.status === "done" && a.counts.undecided === 0 && <Badge tone="emerald">quotes checked</Badge>}
                     </span>
                   </button>
                 </li>
@@ -160,11 +189,17 @@ function AppraisalDetail({ id, onChanged }: { id: string; onChanged: () => void 
             <ul className="space-y-2">
               {a.checklist.map((it, i) => {
                 const c = it.claimId ? byId.get(it.claimId) : null;
+                // A rejected quote withdraws the answer it supported.
+                const withdrawn = !!c && !c.verified && c.userRejected;
                 return (
                   <li key={i} className="rounded-lg border border-gray-100 p-2 text-sm">
                     <div className="flex items-start justify-between gap-2">
                       <span>{it.item}</span>
-                      <Badge tone={it.answer === "yes" ? "emerald" : it.answer === "no" ? "rose" : it.answer === "not_reported" ? "gray" : "amber"}>{it.answer.replace("_", " ")}</Badge>
+                      {withdrawn ? (
+                        <span className="flex items-center gap-1"><s className="text-xs text-gray-400">{it.answer.replace("_", " ")}</s><Badge tone="gray">answer rejected by you</Badge></span>
+                      ) : (
+                        <Badge tone={it.answer === "yes" ? "emerald" : it.answer === "no" ? "rose" : it.answer === "not_reported" ? "gray" : "amber"}>{it.answer.replace("_", " ")}</Badge>
+                      )}
                     </div>
                     {c && !c.notReported && <QuoteLine c={c} onFocus={() => setFocus(c.id)} onDecide={(d) => decide(c, d)} busy={busy === c.id} />}
                   </li>

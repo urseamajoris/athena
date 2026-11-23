@@ -1,8 +1,9 @@
 /**
  * Quote verification. A quote is "verified" only if it appears in the retrieved source text after
  * normalising whitespace, quote marks, dashes and case. Quotes containing an ellipsis ("..." or "…")
- * are verified piece by piece, in order. Returns character offsets into the ORIGINAL text so the UI can
- * highlight the passage.
+ * are verified piece by piece, in order, and the pieces must sit close together (one passage, not two
+ * sentences from opposite ends of the paper). Returns character offsets into the ORIGINAL text so the UI
+ * can highlight the passage.
  */
 
 const MAP: Record<string, string> = {
@@ -17,13 +18,17 @@ const MAP: Record<string, string> = {
  * routinely drop them when quoting: structured-abstract labels ("METHODS:"), numeric citation brackets ("[12]",
  * "[3-5]", and the empty "[]" left when references are stripped), table/figure pointers ("(Table 2)") and
  * author-year citations ("(Stanyon et al., 2021)"). Because the skip is symmetric, any change to the wording
- * itself still fails verification.
+ * itself still fails verification. The author-year pattern only accepts names followed by a year, so statistics
+ * that happen to end in a year-like number ("(N = 2015)", "(P = 0.2019)") are content and are never skipped.
  */
+const CITE_NAME = String.raw`(?:[A-Z][\p{Ll}'’][\p{L}'’.&\- ]{0,80}?,?|[A-Z]{2,10},)`;
+const CITE_YEAR = String.raw`(?:19|20)\d{2}[a-z]?`;
+const CITE = String.raw`${CITE_NAME}\s${CITE_YEAR}(?:\s*,\s*${CITE_YEAR})*`;
 const SKIPS = [
   /(?<![A-Za-z])[A-Z][A-Z&/ -]{2,30}:(?=\s)/g,
   /\[[\s\d,;\u2013\u2014-]*\]/g,
   /\((?:see\s+)?(?:tables?|fig\.?|figures?|supplementary|appendix|additional file)\b[^()]{0,30}\)/gi,
-  /\((?=[^()]{0,120}\b(?:19|20)\d{2}[a-z]?\))[A-Z][^()]{0,120}\)/g,
+  new RegExp(String.raw`\((?:(?:e\.g\.|see|cf\.),?\s+)?${CITE}(?:\s*;\s*${CITE})*\)`, "gu"),
   /\(\s*\)/g,
 ];
 
@@ -84,6 +89,8 @@ export interface QuoteCheck {
 }
 
 const MIN_PIECE = 12;
+/** Most source characters allowed between two ellipsis fragments: a quote with "..." must still be one passage. */
+export const MAX_ELLIPSIS_GAP = 400;
 
 export function verifyQuote(source: string, quote: string, pre?: { norm: string; map: number[] }): QuoteCheck {
   const q = quote.trim();
@@ -101,26 +108,39 @@ export function verifyQuote(source: string, quote: string, pre?: { norm: string;
   if (pieces.length === 1 && pieces[0].length < 8) {
     return { verified: false, start: null, end: null, note: "Quote is too short to verify reliably." };
   }
-  let from = 0;
-  let start: number | null = null;
-  let endNorm = 0;
-  for (const p of pieces) {
-    const at = norm.indexOf(p, from);
-    if (at < 0) {
-      return {
-        verified: false,
-        start: null,
-        end: null,
-        note: pieces.length > 1 ? `Fragment not found in source text: "${p.slice(0, 80)}"` : "Quote not found in the retrieved source text.",
-      };
+  // Find the fragments in order, each starting at most MAX_ELLIPSIS_GAP source characters after the previous one
+  // ends. Backtracks over earlier occurrences so a repeated phrase does not hide a valid nearby match.
+  const starts: number[] = [];
+  const gapOk = (i: number, at: number) => i === 0 || map[at] - (map[starts[i - 1] + pieces[i - 1].length - 1] + 1) <= MAX_ELLIPSIS_GAP;
+  const place = (i: number, from: number): boolean => {
+    if (i === pieces.length) return true;
+    for (let at = norm.indexOf(pieces[i], from); at >= 0; at = norm.indexOf(pieces[i], at + 1)) {
+      if (!gapOk(i, at)) return false; // later occurrences are even further away
+      starts[i] = at;
+      if (place(i + 1, at + pieces[i].length)) return true;
     }
-    if (start === null) start = at;
-    endNorm = at + p.length;
-    from = endNorm;
+    return false;
+  };
+  if (!place(0, 0)) {
+    let from = 0;
+    for (const p of pieces) {
+      const at = norm.indexOf(p, from);
+      if (at < 0) {
+        return {
+          verified: false,
+          start: null,
+          end: null,
+          note: pieces.length > 1 ? `Fragment not found in source text: "${p.slice(0, 80)}"` : "Quote not found in the retrieved source text.",
+        };
+      }
+      from = at + p.length;
+    }
+    return { verified: false, start: null, end: null, note: `The fragments around the ellipsis are more than ${MAX_ELLIPSIS_GAP} characters apart in the source, so they are not one passage.` };
   }
-  const s = map[start!];
-  const e = map[endNorm - 1] + 1;
-  return { verified: true, start: s, end: e, note: pieces.length > 1 ? "Verified (fragments matched in order)." : "Verified: exact match after whitespace/punctuation normalisation." };
+  const last = pieces.length - 1;
+  const s = map[starts[0]];
+  const e = map[starts[last] + pieces[last].length - 1] + 1;
+  return { verified: true, start: s, end: e, note: pieces.length > 1 ? "Verified (fragments matched in order, within one passage)." : "Verified: exact match after whitespace/punctuation normalisation." };
 }
 
 /**

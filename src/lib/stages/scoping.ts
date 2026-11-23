@@ -1,9 +1,9 @@
 import "server-only";
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 import { structuredCall } from "../ai/client";
 import { wrapData } from "../ai/prompts";
-import { ScopingTopics, ScopingTurn } from "./ai-schemas";
+import { SCOPING_FIELDS, ScopingTopics, ScopingTurn } from "./ai-schemas";
 import { getProject, HttpError, logDecision, markDownstreamStale, setStageState } from "../project";
 import { newId, nowIso } from "../util";
 
@@ -16,6 +16,23 @@ function transcript(projectId: string) {
     text: msgs.length ? msgs.map((m) => `${m.role === "assistant" ? "Mentor" : "Researcher"}: ${m.text}`).join("\n") : "(no questions asked yet)",
     asked: msgs.filter((m) => m.role === "assistant" && (m.meta as { kind?: string } | null)?.kind === "question").length,
   };
+}
+
+/**
+ * True when the scoping conversation was restarted after the current topics were built, so the topics (and the
+ * scoping summary) describe the earlier conversation, not the one on screen. Approval waits for a regeneration.
+ */
+export function topicsFromEarlierChat(projectId: string): boolean {
+  const D = schema.decisionLog;
+  const last = db
+    .select({ action: D.action })
+    .from(D)
+    .where(and(eq(D.projectId, projectId), inArray(D.action, ["scoping_restarted", "topics_generated"])))
+    .orderBy(sql`rowid desc`)
+    .limit(1)
+    .get();
+  if (last?.action !== "scoping_restarted") return false;
+  return db.select({ id: schema.topics.id }).from(schema.topics).where(eq(schema.topics.projectId, projectId)).all().length > 0;
 }
 
 export function scopingState(projectId: string) {
@@ -33,9 +50,34 @@ export function scopingState(projectId: string) {
     done: !!meta?.done || t.asked >= MAX_SCOPING_QUESTIONS,
     awaitingAnswer: last?.role === "assistant" && meta?.kind === "question" && t.msgs[t.msgs.length - 1]?.id === last.id,
     topics,
+    topicsFromEarlierChat: topicsFromEarlierChat(projectId),
     conceptMap: p.conceptMap,
     summary: p.scopingSummary,
   };
+}
+
+/** Restart the conversation. Later steps go stale and the old topics cannot be approved until regenerated. */
+export async function restartScoping(projectId: string) {
+  db.delete(schema.scopingMessages).where(eq(schema.scopingMessages.projectId, projectId)).run();
+  logDecision(projectId, 2, "scoping_restarted");
+  markDownstreamStale(projectId, 2, "The scoping conversation was restarted");
+  setStageState(projectId, 2, "needs_review", { currentStage: 2 });
+  return nextScopingTurn(projectId);
+}
+
+/**
+ * The scoping summary (population, setting, phenomenon, outcome, time frame, study types) feeds query building and
+ * ranking, so it is a checkpoint the researcher can correct. Changing it makes later steps stale.
+ */
+export function updateScopingSummary(projectId: string, summary: Record<(typeof SCOPING_FIELDS)[number], string>) {
+  const p = getProject(projectId);
+  const before = p.scopingSummary ?? {};
+  const next = { ...before, ...summary };
+  if (SCOPING_FIELDS.every((k) => (before[k] ?? "") === next[k])) return scopingState(projectId);
+  db.update(schema.projects).set({ scopingSummary: next, updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run();
+  logDecision(projectId, 2, "scoping_summary_edited", before, next);
+  markDownstreamStale(projectId, 2, "The scoping summary was edited");
+  return scopingState(projectId);
 }
 
 function addMessage(projectId: string, role: "user" | "assistant", text: string, meta: Record<string, unknown> | null = null) {
@@ -178,9 +220,13 @@ export function mergeTopics(projectId: string, ids: string[], name: string) {
   return id;
 }
 
-export function approveTopics(projectId: string) {
-  const rows = db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).all();
-  if (rows.length < 1) throw new HttpError(400, "Add at least one topic before approving.");
-  if (rows.length > 8) throw new HttpError(400, "Keep at most 8 topics.");
-  db.update(schema.topics).set({ approved: true }).where(eq(schema.topics.projectId, projectId)).run();
+/** Why the topic list cannot be approved yet (fewer than 4 topics is allowed; the editor warns about it). */
+export function topicBlockers(projectId: string): string[] {
+  const n = db.select({ id: schema.topics.id }).from(schema.topics).where(eq(schema.topics.projectId, projectId)).all().length;
+  const out: string[] = [];
+  if (n < 1) out.push("Add at least one search topic before approving.");
+  if (n > 8) out.push("Keep at most 8 topics: merge or delete some first.");
+  if (topicsFromEarlierChat(projectId))
+    out.push("You restarted the scoping conversation after these topics were built, so they describe the earlier conversation. Finish the new conversation and regenerate the topics before approving.");
+  return out;
 }

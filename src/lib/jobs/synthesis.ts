@@ -33,6 +33,11 @@ export async function synthesisJob(ctx: JobContext) {
 
   let finished = 0;
   let ok = 0;
+  /** A topic with no synthesis gets a recorded reason, shown on its tab and acknowledged before approval. */
+  const skipTopic = (t: (typeof topics)[number], reason: string) => {
+    ctx.log(`✗ "${t.name}" skipped: ${reason}`);
+    logDecision(projectId, 8, "synthesis_topic_skipped", null, { topicId: t.id, topic: t.name, reason, jobId: ctx.jobId }, "system");
+  };
   ctx.progress(0, topics.length, `Synthesising ${topics.length} topics`);
   await Promise.all(
     topics.map(async (t) => {
@@ -45,7 +50,10 @@ export async function synthesisJob(ctx: JobContext) {
         const sums = db.select().from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, pids.concat(["-"]))).all();
         const claims = usableClaims(pids);
         if (claims.length < 2) {
-          ctx.log(`Topic "${t.name}": fewer than 2 usable (verified or accepted) claims — skipped.`);
+          const reason = !pids.length
+            ? "No papers are selected for this topic in Ranking, so there was no evidence to synthesise."
+            : `Only ${claims.length} usable quote${claims.length === 1 ? "" : "s"} (verified, or unverified but accepted by you) came from its ${pids.length} selected paper${pids.length === 1 ? "" : "s"}; synthesis needs at least 2.`;
+          skipTopic(t, reason);
           return;
         }
         const claimIds = claims.map((c) => c.id);
@@ -119,7 +127,7 @@ export async function synthesisJob(ctx: JobContext) {
         ctx.log(`✓ "${t.name}": ${data.themes.length} themes, ${data.contradictions.length} contradictions`);
       } catch (e) {
         if (e instanceof BudgetError) throw e;
-        ctx.log(`✗ synthesis failed for "${t.name}": ${errMsg(e)}`);
+        skipTopic(t, `The AI synthesis for this topic failed: ${errMsg(e)}. Re-run this step to try again.`);
       } finally {
         finished++;
         ctx.progress(finished, topics.length, `Synthesised ${finished}/${topics.length} topics`);

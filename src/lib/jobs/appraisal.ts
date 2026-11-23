@@ -10,6 +10,7 @@ import { CHECKLISTS, FIELD_GUIDANCE, TEMPLATE_LABEL, templateFor } from "../stag
 import { closestPassage, normalizeWithMap, sectionAt, verifyQuote } from "../quotes";
 import { errMsg, newId } from "../util";
 import { logDecision } from "../project";
+import { claimIdsOfAppraisals, dropOutputCiting } from "../evidence";
 import { getAppraisalText } from "./fulltext";
 import type { JobContext } from "./runner";
 
@@ -74,12 +75,15 @@ export async function appraisalJob(ctx: JobContext) {
   // Remove appraisals for papers no longer selected, and the ones being redone.
   const projectPaperIds = db.select({ id: schema.papers.id }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all().map((r) => r.id);
   const deselected = db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, projectPaperIds.concat(["-"]))).all().filter((a) => !ids.includes(a.paperId));
-  for (const a of deselected) db.delete(schema.appraisals).where(eq(schema.appraisals.id, a.id)).run();
   const todo = papers.filter((p) => {
     const ex = existing.find((a) => a.paperId === p.id);
     if (onlyIds) return onlyIds.includes(p.id);
     return !ex || ex.status !== "done" || ctx.params.force;
   });
+  // Their claims go with them (cascade): first remove synthesis/questions that cite those claims.
+  const replaced = [...deselected, ...existing.filter((a) => todo.some((p) => p.id === a.paperId))];
+  dropOutputCiting(projectId, claimIdsOfAppraisals(replaced.map((a) => a.id)), 7, "Appraisals were redone, or removed for papers no longer selected");
+  for (const a of deselected) db.delete(schema.appraisals).where(eq(schema.appraisals.id, a.id)).run();
   for (const p of todo) db.delete(schema.appraisals).where(eq(schema.appraisals.paperId, p.id)).run();
 
   let finished = 0;

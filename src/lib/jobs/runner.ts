@@ -2,7 +2,8 @@ import "server-only";
 import { and, eq, inArray } from "drizzle-orm";
 import { db, schema } from "../db";
 import { newId, nowIso, errMsg } from "../util";
-import { setStageState, logDecision } from "../project";
+import { getProject, setStageState, logDecision, markDownstreamStale } from "../project";
+import { STAGES } from "../shared/stages";
 
 /**
  * In-process job runner. Job state lives in SQLite (jobs table), so a page refresh or a client
@@ -30,13 +31,19 @@ export function registerJob(kind: string, h: JobHandler) {
   handlers.set(kind, h);
 }
 
-export function startJob(projectId: string, kind: string, stage: number, params: Record<string, unknown> = {}): string {
+/**
+ * Queue a stage's job. Every later stage that already has output is marked stale first, synchronously, so the
+ * mark is in place before the job (which runs in a microtask) deletes or replaces any rows they were built from.
+ */
+export function startJob(projectId: string, kind: string, stage: number, params: Record<string, unknown> = {}, reason?: string): string {
   const running = db
     .select()
     .from(schema.jobs)
     .where(and(eq(schema.jobs.projectId, projectId), eq(schema.jobs.stage, stage), inArray(schema.jobs.status, ["queued", "running"])))
     .get();
   if (running) return running.id;
+  const def = STAGES[stage - 1];
+  markDownstreamStale(projectId, stage, reason ?? `Step ${stage} (${def?.title ?? kind}) was re-run`);
   const id = newId("job");
   db.insert(schema.jobs).values({ id, projectId, kind, stage, params, status: "queued" }).run();
   setStageState(projectId, stage, "running");
@@ -52,7 +59,7 @@ function update(id: string, set: Partial<typeof schema.jobs.$inferInsert>) {
 async function execute(id: string) {
   if (active.has(id)) return;
   const job = db.select().from(schema.jobs).where(eq(schema.jobs.id, id)).get();
-  if (!job) return;
+  if (!job || job.status === "cancelled") return;
   const handler = handlers.get(job.kind);
   if (!handler) {
     update(id, { status: "failed", error: `No handler for job kind ${job.kind}`, endedAt: nowIso() });
@@ -84,22 +91,24 @@ async function execute(id: string) {
       return j?.s === "cancelled";
     },
   };
+  // The stage state was set by cancelStage; a stage marked stale while the job ran (upstream changed) stays stale.
+  const stillRunning = () => getProject(job.projectId).stageStates[String(job.stage)] === "running";
   try {
     await handler(ctx);
     flush(true);
-    if (ctx.cancelled()) {
-      setStageState(job.projectId, job.stage, "failed");
-    } else {
+    if (!ctx.cancelled()) {
       update(id, { status: "done", endedAt: nowIso() });
-      setStageState(job.projectId, job.stage, "needs_review");
+      if (stillRunning()) setStageState(job.projectId, job.stage, "needs_review");
       logDecision(job.projectId, job.stage, "job_finished", null, { kind: job.kind }, "system");
     }
   } catch (e) {
     logLines.push(`ERROR ${errMsg(e)}`);
     flush(true);
-    update(id, { status: "failed", error: errMsg(e), endedAt: nowIso() });
-    setStageState(job.projectId, job.stage, "failed");
-    logDecision(job.projectId, job.stage, "job_failed", null, { kind: job.kind, error: errMsg(e) }, "system");
+    if (!ctx.cancelled()) {
+      update(id, { status: "failed", error: errMsg(e), endedAt: nowIso() });
+      if (stillRunning()) setStageState(job.projectId, job.stage, "failed");
+      logDecision(job.projectId, job.stage, "job_failed", null, { kind: job.kind, error: errMsg(e) }, "system");
+    }
     console.error(`[athena] job ${job.kind} ${id} failed:`, e);
   } finally {
     active.delete(id);
@@ -108,6 +117,28 @@ async function execute(id: string) {
 
 export function cancelJob(id: string) {
   update(id, { status: "cancelled", endedAt: nowIso() });
+}
+
+/**
+ * Cancel a stage's queued/running job. If an earlier run of this stage finished, its results are what the
+ * researcher has: untouched when the cancelled job never started ("needs review"), possibly half-replaced
+ * when it had started ("stale"). Only a stage with no finished run becomes "failed".
+ */
+export function cancelStage(projectId: string, stage: number): number {
+  const live = db
+    .select()
+    .from(schema.jobs)
+    .where(and(eq(schema.jobs.projectId, projectId), eq(schema.jobs.stage, stage), inArray(schema.jobs.status, ["queued", "running"])))
+    .all();
+  if (!live.length) return 0;
+  live.forEach((j) => cancelJob(j.id));
+  const finished = db.select({ id: schema.jobs.id }).from(schema.jobs).where(and(eq(schema.jobs.projectId, projectId), eq(schema.jobs.stage, stage), eq(schema.jobs.status, "done"))).get();
+  const started = live.some((j) => j.status === "running" || j.startedAt);
+  if (!finished) setStageState(projectId, stage, "failed");
+  else if (!started) setStageState(projectId, stage, "needs_review");
+  else setStageState(projectId, stage, "stale", { reason: "A re-run of this step was cancelled before it finished, so these results may be partial or mix the earlier run with the new one." });
+  logDecision(projectId, stage, "stage_cancelled", null, { jobs: live.map((j) => j.id), previousRunFinished: !!finished, started }, "user");
+  return live.length;
 }
 
 /** Resume jobs interrupted by a server restart. Called once from instrumentation. */

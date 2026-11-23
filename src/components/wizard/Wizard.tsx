@@ -1,9 +1,10 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { api, projectPath, useApi } from "../api";
+import { useSWRConfig } from "swr";
+import { ApiError, api, projectPath, useApi } from "../api";
 import { Badge, ErrorState, Loading, Modal, StateBadge, Spinner, cx } from "../ui";
-import { STAGES, type StageState } from "@/lib/shared/stages";
+import { STAGES, STATE_LABEL, reviewProblems, type StageState } from "@/lib/shared/stages";
 import { PaperDrawer } from "./PaperDrawer";
 import { IdeaStage } from "../stages/IdeaStage";
 import { ScopingStage } from "../stages/ScopingStage";
@@ -64,8 +65,14 @@ interface Ctx {
   openPaper: (id: string) => void;
   /** Ask before an edit that would make later stages stale. Resolves true if the user agrees. */
   confirmEdit: (stage: number) => Promise<boolean>;
-  approve: (stage: number) => Promise<void>;
+  /** Approve a stage; `overrides` are the blocker keys the researcher explicitly chose to waive. */
+  approve: (stage: number, overrides?: string[]) => Promise<void>;
+  /** A stage with unsaved edits registers a function that saves them; approving runs it first (false = abort). */
+  registerFlush: (stage: number, fn: (() => Promise<boolean>) | null) => void;
 }
+
+export interface Blocker { message: string; override?: string; kind?: "state" }
+export const blockersPath = (projectId: string, stage: number) => projectPath(projectId, `stages/${stage}/blockers`);
 const WizardCtx = createContext<Ctx | null>(null);
 export const useWizard = () => {
   const c = useContext(WizardCtx);
@@ -93,6 +100,17 @@ export function Wizard({ projectId }: { projectId: string }) {
   const router = useRouter();
   const search = useSearchParams();
   const { data, error, mutate, isLoading } = useApi<ProjectViewData>(projectPath(projectId));
+  const { mutate: mutateKey } = useSWRConfig();
+  const flushers = useRef(new Map<number, () => Promise<boolean>>());
+  const registerFlush = useCallback((n: number, fn: (() => Promise<boolean>) | null) => {
+    if (fn) flushers.current.set(n, fn);
+    else flushers.current.delete(n);
+  }, []);
+  // Refreshing the project also re-checks what still blocks approval of each stage.
+  const refresh = useCallback(
+    () => Promise.all([mutate(), mutateKey((k) => typeof k === "string" && k.startsWith(projectPath(projectId, "stages/")) && k.endsWith("/blockers"))]),
+    [mutate, mutateKey, projectId],
+  );
   const [live, setLive] = useState<LiveData | null>(null);
   const [paperId, setPaperId] = useState<string | null>(null);
   const [guard, setGuard] = useState<{ stage: number; downstream: number[]; resolve: (b: boolean) => void } | null>(null);
@@ -114,7 +132,7 @@ export function Wizard({ projectId }: { projectId: string }) {
   const states = live?.stageStates ?? data?.project.stageStates ?? {};
   const statesKey = JSON.stringify(states);
   useEffect(() => {
-    if (live) mutate();
+    if (live) refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statesKey]);
 
@@ -133,30 +151,35 @@ export function Wizard({ projectId }: { projectId: string }) {
   );
 
   const approve = useCallback(
-    async (n: number) => {
+    async (n: number, overrides: string[] = []) => {
       setApproving(true);
       setApproveErr(null);
       try {
-        await api(projectPath(projectId, `stages/${n}/approve`), { body: {} });
+        // Save anything typed but not yet saved (e.g. the idea), so what is approved is what is on screen.
+        const flush = flushers.current.get(n);
+        if (flush && !(await flush())) return;
+        await api(projectPath(projectId, `stages/${n}/approve`), { body: { overrides } });
         confirmed.current.clear();
-        await mutate();
+        await refresh();
         if (n < 9) goTo(n + 1);
       } catch (e) {
-        setApproveErr(e);
+        const blockers = e instanceof ApiError ? (e.data as { blockers?: Blocker[] } | undefined)?.blockers : undefined;
+        if (blockers) await mutateKey(blockersPath(projectId, n), { blockers }, { revalidate: true });
+        else setApproveErr(e);
       } finally {
         setApproving(false);
       }
     },
-    [projectId, mutate, goTo],
+    [projectId, refresh, goTo, mutateKey],
   );
 
   const ctx = useMemo<Ctx | null>(
     () =>
       data
-        ? { projectId, project: data.project, states, jobs: live?.jobs ?? data.jobs, live, stage, goTo, refresh: mutate, openPaper: setPaperId, confirmEdit, approve }
+        ? { projectId, project: data.project, states, jobs: live?.jobs ?? data.jobs, live, stage, goTo, refresh, openPaper: setPaperId, confirmEdit, approve, registerFlush }
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data, statesKey, live, stage, confirmEdit, approve],
+    [data, statesKey, live, stage, confirmEdit, approve, refresh, registerFlush],
   );
 
   if (isLoading) return <div className="p-8"><Loading label="Opening your review…" /></div>;
@@ -166,6 +189,7 @@ export function Wizard({ projectId }: { projectId: string }) {
   const costs = live?.costs ?? data!.costs;
   const cost = costs[String(stage)];
   const st = states[String(stage)] ?? "not_started";
+  const problems = reviewProblems(states, live?.staleReasons ?? data!.project.staleReasons);
 
   return (
     <WizardCtx.Provider value={ctx}>
@@ -197,8 +221,9 @@ export function Wizard({ projectId }: { projectId: string }) {
             })}
           </ol>
           <div className="mt-6 space-y-1 border-t border-gray-100 px-2 pt-4 text-xs">
-            <p className="font-semibold text-gray-500">Export</p>
-            <a className="block text-teal-800 hover:underline" href={projectPath(projectId, "export/markdown")}>Markdown report</a>
+            <p className="font-semibold text-gray-500">{problems.length ? "Export a draft" : "Export"}</p>
+            {problems.length > 0 && <DraftNotice problems={problems} compact />}
+            <a className="block text-teal-800 hover:underline" href={projectPath(projectId, "export/markdown")}>{problems.length ? "Draft report (Markdown)" : "Markdown report"}</a>
             <a className="block text-teal-800 hover:underline" href={projectPath(projectId, "export/csv")}>Summary table (CSV)</a>
             <a className="block text-teal-800 hover:underline" href={projectPath(projectId, "export/bibtex")}>Selected papers (BibTeX)</a>
           </div>
@@ -293,7 +318,7 @@ function StaleBanner({ stage, reason }: { stage: number; reason?: string }) {
   return (
     <div role="status" className="mt-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-950">
       <p>
-        <strong>These results may be out of date.</strong> {reason ? `${reason} after they were produced.` : "An earlier step changed after they were produced."}
+        <strong>These results may be out of date.</strong> {reason ? (/[.!?]$/.test(reason) ? reason : `${reason} after they were produced.`) : "An earlier step changed after they were produced."}
       </p>
       {blocker && (
         <p className="mt-1">
@@ -333,14 +358,65 @@ function StageBody({ stage }: { stage: number }) {
   }
 }
 
+/** Why the review is not final: shown beside every export link and on the final page. */
+export function DraftNotice({ problems, compact = false }: { problems: ReturnType<typeof reviewProblems>; compact?: boolean }) {
+  return (
+    <div role="note" className={cx("rounded-lg border border-amber-200 bg-amber-50 text-amber-950", compact ? "mb-1 px-2 py-1.5 text-[11px]" : "px-4 py-3 text-sm")}>
+      <p>
+        <strong>Not a final review.</strong> {problems.length === 1 ? "One step is" : `${problems.length} steps are`} not approved, so exports are marked DRAFT and may not match what is stored now.
+      </p>
+      {!compact && (
+        <ul className="mt-1 list-disc pl-5">
+          {problems.map((p) => (
+            <li key={p.n}>Step {p.n} ({p.title}): {STATE_LABEL[p.state].toLowerCase()}{p.reason ? ` — ${p.reason}` : ""}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function ApproveBar({ stage, approving }: { stage: number; approving: boolean }) {
-  const { states, approve, goTo } = useWizard();
+  const { states, approve, goTo, projectId } = useWizard();
   const st = states[String(stage)] ?? "not_started";
   const upstreamOk = STAGES.filter((s) => s.n < stage).every((s) => states[String(s.n)] === "approved");
   const blocked = !upstreamOk ? STAGES.find((s) => s.n < stage && states[String(s.n)] !== "approved") : null;
+  const { data: gate, mutate: recheck } = useApi<{ blockers: Blocker[] }>(blockersPath(projectId, stage));
+  useJobRefresh(stage, recheck);
+  const [waived, setWaived] = useState<Set<string>>(new Set());
+  useEffect(() => setWaived(new Set()), [stage]);
   if (stage === 9 && st === "approved") return null;
+  // State blockers (upstream, running, stale) are already explained on the left.
+  const items = (gate?.blockers ?? []).filter((b) => b.kind !== "state");
+  const hard = items.filter((b) => !b.override);
+  const open = items.filter((b) => b.override && !waived.has(b.override));
+  const canApprove = upstreamOk && !approving && !["running", "stale", "not_started", "failed"].includes(st) && !!gate && !hard.length && !open.length;
   return (
     <div className="sticky bottom-0 z-20 -mx-4 mt-8 border-t border-[var(--color-line)] bg-[var(--color-paper)]/95 px-4 py-3 backdrop-blur md:-mx-8 md:px-8">
+      {st !== "approved" && items.length > 0 && (
+        <div className="mb-3 max-h-48 overflow-y-auto rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" aria-live="polite">
+          <p className="font-semibold">{hard.length ? "Before you can approve this step:" : "Check these before approving:"}</p>
+          <ul className="mt-1 space-y-1">
+            {items.map((b) => (
+              <li key={b.message} className="flex items-start gap-2">
+                {b.override ? (
+                  <label className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      className="mt-1 accent-teal-700"
+                      checked={waived.has(b.override)}
+                      onChange={(e) => setWaived((w) => { const n = new Set(w); if (e.target.checked) n.add(b.override!); else n.delete(b.override!); return n; })}
+                    />
+                    <span>{b.message} <span className="text-xs text-amber-800">(tick to continue anyway; this is recorded in the decision log)</span></span>
+                  </label>
+                ) : (
+                  <><span aria-hidden className="text-rose-700">✗</span><span>{b.message}</span></>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm text-gray-600">
           {blocked ? (
@@ -362,7 +438,8 @@ function ApproveBar({ stage, approving }: { stage: number; approving: boolean })
           {st === "approved" && stage < 9 ? (
             <button className="btn-secondary" onClick={() => goTo(stage + 1)}>Next step →</button>
           ) : (
-            <button className="btn-primary" disabled={!upstreamOk || approving || st === "running" || st === "stale" || st === "not_started" || st === "failed"} onClick={() => approve(stage)}>
+            // Stage 1 stays enabled while the idea is being edited: approving saves it first, then re-checks.
+            <button className="btn-primary" disabled={stage === 1 ? !upstreamOk || approving : !canApprove} onClick={() => approve(stage, [...waived].filter((k) => items.some((b) => b.override === k)))}>
               {approving && <Spinner />} {stage === 9 ? "Finish and see summary" : "Approve and continue"}
             </button>
           )}

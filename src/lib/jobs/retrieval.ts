@@ -8,12 +8,23 @@ import { openalexByDois, openalexByPmids } from "../sources/openalex";
 import { crossrefFindByTitle } from "../sources/crossref";
 import { unpaywall } from "../sources/unpaywall";
 import { getProject, logDecision } from "../project";
+import { claimIdsOfProject, dropOutputCiting } from "../evidence";
 import { newId, nowIso, normalizeTitle, errMsg } from "../util";
 import type { JobContext } from "./runner";
 
 type Paper = typeof schema.papers.$inferSelect;
+type Ids = { doi: string | null; pmid: string | null; openalexId: string | null };
 
-/** Dedup order: DOI, then PMID, then normalised title. */
+/** Both records carry the same kind of identifier with different values, so they are different works. */
+export function identifiersConflict(a: Ids, b: Ids): boolean {
+  const differ = (x: string | null, y: string | null) => !!x && !!y && x.trim().toLowerCase() !== y.trim().toLowerCase();
+  return differ(a.doi, b.doi) || differ(a.pmid, b.pmid) || differ(a.openalexId, b.openalexId);
+}
+
+/**
+ * Dedup order: DOI, then PMID, then OpenAlex ID, then normalised title. A title match is only a duplicate when no
+ * identifier contradicts it (two papers can share a title such as "Telemedicine in Asia: a review").
+ */
 export function findExisting(projectId: string, r: SourceRecord): Paper | undefined {
   const P = schema.papers;
   if (r.doi) {
@@ -30,15 +41,16 @@ export function findExisting(projectId: string, r: SourceRecord): Paper | undefi
   }
   const nt = normalizeTitle(r.title);
   if (nt.length > 15) {
-    const m = db.select().from(P).where(and(eq(P.projectId, projectId), eq(P.normTitle, nt))).get();
+    const m = db.select().from(P).where(and(eq(P.projectId, projectId), eq(P.normTitle, nt))).all().find((x) => !identifiersConflict(x, r));
     if (m) return m;
   }
   return undefined;
 }
 
-/** Merge a record into an existing paper: fill gaps, never overwrite with nulls. */
+/** Merge a record into an existing paper: fill gaps, never overwrite with nulls. Never merges conflicting identifiers. */
 export function mergeInto(p: Paper, r: SourceRecord, source: string): Partial<Paper> {
   const set: Partial<Paper> = {};
+  if (identifiersConflict(p, r)) return set;
   const fill = <K extends keyof Paper>(k: K, v: Paper[K] | null | undefined) => {
     if ((p[k] === null || p[k] === undefined || p[k] === "") && v !== null && v !== undefined && v !== "") (set as Record<string, unknown>)[k as string] = v;
   };
@@ -104,7 +116,10 @@ export async function retrievalJob(ctx: JobContext) {
   // Resume support: if runs exist for this job, keep finished ones; otherwise start fresh.
   let runs = db.select().from(schema.searchRuns).where(eq(schema.searchRuns.jobId, ctx.jobId)).orderBy(asc(schema.searchRuns.order)).all();
   if (!runs.length) {
-    // Fresh retrieval replaces earlier results (downstream derived data cascades).
+    // Fresh retrieval replaces earlier results (downstream derived data cascades). Synthesis statements,
+    // contradictions and research questions are not tied to papers by a foreign key, so remove the ones
+    // citing these claims first rather than leave their prose standing without its evidence.
+    dropOutputCiting(projectId, claimIdsOfProject(projectId), 4, "Retrieval was re-run, replacing every paper");
     db.delete(schema.papers).where(eq(schema.papers.projectId, projectId)).run();
     db.delete(schema.searchRuns).where(eq(schema.searchRuns.projectId, projectId)).run();
     ordered.forEach((q, i) =>

@@ -15,6 +15,7 @@ interface ScopingData {
   done: boolean;
   awaitingAnswer: boolean;
   topics: Topic[];
+  topicsFromEarlierChat: boolean;
   conceptMap: { nodes: { id: string; label: string; kind: string }[]; edges: { from: string; to: string; label: string }[] } | null;
   summary: Record<string, string> | null;
 }
@@ -154,8 +155,16 @@ export function ScopingStage() {
             {busy === "topics" && <p className="mt-3 flex items-center gap-2 text-sm text-gray-600"><Spinner /> Building topics, synonyms and MeSH terms…</p>}
           </div>
         ) : (
-          <TopicEditor topics={data.topics} onChange={(d) => mutate(d, { revalidate: false })} />
+          <>
+            {data.topicsFromEarlierChat && (
+              <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                <strong>These topics came from the earlier conversation.</strong> You restarted the chat, so finish it and press “Regenerate topics” before approving this step.
+              </div>
+            )}
+            <TopicEditor topics={data.topics} onChange={(d) => mutate(d, { revalidate: false })} />
+          </>
         )}
+        {data.summary && <SummaryEditor summary={data.summary} onSaved={(d) => mutate(d, { revalidate: false })} />}
         {data.conceptMap && (
           <div className="card p-4">
             <SectionTitle>Concept map</SectionTitle>
@@ -163,6 +172,51 @@ export function ScopingStage() {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+/** The scoping summary feeds query building and ranking, so it is a checkpoint like the topics. */
+function SummaryEditor({ summary, onSaved }: { summary: Record<string, string>; onSaved: (d: ScopingData) => void }) {
+  const { projectId, confirmEdit, refresh } = useWizard();
+  const [v, setV] = useState(summary);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>(null);
+  useEffect(() => {
+    setV(summary);
+  }, [summary]);
+  const dirty = Object.keys(COVERAGE_LABEL).some((k) => (v[k] ?? "") !== (summary[k] ?? ""));
+  async function save() {
+    if (!(await confirmEdit(2))) return setV(summary);
+    setBusy(true);
+    setErr(null);
+    try {
+      onSaved(await api<ScopingData>(projectPath(projectId, "scoping/summary"), { method: "PATCH", body: Object.fromEntries(Object.keys(COVERAGE_LABEL).map((k) => [k, v[k] ?? ""])) }));
+      await refresh();
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="card p-4">
+      <SectionTitle>Scoping summary</SectionTitle>
+      <p className="mb-3 text-xs text-gray-500">The search builder and the ranking use these answers. Correct anything the AI got wrong; saving a change marks later steps stale.</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {Object.entries(COVERAGE_LABEL).map(([k, label]) => (
+          <label key={k} className="text-xs text-gray-600">{label}
+            <textarea className="input mt-0.5 min-h-12 text-sm" value={v[k] ?? ""} onChange={(e) => setV({ ...v, [k]: e.target.value })} />
+          </label>
+        ))}
+      </div>
+      {err ? <div className="mt-2"><ErrorState error={err} /></div> : null}
+      {dirty && (
+        <div className="mt-3 flex justify-end gap-2">
+          <button className="btn-ghost" onClick={() => setV(summary)}>Undo</button>
+          <button className="btn-primary" onClick={save} disabled={busy}>{busy && <Spinner />} Save summary</button>
+        </div>
+      )}
     </div>
   );
 }

@@ -35,6 +35,7 @@ export function SearchStage() {
     try {
       const r = await api<{ state: SearchData }>(projectPath(projectId, "search/dryrun-all"), { body: {} });
       await mutate(r.state, { revalidate: false });
+      await refresh(); // dry-run results decide whether this step can be approved
     } catch (e) {
       setErr(e);
     } finally {
@@ -115,6 +116,7 @@ function QueryEditor({ q, label, onChange }: { q: Query; label: string; onChange
     try {
       if (!(await save())) return;
       setRes(await api(projectPath(projectId, `queries/${q.id}/dryrun`), { body: {} }));
+      await refresh();
     } catch (e) {
       setRes({ count: null, error: (e as Error).message });
     } finally {

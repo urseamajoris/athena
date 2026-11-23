@@ -47,6 +47,9 @@ async function waitState(n, wanted = ["needs_review"], timeoutMs = 30 * 60_000) 
   }
 }
 async function approve(n) {
+  // Waivable items (zero-hit queries, selection outside 3–5, skipped topics) must be ticked explicitly.
+  await page.waitForTimeout(500);
+  for (const cb of await page.getByRole("checkbox", { name: /tick to continue anyway/ }).all()) await cb.check();
   await page.getByRole("button", { name: n === 9 ? "Finish and see summary" : "Approve and continue" }).click();
   if (n < 9) await page.waitForURL(new RegExp(`stage=${n + 1}`), { timeout: 60_000 });
   await page.waitForTimeout(800);
@@ -190,6 +193,12 @@ try {
     await page.waitForTimeout(1000);
     check("user can accept an unverified quote", (await Promise.all(apps.map((a) => api(`/appraisals/${a.id}`)))).some((d) => d.claims.some((c) => c.userAccepted)));
   }
+  // Every remaining unverified quote needs a decision before approval: reject the rest.
+  for (const d of await Promise.all(apps.map((a) => api(`/appraisals/${a.id}`))))
+    for (const c of d.claims.filter((c) => !c.verified && !c.notReported && !c.userAccepted && !c.userRejected))
+      await fetch(`${base}/api/projects/${pid}/claims/${c.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision: "reject" }) });
+  await page.reload();
+  check("no unverified quote left undecided", (await api("/appraisals")).appraisals.every((a) => a.counts.undecided === 0));
   await approve(7);
 
   // 8. Synthesis
@@ -221,6 +230,10 @@ try {
   await qbox.fill((await qbox.inputValue()).replace(/\?$/, "") + " between 2015 and 2025?");
   await page.getByRole("button", { name: "Save edits" }).click();
   await page.waitForTimeout(800);
+  check("editing the question puts its novelty check out of date", (await api("/questions")).questions.some((q) => q.chosen && q.noveltyStatus === "outdated" && q.gapOutdated));
+  await page.getByRole("button", { name: "Re-run for the edited question" }).click();
+  await page.getByRole("button", { name: "It still applies" }).click();
+  await page.waitForTimeout(1500);
   await page.getByRole("button", { name: "Finish and see summary" }).click();
   await page.getByText("Your research question").waitFor({ timeout: 30_000 });
   await shot("9-final");

@@ -51,3 +51,34 @@ test("citation apparatus and PDF hyphenation are ignored symmetrically", () => {
   assert.equal(verifyQuote(src, "They declared it illegal if citizens withheld results.").verified, false);
   assert.equal(verifyQuote(src, "See the 46 structured interviews.").verified, false);
 });
+
+import { MAX_ELLIPSIS_GAP } from "./quotes";
+test("ellipsis fragments must come from one passage, not opposite ends of the paper", () => {
+  const filler = "Unrelated methods text about recruitment and consent procedures. ".repeat(40);
+  const far = `Uptake of teleconsultation rose sharply in rural districts. ${filler}Clinicians reported that connectivity limited video visits.`;
+  const near = "Uptake of teleconsultation rose sharply in rural districts. Most sites used phones. Clinicians reported that connectivity limited video visits.";
+  const q = "Uptake of teleconsultation rose sharply in rural districts ... connectivity limited video visits";
+  assert.ok(filler.length > MAX_ELLIPSIS_GAP);
+  assert.equal(verifyQuote(near, q).verified, true);
+  const r = verifyQuote(far, q);
+  assert.equal(r.verified, false);
+  assert.match(r.note, /not one passage/);
+});
+test("a repeated first fragment still finds the occurrence that sits next to the second one", () => {
+  const filler = "Background material on health systems in the region. ".repeat(20);
+  const src = `Uptake of teleconsultation rose sharply. ${filler}Uptake of teleconsultation rose sharply. Video visits were limited by connectivity.`;
+  const r = verifyQuote(src, "Uptake of teleconsultation rose sharply ... Video visits were limited by connectivity");
+  assert.equal(r.verified, true);
+  assert.ok(src.slice(r.start!, r.end!).length < 120);
+});
+test("year-like statistics are content: changing or dropping them fails verification", () => {
+  const src = "Teleconsultation reduced missed visits (N = 2015) across the three provinces (P = 0.2019).";
+  assert.equal(verifyQuote(src, "Teleconsultation reduced missed visits (N = 2015) across the three provinces").verified, true);
+  assert.equal(verifyQuote(src, "Teleconsultation reduced missed visits (N = 2016) across the three provinces").verified, false);
+  assert.equal(verifyQuote(src, "Teleconsultation reduced missed visits across the three provinces").verified, false);
+  assert.equal(verifyQuote(src, "across the three provinces (P = 0.2020).").verified, false);
+  // genuine author-year citations are still skipped symmetrically
+  const cited = "Uptake was low in remote clinics (Nguyen and Tran, 2019; Lee et al. 2020a) despite subsidies (WHO, 2021).";
+  assert.equal(verifyQuote(cited, "Uptake was low in remote clinics despite subsidies.").verified, true);
+  assert.equal(verifyQuote(cited, "Uptake was high in remote clinics despite subsidies.").verified, false);
+});

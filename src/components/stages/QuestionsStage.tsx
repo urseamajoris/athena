@@ -10,7 +10,7 @@ interface Match { title: string; year: number | null; doi: string | null; pmid: 
 export interface RQ {
   id: string; text: string; framework: string; structure: Record<string, string>; design: string; gap: string; feasibility: string; weakness: string;
   noveltyQueries: { database: string; query: string; count: number | null; error: string | null }[];
-  noveltyMatches: Match[]; noveltyStatus: string; chosen: boolean; edited: boolean; claimIds: string[];
+  noveltyMatches: Match[]; noveltyStatus: string; chosen: boolean; edited: boolean; claimIds: string[]; gapOutdated: boolean;
 }
 export interface QData { questions: RQ[]; claims: Record<string, ClaimRef>; papers: Record<string, PaperRef> }
 
@@ -60,6 +60,7 @@ export function QuestionsStage() {
                   {!Object.keys(q.structure).some((k) => /design/i.test(k)) && <div className="grid grid-cols-[96px_1fr] gap-2"><dt className="text-gray-500">Design</dt><dd className="text-gray-800">{q.design}</dd></div>}
                 </dl>
                 <Block title="Gap it addresses">
+                  {q.gapOutdated && <p className="mb-1 text-xs font-medium text-amber-800">Written for the earlier wording of this question — check it below.</p>}
                   <p>{q.gap}</p>
                   <div className="mt-1 flex flex-wrap gap-1">{q.claimIds.map((id) => <ClaimChip key={id} id={id} claims={data.claims} papers={data.papers} />)}</div>
                 </Block>
@@ -72,7 +73,7 @@ export function QuestionsStage() {
               </article>
             ))}
           </div>
-          {chosen && <EditChosen q={chosen} onSaved={(d) => mutate(d, { revalidate: false })} />}
+          {chosen && <EditChosen key={chosen.id} q={chosen} onSaved={(d) => mutate(d, { revalidate: false })} />}
         </>
       )}
     </div>
@@ -89,14 +90,17 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 }
 
 function Novelty({ q, onRerun }: { q: RQ; onRerun: (d: QData) => void }) {
-  const { projectId } = useWizard();
+  const { projectId, refresh } = useWizard();
   const [busy, setBusy] = useState(false);
+  const outdated = q.noveltyStatus === "outdated";
   return (
-    <div className="mt-3 rounded-lg bg-gray-50 p-2.5 text-xs">
+    <div className={cx("mt-3 rounded-lg p-2.5 text-xs", outdated ? "bg-amber-50" : "bg-gray-50")}>
       <div className="flex items-center justify-between">
         <p className="font-semibold text-gray-700">Novelty check — here is what was found</p>
-        <button className="btn-ghost px-1.5 py-0.5 text-[11px]" disabled={busy} onClick={async () => { setBusy(true); try { onRerun(await api(projectPath(projectId, `questions/${q.id}/novelty`), { body: {} })); } finally { setBusy(false); } }}>{busy ? <Spinner className="h-3 w-3" /> : "Re-run"}</button>
+        <button className={outdated ? "btn-secondary px-1.5 py-0.5 text-[11px]" : "btn-ghost px-1.5 py-0.5 text-[11px]"} disabled={busy} onClick={async () => { setBusy(true); try { onRerun(await api(projectPath(projectId, `questions/${q.id}/novelty`), { body: {} })); await refresh(); } finally { setBusy(false); } }}>{busy ? <Spinner className="h-3 w-3" /> : outdated ? "Re-run for the edited question" : "Re-run"}</button>
       </div>
+      {outdated && <p className="mt-1 font-medium text-amber-900">Out of date: the question (or its searches) changed after this search ran, so the list below checks the old wording.</p>}
+      <p className="mt-1 text-gray-500">Searched every year and language — your review’s year and language limits are not applied here — for journal articles, reviews and preprints. A low count or a short list does not show the question is new.</p>
       <ul className="mt-1 space-y-0.5 text-gray-500">
         {q.noveltyQueries.map((n) => (
           <li key={n.database}><strong>{n.database}</strong>: {n.error ? <span className="text-rose-700">failed — {n.error}</span> : `${n.count?.toLocaleString() ?? "?"} matching records`} <code className="block truncate text-[10px]" title={n.query}>{n.query}</code></li>
@@ -112,7 +116,7 @@ function Novelty({ q, onRerun }: { q: RQ; onRerun: (d: QData) => void }) {
             </span>
           </li>
         ))}
-        {q.noveltyStatus === "done" && !q.noveltyMatches.length && <li className="text-gray-500">No closely matching records were returned. This does not prove the question is new.</li>}
+        {q.noveltyStatus === "done" && !q.noveltyMatches.length && <li className="text-gray-500">No closely matching records were returned by these two searches. That is not evidence the question is new: other wording or databases may find related work.</li>}
       </ol>
     </div>
   );
@@ -123,9 +127,31 @@ function EditChosen({ q, onSaved }: { q: RQ; onSaved: (d: QData) => void }) {
   const [text, setText] = useState(q.text);
   const [structure, setStructure] = useState(q.structure);
   const [design, setDesign] = useState(q.design);
+  const [gap, setGap] = useState(q.gap);
+  const [searches, setSearches] = useState(q.noveltyQueries.map((n) => ({ database: n.database, query: n.query })));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
-  const dirty = text !== q.text || JSON.stringify(structure) !== JSON.stringify(q.structure) || design !== q.design;
+  const searchesDirty = JSON.stringify(searches) !== JSON.stringify(q.noveltyQueries.map((n) => ({ database: n.database, query: n.query })));
+  const dirty = text !== q.text || JSON.stringify(structure) !== JSON.stringify(q.structure) || design !== q.design || gap !== q.gap || searchesDirty;
+  function reset() {
+    setText(q.text);
+    setStructure(q.structure);
+    setDesign(q.design);
+    setGap(q.gap);
+    setSearches(q.noveltyQueries.map((n) => ({ database: n.database, query: n.query })));
+  }
+  async function send(path: string, opts: { method?: string; body: unknown }) {
+    setBusy(true);
+    setErr(null);
+    try {
+      onSaved(await api(projectPath(projectId, path), opts));
+      await refresh();
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <section className="card p-4" aria-label="Edit the chosen question">
       <SectionTitle>Refine your chosen question</SectionTitle>
@@ -141,14 +167,30 @@ function EditChosen({ q, onSaved }: { q: RQ; onSaved: (d: QData) => void }) {
           <input className="input mt-0.5" value={design} onChange={(e) => setDesign(e.target.value)} />
         </label>
       </div>
+      <label htmlFor="chosen-gap" className="mt-3 block text-xs text-gray-600">Gap it addresses</label>
+      <textarea id="chosen-gap" className="input mt-0.5 min-h-16" value={gap} onChange={(e) => setGap(e.target.value)} />
+      {q.gapOutdated && gap === q.gap && (
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-amber-900">
+          <span>The gap was written for the earlier wording of the question. Edit it, or confirm it still applies.</span>
+          <button className="btn-ghost px-1.5 py-0.5 text-xs" disabled={busy} onClick={() => send(`questions/${q.id}/gap-confirm`, { body: {} })}>It still applies</button>
+        </div>
+      )}
+      <p className="mt-3 text-xs text-gray-600">Novelty searches (run with no year or language limits)</p>
+      <div className="mt-0.5 grid gap-2 md:grid-cols-2">
+        {searches.map((n, i) => (
+          <label key={n.database} className="text-xs text-gray-600">{n.database}
+            <input className="input mt-0.5 font-mono text-xs" value={n.query} onChange={(e) => setSearches(searches.map((x, j) => (j === i ? { ...x, query: e.target.value } : x)))} />
+          </label>
+        ))}
+      </div>
       {err ? <div className="mt-2"><ErrorState error={err} /></div> : null}
       <div className="mt-3 flex justify-end gap-2">
-        {dirty && <button className="btn-ghost" onClick={() => { setText(q.text); setStructure(q.structure); setDesign(q.design); }}>Undo</button>}
-        <button className="btn-primary" disabled={!dirty || busy} onClick={async () => { setBusy(true); setErr(null); try { onSaved(await api(projectPath(projectId, `questions/${q.id}`), { method: "PATCH", body: { text, structure, design } })); await refresh(); } catch (e) { setErr(e); } finally { setBusy(false); } }}>
+        {dirty && <button className="btn-ghost" onClick={reset}>Undo</button>}
+        <button className="btn-primary" disabled={!dirty || busy} onClick={() => send(`questions/${q.id}`, { method: "PATCH", body: { text, structure, design, gap, ...(searchesDirty ? { noveltyQueries: searches } : {}) } })}>
           {busy && <Spinner />} Save edits
         </button>
       </div>
-      <p className="mt-2 text-xs text-gray-500">When you are happy, press “Finish and see summary” below.</p>
+      <p className="mt-2 text-xs text-gray-500">Changing the question or its searches puts the novelty check out of date: re-run it before you finish. When you are happy, press “Finish and see summary” below.</p>
     </section>
   );
 }

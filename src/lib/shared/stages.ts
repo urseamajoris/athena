@@ -32,6 +32,25 @@ export const STATE_LABEL: Record<StageState, string> = {
   failed: "Failed",
 };
 
+/** Stages that are not approved, i.e. why a review is not yet a current, final result. Empty = final. */
+export function reviewProblems(states: Record<string, StageState>, staleReasons: Record<string, string> = {}) {
+  return STAGES.filter((s) => states[String(s.n)] !== "approved").map((s) => ({
+    n: s.n,
+    title: s.title,
+    state: (states[String(s.n)] ?? "not_started") as StageState,
+    reason: staleReasons[String(s.n)] ?? null,
+  }));
+}
+
+/** One state for a whole review in a list: stale or failed anywhere outranks a finished-looking status. */
+export function overallState(states: Record<string, StageState>, currentStage: number): StageState {
+  const all = STAGES.map((s) => states[String(s.n)] ?? "not_started");
+  if (all.includes("stale")) return "stale";
+  if (all.includes("failed")) return "failed";
+  if (all.every((x) => x === "approved")) return "approved";
+  return states[String(currentStage)] ?? "not_started";
+}
+
 export const STUDY_TYPES = [
   "randomized_trial",
   "non_randomized_trial",
