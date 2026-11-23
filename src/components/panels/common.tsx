@@ -6,7 +6,7 @@ import { api, projectPath } from "../api";
 import { ErrorState, ProgressBar, Spinner, cx } from "../ui";
 import { Disclosure } from "../disclosure";
 import { useSession } from "../session/SessionContext";
-import { STAGES } from "@/lib/shared/stages";
+import { RERUN_REPLACES, STAGES } from "@/lib/shared/stages";
 
 export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
@@ -110,10 +110,16 @@ export function useJobMenu(stage: number) {
   const j = jobs[String(stage)];
   const running = j && (j.status === "running" || j.status === "queued" || j.status === "paused");
   const blocked = STAGES.some((x) => x.n < stage && states[String(x.n)] !== "approved");
+  const rerun = async (body: Record<string, unknown>) => {
+    if (body.force && j && RERUN_REPLACES[stage] && !window.confirm(RERUN_REPLACES[stage])) return;
+    await api(projectPath(projectId, `stages/${stage}/run`), { body });
+    await refresh();
+  };
   return [
     running
       ? { label: "Cancel this step", onSelect: async () => { await api(projectPath(projectId, `stages/${stage}/cancel`), { body: {} }); await refresh(); } }
-      : { label: j ? "Re-run this step" : "Run this step", disabled: blocked, hint: blocked ? "approve earlier steps" : undefined, onSelect: async () => { await api(projectPath(projectId, `stages/${stage}/run`), { body: { force: true } }); await refresh(); } },
+      : { label: j ? "Re-run this step" : "Run this step", disabled: blocked, hint: blocked ? "approve earlier steps" : undefined, onSelect: () => rerun({ force: true }) },
+    ...(stage === 5 && !running && j ? [{ label: "Retry missing summaries", hint: "leaves cells you corrected", onSelect: () => rerun({}) }] : []),
   ];
 }
 

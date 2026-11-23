@@ -23,6 +23,19 @@ export const STAGES: StageDef[] = [
   { n: 9, key: "questions", title: "Research question", done: "Compare the three candidates, pick one, edit it if needed, then finish.", job: "questions" },
 ];
 
+/**
+ * What the stage's Re-run control replaces, shown beside the control and confirmed before a re-run of a stage that
+ * already has results. A re-run that fails or is cancelled leaves the existing results in place for stages 5, 7, 8 and 9.
+ */
+export const RERUN_REPLACES: Record<number, string> = {
+  4: "A re-run replaces every retrieved paper, and with them the summaries, scores, appraisals and synthesis built on them.",
+  5: "A full re-run replaces every existing summary, including cells you corrected (the corrected text is kept in the decision log). To fill in only papers without a summary, use “Retry missing summaries” instead.",
+  6: "A full re-run replaces every score and your selections. To score only papers whose batch failed, use “Retry unscored papers” instead.",
+  7: "A full re-run redoes every appraisal and replaces the existing ones, including your accept/reject decisions and edited statements (the decisions are kept in the decision log). To appraise only newly selected papers, use “Update appraisals for your selection” instead.",
+  8: "A re-run replaces the synthesis, including statements you edited (the replaced text is kept in the decision log).",
+  9: "A re-run replaces all three candidate questions, including the one you chose and edited (the replaced text is kept in the decision log).",
+};
+
 export const STATE_LABEL: Record<StageState, string> = {
   not_started: "Not started",
   running: "Running",
@@ -31,6 +44,25 @@ export const STATE_LABEL: Record<StageState, string> = {
   stale: "Out of date",
   failed: "Failed",
 };
+
+/** Stages that are not approved, i.e. why a review is not yet a current, final result. Empty = final. */
+export function reviewProblems(states: Record<string, StageState>, staleReasons: Record<string, string> = {}) {
+  return STAGES.filter((s) => states[String(s.n)] !== "approved").map((s) => ({
+    n: s.n,
+    title: s.title,
+    state: (states[String(s.n)] ?? "not_started") as StageState,
+    reason: staleReasons[String(s.n)] ?? null,
+  }));
+}
+
+/** One state for a whole review in a list: stale or failed anywhere outranks a finished-looking status. */
+export function overallState(states: Record<string, StageState>, currentStage: number): StageState {
+  const all = STAGES.map((s) => states[String(s.n)] ?? "not_started");
+  if (all.includes("stale")) return "stale";
+  if (all.includes("failed")) return "failed";
+  if (all.every((x) => x === "approved")) return "approved";
+  return states[String(currentStage)] ?? "not_started";
+}
 
 export const STUDY_TYPES = [
   "randomized_trial",

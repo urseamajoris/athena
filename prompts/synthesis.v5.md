@@ -23,6 +23,9 @@ Writing style: write every statement, gap, feasibility note and weakness in plai
 User's idea:
 {{idea}}
 
+Review criteria the researcher wrote (inclusion, exclusion, and study types). Do not produce a known, contested, or unknown statement from a paper or design they excluded, or from text that was not sent. A flagged non-study (protocol, editorial, letter, comment, erratum) is not an independent study for the counting rules below:
+{{criteria}}
+
 Topic: {{topic}}
 
 Papers (id — title — first author — journal or source — year — study type — text source):

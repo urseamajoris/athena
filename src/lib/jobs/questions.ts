@@ -1,34 +1,39 @@
 import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { db, schema } from "../db";
-import type { NoveltyMatch } from "../db/schema";
+import { db, schema, batchWrite, type BatchItem } from "../db";
+import type { Criteria, NoveltyMatch } from "../db/schema";
 import { structuredCall, unknownIds, repairId } from "../ai/client";
 import { wrapData } from "../ai/prompts";
 import { ResearchQuestions } from "../stages/ai-schemas";
 import { adapters } from "../sources";
 import { SEARCH_DATABASES } from "../sources/types";
 import { dropEmptyGroups } from "../sources/syntax";
-import { errMsg, newId, normalizeTitle, forEachSeq } from "../util";
+import { errMsg, newId, normalizeTitle } from "../util";
 import { getProject, logDecision } from "../project";
+import { noveltySearchesOutdatedIds } from "../views";
 import type { JobContext } from "./runner";
 
 const NOVELTY_TOP = 5;
 
+type NoveltyQuery = (typeof schema.researchQuestions.$inferSelect)["noveltyQueries"][number];
+
+/**
+ * Propose three candidate questions and run a novelty search for each. The stored questions (including the chosen
+ * and edited one) are not touched until the new set is complete: it is swapped in at the end, in one batch,
+ * only if the run was not cancelled. A failed or cancelled run leaves the previous questions as they were, and
+ * the text a successful run replaces is written to the decision log first.
+ */
 export async function questionsJob(ctx: JobContext) {
   const { projectId } = ctx;
-  const p = (await getProject(projectId));
-  const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.importanceRank), asc(schema.topics.sortOrder)).all());
-  const items = (await db.select().from(schema.synthesisItems).where(eq(schema.synthesisItems.projectId, projectId)).all());
+  const p = await getProject(projectId);
+  const topics = await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.importanceRank), asc(schema.topics.sortOrder)).all();
+  const items = await db.select().from(schema.synthesisItems).where(eq(schema.synthesisItems.projectId, projectId)).all();
   if (!items.length) throw new Error("No synthesis statements yet — run the Synthesis stage first.");
-  const links = (await db.select().from(schema.claimLinks).where(and(eq(schema.claimLinks.ownerType, "synthesis"), inArray(schema.claimLinks.ownerId, items.map((i) => i.id)))).all());
+  const links = await db.select().from(schema.claimLinks).where(and(eq(schema.claimLinks.ownerType, "synthesis"), inArray(schema.claimLinks.ownerId, items.map((i) => i.id)))).all();
   const claimIds = [...new Set(links.map((l) => l.claimId))];
-  const claims = (await db.select().from(schema.claims).where(inArray(schema.claims.id, claimIds.concat(["-"]))).all());
+  const claims = await db.select().from(schema.claims).where(inArray(schema.claims.id, claimIds.concat(["-"]))).all();
 
-  const oldQs = (await db.select({ id: schema.researchQuestions.id }).from(schema.researchQuestions).where(eq(schema.researchQuestions.projectId, projectId)).all()).map((r) => r.id);
-  (await db.delete(schema.claimLinks).where(and(eq(schema.claimLinks.ownerType, "research_question"), inArray(schema.claimLinks.ownerId, oldQs.concat(["-"])))).run());
-  (await db.delete(schema.researchQuestions).where(eq(schema.researchQuestions.projectId, projectId)).run());
-
-  (await ctx.progress(0, 4, "Drafting three candidate questions"));
+  await ctx.progress(0, 4, "Drafting three candidate questions");
   const { data } = await structuredCall({
     prompt: "research_questions",
     role: "reasoning",
@@ -57,50 +62,89 @@ export async function questionsJob(ctx: JobContext) {
       return badS.length ? `Unknown synthesis IDs: ${badS.join(", ")}` : null;
     },
   });
+  if (await ctx.cancelled()) return;
 
-  const qIds: string[] = [];
-  await forEachSeq(data.questions, async (q, i) => {
-    const id = newId("rq");
-    qIds.push(id);
-    (await db.insert(schema.researchQuestions).values({
-            id,
-            projectId,
-            text: q.text,
-            framework: q.framework,
-            structure: Object.fromEntries(q.structure.map((s) => [s.element, s.value])),
-            design: q.design,
-            gap: q.gap,
-            feasibility: q.feasibility,
-            weakness: q.weakness,
-            noveltyQueries: SEARCH_DATABASES.map((d) => ({ database: d, query: dropEmptyGroups(q.noveltyQueries[d]), count: null, error: null })),
-            order: i,
-          }).run());
-    // Link the gap to its claims, including claims behind the cited synthesis statements.
-    const viaSynth = links.filter((l) => q.synthesisIds.includes(l.ownerId)).map((l) => l.claimId);
-    for (const cid of new Set([...q.gapClaimIds, ...viaSynth])) (await db.insert(schema.claimLinks).values({ ownerType: "research_question", ownerId: id, claimId: cid }).onConflictDoNothing().run());
-  });
-
-  // Novelty check: a fresh targeted search per candidate. Results are real records from the databases.
+  // Novelty check: a fresh targeted search per candidate. Nothing is stored until every search has finished.
   const reviewed = new Set((await db.select({ t: schema.papers.normTitle }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).all()).map((r) => r.t));
-  for (const [i, id] of qIds.entries()) {
-    if ((await ctx.cancelled())) return;
-    (await ctx.progress(i + 1, 4, `Novelty search for candidate ${i + 1}`));
-    await runNovelty(id, reviewed, async (l) => (await ctx.log(l)));
+  const criteria = noveltyCriteria(p.criteria);
+  const novelty: Awaited<ReturnType<typeof searchNovelty>>[] = [];
+  for (const [i, q] of data.questions.entries()) {
+    if (await ctx.cancelled()) return;
+    await ctx.progress(i + 1, 4, `Novelty search for candidate ${i + 1}`);
+    novelty.push(
+      await searchNovelty(
+        SEARCH_DATABASES.map((d) => ({ database: d, query: dropEmptyGroups(q.noveltyQueries[d]), count: null, error: null })),
+        criteria,
+        reviewed,
+        (l) => void ctx.log(l),
+      ),
+    );
   }
-  (await logDecision(projectId, 9, "questions_generated", null, data.questions.map((q) => q.text), "ai"));
-  (await ctx.progress(4, 4, "Done"));
+  // Cancelled during the searches: the previous questions are untouched.
+  if (await ctx.cancelled()) return;
+
+  const old = await db.select().from(schema.researchQuestions).where(eq(schema.researchQuestions.projectId, projectId)).orderBy(asc(schema.researchQuestions.order)).all();
+  if (old.length) {
+    await logDecision(
+      projectId,
+      9,
+      "questions_replaced",
+      old.map((q) => ({ text: q.text, structure: q.structure, design: q.design, gap: q.gap, chosen: q.chosen, edited: q.edited })),
+      { jobId: ctx.jobId, replaced: old.length },
+      "system",
+    );
+  }
+  const stmts: BatchItem<"sqlite">[] = [
+    db.delete(schema.claimLinks).where(and(eq(schema.claimLinks.ownerType, "research_question"), inArray(schema.claimLinks.ownerId, old.map((q) => q.id).concat(["-"])))),
+    db.delete(schema.researchQuestions).where(eq(schema.researchQuestions.projectId, projectId)),
+  ];
+  data.questions.forEach((q, i) => {
+    const id = newId("rq");
+    const n = novelty[i];
+    stmts.push(
+      db.insert(schema.researchQuestions).values({
+        id,
+        projectId,
+        text: q.text,
+        framework: q.framework,
+        structure: Object.fromEntries(q.structure.map((s) => [s.element, s.value])),
+        design: q.design,
+        gap: q.gap,
+        feasibility: q.feasibility,
+        weakness: q.weakness,
+        noveltyQueries: n.queries,
+        noveltyMatches: n.matches,
+        noveltyStatus: n.allFailed ? "failed" : "done",
+        order: i,
+      }),
+    );
+    const viaSynth = links.filter((l) => q.synthesisIds.includes(l.ownerId)).map((l) => l.claimId);
+    for (const cid of new Set([...q.gapClaimIds, ...viaSynth])) {
+      stmts.push(db.insert(schema.claimLinks).values({ ownerType: "research_question", ownerId: id, claimId: cid }).onConflictDoNothing());
+    }
+  });
+  await batchWrite(stmts);
+  await logDecision(projectId, 9, "questions_generated", null, data.questions.map((q) => q.text), "ai");
+  await ctx.progress(4, 4, "Done");
 }
 
-export async function runNovelty(questionId: string, reviewed: Set<string>, log: (l: string) => void) {
-  const q = (await db.select().from(schema.researchQuestions).where(eq(schema.researchQuestions.id, questionId)).get());
-  if (!q) return;
-  const project = (await getProject(q.projectId));
+/**
+ * Novelty search filters: the review's year and language limits are cleared, because an existing study outside the
+ * review's window still answers "has this been done?". The adapters' own record-type filter (OpenAlex: articles,
+ * reviews and preprints) still applies.
+ */
+export function noveltyCriteria(c: Criteria | null): Criteria | null {
+  return c ? { ...c, yearFrom: null, yearTo: null, languages: [] } : null;
+}
+
+/** Run the novelty searches as written. Nothing is stored; a search that fails is recorded on its entry. */
+export async function searchNovelty(queries: NoveltyQuery[], criteria: Criteria | null, reviewed: Set<string>, log: (l: string) => void) {
   const matches: NoveltyMatch[] = [];
-  const nq = [...q.noveltyQueries];
+  const nq = queries.map((x) => ({ ...x }));
   for (const entry of nq) {
     try {
       const adapter = adapters[entry.database as "pubmed" | "openalex"];
-      const res = await adapter.search(entry.query, project.criteria, NOVELTY_TOP, { log });
+      const res = await adapter.search(entry.query, criteria, NOVELTY_TOP, { log });
       entry.count = res.total;
       entry.error = null;
       res.records.slice(0, NOVELTY_TOP).forEach((r, rank) =>
@@ -119,7 +163,6 @@ export async function runNovelty(questionId: string, reviewed: Set<string>, log:
       log(`Novelty search (${entry.database}) failed: ${errMsg(e)}`);
     }
   }
-  // De-duplicate across databases by DOI/PMID/title.
   const seen = new Set<string>();
   const uniq = matches.filter((m) => {
     const k = m.doi ?? m.pmid ?? normalizeTitle(m.title);
@@ -127,8 +170,23 @@ export async function runNovelty(questionId: string, reviewed: Set<string>, log:
     seen.add(k);
     return true;
   });
-  (await db.update(schema.researchQuestions)
-        .set({ noveltyQueries: nq, noveltyMatches: uniq, noveltyStatus: nq.every((x) => x.error) ? "failed" : "done" })
-        .where(eq(schema.researchQuestions.id, questionId))
-        .run());
+  return { queries: nq, matches: uniq, allFailed: nq.every((x) => x.error) };
+}
+
+/**
+ * Re-run a stored question's novelty searches exactly as stored. The search strings are not rewritten here, so
+ * if the question's wording changed after they were written (and they were not edited since), the result still
+ * checks the earlier wording and the check stays "outdated".
+ */
+export async function runNovelty(questionId: string, reviewed: Set<string>, log: (l: string) => void) {
+  const q = await db.select().from(schema.researchQuestions).where(eq(schema.researchQuestions.id, questionId)).get();
+  if (!q) return;
+  const project = await getProject(q.projectId);
+  const r = await searchNovelty(q.noveltyQueries, noveltyCriteria(project.criteria), reviewed, log);
+  const forEarlierWording = (await noveltySearchesOutdatedIds(q.projectId)).has(q.id);
+  await db
+    .update(schema.researchQuestions)
+    .set({ noveltyQueries: r.queries, noveltyMatches: r.matches, noveltyStatus: forEarlierWording ? "outdated" : r.allFailed ? "failed" : "done" })
+    .where(eq(schema.researchQuestions.id, questionId))
+    .run();
 }

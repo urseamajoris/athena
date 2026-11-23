@@ -34,7 +34,15 @@ export function limiter(max: number) {
   return function run<T>(fn: () => Promise<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       queue.push(() => {
-        fn().then(resolve, reject).finally(() => {
+        // `fn` can throw before it returns a promise (e.g. no API key). That must reject and free the slot too,
+        // or every later call waits for ever and the job never reports that it failed.
+        let p: Promise<T>;
+        try {
+          p = fn();
+        } catch (e) {
+          p = Promise.reject(e);
+        }
+        p.then(resolve, reject).finally(() => {
           active--;
           next();
         });

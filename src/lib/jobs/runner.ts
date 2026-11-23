@@ -2,7 +2,8 @@ import "server-only";
 import { and, eq, inArray } from "drizzle-orm";
 import { db, schema } from "../db";
 import { newId, nowIso, errMsg } from "../util";
-import { setStageState, logDecision } from "../project";
+import { getProject, setStageState, logDecision, markDownstreamStale } from "../project";
+import { STAGES } from "../shared/stages";
 import { AiPausedError, AiUnavailableError, BudgetError } from "../ai/client";
 import { NO_KEY_MESSAGE } from "../ai/errors";
 
@@ -36,7 +37,12 @@ export function registerJob(kind: string, h: JobHandler) {
   handlers.set(kind, h);
 }
 
-export async function startJob(projectId: string, kind: string, stage: number, params: Record<string, unknown> = {}): Promise<string> {
+/**
+ * Queue a stage's job. Every later stage that already has output is marked stale first, before the microtask
+ * that runs the handler can delete or replace rows they were built from. A paused job is resumed instead, and
+ * is not marked stale again.
+ */
+export async function startJob(projectId: string, kind: string, stage: number, params: Record<string, unknown> = {}, reason?: string): Promise<string> {
   const running = (await db
       .select()
       .from(schema.jobs)
@@ -44,6 +50,8 @@ export async function startJob(projectId: string, kind: string, stage: number, p
       .get());
   if (running?.status === "paused") return resumeJob(running.id);
   if (running) return running.id;
+  const def = STAGES[stage - 1];
+  await markDownstreamStale(projectId, stage, reason ?? `Step ${stage} (${def?.title ?? kind}) was re-run`);
   const id = newId("job");
   (await db.insert(schema.jobs).values({ id, projectId, kind, stage, params, status: "queued" }).run());
   (await setStageState(projectId, stage, "running"));
@@ -59,7 +67,7 @@ async function update(id: string, set: Partial<typeof schema.jobs.$inferInsert>)
 async function execute(id: string) {
   if (active.has(id)) return;
   const job = (await db.select().from(schema.jobs).where(eq(schema.jobs.id, id)).get());
-  if (!job) return;
+  if (!job || job.status === "cancelled") return;
   const handler = handlers.get(job.kind);
   if (!handler) {
     (await update(id, { status: "failed", error: `No handler for job kind ${job.kind}`, endedAt: nowIso() }));
@@ -91,14 +99,14 @@ async function execute(id: string) {
       return j?.s === "cancelled";
     },
   };
+  // cancelStage sets the stage itself. A stage marked stale while the job ran (an upstream edit) stays stale.
+  const stillRunning = async () => (await getProject(job.projectId)).stageStates[String(job.stage)] === "running";
   try {
     await handler(ctx);
     (await flush(true));
-    if ((await ctx.cancelled())) {
-      (await setStageState(job.projectId, job.stage, "failed"));
-    } else {
+    if (!(await ctx.cancelled())) {
       (await update(id, { status: "done", endedAt: nowIso() }));
-      (await setStageState(job.projectId, job.stage, "needs_review"));
+      if (await stillRunning()) (await setStageState(job.projectId, job.stage, "needs_review"));
       (await logDecision(job.projectId, job.stage, "job_finished", null, { kind: job.kind }, "system"));
     }
   } catch (e) {
@@ -112,9 +120,11 @@ async function execute(id: string) {
     }
     logLines.push(`ERROR ${errMsg(e)}`);
     (await flush(true));
-    (await update(id, { status: "failed", error: errMsg(e), endedAt: nowIso() }));
-    (await setStageState(job.projectId, job.stage, "failed"));
-    (await logDecision(job.projectId, job.stage, "job_failed", null, { kind: job.kind, error: errMsg(e) }, "system"));
+    if (!(await ctx.cancelled())) {
+      (await update(id, { status: "failed", error: errMsg(e), endedAt: nowIso() }));
+      if (await stillRunning()) (await setStageState(job.projectId, job.stage, "failed"));
+      (await logDecision(job.projectId, job.stage, "job_failed", null, { kind: job.kind, error: errMsg(e) }, "system"));
+    }
     console.error(`[athena] job ${job.kind} ${id} failed:`, e);
   } finally {
     active.delete(id);
@@ -123,6 +133,28 @@ async function execute(id: string) {
 
 export async function cancelJob(id: string) {
   (await update(id, { status: "cancelled", endedAt: nowIso() }));
+}
+
+/**
+ * Cancel a stage's queued, running, or paused job. If an earlier run of this stage finished, its results are what
+ * the researcher has: untouched when the cancelled job never started ("needs review"), possibly half-replaced
+ * when it had started ("stale"). Only a stage with no finished run becomes "failed".
+ */
+export async function cancelStage(projectId: string, stage: number): Promise<number> {
+  const live = await db
+    .select()
+    .from(schema.jobs)
+    .where(and(eq(schema.jobs.projectId, projectId), eq(schema.jobs.stage, stage), inArray(schema.jobs.status, ["queued", "running", "paused"])))
+    .all();
+  if (!live.length) return 0;
+  for (const j of live) await cancelJob(j.id);
+  const finished = await db.select({ id: schema.jobs.id }).from(schema.jobs).where(and(eq(schema.jobs.projectId, projectId), eq(schema.jobs.stage, stage), eq(schema.jobs.status, "done"))).get();
+  const started = live.some((j) => j.status === "running" || j.status === "paused" || j.startedAt);
+  if (!finished) await setStageState(projectId, stage, "failed");
+  else if (!started) await setStageState(projectId, stage, "needs_review");
+  else await setStageState(projectId, stage, "stale", { reason: "A re-run of this step was cancelled before it finished, so these results may be partial or mix the earlier run with the new one." });
+  await logDecision(projectId, stage, "stage_cancelled", null, { jobs: live.map((j) => j.id), previousRunFinished: !!finished, started }, "user");
+  return live.length;
 }
 
 /** Resume jobs interrupted by a server restart. Called once from instrumentation. */

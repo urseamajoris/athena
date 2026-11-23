@@ -10,7 +10,7 @@ export interface CanvasSummary {
   /** `selectedPapers`: different papers selected in any topic (the papers appraised); per-topic counts can overlap. */
   table: { papers: number; summarised: number; edited: number; selectedPapers?: number };
   /** Per topic: papers selected, scored, matching the topic (topic fit 2/5 or more), and matching but not selected. */
-  ranking: { topicId: string; name: string; importanceRank: number | null; selected: number; scored: number; matching: number; spare: number }[];
+  ranking: { topicId: string; name: string; importanceRank: number | null; selected: number; scored: number; matching: number; spare: number; linked?: number; notScoredOverLimit?: number }[];
   appraisal: { papers: number; done: number; failed: number; running: number; fullText: number; claims: number; verified: number; pending: number; accepted: number; rejected: number; notReported: number; appraisalIds: string[] };
   synthesis: { statements: number; contradictions: number; known: number; contested: number; unknown: number };
   questions: { count: number; chosenId: string | null; chosenText: string | null };

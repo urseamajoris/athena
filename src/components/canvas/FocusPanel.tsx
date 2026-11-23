@@ -99,6 +99,13 @@ function useNodeMenu(node: GNode): MenuItem[] {
       ];
     case "quote":
       return [{ label: "Unpin from the canvas", onSelect: () => { canvasStore.getState().unpinQuote(projectId, node.claimId!); canvasStore.getState().closePanel(); } }];
+    case "table":
+      return [
+        ...jobMenu,
+        ...(stage !== 5 && states["5"] !== "not_started" && states["5"] !== "running"
+          ? [{ label: "Retry missing summaries", hint: "leaves cells you corrected", onSelect: async () => { await api(projectPath(projectId, "stages/5/run"), { body: {} }); await refresh(); } }]
+          : []),
+      ];
     default:
       return jobMenu;
   }

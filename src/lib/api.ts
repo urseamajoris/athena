@@ -4,17 +4,18 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "./db";
 import { getProject, HttpError, logDecision, markDownstreamStale, setStageState } from "./project";
-import { STAGES } from "./shared/stages";
+import { STAGES, reviewProblems, scrubIds } from "./shared/stages";
 import { requireUser, ownedProject } from "./auth/server";
-import { startJob, cancelJob } from "./jobs";
-import { addTopic, answerScoping, approveTopics, deleteTopic, generateTopics, mergeTopics, nextScopingTurn, restoreTopic, scopingState, skipScoping, updateTopic } from "./stages/scoping";
+import { startJob, cancelStage } from "./jobs";
+import { approvalBlockers, approveStage } from "./gates";
+import { addTopic, answerScoping, deleteTopic, generateTopics, mergeTopics, nextScopingTurn, restartScoping, restoreTopic, scopingState, skipScoping, updateTopic } from "./stages/scoping";
 import { buildQueries, dryRun, dryRunAll, searchState, updateCriteria, updateQuery } from "./stages/search";
 import { paperPointsView, appraisalDetail, appraisalsView, canvasView, claimsView, decisionLogView, paperDetail, papersTableView, projectView, questionsView, rankingTableView, retrievalView, synthesisView } from "./views";
 import { htmlReport, markdownReport, selectedBibtex, summaryCsv } from "./export";
 import { REPORT_CSP } from "./report-html";
 import { runNovelty } from "./jobs/questions";
 import { reverifyProject } from "./jobs/appraisal";
-import { nowIso, forEachSeq } from "./util";
+import { nowIso } from "./util";
 import { STUDY_TYPES } from "./shared/stages";
 
 type Handler = (ctx: { projectId: string; params: Record<string, string>; body: unknown; url: URL }) => Promise<unknown> | unknown;
@@ -104,29 +105,13 @@ async function requireUpstreamApproved(projectId: string, n: number) {
   }
 }
 
-on("POST", "stages/:n/approve", async ({ projectId, params }) => {
-  const n = Number(params.n);
-  (await requireUpstreamApproved(projectId, n));
-  const p = (await getProject(projectId));
-  const state = p.stageStates[String(n)];
-  if (state === "running") throw new HttpError(409, "This stage is still running.");
-  if (n === 1 && !p.idea.trim()) throw new HttpError(400, "Write your idea first.");
-  if (n === 2) (await approveTopics(projectId));
-  if (n === 3 && !(await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all()).length) throw new HttpError(400, "Build the queries first.");
-  if (n === 9) {
-    const chosen = (await db.select().from(schema.researchQuestions).where(and(eq(schema.researchQuestions.projectId, projectId), eq(schema.researchQuestions.chosen, true))).get());
-    if (!chosen) throw new HttpError(400, "Pick one research question first.");
-  }
-  if (JOB_STAGES[n] && (state === "not_started" || state === "failed")) throw new HttpError(409, "Run this stage before approving it.");
-  (await setStageState(projectId, n, "approved", { currentStage: Math.min(9, n + 1) }));
-  (await logDecision(projectId, n, "stage_approved"));
-  // Kick off the next stage's background job if it has never run.
-  const next = n + 1;
-  if (JOB_STAGES[next] && (await getProject(projectId)).stageStates[String(next)] === "not_started") {
-    (await startJob(projectId, JOB_STAGES[next], next));
-  }
-  if (n === 9) (await db.update(schema.projects).set({ status: "complete", updatedAt: nowIso() }).where(eq(schema.projects.id, projectId)).run());
-  return (await projectView(projectId));
+on("GET", "stages/:n/blockers", async ({ projectId, params }) => ({ blockers: await approvalBlockers(projectId, Number(params.n)) }));
+
+on("POST", "stages/:n/approve", async ({ projectId, params, body }) => {
+  const { overrides } = parse(z.object({ overrides: z.array(z.string().max(200)).max(50).optional() }), body ?? {});
+  // approveStage starts the next stage's job once, only when it has never run. Do not start it again here.
+  await approveStage(projectId, Number(params.n), overrides ?? []);
+  return await projectView(projectId);
 });
 
 on("POST", "stages/:n/run", async ({ projectId, params, body }) => {
@@ -140,11 +125,9 @@ on("POST", "stages/:n/run", async ({ projectId, params, body }) => {
 
 on("POST", "stages/:n/cancel", async ({ projectId, params }) => {
   const n = Number(params.n);
-  const j = (await db.select().from(schema.jobs).where(and(eq(schema.jobs.projectId, projectId), eq(schema.jobs.stage, n))).all()).filter((x) => x.status === "running" || x.status === "queued" || x.status === "paused");
-  await forEachSeq(j, async (x) => (await cancelJob(x.id)));
-  (await setStageState(projectId, n, "failed"));
-  (await logDecision(projectId, n, "stage_cancelled"));
-  return { cancelled: j.length };
+  const cancelled = await cancelStage(projectId, n);
+  await logDecision(projectId, n, "stage_cancelled");
+  return { cancelled };
 });
 
 /** Keep stale results: the stage returns to "needs review" so the user re-checks and approves it. */
@@ -184,12 +167,7 @@ on("POST", "scoping/start", async ({ projectId }) => {
   if (s.messages.length) return s;
   return (await nextScopingTurn(projectId));
 });
-on("POST", "scoping/restart", async ({ projectId }) => {
-  (await db.delete(schema.scopingMessages).where(eq(schema.scopingMessages.projectId, projectId)).run());
-  (await logDecision(projectId, 2, "scoping_restarted"));
-  (await setStageState(projectId, 2, "needs_review"));
-  return (await nextScopingTurn(projectId));
-});
+on("POST", "scoping/restart", async ({ projectId }) => restartScoping(projectId));
 on("POST", "scoping/answer", async ({ projectId, body }) => {
   const { text } = parse(z.object({ text: z.string().trim().min(1).max(2000) }), body);
   return (await answerScoping(projectId, text));
@@ -335,18 +313,67 @@ on("PATCH", "synthesis/:sid", async ({ projectId, params, body }) => {
 // ---------- stage 9 ----------
 on("GET", "questions", async ({ projectId }) => (await questionsView(projectId)));
 on("PATCH", "questions/:qid", async ({ projectId, params, body }) => {
-  const patch = parse(z.object({ text: z.string().trim().min(5).max(600).optional(), structure: z.record(z.string(), z.string().max(400)).optional(), design: z.string().max(300).optional(), feasibility: z.string().max(800).optional(), weakness: z.string().max(600).optional() }), body);
+  const patch = parse(
+    z.object({
+      text: z.string().trim().min(5).max(600).optional(),
+      structure: z.record(z.string(), z.string().max(400)).optional(),
+      design: z.string().max(300).optional(),
+      gap: z.string().trim().min(5).max(1000).optional(),
+      feasibility: z.string().max(800).optional(),
+      weakness: z.string().max(600).optional(),
+      noveltyQueries: z.array(z.object({ database: z.enum(["pubmed", "openalex"]), query: z.string().trim().min(3).max(800) })).min(1).max(2).optional(),
+    }),
+    body,
+  );
   const q = await ownQuestion(projectId, params.qid);
-  (await db.update(schema.researchQuestions).set({ ...patch, edited: true }).where(eq(schema.researchQuestions.id, q.id)).run());
-  (await logDecision(projectId, 9, "question_edited", { text: q.text, structure: q.structure }, patch));
-  if ((await getProject(projectId)).stageStates["9"] === "approved") (await setStageState(projectId, 9, "needs_review"));
-  return (await questionsView(projectId));
+  // The editor is filled from the view, which strips internal IDs from prose: sending that text back is not an edit.
+  const same = (sent: string, stored: string) => sent === stored || sent === scrubIds(stored);
+  const textChanged = patch.text !== undefined && !same(patch.text, q.text);
+  const structureChanged =
+    patch.structure !== undefined &&
+    (Object.keys(patch.structure).length !== Object.keys(q.structure).length || Object.entries(patch.structure).some(([k, v]) => q.structure[k] === undefined || !same(v, q.structure[k])));
+  const designChanged = patch.design !== undefined && !same(patch.design, q.design);
+  const gapChanged = patch.gap !== undefined && !same(patch.gap, q.gap);
+  // The question, its structure and its design together say what is being asked: a change to any of them is a
+  // change to the question the novelty searches and the gap were written for.
+  const wordingChanged = textChanged || structureChanged || designChanged;
+  const searches = patch.noveltyQueries?.map((n) => ({ database: n.database, query: n.query, count: null as number | null, error: null as string | null }));
+  const searchesChanged = !!searches && JSON.stringify(searches.map((n) => [n.database, n.query])) !== JSON.stringify(q.noveltyQueries.map((n) => [n.database, n.query]));
+  const { noveltyQueries: _ignored, ...rest } = patch;
+  const set: Partial<typeof schema.researchQuestions.$inferInsert> = { ...rest, edited: true };
+  if (searchesChanged && searches) set.noveltyQueries = searches;
+  // The novelty list was found for the old wording (or the old searches): it no longer checks this question.
+  if (wordingChanged || searchesChanged) set.noveltyStatus = "outdated";
+  await db.update(schema.researchQuestions).set(set).where(eq(schema.researchQuestions.id, q.id)).run();
+  await logDecision(
+    projectId,
+    9,
+    "question_edited",
+    { questionId: q.id, text: q.text, structure: q.structure, design: q.design, gap: q.gap, noveltyQueries: q.noveltyQueries.map((n) => ({ database: n.database, query: n.query })) },
+    { questionId: q.id, ...patch },
+  );
+  // The gap stays outdated until it is edited in this save or the researcher confirms it still applies.
+  if (gapChanged) await logDecision(projectId, 9, "question_gap_edited", null, { questionId: q.id });
+  else if (wordingChanged) await logDecision(projectId, 9, "question_gap_outdated", null, { questionId: q.id }, "system");
+  // The stored search strings count as written for the current wording only if they were edited in this save or
+  // after it. Until then a re-run repeats the old searches, so it cannot clear the novelty check.
+  if (searchesChanged) await logDecision(projectId, 9, "question_searches_edited", null, { questionId: q.id });
+  else if (wordingChanged) await logDecision(projectId, 9, "question_searches_outdated", null, { questionId: q.id }, "system");
+  if ((await getProject(projectId)).stageStates["9"] === "approved") await setStageState(projectId, 9, "needs_review");
+  return await questionsView(projectId);
+});
+/** The researcher confirms the gap still describes the edited question. */
+on("POST", "questions/:qid/gap-confirm", async ({ projectId, params }) => {
+  const q = await ownQuestion(projectId, params.qid);
+  await logDecision(projectId, 9, "question_gap_confirmed", { gap: q.gap }, { questionId: q.id });
+  return await questionsView(projectId);
 });
 on("POST", "questions/:qid/choose", async ({ projectId, params }) => {
   await ownQuestion(projectId, params.qid);
   (await db.update(schema.researchQuestions).set({ chosen: false }).where(eq(schema.researchQuestions.projectId, projectId)).run());
   (await db.update(schema.researchQuestions).set({ chosen: true }).where(eq(schema.researchQuestions.id, params.qid)).run());
   (await logDecision(projectId, 9, "question_chosen", null, { id: params.qid }));
+  if ((await getProject(projectId)).stageStates["9"] === "approved") await setStageState(projectId, 9, "needs_review");
   return (await questionsView(projectId));
 });
 on("POST", "questions/:qid/novelty", async ({ projectId, params }) => {
@@ -401,7 +428,7 @@ on("GET", "export/:kind", async ({ projectId, params, url }) => {
   const e = EXPORTS[params.kind];
   if (!e) throw new HttpError(404, "Unknown export");
   const p = (await getProject(projectId));
-  const slug = (p.title || "review").toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+  const slug = (p.title || "review").toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) + (reviewProblems(p.stageStates, p.staleReasons).length ? "-draft" : "");
   (await logDecision(projectId, 9, "exported", null, { kind: params.kind }, "user"));
   const headers: Record<string, string> = { "Content-Type": `${e.type}; charset=utf-8`, "Content-Disposition": `${e.inline ? "inline" : "attachment"}; filename="${slug}.${e.ext}"` };
   if (e.inline) Object.assign(headers, { "Content-Security-Policy": `${REPORT_CSP}; frame-ancestors 'self'`, "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" });
