@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import { getProject, latestJob, stageCosts } from "./project";
 import { STAGES, scrubIds } from "./shared/stages";
+import { detectCriteriaFlags } from "./shared/criteria";
 
 const ids = (a: string[]) => a.concat(["-"]);
 
@@ -41,6 +42,7 @@ export function retrievalView(projectId: string) {
 }
 
 export function papersView(projectId: string) {
+  const project = getProject(projectId);
   const papers = db.select().from(schema.papers).where(eq(schema.papers.projectId, projectId)).all();
   const pids = ids(papers.map((p) => p.id));
   const sums = db.select().from(schema.paperSummaries).where(inArray(schema.paperSummaries.paperId, pids)).all();
@@ -48,17 +50,22 @@ export function papersView(projectId: string) {
   const topics = db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all();
   return {
     topics: topics.map((t) => ({ id: t.id, name: t.name })),
-    papers: papers.map((p) => ({
-      ...p,
-      abstract: undefined,
-      hasAbstract: !!p.abstract,
-      summary: sums.find((s) => s.paperId === p.id) ?? null,
-      topicIds: links.filter((l) => l.paperId === p.id).map((l) => l.topicId),
-    })),
+    papers: papers.map((p) => {
+      const summary = sums.find((s) => s.paperId === p.id) ?? null;
+      return {
+        ...p,
+        abstract: undefined,
+        hasAbstract: !!p.abstract,
+        summary,
+        flags: detectCriteriaFlags(p, summary, project.criteria),
+        topicIds: links.filter((l) => l.paperId === p.id).map((l) => l.topicId),
+      };
+    }),
   };
 }
 
 export function paperDetail(projectId: string, paperId: string) {
+  const project = getProject(projectId);
   const p = db.select().from(schema.papers).where(and(eq(schema.papers.id, paperId), eq(schema.papers.projectId, projectId))).get();
   if (!p) return null;
   const hits = db.select().from(schema.paperHits).where(eq(schema.paperHits.paperId, paperId)).all();
@@ -68,10 +75,20 @@ export function paperDetail(projectId: string, paperId: string) {
   const scores = db.select().from(schema.scores).where(eq(schema.scores.paperId, paperId)).all();
   const summary = db.select().from(schema.paperSummaries).where(eq(schema.paperSummaries.paperId, paperId)).get() ?? null;
   const appraisal = db.select().from(schema.appraisals).where(eq(schema.appraisals.paperId, paperId)).get() ?? null;
+  const st = appraisal?.sourceTextId ? db.select().from(schema.sourceTexts).where(eq(schema.sourceTexts.id, appraisal.sourceTextId)).get() : null;
   return {
     paper: p,
     summary,
-    appraisal: appraisal ? { id: appraisal.id, status: appraisal.status, textSource: appraisal.textSource } : null,
+    flags: detectCriteriaFlags(p, summary, project.criteria),
+    appraisal: appraisal
+      ? {
+          id: appraisal.id,
+          status: appraisal.status,
+          textSource: appraisal.textSource,
+          sourceOrigin: st?.source ?? null,
+          truncated: !!(appraisal.charsSentToModel && st && appraisal.charsSentToModel < st.fullLength),
+        }
+      : null,
     foundBy: hits.map((h) => {
       const r = runs.find((x) => x.id === h.searchRunId);
       const q = qs.find((x) => x.id === r?.queryId);
@@ -82,6 +99,7 @@ export function paperDetail(projectId: string, paperId: string) {
 }
 
 export function rankingView(projectId: string) {
+  const project = getProject(projectId);
   const topics = db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.importanceRank), asc(schema.topics.sortOrder)).all();
   const scores = db.select().from(schema.scores).where(inArray(schema.scores.topicId, ids(topics.map((t) => t.id)))).orderBy(desc(schema.scores.total)).all();
   const papers = db.select().from(schema.papers).where(inArray(schema.papers.id, ids([...new Set(scores.map((s) => s.paperId))]))).all();
@@ -93,7 +111,22 @@ export function rankingView(projectId: string) {
         .filter((s) => s.topicId === t.id)
         .map((s) => {
           const p = papers.find((x) => x.id === s.paperId)!;
-          return { ...s, paper: { id: p.id, title: p.title, year: p.year, journal: p.journal, citationCount: p.citationCount, studyType: sums.find((x) => x.paperId === p.id)?.studyType ?? null } };
+          const summary = sums.find((x) => x.paperId === p.id) ?? null;
+          return {
+            ...s,
+            paper: {
+              id: p.id,
+              title: p.title,
+              year: p.year,
+              journal: p.journal,
+              citationCount: p.citationCount,
+              studyType: summary?.studyType ?? null,
+              publicationTypes: p.publicationTypes,
+              excluded: p.excluded,
+              excludedReason: p.excludedReason,
+              flags: detectCriteriaFlags(p, summary, project.criteria),
+            },
+          };
         }),
     })),
   };
@@ -102,14 +135,26 @@ export function rankingView(projectId: string) {
 export function appraisalsView(projectId: string) {
   const papers = db.select().from(schema.papers).where(eq(schema.papers.projectId, projectId)).all();
   const apps = db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids(papers.map((p) => p.id)))).all();
+  const stIds = [...new Set(apps.map((a) => a.sourceTextId).filter((x): x is string => !!x))];
+  const sts = stIds.length
+    ? db
+        .select({ id: schema.sourceTexts.id, source: schema.sourceTexts.source, fullLength: schema.sourceTexts.fullLength })
+        .from(schema.sourceTexts)
+        .where(inArray(schema.sourceTexts.id, stIds))
+        .all()
+    : [];
+  const stById = new Map(sts.map((s) => [s.id, s]));
   const claims = db.select().from(schema.claims).where(inArray(schema.claims.appraisalId, ids(apps.map((a) => a.id)))).all();
   return {
     appraisals: apps.map((a) => {
       const p = papers.find((x) => x.id === a.paperId)!;
+      const st = a.sourceTextId ? stById.get(a.sourceTextId) : null;
       const cs = claims.filter((c) => c.appraisalId === a.id);
       return {
         ...a,
-        paper: { id: p.id, title: p.title, year: p.year, doi: p.doi, pmid: p.pmid, pmcid: p.pmcid },
+        sourceOrigin: st?.source ?? null,
+        truncated: !!(a.charsSentToModel && st && a.charsSentToModel < st.fullLength),
+        paper: { id: p.id, title: p.title, year: p.year, doi: p.doi, pmid: p.pmid, pmcid: p.pmcid, excluded: p.excluded },
         counts: { claims: cs.length, verified: cs.filter((c) => c.verified).length, unverified: cs.filter((c) => !c.verified && !c.notReported).length, accepted: cs.filter((c) => c.userAccepted).length, notReported: cs.filter((c) => c.notReported).length },
       };
     }),

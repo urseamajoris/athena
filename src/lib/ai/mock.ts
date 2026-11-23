@@ -169,7 +169,8 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
       };
     }
     case "synthesis": {
-      const { claims, papers } = inp as { claims: { id: string; paperId: string; field: string; statement: string }[]; papers: { id: string }[] };
+      const { claims, papers, nonStudyPaperIds = [] } = inp as { claims: { id: string; paperId: string; field: string; statement: string }[]; papers: { id: string }[]; nonStudyPaperIds?: string[] };
+      const nonStudy = new Set(nonStudyPaperIds);
       const themes = ["(mock) Main findings", "(mock) Study context", "(mock) Limitations"];
       const fieldTheme: Record<string, string> = { key_findings: themes[0], setting: themes[1], sample: themes[1], limitations: themes[2] };
       const matrix = papers.flatMap((p) =>
@@ -178,7 +179,7 @@ export async function mockRespond(prompt: string, vars: Record<string, string>, 
           return cs.length ? { paperId: p.id, theme: th, value: cs[0].statement.slice(0, 200), stance: "neutral", claimIds: cs.map((c) => c.id) } : null;
         }).filter(Boolean),
       );
-      const kf = claims.filter((c) => c.field === "key_findings");
+      const kf = claims.filter((c) => c.field === "key_findings" && !nonStudy.has(c.paperId));
       const lim = claims.filter((c) => c.field === "limitations");
       const twoPapers = [...new Map(kf.map((c) => [c.paperId, c])).values()].slice(0, 2);
       return {

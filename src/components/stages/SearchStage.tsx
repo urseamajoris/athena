@@ -189,7 +189,7 @@ function CriteriaCard({ criteria, onSaved }: { criteria: Criteria; onSaved: (d: 
           <textarea className="input mt-0.5 min-h-20" value={c.exclusion.join("\n")} onChange={(e) => setC({ ...c, exclusion: list(e.target.value) })} />
         </label>
       </div>
-      <p className="mt-2 text-xs text-gray-500">Years and languages are applied as database filters. Study types and inclusion/exclusion statements guide ranking and appraisal and are recorded in the report; they are not hard filters.</p>
+      <p className="mt-2 text-xs text-gray-500">Years and languages are applied as database filters. Study types and inclusion/exclusion statements are passed as guidance to ranking and appraisal, flag matching records on the Summary and Ranking screens, and are recorded in the report; they are not hard database filters.</p>
       {err ? <div className="mt-2"><ErrorState error={err} /></div> : null}
       {dirty && (
         <div className="mt-3 flex justify-end gap-2">

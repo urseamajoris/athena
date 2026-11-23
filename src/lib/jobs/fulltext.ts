@@ -5,6 +5,7 @@ import { europePmcFullText, europePmcLookup } from "../sources/europepmc";
 import { unpaywall } from "../sources/unpaywall";
 import { httpFetch } from "../sources/http";
 import { newId, errMsg } from "../util";
+import { fullTextSourceNote } from "../appraisal-text";
 
 type Paper = typeof schema.papers.$inferSelect;
 
@@ -17,6 +18,7 @@ export function isOpenLicense(l: string | null | undefined): boolean {
 export interface TextResult {
   sourceTextId: string;
   kind: "full_text" | "abstract";
+  source: string;
   note: string;
 }
 
@@ -29,7 +31,7 @@ export interface TextResult {
 export async function getAppraisalText(paper: Paper, log: (l: string) => void): Promise<TextResult> {
   const existing = db.select().from(schema.sourceTexts).where(eq(schema.sourceTexts.paperId, paper.id)).all();
   const ft = existing.find((e) => e.kind === "full_text");
-  if (ft) return { sourceTextId: ft.id, kind: "full_text", note: `Full text from ${ft.source}${ft.license ? ` (licence: ${ft.license})` : ""}.` };
+  if (ft) return { sourceTextId: ft.id, kind: "full_text", source: ft.source, note: fullTextSourceNote(ft.source, ft.license, paper.pmcid) };
 
   const reasons: string[] = [];
   // 1. Europe PMC / PMC
@@ -45,9 +47,10 @@ export async function getAppraisalText(paper: Paper, log: (l: string) => void): 
       const t = await europePmcFullText(pmcid, log);
       if (t) {
         const id = newId("st");
-        db.insert(schema.sourceTexts).values({ id, paperId: paper.id, kind: "full_text", source: "europepmc", license: license ?? "PMC open-access subset", url: `https://europepmc.org/article/PMC/${pmcid}`, text: t.text, sections: t.sections, fullLength: t.text.length }).run();
+        const lic = license ?? "PMC open-access subset";
+        db.insert(schema.sourceTexts).values({ id, paperId: paper.id, kind: "full_text", source: "europepmc", license: lic, url: `https://europepmc.org/article/PMC/${pmcid}`, text: t.text, sections: t.sections, fullLength: t.text.length }).run();
         if (!paper.pmcid) db.update(schema.papers).set({ pmcid }).where(eq(schema.papers.id, paper.id)).run();
-        return { sourceTextId: id, kind: "full_text", note: `Full text from Europe PMC (${pmcid}; licence: ${license ?? "PMC open-access subset"}).` };
+        return { sourceTextId: id, kind: "full_text", source: "europepmc", note: fullTextSourceNote("europepmc", lic, pmcid) };
       }
       reasons.push(`${pmcid} has no open full text in Europe PMC`);
     } else reasons.push("not in PubMed Central");
@@ -76,7 +79,7 @@ export async function getAppraisalText(paper: Paper, log: (l: string) => void): 
         if (full.trim().length > 1500) {
           const id = newId("st");
           db.insert(schema.sourceTexts).values({ id, paperId: paper.id, kind: "full_text", source: "unpaywall_pdf", license: u.license, url: u.pdfUrl, text: full.trim(), sections, fullLength: full.trim().length }).run();
-          return { sourceTextId: id, kind: "full_text", note: `Full text extracted from an open-access PDF found via Unpaywall (licence: ${u.license}). PDF text extraction can garble tables and columns.` };
+          return { sourceTextId: id, kind: "full_text", source: "unpaywall_pdf", note: fullTextSourceNote("unpaywall_pdf", u.license) };
         }
         reasons.push("open PDF had too little extractable text");
       } else if (u?.isOa) {
@@ -90,9 +93,10 @@ export async function getAppraisalText(paper: Paper, log: (l: string) => void): 
   // 3. Abstract fallback
   const abs = existing.find((e) => e.kind === "abstract");
   const note = `Full text was not legally available: ${reasons.join("; ")}.`;
-  if (abs) return { sourceTextId: abs.id, kind: "abstract", note };
+  if (abs) return { sourceTextId: abs.id, kind: "abstract", source: abs.source, note };
   const text = `TITLE\n${paper.title}\n\nABSTRACT\n${paper.abstract ?? "(no abstract available)"}`;
   const id = newId("st");
-  db.insert(schema.sourceTexts).values({ id, paperId: paper.id, kind: "abstract", source: paper.sourceDatabases[0] ?? "database", text, sections: [{ title: "Title", start: 0 }, { title: "Abstract", start: text.indexOf("ABSTRACT") }], fullLength: text.length }).run();
-  return { sourceTextId: id, kind: "abstract", note };
+  const src = paper.sourceDatabases[0] ?? "database";
+  db.insert(schema.sourceTexts).values({ id, paperId: paper.id, kind: "abstract", source: src, text, sections: [{ title: "Title", start: 0 }, { title: "Abstract", start: text.indexOf("ABSTRACT") }], fullLength: text.length }).run();
+  return { sourceTextId: id, kind: "abstract", source: src, note };
 }

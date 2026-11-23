@@ -5,6 +5,7 @@ import { getProject, stageCosts } from "./project";
 import { STAGES, STUDY_TYPE_LABEL, RUBRIC, surname, shortCite, type StudyType } from "./shared/stages";
 import { appraisalsView, decisionLogView, papersView, questionsView, rankingView, retrievalView, synthesisView } from "./views";
 import { selectedPaperIds } from "./jobs/appraisal";
+import { fullTextSourceLabel } from "./appraisal-text";
 
 const ids = (a: string[]) => a.concat(["-"]);
 
@@ -136,7 +137,8 @@ export function markdownReport(projectId: string): string {
   L.push(`## 5. Appraisals\n`);
   for (const a of apps) {
     const pp = pById.get(a.paperId)!;
-    L.push(`### ${pp.title} (${pp.year ?? "n.d."})\n\n${ref(pp)}\n\n**Text source: ${a.textSource === "full_text" ? "FULL TEXT" : "ABSTRACT ONLY"}.** ${a.textNote}\n\nTemplate: ${a.templateType}. Status: ${a.status}${a.error ? ` (${a.error})` : ""}.\n`);
+    const srcHeading = fullTextSourceLabel(a.textSource, a.sourceOrigin, a.truncated).toUpperCase();
+    L.push(`### ${pp.title} (${pp.year ?? "n.d."})\n\n${ref(pp)}\n\n**Text source: ${srcHeading}.** ${a.textNote}\n\nTemplate: ${a.templateType}. Status: ${a.status}${a.error ? ` (${a.error})` : ""}.\n`);
     const cs = claims.filter((c) => c.appraisalId === a.id);
     for (const c of cs.filter((x) => x.field !== "checklist")) {
       L.push(`- **${c.field}** ${c.notReported ? "— not reported" : `— ${c.statement}\n  > "${c.quote}" (${c.location}) — ${c.verified ? "✅ verified" : c.userAccepted ? "⚠️ unverified, accepted by user" : c.userRejected ? "❌ rejected by user" : "⚠️ UNVERIFIED"} [${c.id}]`}`);
