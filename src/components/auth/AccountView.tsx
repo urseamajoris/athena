@@ -12,6 +12,7 @@ import { LogoMark } from "../Logo";
 interface Account {
   user: { id: string; email: string; name: string; role: "user" | "admin"; mustChangePassword: boolean; createdAt: string };
   projects: number;
+  creditsBalance: number;
   usage: { calls: number; costUsd: number; tokens: number; byProject: { projectId: string; title: string; createdAt: string; calls: number; cost: number }[] };
 }
 
@@ -44,6 +45,13 @@ export function AccountView() {
               <p role="status" className="rounded-md border border-warn-line bg-warn-soft px-4 py-3 text-fg-0">An administrator reset your password. Choose a new one below before you continue.</p>
             )}
             <Profile data={data} onSaved={() => mutate()} />
+            <Section id="credits-title" title="Literature review credits">
+              <p className="text-fg-1">
+                Available balance: <span className="font-semibold tabular-nums text-fg-0">{data.creditsBalance.toLocaleString("en-US")}</span> credit{data.creditsBalance === 1 ? "" : "s"}.
+                Credits are used for data gathering, summarizing, ranking, and result generation based on article count and size in approximate tokens.
+              </p>
+              <Link className="btn-primary mt-3 min-h-11" href="/credits">Top up credits</Link>
+            </Section>
             <PasswordForm />
             <Section id="usage-title" title="Your AI usage">
               <p className="mb-2 text-fg-1">Each time Athena asks the AI to read, summarise or draft something for you, that is one call.</p>

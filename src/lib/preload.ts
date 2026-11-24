@@ -9,6 +9,7 @@ import { totalSpend } from "./ai/client";
 import { canvasView, papersTableView, projectView, questionsView, rankingTableView } from "./views";
 import { exportPreview } from "./api";
 import { ownedProject, type SessionUser } from "./auth/server";
+import { getUserCredits } from "./credits";
 import { aiState, budgetLimit, effectiveProviderKey, providerConfigStatus } from "./settings";
 
 /** GET /api/projects */
@@ -20,12 +21,14 @@ export async function projectsList(ownerId: string) {
 /** GET /api/status. Spend, budget and key presence are server-wide facts, so only admins get them. */
 export async function statusView(user: SessionUser) {
   await checkModels();
+  const [ai, creditsBalance] = await Promise.all([aiState(), getUserCredits(user.id)]);
   const base = {
     production: config.production,
     models: modelResolutions(),
     maxResultsPerQuery: config.maxResultsPerQuery,
     user: { email: user.email, name: user.name, role: user.role },
-    ai: await aiState(),
+    creditsBalance,
+    ai,
   };
   if (user.role !== "admin") return base;
   const providerConfig = await providerConfigStatus();

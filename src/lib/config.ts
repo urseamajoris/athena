@@ -57,6 +57,20 @@ export const config = {
   /** Effort for the reasoning role (appraisal, synthesis, questions). Low keeps thinking tokens, billed as output, small. */
   reasoningEffort: process.env.XAI_REASONING_EFFORT ?? "low",
   budgetUsd: num(process.env.XAI_BUDGET_USD, 5),
+  /** Starting literature-review credits granted to newly created accounts. */
+  defaultUserCredits: Math.max(0, Math.round(num(process.env.DEFAULT_USER_CREDITS, 100))),
+  /** Stripe Checkout secret key (server-side only) for literature-review credit top-ups. */
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
+  /** Stripe webhook signing secret (whsec_...) for verifying checkout.session.completed events. */
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
+  stripeApiBaseUrl: process.env.STRIPE_API_BASE_URL || "https://api.stripe.com/v1",
+  /** Optional pre-configured Stripe Payment Link URLs per pack (used when STRIPE_SECRET_KEY is not set). */
+  stripePaymentLinks: {
+    starter: process.env.STRIPE_PAYMENT_LINK_STARTER ?? "",
+    researcher: process.env.STRIPE_PAYMENT_LINK_RESEARCHER ?? "",
+    lab: process.env.STRIPE_PAYMENT_LINK_LAB ?? "",
+    department: process.env.STRIPE_PAYMENT_LINK_DEPARTMENT ?? "",
+  } as Record<string, string>,
   aiConcurrency: Math.max(1, num(process.env.AI_CONCURRENCY, 4)),
   maxResultsPerQuery: Math.max(1, num(process.env.MAX_RESULTS_PER_QUERY, 40)),
   appraisalMaxChars: num(process.env.APPRAISAL_MAX_CHARS, 60000),

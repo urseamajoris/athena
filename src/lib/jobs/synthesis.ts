@@ -11,6 +11,7 @@ import { filterClaimsForSynthesis } from "../review-guards";
 import { fullTextSourceLabel } from "../appraisal-text";
 import { errMsg, newId } from "../util";
 import { getProject, logDecision } from "../project";
+import { chargeCreditsForJob, ensureCreditsForStage, quoteProjectStage } from "../credits";
 import type { JobContext } from "./runner";
 
 /** Claims that synthesis may cite: verified quotes, or unverified ones the user explicitly accepted. */
@@ -26,6 +27,8 @@ export async function usableClaims(paperIds: string[]) {
 export async function synthesisJob(ctx: JobContext) {
   const { projectId } = ctx;
   const p = (await getProject(projectId));
+  const synthesisQuote = await quoteProjectStage(projectId, "synthesis");
+  await ensureCreditsForStage(projectId, "synthesis", synthesisQuote);
   const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.importanceRank), asc(schema.topics.sortOrder)).all());
   // Previous synthesis stays until a topic's new result is ready. A failed or cancelled run does not delete it.
   type Ready = { topicId: string; name: string; stmts: BatchItem<"sqlite">[]; themes: number; contradictions: number };
@@ -176,7 +179,17 @@ export async function synthesisJob(ctx: JobContext) {
     }
     (await logDecision(projectId, 8, "synthesis_topic_skipped", null, { jobId: ctx.jobId, topicId: s.topicId, reason: s.reason, keptPrevious: s.keptPrevious }, "system"));
   }
-  if (replaced.length) (await logDecision(projectId, 8, "synthesis_replaced", replaced, { jobId: ctx.jobId }, "system"));
-  (await logDecision(projectId, 8, "synthesis_generated", null, { topics: topics.length, ok: ready.length }, "ai"));
   if (!ready.length) throw new Error("No topic could be synthesised. Check that appraisals produced verified claims.");
+  const charged = await chargeCreditsForJob({
+    projectId,
+    jobId: ctx.jobId,
+    operation: "synthesis",
+    quote: synthesisQuote,
+    allowClampToZero: true,
+  });
+  if (charged.charged > 0) {
+    await ctx.log(`Credits used for result generation (synthesis): ${charged.charged} (${synthesisQuote.articleCount} articles, ~${synthesisQuote.approxTokens.toLocaleString("en-US")} tokens)`);
+  }
+  if (replaced.length) (await logDecision(projectId, 8, "synthesis_replaced", replaced, { jobId: ctx.jobId }, "system"));
+  (await logDecision(projectId, 8, "synthesis_generated", null, { topics: topics.length, ok: ready.length, creditsUsed: charged.charged, approxTokens: synthesisQuote.approxTokens }, "ai"));
 }

@@ -380,10 +380,35 @@ export const users = sqliteTable("users", {
   disabled: integer("disabled", { mode: "boolean" }).notNull().default(false),
   /** Set when an admin resets the password: the next login must choose a new one. */
   mustChangePassword: integer("must_change_password", { mode: "boolean" }).notNull().default(false),
+  /** Literature review credit balance (1 credit = 1,000 approximate tokens). */
+  creditsBalance: integer("credits_balance").notNull().default(100),
   createdAt: createdAt(),
   lastLoginAt: text("last_login_at"),
   lastActiveAt: text("last_active_at"),
 }, (t) => [uniqueIndex("users_email_uq").on(t.email)]);
+
+/** Ledger of literature review credit top-ups and token-based usage deductions. */
+export const creditTransactions = sqliteTable("credit_transactions", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
+  jobId: text("job_id"),
+  stage: integer("stage"),
+  operation: text("operation").notNull(), // starter_grant | top_up | admin_adjustment | retrieval | summaries | ranking | appraisal | synthesis | questions
+  amount: integer("amount").notNull(), // positive = credit added, negative = credit used
+  balanceAfter: integer("balance_after").notNull(),
+  articleCount: integer("article_count"),
+  totalChars: integer("total_chars"),
+  approxTokens: integer("approx_tokens"),
+  stripeSessionId: text("stripe_session_id"),
+  amountCents: integer("amount_cents"),
+  description: text("description").notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  index("credits_user_idx").on(t.userId, t.createdAt),
+  index("credits_project_idx").on(t.projectId, t.stage),
+  uniqueIndex("credits_stripe_session_uq").on(t.stripeSessionId),
+]);
 
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(), // sha256 of the cookie token; the token itself is never stored

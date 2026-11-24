@@ -5,7 +5,7 @@ import { newId, nowIso, errMsg } from "../util";
 import { getProject, setStageState, logDecision, markDownstreamStale } from "../project";
 import { STAGES } from "../shared/stages";
 import { AiPausedError, AiUnavailableError, BudgetError } from "../ai/client";
-import { NO_KEY_MESSAGE } from "../ai/errors";
+import { InsufficientCreditsError, NO_KEY_MESSAGE } from "../ai/errors";
 
 /**
  * In-process job runner. Job state lives in SQLite (jobs table), so a page refresh or a client
@@ -110,8 +110,15 @@ async function execute(id: string) {
       (await logDecision(job.projectId, job.stage, "job_finished", null, { kind: job.kind }, "system"));
     }
   } catch (e) {
-    if (e instanceof AiPausedError || e instanceof BudgetError) {
-      const reason = e instanceof AiUnavailableError ? "no_key" : e instanceof AiPausedError ? "ai_off" : "budget";
+    if (e instanceof AiPausedError || e instanceof BudgetError || e instanceof InsufficientCreditsError) {
+      const reason =
+        e instanceof InsufficientCreditsError
+          ? "credits"
+          : e instanceof AiUnavailableError
+            ? "no_key"
+            : e instanceof AiPausedError
+              ? "ai_off"
+              : "budget";
       logLines.push(`PAUSED ${e.message}`);
       (await flush(true));
       (await update(id, { status: "paused", error: e.message }));
@@ -190,6 +197,23 @@ export async function resumeJobsPausedForNoKey(): Promise<number> {
 
 export async function resumePausedJobs(): Promise<number> {
   const paused = (await db.select({ id: schema.jobs.id }).from(schema.jobs).where(eq(schema.jobs.status, "paused")).all());
+  for (const j of paused) await resumeJob(j.id);
+  return paused.length;
+}
+
+/** Resume jobs paused for a specific user (e.g. right after they top up literature review credits). */
+export async function resumePausedJobsForUser(userId: string): Promise<number> {
+  const owned = await db
+    .select({ id: schema.projects.id })
+    .from(schema.projects)
+    .where(eq(schema.projects.ownerId, userId))
+    .all();
+  if (!owned.length) return 0;
+  const paused = await db
+    .select({ id: schema.jobs.id })
+    .from(schema.jobs)
+    .where(and(inArray(schema.jobs.projectId, owned.map((p) => p.id)), eq(schema.jobs.status, "paused")))
+    .all();
   for (const j of paused) await resumeJob(j.id);
   return paused.length;
 }

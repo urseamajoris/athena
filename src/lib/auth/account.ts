@@ -1,9 +1,11 @@
 import "server-only";
 import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { db, schema } from "../db";
+import { config } from "../config";
+import { getUserCredits } from "../credits";
 import { HttpError } from "../project";
 import { markdownReport } from "../export";
-import { newId } from "../util";
+import { newId, nowIso } from "../util";
 import { hashPassword, passwordProblem, verifyPassword } from "./password";
 import { LOGIN_WINDOW_MIN, hashId, normEmail, loginRetryAfter } from "./policy";
 import { audit, clientIp, endOtherSessions, endSession, recentFailures, startSession, type SessionUser } from "./server";
@@ -25,7 +27,19 @@ export async function signUp(input: { email: string; password: string; name?: st
     throw new HttpError(409, "An account with this email already exists. Log in instead.");
   }
   const id = newId("usr");
-  await db.insert(schema.users).values({ id, email, name: input.name?.trim() ?? "", passwordHash: await hashPassword(input.password), role: "user" }).run();
+  const startingCredits = config.defaultUserCredits;
+  await db.insert(schema.users).values({ id, email, name: input.name?.trim() ?? "", passwordHash: await hashPassword(input.password), role: "user", creditsBalance: startingCredits }).run();
+  if (startingCredits > 0) {
+    await db.insert(schema.creditTransactions).values({
+      id: newId("crd"),
+      userId: id,
+      operation: "starter_grant",
+      amount: startingCredits,
+      balanceAfter: startingCredits,
+      description: `Welcome starter credits (+${startingCredits.toLocaleString("en-US")} credits)`,
+      createdAt: nowIso(),
+    }).run();
+  }
   await audit("security", "signup", { actorId: id, targetId: id, email, ip });
   await startSession(id);
   return { id };
@@ -101,8 +115,12 @@ export async function usageFor(userId: string) {
 }
 
 export async function accountView(user: SessionUser) {
-  const projects = await db.select({ n: sql<number>`count(*)` }).from(schema.projects).where(eq(schema.projects.ownerId, user.id)).get();
-  return { user, projects: projects?.n ?? 0, usage: await usageFor(user.id) };
+  const [projects, creditsBalance, usage] = await Promise.all([
+    db.select({ n: sql<number>`count(*)` }).from(schema.projects).where(eq(schema.projects.ownerId, user.id)).get(),
+    getUserCredits(user.id),
+    usageFor(user.id),
+  ]);
+  return { user, projects: projects?.n ?? 0, creditsBalance, usage };
 }
 
 /** Everything this user owns, as JSON: profile, projects, each project's report. Never the password hash. */
