@@ -15,6 +15,7 @@ import { htmlReport, markdownReport, selectedBibtex, summaryCsv } from "./export
 import { REPORT_CSP } from "./report-html";
 import { runNovelty } from "./jobs/questions";
 import { reverifyProject } from "./jobs/appraisal";
+import { projectCreditsView } from "./credits";
 import { nowIso } from "./util";
 import { STUDY_TYPES } from "./shared/stages";
 
@@ -417,6 +418,7 @@ on("GET", "canvas", async ({ projectId }) => (await canvasView(projectId)));
 on("GET", "claims", async ({ projectId }) => (await claimsView(projectId)));
 
 // ---------- misc ----------
+on("GET", "credits", async ({ projectId }) => (await projectCreditsView(projectId)));
 on("GET", "log", async ({ projectId }) => (await decisionLogView(projectId)));
 export const PREVIEW_LINES = 200;
 const EXPORTS: Record<string, { make: (projectId: string) => Promise<string>; type: string; ext: string; inline?: boolean }> = {

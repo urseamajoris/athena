@@ -9,6 +9,7 @@ import { crossrefFindByTitle } from "../sources/crossref";
 import { unpaywall } from "../sources/unpaywall";
 import { getProject, logDecision } from "../project";
 import { newId, nowIso, normalizeTitle, errMsg, forEachSeq } from "../util";
+import { chargeCreditsForJob, ensureCreditsForStage, quoteGatheredPapers, quoteProjectStage } from "../credits";
 import type { JobContext } from "./runner";
 
 type Paper = typeof schema.papers.$inferSelect;
@@ -109,6 +110,8 @@ export async function retrievalJob(ctx: JobContext) {
   const { projectId } = ctx;
   const p = (await getProject(projectId));
   const cap = Number(ctx.params.cap ?? config.maxResultsPerQuery);
+  const preQuote = await quoteProjectStage(projectId, "retrieval", { cap });
+  await ensureCreditsForStage(projectId, "retrieval", preQuote);
   const topics = (await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.sortOrder)).all());
   const qs = (await db.select().from(schema.queries).where(eq(schema.queries.projectId, projectId)).all());
   const ordered = topics.flatMap((t) => qs.filter((q) => q.topicId === t.id).sort((a, b) => a.database.localeCompare(b.database) * -1)); // pubmed first
@@ -173,12 +176,25 @@ export async function retrievalJob(ctx: JobContext) {
   await enrich(ctx);
   const n = (await db.select({ n: sql<number>`count(*)` }).from(schema.papers).where(eq(schema.papers.projectId, projectId)).get())?.n ?? 0;
   const finalRuns = (await db.select().from(schema.searchRuns).where(eq(schema.searchRuns.jobId, ctx.jobId)).all());
+  if (finalRuns.length && finalRuns.every((r) => r.status === "failed")) throw new Error("Every query failed. Check the errors below and your network/API keys.");
+  const gatheredQuote = await quoteGatheredPapers(projectId);
+  const charged = await chargeCreditsForJob({
+    projectId,
+    jobId: ctx.jobId,
+    operation: "retrieval",
+    quote: gatheredQuote,
+    allowClampToZero: true,
+  });
+  if (charged.charged > 0) {
+    await ctx.log(`Credits used for data gathering: ${charged.charged} (${gatheredQuote.articleCount} articles, ~${gatheredQuote.approxTokens.toLocaleString("en-US")} tokens)`);
+  }
   (await logDecision(projectId, 4, "retrieval_completed", null, {
         uniquePapers: n,
+        creditsUsed: charged.charged,
+        approxTokens: gatheredQuote.approxTokens,
         runs: finalRuns.map((r) => ({ database: r.database, query: r.queryString, total: r.resultCount, fetched: r.fetchedCount, newUnique: r.newUniqueCount, status: r.status, error: r.error })),
       }, "system"));
   (await ctx.progress(total, total, `Done: ${n} unique papers`));
-  if (finalRuns.length && finalRuns.every((r) => r.status === "failed")) throw new Error("Every query failed. Check the errors below and your network/API keys.");
 }
 
 /** Fill gaps from other sources. Each source failing is logged and skipped. */

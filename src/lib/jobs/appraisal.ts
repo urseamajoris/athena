@@ -12,6 +12,7 @@ import { getProject, logDecision } from "../project";
 import { claimIdsOfAppraisals, dropOutputCiting } from "../evidence";
 import { buildAppraisalInput, reconstructSentText } from "../appraisal-text";
 import { buildAppraisalPromptVars, verifyQuoteInSentRanges } from "../review-guards";
+import { chargeCreditsForJob, ensureCreditsForStage, quoteProjectStage } from "../credits";
 import { getAppraisalText } from "./fulltext";
 import type { JobContext } from "./runner";
 
@@ -127,6 +128,8 @@ export async function appraisalJob(ctx: JobContext) {
     if (onlyIds) return onlyIds.includes(p.id);
     return !ex || ex.status !== "done" || ctx.params.force;
   });
+  const preAppraisalQuote = await quoteProjectStage(projectId, "appraisal", { paperIds: todo.map((p) => p.id) });
+  await ensureCreditsForStage(projectId, "appraisal", preAppraisalQuote);
   /** Finished appraisals being redone, by paper: kept until the new one is ready. */
   const kept = new Map(existing.filter((a) => a.status === "done" && todo.some((p) => p.id === a.paperId)).map((a) => [a.paperId, a]));
   // Failed or unfinished appraisals of the papers being (re)done hold no decisions: clear them now. The kept done row stays.
@@ -279,14 +282,25 @@ export async function appraisalJob(ctx: JobContext) {
   }
 
   const res = (await db.select().from(schema.appraisals).where(inArray(schema.appraisals.paperId, ids)).all());
+  if (!res.some((a) => a.status === "done")) throw new Error("No appraisal succeeded.");
+  if (redoFailed && !redone.length && !newOk) throw new Error("No appraisal could be redone. The previous appraisals and your quote decisions were kept.");
+  const finalAppraisalQuote = await quoteProjectStage(projectId, "appraisal", { paperIds: todo.map((p) => p.id) });
+  const charged = await chargeCreditsForJob({
+    projectId,
+    jobId: ctx.jobId,
+    operation: "appraisal",
+    quote: finalAppraisalQuote,
+    allowClampToZero: true,
+  });
+  if (charged.charged > 0) {
+    await ctx.log(`Credits used for result generation (appraisal): ${charged.charged} (${finalAppraisalQuote.articleCount} articles, ~${finalAppraisalQuote.approxTokens.toLocaleString("en-US")} tokens)`);
+  }
   (await logDecision(
     projectId,
     7,
     "appraisals_generated",
     null,
-    { appraised: res.filter((a) => a.status === "done").length, failed: res.filter((a) => a.status === "failed").length, fullText: res.filter((a) => a.textSource === "full_text").length, ...(redoFailed ? { keptAfterFailedRedo: redoFailed } : {}) },
+    { appraised: res.filter((a) => a.status === "done").length, failed: res.filter((a) => a.status === "failed").length, fullText: res.filter((a) => a.textSource === "full_text").length, creditsUsed: charged.charged, approxTokens: finalAppraisalQuote.approxTokens, ...(redoFailed ? { keptAfterFailedRedo: redoFailed } : {}) },
     "ai",
   ));
-  if (!res.some((a) => a.status === "done")) throw new Error("No appraisal succeeded.");
-  if (redoFailed && !redone.length && !newOk) throw new Error("No appraisal could be redone. The previous appraisals and your quote decisions were kept.");
 }

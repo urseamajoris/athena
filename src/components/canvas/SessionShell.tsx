@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { TransitionLink } from "../vt";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence } from "motion/react";
-import { BarChart3, Command, LayoutGrid, List as ListIcon, X } from "lucide-react";
+import { BarChart3, Coins, Command, LayoutGrid, List as ListIcon, X } from "lucide-react";
 import { useApi } from "../api";
 import { ErrorState, Kbd, Loading, cx } from "../ui";
 import { MotionRoot } from "../motion";
@@ -66,6 +66,7 @@ export function SessionShell({ projectId }: { projectId: string }) {
 
 function Shell() {
   const { graph, ui, projectId, error, clearError, project, summary, claims } = useSession();
+  const { data: statusData } = useApi<{ creditsBalance?: number }>("/api/status");
   // The sessions list is prefetched once the canvas has loaded, not while it competes for the network.
   const router = useRouter();
   const loaded = !!summary;
@@ -199,6 +200,16 @@ function Shell() {
           {viewBtn("graph", "Graph", BarChart3, "G")}
           {viewBtn("list", "List", ListIcon, "L")}
         </div>
+        {statusData?.creditsBalance !== undefined && (
+          <TransitionLink
+            href="/credits"
+            className="btn-ghost hidden h-9 items-center gap-1.5 rounded-md border border-line px-2.5 text-12 tabular-nums text-fg-1 hover:text-fg-0 sm:inline-flex"
+            title="Literature review credits — click to top up"
+          >
+            <Coins className="h-3.5 w-3.5 text-accent" strokeWidth={1.75} aria-hidden />
+            <span>{statusData.creditsBalance.toLocaleString("en-US")}</span>
+          </TransitionLink>
+        )}
         <button className="btn-ghost h-11 min-w-11 px-2" onClick={() => { setPaletteLoaded(true); canvasStore.getState().setPalette(true); }} aria-label="Command palette (⌘K or /)">
           <Command className="h-4 w-4" strokeWidth={1.5} aria-hidden />
           <span className="hidden md:contents"><Kbd>K</Kbd></span>

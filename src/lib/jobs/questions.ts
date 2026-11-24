@@ -11,6 +11,7 @@ import { dropEmptyGroups } from "../sources/syntax";
 import { errMsg, newId, normalizeTitle } from "../util";
 import { getProject, logDecision } from "../project";
 import { noveltySearchesOutdatedIds } from "../views";
+import { chargeCreditsForJob, ensureCreditsForStage, quoteProjectStage } from "../credits";
 import type { JobContext } from "./runner";
 
 const NOVELTY_TOP = 5;
@@ -29,6 +30,8 @@ export async function questionsJob(ctx: JobContext) {
   const topics = await db.select().from(schema.topics).where(eq(schema.topics.projectId, projectId)).orderBy(asc(schema.topics.importanceRank), asc(schema.topics.sortOrder)).all();
   const items = await db.select().from(schema.synthesisItems).where(eq(schema.synthesisItems.projectId, projectId)).all();
   if (!items.length) throw new Error("No synthesis statements yet — run the Synthesis stage first.");
+  const questionsQuote = await quoteProjectStage(projectId, "questions");
+  await ensureCreditsForStage(projectId, "questions", questionsQuote);
   const links = await db.select().from(schema.claimLinks).where(and(eq(schema.claimLinks.ownerType, "synthesis"), inArray(schema.claimLinks.ownerId, items.map((i) => i.id)))).all();
   const claimIds = [...new Set(links.map((l) => l.claimId))];
   const claims = await db.select().from(schema.claims).where(inArray(schema.claims.id, claimIds.concat(["-"]))).all();
@@ -124,7 +127,17 @@ export async function questionsJob(ctx: JobContext) {
     }
   });
   await batchWrite(stmts);
-  await logDecision(projectId, 9, "questions_generated", null, data.questions.map((q) => q.text), "ai");
+  const charged = await chargeCreditsForJob({
+    projectId,
+    jobId: ctx.jobId,
+    operation: "questions",
+    quote: questionsQuote,
+    allowClampToZero: true,
+  });
+  if (charged.charged > 0) {
+    await ctx.log(`Credits used for result generation (research questions): ${charged.charged} (${questionsQuote.articleCount} articles, ~${questionsQuote.approxTokens.toLocaleString("en-US")} tokens)`);
+  }
+  await logDecision(projectId, 9, "questions_generated", null, { questions: data.questions.map((q) => q.text), creditsUsed: charged.charged, approxTokens: questionsQuote.approxTokens }, "ai");
   await ctx.progress(4, 4, "Done");
 }
 

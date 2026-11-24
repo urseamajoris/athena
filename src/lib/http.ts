@@ -3,6 +3,7 @@ import { NextResponse, after } from "next/server";
 import { db, schema } from "./db";
 import { HttpError } from "./project";
 import { AiPausedError, AiValidationError, BudgetError } from "./ai/client";
+import { InsufficientCreditsError } from "./ai/errors";
 import { assertSameOrigin, currentUser } from "./auth/server";
 import { redactSecrets } from "./auth/secrets";
 import { config } from "./config";
@@ -15,6 +16,20 @@ export function errorResponse(e: unknown) {
   if (e instanceof HttpError) return NextResponse.json({ error: e.message, ...e.extra }, { status: e.status });
   if (e instanceof AiPausedError) return NextResponse.json({ error: e.message, kind: "ai_paused" }, { status: 503 });
   if (e instanceof BudgetError) return NextResponse.json({ error: e.message, kind: "budget" }, { status: 402 });
+  if (e instanceof InsufficientCreditsError) {
+    return NextResponse.json(
+      {
+        error: e.message,
+        kind: "insufficient_credits",
+        required: e.required,
+        balance: e.balance,
+        operation: e.operation,
+        approxTokens: e.approxTokens,
+        articleCount: e.articleCount,
+      },
+      { status: 402 },
+    );
+  }
   if (e instanceof AiValidationError) return NextResponse.json({ error: e.message, kind: "ai_validation" }, { status: 502 });
   const msg = safeError(e);
   console.error("[athena] API error", msg);

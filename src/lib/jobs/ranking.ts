@@ -10,6 +10,8 @@ import { PER_TOPIC } from "../shared/stages";
 import { chunk, errMsg, newId, forEachSeq } from "../util";
 import { getProject, logDecision } from "../project";
 import { buildRankingPromptVars, selectInitialRankingIds, type RankingSummaryInput } from "../review-guards";
+import { calculateReviewCredits } from "../shared/credits";
+import { chargeCreditsForJob, ensureCreditsForStage } from "../credits";
 import type { JobContext } from "./runner";
 import { DEFAULT_SELECT, citationScore, recencyScore, weightedTotal } from "../scoring";
 
@@ -53,10 +55,15 @@ export async function rankingJob(ctx: JobContext) {
   const sum = new Map<string, RankingSummaryInput>(summaries.map((s) => [s.paperId, { studyType: s.studyType, setting: s.setting, keyFinding: s.keyFinding }]));
 
   const jobs: { topic: Topic; batch: Paper[] }[] = [];
+  const papersToScore = new Map<string, Paper>();
   for (const { topic, papers, linked } of candidates) {
     if (linked > MAX_PER_TOPIC) (await ctx.log(`Topic "${topic.name}": scoring the ${MAX_PER_TOPIC} highest-relevance papers of ${linked}; ${linked - MAX_PER_TOPIC} are not scored (you will be asked to accept this before approving).`));
-    for (const b of chunk(papers.filter((x) => !scored.has(`${topic.id}:${x.id}`)), BATCH)) jobs.push({ topic, batch: b });
+    const remaining = papers.filter((x) => !scored.has(`${topic.id}:${x.id}`));
+    for (const rp of remaining) papersToScore.set(rp.id, rp);
+    for (const b of chunk(remaining, BATCH)) jobs.push({ topic, batch: b });
   }
+  const rankingQuote = calculateReviewCredits("ranking", [...papersToScore.values()]);
+  await ensureCreditsForStage(projectId, "ranking", rankingQuote);
   let finished = 0;
   let unscored = 0;
   (await ctx.progress(0, jobs.length + 1, `Scoring ${jobs.length} batches across ${topics.length} topics`));
@@ -157,6 +164,16 @@ export async function rankingJob(ctx: JobContext) {
       await forEachSeq(topics, async (t, i) => (await db.update(schema.topics).set({ importanceRank: i + 1, importanceJustification: "Original order (AI ordering failed)" }).where(eq(schema.topics.id, t.id)).run()));
     }
   }
-  (await logDecision(projectId, 6, retry ? "ranking_retried" : "ranking_generated", null, { scored: all.length, unscored }, "ai"));
   if (!all.length) throw new Error("No papers could be scored.");
+  const charged = await chargeCreditsForJob({
+    projectId,
+    jobId: ctx.jobId,
+    operation: "ranking",
+    quote: rankingQuote,
+    allowClampToZero: true,
+  });
+  if (charged.charged > 0) {
+    await ctx.log(`Credits used for ranking: ${charged.charged} (${rankingQuote.articleCount} articles, ~${rankingQuote.approxTokens.toLocaleString("en-US")} tokens)`);
+  }
+  (await logDecision(projectId, 6, retry ? "ranking_retried" : "ranking_generated", null, { scored: all.length, unscored, creditsUsed: charged.charged, approxTokens: rankingQuote.approxTokens }, "ai"));
 }

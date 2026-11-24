@@ -6,6 +6,8 @@ import { wrapData } from "../ai/prompts";
 import { SummaryRows } from "../stages/ai-schemas";
 import { chunk, errMsg } from "../util";
 import { logDecision } from "../project";
+import { calculateReviewCredits } from "../shared/credits";
+import { chargeCreditsForJob, ensureCreditsForStage } from "../credits";
 import type { JobContext } from "./runner";
 
 const BATCH = 8;
@@ -33,6 +35,8 @@ export async function summariesJob(ctx: JobContext) {
     else await db.insert(schema.paperSummaries).values(row).onConflictDoNothing().run();
   };
   const todo = force ? papers : papers.filter((p) => !done.has(p.id));
+  const summaryQuote = calculateReviewCredits("summaries", todo);
+  await ensureCreditsForStage(projectId, "summaries", summaryQuote);
   // Papers with no abstract get "not reported" without a model call (nothing to summarise).
   const noAbs = todo.filter((p) => !p.abstract || p.abstract.length < 80);
   for (const p of noAbs) {
@@ -102,7 +106,17 @@ export async function summariesJob(ctx: JobContext) {
       ...staged.map((r) => db.insert(schema.paperSummaries).values(r)),
     ]);
   }
-  await logDecision(projectId, 5, "summaries_generated", null, { papers: papers.length, failed }, "ai");
-  if (failed) await ctx.log(force ? `${failed} papers could not be summarised again; the rows they already had were kept. Use “Retry missing summaries” for any paper still without a row.` : `${failed} papers could not be summarised; their cells show as missing. Re-run this stage to retry them.`);
   if (allFailed) throw new Error("All summary batches failed.");
+  const charged = await chargeCreditsForJob({
+    projectId,
+    jobId: ctx.jobId,
+    operation: "summaries",
+    quote: summaryQuote,
+    allowClampToZero: true,
+  });
+  if (charged.charged > 0) {
+    await ctx.log(`Credits used for summarizing: ${charged.charged} (${summaryQuote.articleCount} articles, ~${summaryQuote.approxTokens.toLocaleString("en-US")} tokens)`);
+  }
+  await logDecision(projectId, 5, "summaries_generated", null, { papers: papers.length, failed, creditsUsed: charged.charged, approxTokens: summaryQuote.approxTokens }, "ai");
+  if (failed) await ctx.log(force ? `${failed} papers could not be summarised again; the rows they already had were kept. Use “Retry missing summaries” for any paper still without a row.` : `${failed} papers could not be summarised; their cells show as missing. Re-run this stage to retry them.`);
 }

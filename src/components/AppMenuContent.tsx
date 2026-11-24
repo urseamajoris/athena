@@ -8,7 +8,7 @@ import { AvatarButton } from "./AppMenu";
 import { useApi } from "./api";
 import { applyThemePref, readThemePref, type ThemePref } from "@/lib/theme";
 
-interface Status { production: boolean; ai?: { enabled: boolean; budgetReached: boolean; keyMissing: boolean }; spendUsd?: number; budgetUsd?: number; user: { email: string; name: string; role: "user" | "admin" } }
+interface Status { production: boolean; creditsBalance?: number; ai?: { enabled: boolean; budgetReached: boolean; keyMissing: boolean }; spendUsd?: number; budgetUsd?: number; user: { email: string; name: string; role: "user" | "admin" } }
 
 const item = "flex min-h-11 cursor-default items-center gap-2 rounded-sm px-3 py-2 text-fg-0 outline-none data-[highlighted]:bg-bg-3";
 
@@ -30,10 +30,12 @@ export function AppMenuContent({ onShortcuts }: { onShortcuts?: () => void }) {
               <span className="block truncate text-14 text-fg-0">{data.user.name || data.user.email}</span>
               {data.user.name && <span className="block truncate">{data.user.email}</span>}
               {data.ai?.keyMissing ? "AI not set up (no key)" : data.ai && !data.ai.enabled ? "AI switched off" : data.ai?.budgetReached ? "AI budget reached" : "Live AI and databases"}
+              {data.creditsBalance !== undefined && <> · <span className="tabular-nums text-fg-0">{data.creditsBalance.toLocaleString("en-US")} credits</span></>}
               {data.spendUsd !== undefined && data.budgetUsd !== undefined && <> · <span className="tabular-nums">${data.spendUsd.toFixed(2)} of ${data.budgetUsd.toFixed(2)}</span></>}
             </DropdownMenu.Label>
           )}
           <DropdownMenu.Item asChild className={item}><Link href="/sessions">My projects</Link></DropdownMenu.Item>
+          <DropdownMenu.Item asChild className={item}><Link href="/credits">Credits &amp; top up</Link></DropdownMenu.Item>
           <DropdownMenu.Item asChild className={item}><Link href="/account">Account</Link></DropdownMenu.Item>
           {data?.user.role === "admin" && <DropdownMenu.Item asChild className={item}><Link href="/admin">Admin dashboard</Link></DropdownMenu.Item>}
           <DropdownMenu.Item asChild className={item}><Link href="/settings">Settings</Link></DropdownMenu.Item>
