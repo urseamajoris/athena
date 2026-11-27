@@ -619,8 +619,8 @@ test("synthesis deterministic guard blocks excluded papers, unread-tail claims, 
   assert.ok(err && /non-study/i.test(err));
   assert.equal(validateSynthesisKnownFindings([{ statement: "200 clinics were surveyed.", claimIds: ["c_valid"] }], claimToPaper, nonStudy), null);
 
-  // Verify synthesis.v4.md prompt fills cleanly and contains the unread/excluded guard instructions.
-  const synPrompt = loadPromptRaw("synthesis.v4.md");
+  // Verify the synthesis prompt the app loads (highest version) fills cleanly and contains the unread/excluded guard instructions.
+  const synPrompt = loadPromptRaw("synthesis.v5.md");
   const synSys = fillTemplate(synPrompt.system, {});
   const synUser = fillTemplate(synPrompt.user, {
     idea: "idea",
@@ -629,7 +629,9 @@ test("synthesis deterministic guard blocks excluded papers, unread-tail claims, 
     papers: "p_good",
     claims: "c_valid",
   });
-  assert.match(synSys, /unread\/omitted section/i);
-  assert.match(synSys, /protocol/i);
+  assert.ok(synSys.length > 0);
+  // v5 words the guard as "text that was not sent" and lists protocols as non-studies, next to the criteria.
+  assert.match(synUser, /text that was not sent/i);
+  assert.match(synUser, /protocol/i);
   assert.match(synUser, /Technical-only engineering papers/);
 });
