@@ -5,7 +5,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db, schema } from "./db";
 import { approvalBlockers, approveStage } from "./gates";
 import { HttpError } from "./project";
-import { dispatch } from "./api";
+import { callApi } from "./testing/http";
 import { generateTopics, restartScoping, scopingState } from "./stages/scoping";
 import { updateQuery } from "./stages/search";
 import { appraisalsView, rankingView, synthesisView } from "./views";
@@ -33,8 +33,7 @@ async function overrideFor(projectId: string, n: number, pattern: RegExp) {
   return b.override!;
 }
 async function call(s: Seeded, method: string, path: string, body?: unknown) {
-  const res = await dispatch(new Request(`http://test/api/projects/${s.projectId}/${path}`, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }), s.projectId, path.split("/"));
-  return { status: res.status, data: await res.json() };
+  return callApi(s.projectId, method, path, body);
 }
 
 test("a complete, consistent review passes every gate (no false blocks)", async () => {

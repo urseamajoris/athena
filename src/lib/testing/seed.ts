@@ -4,10 +4,11 @@
  * Import "./env" before this module.
  */
 import { eq } from "drizzle-orm";
-import { db, schema } from "../db";
+import { db, ready, schema } from "../db";
 import type { StageState } from "../db/schema";
 import { STAGES } from "../shared/stages";
 import { newId } from "../util";
+import { testUser } from "./auth";
 
 export const ABSTRACT =
   "BACKGROUND: Telemedicine use in Southeast Asia grew quickly. METHODS: We surveyed 412 rural clinics in Thailand and Vietnam between 2019 and 2021. " +
@@ -45,11 +46,15 @@ export interface Seeded {
  */
 export async function seedReview(paperCount = 4): Promise<Seeded> {
   if (paperCount < 2) throw new Error("seedReview needs at least 2 papers (the contradiction spans two)");
+  // Each test file is its own process with a fresh throwaway DB: apply the migrations before the first insert.
+  await ready();
+  const ownerId = await testUser(); // signed in, so dispatch() calls on this project pass requireUser()/ownedProject()
   const projectId = newId("prj");
   const criteria = { yearFrom: 2015, yearTo: null, languages: ["en"], studyTypes: [], inclusion: ["Southeast Asia"], exclusion: ["Editorials"] };
   await db.insert(schema.projects)
     .values({
       id: projectId,
+      ownerId,
       idea: "What is the knowledge gap in implementing telemedicine in Southeast Asia?",
       title: "Telemedicine in Southeast Asia",
       stageStates: allStates("approved"),

@@ -6,7 +6,7 @@ import { db, schema } from "./db";
 import { config } from "./config";
 import { approvalBlockers, approveStage } from "./gates";
 import { HttpError } from "./project";
-import { dispatch } from "./api";
+import { callApi } from "./testing/http";
 import { startJob, cancelStage } from "./jobs";
 import { synthesisJob } from "./jobs/synthesis";
 import { summariesJob } from "./jobs/summaries";
@@ -44,8 +44,7 @@ async function overrideFor(projectId: string, n: number, pattern: RegExp) {
   return b.override!;
 }
 async function call(s: { projectId: string }, method: string, path: string, body?: unknown) {
-  const res = await dispatch(new Request(`http://test/api/projects/${s.projectId}/${path}`, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }), s.projectId, path.split("/"));
-  return { status: res.status, data: await res.json() };
+  return callApi(s.projectId, method, path, body);
 }
 const logged = (projectId: string, action: string) => db.select().from(schema.decisionLog).where(and(eq(schema.decisionLog.projectId, projectId), eq(schema.decisionLog.action, action))).all();
 const latestJob = async (projectId: string, stage: number) => (await db.select().from(schema.jobs).where(and(eq(schema.jobs.projectId, projectId), eq(schema.jobs.stage, stage))).all()).pop()!;

@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { eq, inArray } from "drizzle-orm";
 import { db, schema } from "./db";
-import { dispatch } from "./api";
+import { callApi } from "./testing/http";
 import { startJob, cancelStage } from "./jobs";
 import { findExisting, mergeInto } from "./jobs/retrieval";
 import { runNovelty } from "./jobs/questions";
@@ -17,8 +17,7 @@ import type { Criteria } from "./db/schema";
 import { seedReview, settleJobs, stateOf, setStates, allStates, type Seeded } from "./testing/seed";
 
 async function call(s: Seeded, method: string, path: string, body?: unknown) {
-  const res = await dispatch(new Request(`http://test/api/projects/${s.projectId}/${path}`, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }), s.projectId, path.split("/"));
-  return { status: res.status, data: await res.json() };
+  return callApi(s.projectId, method, path, body);
 }
 
 /** Every claim cited anywhere in synthesis or questions still exists. */

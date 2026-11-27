@@ -18,3 +18,12 @@ process.on("exit", () => fs.rmSync(dir, { recursive: true, force: true }));
 const req = createRequire(__filename);
 const marker = req.resolve("server-only");
 req.cache[marker] = { id: marker, filename: marker, loaded: true, exports: {} } as unknown as NodeModule;
+
+// next/headers outside a request scope throws; route code (dispatch -> requireUser) reads the session cookie.
+(req("./next-headers") as typeof import("./next-headers")).installNextHeadersStub();
+
+// Production has no mock mode: give AI steps a deterministic test-only responder (see ./fake-ai). No key, no network.
+(req("./fake-ai") as typeof import("./fake-ai")).installFakeAi();
+
+// Production has no HTTP fixture replay: literature APIs get synthetic answers, anything else fails (see ./fake-fetch).
+(req("./fake-fetch") as typeof import("./fake-fetch")).installFakeFetch();
